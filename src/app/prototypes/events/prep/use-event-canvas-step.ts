@@ -40,7 +40,7 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
   const [pending, setPending] = useState<string | null>(null);
   const [picked, setPicked] = useState<string | null>(null);
   const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
-  const { start, dialog } = useStartCanvas(returnToPreparation ? { returnAfterPublish: true, prepStep } : undefined);
+  const { start, dialog } = useStartCanvas({ returnAfterPublish: returnToPreparation, prepStep, eventId });
   const chat = useChat();
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,8 +76,8 @@ export function useEventCanvasStep(eventId: string, opts: { returnToPreparation?
     if (!openDraft) return;
     await chat.refresh().catch(() => null); // the workspace's chat needs the mirror in the list, as use-start-canvas does
     if (!slug) { toast.error(canvasStartErrorText(null)); return; }
-    navigate(workspaceHref(slug, openDraft.canvasName, openDraft.versionName), { state: { from: here, ...(returnToPreparation ? { afterPublish: here, ...(prepStep ? { prepStep } : {}) } : {}) } });
-  }, [openDraft, slug, chat, navigate, here, returnToPreparation, prepStep]);
+    navigate(workspaceHref(slug, openDraft.canvasName, openDraft.versionName), { state: { from: here, ...(returnToPreparation ? { afterPublish: here, ...(prepStep ? { prepStep } : {}) } : {}), afterPublishEvent: eventId } });
+  }, [openDraft, slug, chat, navigate, here, returnToPreparation, prepStep, eventId]);
 
   const share = useCallback(async (name: string) => {
     try {

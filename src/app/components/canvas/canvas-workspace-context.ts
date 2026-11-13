@@ -50,6 +50,8 @@ export interface CanvasWorkspaceValue {
   runActive?: boolean;
   /** P1529 (UAT 2026-11-11): the page was opened from the event room; the reader's own Back (the one arrow) returns to this table address on a cold arrival. */
   tableBack?: string;
+  /** P1529: the round-return bar is on screen; its "Back to your table" link is the way back, so no other back is drawn. */
+  roundBarShown?: boolean;
   /** P1529: the person at the table the page was opened from whom it opens in Compare with, listed even with no positions (null: none, or not from a table). */
   tableCounterpart?: CanvasPerson | null;
   /** Round 2: a Clone is pending on this page (no draft yet): makes the draft at the first hand write, as the first message does. Null when nothing is pending. */

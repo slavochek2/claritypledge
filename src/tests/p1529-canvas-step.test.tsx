@@ -95,7 +95,7 @@ describe('canvas step states', () => {
     await waitFor(() => expect(screen.getByTestId('where').textContent).toContain('/p/ana/canvas/'));
     const where = screen.getByTestId('where');
     expect(where.textContent).toBe('/p/ana/canvas/canvas_1?v=canvas_d111&ws=1');
-    expect(JSON.parse(where.getAttribute('data-state')!)).toEqual({ from: '/events/x/prepare?step=4', afterPublish: '/events/x/prepare?step=4' });
+    expect(JSON.parse(where.getAttribute('data-state')!)).toEqual({ from: '/events/x/prepare?step=4', afterPublish: '/events/x/prepare?step=4', afterPublishEvent: 'ev-1' });
   });
   it('B has no Skip for now either', async () => {
     h.drafts = [{ canvasName: 'canvas_1', versionName: 'canvas_d111' }];

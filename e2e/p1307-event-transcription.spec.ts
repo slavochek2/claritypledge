@@ -80,7 +80,7 @@ test.describe('P1307: event transcription', () => {
     await expect(page.getByTestId('room-transcribe-idle')).toBeVisible();
     await expect(page.getByTestId('room-transcribe-start')).toHaveText('Start transcribing');
     await expect(page.locator('[data-shell-top-bar]').getByTestId('room-transcribe-start')).toHaveCount(0);
-    await expect(page.getByText('Not transcribing')).toBeVisible();
+    await expect(page.getByTestId('room-transcribe-idle')).toBeVisible(); // the idle bar: the button and the info, no status words
     await expect(page.getByTestId('room-capture-bar')).toHaveCount(0);
   });
 

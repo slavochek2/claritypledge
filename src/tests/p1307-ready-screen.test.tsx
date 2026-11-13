@@ -16,10 +16,10 @@
  * announcement, and the consent line. These assertions pin that the REAL EventRoomReady.tsx
  * carries the same contract, not a re-invented one.
  */
+import { NOT_TRANSCRIBING } from '@/app/components/session/capture-copy';
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { NOT_TRANSCRIBING } from '@/app/components/session/capture-copy';
 
 const R = (p: string) => join(process.cwd(), p);
 const GATE = R('src/app/prototypes/events/components/EventRoomGate.tsx');
@@ -53,7 +53,7 @@ describe('P1307 D2/D12 after P1337 walkthrough 7: consent is the room bar\'s "Tr
     ]) {
       expect(s.includes(copy), `room-capture-bar.tsx is missing the approved string: "${copy}"`).toBe(true);
     }
-    // The idle words are one constant (capture-copy.ts), used by the bar: assert the value and the use.
+    // The idle words are one constant (capture-copy.ts), used by the bar (every event but a round event's, which says no status words): assert the value and the use.
     expect(NOT_TRANSCRIBING).toBe('Not transcribing');
     expect(s.includes('NOT_TRANSCRIBING'), 'the bar must use the shared constant').toBe(true);
     expect(s.includes('By continuing, you agree to our'), 'the old agreement wording must be gone').toBe(false);

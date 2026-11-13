@@ -6,6 +6,7 @@
  */
 import type { MastermindPerson, RecordingState } from '@/app/data/event-mastermind-service';
 import type { RoundMinutes } from '@/app/data/event-rounds-service';
+import type { RoundPhase } from '@/lib/round-clock';
 import type { SeatingProblem } from '@/lib/mastermind-seating-check';
 import type { Seat, SeatRole } from '@/lib/round-grouping';
 import type { EventFlow } from '../series-recipes';
@@ -21,15 +22,14 @@ export const FLOW_NAMES: Record<EventFlow, string> = {
 };
 
 /**
- * One round is 15 minutes at the table plus 3 of observer feedback (founder, 2026-11-06), with finding the table (2) apart,
- * as the run-of-show lists Seating separately: 2 to find the new peer and table, then one talk part of 15 that holds the
- * 4 minutes of silent reading and the conversation, then 3 of observer feedback (20 minutes in the app). The talk is stored
- * as `speakerS` x 2 (host_start_round writes the same seconds into first_s and second_s; a no-split round adds them), so
- * 450 s is a 15-minute talk. No swap at half time, so no "second" part ever runs.
+ * A Sales Mastermind round has two parts (UAT 2026-11-13 (b)): Talk (15 minutes, the owner and the peer in one block, no swap at half
+ * time) then Observer (3). No finding-the-table part and no silent reading part: both are stored as 0, so the server's columns and
+ * every clock keep one shape. The talk is stored as `speakerS` x 2 (host_start_round writes the same seconds into first_s and
+ * second_s; a no-split round adds them), so 450 s is a 15-minute talk.
  */
-export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 120, speakerS: 450, observerS: 180, readingS: 180 };
+export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 0, speakerS: 450, observerS: 180, readingS: 0 };
 /** Version of the stored mastermind minutes: bump when the defaults change, so minutes a host saved earlier are not kept. */
-export const MASTERMIND_MINUTES_VERSION = 3;
+export const MASTERMIND_MINUTES_VERSION = 4;
 /** Pure: saved host settings without mastermind minutes that were stored under an older version (Clarity Night's are untouched). */
 export function dropStaleMastermindMinutes<T extends { mastermindMinutes?: unknown; mastermindMinutesV?: number }>(saved: T): T {
   if (saved.mastermindMinutesV === MASTERMIND_MINUTES_VERSION) return saved;
@@ -42,10 +42,13 @@ export const MASTERMIND_GROUP_SIZE = 4;
 /** [FOUNDER DECISION: copy] The host grid's columns in this flow (the Clarity Night grid says Speaker 1 and 2). */
 export const COLUMN_LABELS: Record<SeatRole, string> = { first: 'Clarity Canvas owner', second: 'Peer', observer: 'Observer' };
 
-/** [FOUNDER DECISION: copy] The part of the round the projector names; the long talk needs no name. */
-export const SCREEN_PART_CAPTION: Record<string, string> = { seating: 'Find your table', reading: 'Silent reading', observer: 'Observer feedback' };
+/** [FOUNDER DECISION: copy, proposed] The part of the round the projector names beside the time left ("Talk · 12:30 left"). */
+export const SCREEN_PART_NAME: Record<Exclude<RoundPhase, 'over'>, string> = {
+  // Only rounds saved before the two-part change can still be in these two; they keep their own names.
+  seating: 'Find your table', reading: 'Reading', first: 'Talk', second: 'Talk', observer: 'Observer',
+};
 
-/** The round's silent reading (4 minutes) cannot have words: a table is only said to be silent after it. */
+/** The round's first minutes cannot have words: a table is only said to be silent after them. */
 export const SILENT_TABLE_GRACE_MS = 5 * 60_000;
 
 // ── The flow row (§1) ───────────────────────────────────────────────────────────────────────────────────────────────

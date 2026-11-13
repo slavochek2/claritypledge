@@ -69,6 +69,7 @@
  * another. Same ResizeObserver-on-ref pattern as meeting-terms-page.tsx's own rating bar.
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { markRoundEvent } from '@/lib/round-event-registry';
 import { useLocation } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/shell-nav';
@@ -305,6 +306,9 @@ export function EventRoomMeet() {
   const [roundsStarted, setRoundsStarted] = useState(false);
   // P1529 E5: a sales mastermind whose canvas is made at the event has a Canvas tab, open from arrival (no host step).
   const canvasTab = !!event && recipeForEvent(event).mastermind && eventCanvasTiming(event) === 'at_event';
+  // The recording bar on other pages (the canvas opened from here) says the round-event words for this event.
+  const roundEventId = event && recipeForEvent(event).mastermind ? event.id : null;
+  useEffect(() => { if (roundEventId) markRoundEvent(roundEventId); }, [roundEventId]);
   // A step behind the current one the person tapped back to; null = follow the evening.
   // P1542 round 5: the learning (shown inside the room's frame) returns here on a named step (its finish: Opt in).
   const [viewingBack, setViewingBack] = useState<RoomStep | null>(() => (location.state as { roomStep?: RoomStep } | null)?.roomStep ?? null);
@@ -540,6 +544,7 @@ export function EventRoomMeet() {
       {/* UAT 2026-11-11 (supersedes the line above): the recording banner, running or idle, is the very top, so starting swaps one for the other in place: the recording banner is the very top, full width, with no navigation in it; the Back and the tabs sit under it. */}
       <RoomHeadCapture
         eventId={event?.id}
+        roundEvent={roomRecipe.mastermind}
         idle={event && !isFrozen && !moment.eveningOver && roomRecipe.room.transcribe ? (
           <RoomTranscribeIdleBar
             eventId={event.id}

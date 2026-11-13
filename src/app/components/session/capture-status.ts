@@ -18,21 +18,21 @@ export const STATUS = {
   micSwitched: 'Microphone changed — still recording',
   stopping: 'Stopped — saving the last few seconds…',
   notRecording: 'Not recording — the recorder could not start. Tap Reconnect to try again',
-  audioLost: 'Part of your audio could not be saved — still recording',
 } as const;
 
-/** Short words for the short bar — each state named, never a vague "check mic" for a state
+/** A failed upload of a few seconds is not a state a person can act on, so it is not shown (the context still tracks it).
+ *  Short words for the short bar — each state named, never a vague "check mic" for a state
  *  that is not about the mic (adversarial review 2). */
 export const SHORT = {
-  running: '● Recording', observing: 'Recording in another tab', stopping: 'Stopping…', micLost: 'Mic lost',
+  running: 'Transcribing', observing: 'Recording in another tab', stopping: 'Stopping…', micLost: 'Mic lost',
   paused: 'Paused', autoPaused: 'Paused', micSwitched: 'Mic changed', silent: 'No sound', stalled: 'Live text stalled',
-  notRecording: 'Not recording', audioLost: 'Audio gap',
+  notRecording: 'Not recording',
 } as const;
 
 export type CaptureStatusKind = keyof typeof SHORT;
 
 export function useCaptureStatus(): { text: string; warn: boolean; kind: CaptureStatusKind } {
-  const { phase, manualPaused, inputSilent, micLost, micSwitched, stopping, tapDown, audioLost } = useRoomCapture();
+  const { phase, manualPaused, inputSilent, micLost, micSwitched, stopping, tapDown } = useRoomCapture();
   if (stopping) return { text: STATUS.stopping, warn: false, kind: 'stopping' };
   if (micLost) return { text: STATUS.micLost, warn: true, kind: 'micLost' };
   if (tapDown) return { text: STATUS.notRecording, warn: true, kind: 'notRecording' };
@@ -43,6 +43,5 @@ export function useCaptureStatus(): { text: string; warn: boolean; kind: Capture
   if (micSwitched) return { text: STATUS.micSwitched, warn: false, kind: 'micSwitched' };
   if (inputSilent) return { text: STATUS.silent, warn: true, kind: 'silent' };
   if (phase === 'stalled') return { text: STATUS.stalled, warn: true, kind: 'stalled' };
-  if (audioLost) return { text: STATUS.audioLost, warn: true, kind: 'audioLost' };
   return { text: STATUS.running, warn: false, kind: 'running' };
 }

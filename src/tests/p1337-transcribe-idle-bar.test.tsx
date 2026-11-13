@@ -65,9 +65,9 @@ describe('the idle transcription banner', () => {
     expect(screen.queryByTestId('room-transcribe-idle')).toBeNull();
   });
 
-  it('a round event: "Not transcribing · Text arrives after the round", "Start transcribing"; filled while a round runs and I am seated, outline otherwise', () => {
+  it('a round event: no status words, "Start transcribing"; filled while a round runs and I am seated, outline otherwise', () => {
     const view = render(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" onFailed={() => {}} roundUpdates />);
-    expect(screen.getByTestId('room-transcribe-idle')).toHaveTextContent('Not transcribing · Text arrives after the round');
+    expect(screen.getByTestId('room-transcribe-idle')).not.toHaveTextContent(/Not transcribing|Text arrives after the round/);
     expect(screen.getByTestId('room-transcribe-start')).toHaveTextContent('Start transcribing');
     expect(screen.getByTestId('room-transcribe-start').className).toContain('border');
     view.rerender(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" onFailed={() => {}} roundUpdates emphasize />);

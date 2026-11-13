@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AudioLines, Check, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { levelFromTimeDomain } from '@/lib/audio/audio-level';
+import { LEVEL_BAR_CLASS, levelBarHeight } from '@/lib/audio/level-bar';
 import type { Dictation } from '@/hooks/use-dictation';
 import type { ComposerDictation } from './use-composer-dictation';
 import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
@@ -69,8 +70,8 @@ function LevelBars({ stream }: { stream: MediaStream | null }) {
         <span
           key={i}
           // shrink-0: a flex child with a fixed width still shrinks to nothing when the row is tight, which emptied the meter at 320 px.
-          className={cn('w-[3px] shrink-0 rounded-full bg-blue-500/80', i < BARS - COMPACT_BARS && 'hidden sm:block')}
-          style={{ height: `${Math.max(14, Math.round(level * 100))}%` }}
+          className={cn(LEVEL_BAR_CLASS, i < BARS - COMPACT_BARS && 'hidden sm:block')}
+          style={{ height: levelBarHeight(level) }}
         />
       ))}
     </div>

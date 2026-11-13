@@ -397,6 +397,8 @@ Drafting runs are Gemini calls through P1536's canvas key. Per run, this uses P1
 the public price list, ≈ $0.10 (UNVERIFIED; P1536's `/dev` owns the real reading, kept with P1536).
 The binding limit is P1536 D18's shared canvas bucket.
 
+**Projector read (UAT 2026-11-13 (b), F3).** The projector reads the per-person recording state (`get_mastermind_host_state`) to show who is transcribing, at the host screen's own 4 s interval (`HOST_STATE_POLL_MS`), only while a round runs and the tab is visible (`startVisiblePoll`): **900 reads per running hour** (3600 / 4; about 15 a minute), 0 between rounds and in a hidden tab; egress 4.8 KB x 900 = **about 4.3 MB per running hour**. Why a read and not realtime or a push: the founder rule is realtime only where it already exists, and the recording state has no realtime channel; the read rides the host screen's existing reader (the same call, the same interval, the same data), so no new endpoint and no new subscription. **Monthly:** assuming 4 events a month with 2 hours of rounds each, 4 x 2 x 900 = **7,200 reads, about 35 MB a month** (8 running hours x 4.3 MB).
+
 Inputs: 16 people including 12 owners; 2.4 h evening; a 24-minute round at about 2 speakers x 4 lines a minute = 24 x 8 = 192 transcript lines (UNVERIFIED, `/dev` reads the real count from a TEST round).
 
 | Measure | Per user | Per hour | Per test run |
@@ -420,7 +422,7 @@ Per phone per evening (gap lengths UNVERIFIED, `/dev` reads the real ones from a
 
 **Waiting list (D24).** No poll of its own. The host panel reads the list inside the host-state request it already makes every 4 s (the 900 an hour above is unchanged); the list adds one row per listed person with a name, about 100 B each, so six people add about 0.6 KB to each 4.8 KB read. Polling it separately was rejected: at 30 s it would have cost 3600 / 30 = 120 more requests an hour per visible host panel for a list that changes only when someone joins a full event. An attendee's page reads their own waiting-list row once per visit, only in this flow and only while they have no place: 1 request per visit, 0 for every other flow. Joining or leaving is 1 request each.
 
-1. **Fits the plan limit today?** Gemini: 12 owners x ($0.20 + $0.30) = $6 per evening against P1536's daily canvas bucket: fits. Supabase, monthly: requests = (evenings per month) x 16 x 87 plus (evenings per month) x 2.4 h x 900 (the host tab's state read every 4 s; the rounds read is 4 s too, `ROUNDS_POLL_MS`); rows = (evenings per month) x 12 x 399. At the two evenings planned, this fits; the current values are read from the registry row.
+1. **Fits the plan limit today?** Gemini: 12 owners x ($0.20 + $0.30) = $6 per evening against P1536's daily canvas bucket: fits. Supabase, monthly: requests = (evenings per month) x 16 x 87 plus (evenings per month) x 2.4 h x 900 (the host tab's state read every 4 s; the rounds read is 4 s too, `ROUNDS_POLL_MS`); rows = (evenings per month) x 12 x 399. The projector's recording-state read adds (running hours per month) x 900, so at 4 evenings of 2 running hours a month the monthly total is 4 x 16 x 87 (5,568) + 4 x 2.4 x 900 (8,640) + 7,200 (projector) = **21,408 requests**, with the projector's egress about 35 MB of it. At the two evenings planned, this fits; the current values are read from the registry row.
 2. **Fits at 10x?** 120 owners x $0.50 on one day = $60: over the bucket. Does not fit without raising D18. Rows and requests scale linearly and fit.
 3. **Failure cost:** a failed run is charged as P1536 rules; Try again is a new run. A refused run writes no copied lines (one transaction).
 
@@ -632,6 +634,71 @@ Founder's asks after testing `/events/<slug>/prepare`; built on this branch.
 - **"Canvases shared with this event"** moved from the event page into the room (every flow has a room; admitted people and the host see it).
 - **Publish return** checked in a real browser (Continue your draft and Create your canvas, at 1280 and 375): Publish lands on
   `/events/<slug>/prepare` on the canvas step with the step header. The founder's report did not reproduce; `e2e/p1529-publish-return.spec.ts` keeps it checked.
+
+## UAT 2026-11-13 (c): Discussion, quieter bar, canvas page, transcripts
+
+All approved by the founder on 2026-11-13 ("yes"), after testing F1 to F7. Founder's words: "I don't like white buttons. We should never do them. Never, never... So reviews catch it." / "Why do we call it talk?... It's discussion rounds, not talk." / "we have three when I open the canvas... why do we need the second one and not integrate the back button into the third". Amends F1, F3, F5 and F6 of (b).
+
+**G1. No white action buttons, ever.** The table card's canvas button is the blue-bordered secondary button (SECONDARY_PILL_COLOURS or the design-system outline-blue) while the mic is off, and filled blue (primary) once the person is transcribing (option B kept, without white). Every action button in this feature is either filled blue (primary) or blue-bordered (secondary); no neutral white/grey outline action buttons. The rule goes into docs/design-system.md, the visual QA checklist and the code-review criteria (process change, approved by the founder).
+
+**G2. "Talk" becomes "Discussion".** Phone card part label: "Discussion" then "Observer feedback". Projector: left "Discussion round N" (big), right the part ("Discussion" / "Observer feedback") beside the one big clock; the "then 3 min observer" line is removed (the screen says what happens now). Host screen status: "Discussion" / "Observer feedback". Host settings (mastermind): "Discussion round" minutes, default **20**, and "Observer feedback" minutes, default 3 (bump the stored minutes version). Round thread titles and other places that say "Round N" for this flow say "Discussion round N" where it is a visible label.
+
+**G3. The recording bar's waveform is quiet:** smaller and grey (muted foreground), not bright blue.
+
+**G4. Projector: a small moving wave instead of the mic icon** beside each person transcribing (grey, the same visual family as the bar's waveform; a CSS animation, since the projector has no audio level for others); nothing when off.
+
+**G5. Between rounds, a way to the canvas.** The "Round N is over" card shows **Open your canvas** (secondary, blue-bordered) for a person who has a canvas at this event, alongside the next-version card when one is offered.
+
+**G6. Two bars on the canvas page, not three (supersedes F6's banner).** When the canvas is opened from the event, the "Your Clarity Canvas · Publish, then share" bar is removed; the canvas header row carries the one back arrow (to the room or table) before the title: "← Canvas · Draft … Discard / Publish". The round-return countdown bar during a running round stays (it is the auto-return to the table) and then the header back is hidden, as before.
+
+**G7. No "→ open the room" arrow in the recording bar on event pages** (it duplicated the back). One recording bar everywhere; no per-page variants beyond that.
+
+**G8. No "You" row in the table's people list** (the list shows the others with their role words).
+
+**G9. Transcripts must reach the event chat** (round threads and the outside-rounds thread). Investigation on TEST 2026-11-13: 25 transcribed lines for event sales-mastermind-test-1113-1448, routed to round/channel, none posted. Root cause and fix recorded here when found.
+
+## UAT 2026-11-13 (b): two parts per round, every instruction always visible
+
+All approved by the founder on 2026-11-13 ("yes to all - call 1, and call2"). The founder's framing: "It seems we have the assumption that reading is fixed and people are done with reading in some three minutes and everybody can go. But it's not the case... So all instructions have to be always visible." and "This means we need to rethink the experience of the host and of the settings there, of the screen that I share with the participants as a host, and also the timing, how this is presented for the participants in their phones, etc. All of that."
+
+**Supersedes:** the finding-the-table and reading parts of a Sales Mastermind round (UAT 2026-11-11), instructions shown per part (UAT 2026-11-12), the owner's positions list and the readers' positions list on the table card (UAT 2026-11-11 item 4 and 2026-11-12: a misunderstanding; the founder meant everyone opens the canvas and sets positions there like any reader). Clarity Night and every other flow are unchanged.
+
+**F1. A Sales Mastermind round has two parts: Talk, then Observer.** No "finding the table" part and no silent reading part. The round clock starts at Talk. Reading is the first step of the instructions, done while talking ("out loud is fine"); people find their table in the first moments of Talk. No swap at half time (the owner and the peer talk in one block).
+- **Host settings (mastermind):** two times only, **Talk** (default 15 min) and **Observer** (default 3 min). "Tables", "Reading" and "Swap at half time" are not shown for this flow. The stored mastermind minutes version is bumped so older saved minutes are dropped. Clarity Night keeps its settings.
+- **Projector (the screen the host shares):** per table, the people with their role word and the mic icon (F3); ONE countdown only (founder, UAT 2026-11-12: no two countdowns): the big clock, labelled with the part beside it ("Talk", then "Observer"); under it the "next" line names only the next real part ("then 3 min observer"). No second time-left text. No reading or finding-tables wording anywhere.
+- **Host screen:** the same two parts in its round status and clock; any finding-tables or reading wording goes.
+- **Phones (table card):** the header shows Table N, the part ("Talk" or "Observer") and the time left; the progress bar has two segments. The card always shows every step of my role as a numbered list (F2), the steps of the current part highlighted. The canvas button stays as it is (option B), the "i" keeps the longer role explanation.
+
+**F2. Every step of my role is always visible, numbered.** `[FOUNDER DECISION: copy, proposed]` built from the approved wording (UAT 2026-11-12), the reading line folded in as step 1. Owner (peer named, e.g. Erin):
+1. Open your canvas so you see what Erin sees.
+2. Erin explains your canvas back. Then ask: "How well do you think you understand my canvas, from 0 to 10?"
+3. At 8 or more, Erin challenges your canvas. They ask you: "How well do you think you understand my challenge, from 0 to 10?"
+
+Peer (owner named, e.g. Haru):
+1. Open Haru's canvas and go through it point by point. Set your position, especially where you disagree. Out loud is fine.
+2. Explain Haru's canvas back in your own words. Then answer: how well you think you understand their canvas, from 0 to 10.
+3. At 8 or more, challenge their canvas: explain where and why you disagree with their points. Then ask Haru: "How well do you think you understand my challenge, from 0 to 10?"
+
+Observer:
+1. Open Haru's canvas.
+2. Make sure the listener stays in their role: no disagreeing, no own point of view yet. Keep talking time balanced: no more than 1 minute per person. Ring the bell to remind people of their roles and the time.
+3. Observer part: say what they can do better. If you like, say how well you think you understood the canvas, from 0 to 10, and what was unclear.
+
+Talk highlights owner/peer steps 1 to 3 and observer steps 1 and 2; in the Observer part only the observer's last step is highlighted, and the owner and the peer have no step highlighted (founder 2026-11-13: the observer part is described to the observer only, "listen to the observer" removed). A table with no canvas keeps "No Clarity Canvas yet: talk about your business idea" and the steps that do not name a canvas.
+
+**F3. Who is transcribing, visible on the projector.** Each person on the projector's table lists carries a small mic icon while their transcription is on, and none when it is off (social cue, no blocking anywhere: no "continue without mic" question). Data: the same per-person recording state the host screen already shows. The projector reads it at the host screen's 4 s interval only while a round runs and the tab is visible (1 projector is about 15 small reads a minute during rounds, 0 otherwise; no realtime).
+
+**F4. The positions lists leave the table card** for the owner and for readers. Positions are set on the canvas itself, as any reader does.
+
+**F5. The recording bar says only what someone can act on.** Off: only the **Start transcribing** button, plus the "i" whose text is: "Your table's words appear in your round's chat thread after the round." `[FOUNDER DECISION: copy, proposed]`. On: the waveform (the same one used elsewhere, moving with the voice, replacing the signal-bars icon), the word "Transcribing", Pause and Stop. Gone from the bar: "Not transcribing", "Text arrives after the round", "Audio gap" (a failed upload of a few seconds is not shown; states a person can act on, mic lost, paused, recorder failed, stay).
+
+F5 wording scope (founder decision, one wording everywhere): the word "Transcribing" for the running state, and the absence of any "Audio gap" state, apply to every capture bar, not only a round event's.
+
+**F6. One back on the canvas page.** Two bars on top when the canvas is opened from the event: the recording bar, then "Your Clarity Canvas · Publish, then share" with the only back (to the room). The canvas header keeps its title and Draft label without its own back in that case.
+
+**F7. Share dialog after Publish.** At the event, after Publish succeeds on a canvas not yet shared with the event: a dialog "Published. Share your Clarity Canvas with this event's attendees?" with **Share** (primary) and **Not now**. `[FOUNDER DECISION: copy, proposed]`. Share uses the existing share action; Not now closes it and the existing share entry stays where it is.
+
+**Done when:** each of F1 to F7 is visible on TEST at 375 px, 320 px and desktop (phone card in Talk and Observer for each role, projector, host screen, host settings, recording bar off and on, canvas page from the event, the share dialog), a separate screenshot-only visual reviewer finds no blocking issue, Gemini and Codex find no realistic open defect, the unit suite passes, and the P1529 walk passes on TEST.
 
 ## UAT 2026-11-13 founder decisions
 

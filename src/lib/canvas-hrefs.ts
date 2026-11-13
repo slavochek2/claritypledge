@@ -60,6 +60,12 @@ export function afterPublishPath(state: unknown): string | null {
   return appPath((state as { afterPublish?: unknown } | null)?.afterPublish);
 }
 
+/** P1529: the event whose room started this canvas (`afterPublishEvent`): Publish then offers to share the canvas with it. */
+export function afterPublishEventOf(state: unknown): string | null {
+  const v = (state as { afterPublishEvent?: unknown } | null)?.afterPublishEvent;
+  return typeof v === 'string' && v ? v : tableEventOf(state);
+}
+
 /** P1529: a canvas opened from the event room's round card or waiting list carries the room's path (`backToTable`) and the event's id (`tableEvent`), so the canvas page can offer "Back to your table". */
 export function tableLinkState(roomPath: string, eventId: string): { backToTable: string; tableEvent: string } {
   return { backToTable: roomPath, tableEvent: eventId };

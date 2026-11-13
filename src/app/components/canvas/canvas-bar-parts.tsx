@@ -68,13 +68,15 @@ function ShareSpot({ ready, handle, projectTag, title, onChanged }: { ready: Can
 
 /** Row 1: below 1280px its own non-wrapping row (the positioned parent of the rename input), from 1280px it dissolves into the one line. The tag never gives way (X6); the name does. */
 export function BarRow1({ ready, row, title, canRename, onRename, onPick, onBack, phoneInline, children }: {
-  phoneInline?: boolean; ready: CanvasReady | null; row: HeaderRow | null; title: string; canRename: boolean; onRename: (next: string) => void; onPick: (version: string) => void; onBack: () => void; children?: ReactNode;
+  phoneInline?: boolean; ready: CanvasReady | null; row: HeaderRow | null; title: string; canRename: boolean; onRename: (next: string) => void; onPick: (version: string) => void; /** Left out when the page's banner above carries the one back (opened from an event). */ onBack?: () => void; children?: ReactNode;
 }) {
   return (
     <div className={cn('order-none flex min-w-0 basis-full items-center gap-x-1.5 max-xl:relative max-sm:gap-x-1 xl:contents', phoneInline && 'max-sm:basis-0 max-sm:flex-1')} data-testid="workspace-bar-row1">
-      <Button type="button" variant="ghost" className="order-none h-11 w-10 shrink-0 p-0 max-sm:w-8" aria-label="Go back" onClick={onBack} data-testid="workspace-back">
-        <ArrowLeft className="h-4 w-4" aria-hidden />
-      </Button>
+      {onBack && (
+        <Button type="button" variant="ghost" className="order-none h-11 w-10 shrink-0 p-0 max-sm:w-8" aria-label="Go back" onClick={onBack} data-testid="workspace-back">
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+        </Button>
+      )}
       {/* The name gives way first, but never below a few letters and an ellipsis (a lone letter is not a name). */}
       <div className={cn('order-1 flex min-w-[4.5rem] max-[359px]:min-w-[2.75rem] flex-1 items-center sm:min-w-[6rem] xl:min-w-0 xl:max-w-[26rem] xl:flex-none', phoneInline && 'max-sm:flex-initial')} data-testid="canvas-name">
         {ready ? <CanvasNameEdit title={title} canEdit={canRename} onSave={onRename} /> : <Skeleton className="h-5 w-24" />}

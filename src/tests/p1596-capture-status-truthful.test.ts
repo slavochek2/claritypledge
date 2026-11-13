@@ -26,10 +26,10 @@ describe('useCaptureStatus, recorder truth', () => {
     expect(status({ phase: 'stalled' }).text).toMatch(/still being recorded/i);
   });
 
-  it('says part of the audio was not saved while recording goes on', () => {
+  it('a failed upload of a few seconds is not shown: nothing a person can act on (UAT 2026-11-13 F5)', () => {
     const s = status({ audioLost: true });
-    expect(s.kind).toBe('audioLost');
-    expect(s.warn).toBe(true);
+    expect(s.kind).toBe('running');
+    expect(s.warn).toBe(false);
   });
 
   it('a dead microphone and a stopped bar keep their own lines ahead of the notice', () => {

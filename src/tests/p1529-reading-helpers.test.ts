@@ -1,46 +1,63 @@
-/** P1529 UAT 2026-11-11 (items 1, 4, 5, 6): the pure rules behind the reading part, the positions list and seating anyway. */
+/** P1529 UAT 2026-11-13 (b): the pure rules behind the role steps, the two-part timing and seating anyway. */
 import { describe, expect, it } from 'vitest';
-import { canvasOffer, changedPoints, instructionLine, readingPoints, tapOf } from '@/app/prototypes/events/rounds/mastermind-round-helpers';
+import { canvasOffer, roleSteps } from '@/app/prototypes/events/rounds/mastermind-round-helpers';
 import { screenTimeLeft } from '@/app/prototypes/events/rounds/screen-time-left';
 import { roundClock, roundTiming } from '@/lib/round-clock';
 import { checkMastermindSeats } from '@/lib/mastermind-seating-check';
 
-describe('instructionLine (the steps for my role in the current part)', () => {
+describe('roleSteps (every step of my role, always visible; the current part highlighted)', () => {
   const n = { owner: 'Haru', partner: 'Erin' };
   const Q = (what: string) => `\u201CHow well do you think you understand my ${what}, from 0 to 10?\u201D`;
-  it('nothing while finding the table (the header says it) and nothing once the time is up', () => {
-    for (const role of ['owner', 'partner', 'observer'] as const) {
-      expect(instructionLine(role, 'seating', n)).toBeNull();
-      expect(instructionLine(role, 'over', n)).toBeNull();
-    }
-  });
-  it('reading: the owner checks their canvas; everyone else reads the owner\u2019s', () => {
-    expect(instructionLine('owner', 'reading', n)).toEqual(['Check your canvas: set your position on every point if not already.']);
-    const read = ['Read Haru\u2019s canvas quietly. Set your position on each point, especially where you disagree.'];
-    expect(instructionLine('partner', 'reading', n)).toEqual(read);
-    expect(instructionLine('observer', 'reading', n)).toEqual(read);
-  });
-  it('talk: the owner and the partner get two numbered steps, the observer one line; both talk phases read the same', () => {
-    expect(instructionLine('owner', 'first', n)).toEqual([
+  const texts = (role: 'owner' | 'partner' | 'observer', phase: Parameters<typeof roleSteps>[1], noCanvas = false) => roleSteps(role, phase, n, noCanvas).map(st => st.text);
+  const current = (role: 'owner' | 'partner' | 'observer', phase: Parameters<typeof roleSteps>[1], noCanvas = false) => roleSteps(role, phase, n, noCanvas).map(st => st.current);
+  it('owner: three steps, the peer named', () => {
+    expect(texts('owner', 'first')).toEqual([
+      'Open your canvas so you see what Erin sees.',
       `Erin explains your canvas back. Then ask: ${Q('canvas')}`,
       `At 8 or more, Erin challenges your canvas. They ask you: ${Q('challenge')}`,
     ]);
-    expect(instructionLine('partner', 'second', n)).toEqual([
+  });
+  it('peer: three steps, the owner named', () => {
+    expect(texts('partner', 'first')).toEqual([
+      'Open Haru\u2019s canvas and go through it point by point. Set your position, especially where you disagree. Out loud is fine.',
       'Explain Haru\u2019s canvas back in your own words. Then answer: how well you think you understand their canvas, from 0 to 10.',
       `At 8 or more, challenge their canvas: explain where and why you disagree with their points. Then ask Haru: ${Q('challenge')}`,
     ]);
-    expect(instructionLine('observer', 'first', n)).toEqual(['Make sure the listener stays in their role: no disagreeing, no own point of view yet. Keep talking time balanced: no more than 1 minute per person. Ring the bell to remind people of their roles and the time.']);
-    for (const role of ['owner', 'partner', 'observer'] as const) expect(instructionLine(role, 'first', n)).toEqual(instructionLine(role, 'second', n));
   });
-  it('observer part: only the observer has an instruction; the owner and the partner have none', () => {
-    expect(instructionLine('observer', 'observer', n)).toEqual(['Say what they can do better. If you like, say how well you think you understood the canvas, from 0 to 10, and what was unclear.']);
-    expect(instructionLine('owner', 'observer', n)).toBeNull();
-    expect(instructionLine('partner', 'observer', n)).toBeNull();
+  it('observer: three steps, the last is the observer part', () => {
+    expect(texts('observer', 'first')).toEqual([
+      'Open Haru\u2019s canvas.',
+      'Make sure the listener stays in their role: no disagreeing, no own point of view yet. Keep talking time balanced: no more than 1 minute per person. Ring the bell to remind people of their roles and the time.',
+      'Observer part: say what they can do better. If you like, say how well you think you understood the canvas, from 0 to 10, and what was unclear.',
+    ]);
+  });
+  it('the same list in both parts; Talk highlights owner/peer steps 1 to 3 and the observer\u2019s 1 and 2', () => {
+    for (const role of ['owner', 'partner', 'observer'] as const) expect(texts(role, 'first')).toEqual(texts(role, 'observer'));
+    expect(current('owner', 'first')).toEqual([true, true, true]);
+    expect(current('partner', 'first')).toEqual([true, true, true]);
+    expect(current('observer', 'first')).toEqual([true, true, false]);
+  });
+  it('Observer part: only the observer\u2019s last step is highlighted; the owner and the peer have none', () => {
+    expect(current('observer', 'observer')).toEqual([false, false, true]);
+    expect(current('owner', 'observer')).toEqual([false, false, false]);
+    expect(current('partner', 'observer')).toEqual([false, false, false]);
+  });
+  it('a table with no canvas keeps the no-canvas line and the steps that do not name a canvas', () => {
+    expect(texts('owner', 'first', true)).toEqual(['No Clarity Canvas yet: talk about your business idea']);
+    expect(texts('partner', 'first', true)).toEqual(['Talk it through: no canvas']);
+    const obs = texts('observer', 'first', true);
+    expect(obs[0]).toBe('Talk it through: no canvas');
+    expect(obs.join(' ')).not.toMatch(/Open Haru/);
+    expect(obs.some(t => /^Make sure the listener/.test(t))).toBe(true);
+  });
+  it('no canvas: the observer keeps their Observer-part step, about the idea, highlighted in the Observer part', () => {
+    const last = 'Observer part: say what they can do better. If you like, say how well you think you understood the idea, from 0 to 10, and what was unclear.';
+    expect(texts('observer', 'observer', true).at(-1)).toBe(last);
+    expect(current('observer', 'observer', true)).toEqual([false, false, true]);
+    expect(current('observer', 'first', true)).toEqual([true, true, false]);
   });
   it('never uses an em dash', () => {
-    for (const role of ['owner', 'partner', 'observer'] as const) for (const ph of ['seating', 'reading', 'first', 'observer'] as const) {
-      expect((instructionLine(role, ph, n) ?? []).join(' ')).not.toMatch(/\u2014/);
-    }
+    for (const role of ['owner', 'partner', 'observer'] as const) for (const ph of ['first', 'observer'] as const) expect(texts(role, ph).join(' ')).not.toMatch(/\u2014/);
   });
 });
 
@@ -54,45 +71,22 @@ describe('canvasOffer', () => {
   });
 });
 
-describe('changedPoints and readingPoints', () => {
-  const now = [{ id: '1', statement: 'Same' }, { id: '2', statement: ' rewritten  point ' }];
-  it('a point is changed when the previous version has no such statement (spacing and case do not count)', () => {
-    expect(changedPoints(now, [{ statement: 'same' }, { statement: 'Rewritten point' }])).toEqual([]);
-    expect(changedPoints(now, [{ statement: 'Same' }]).map(p => p.id)).toEqual(['2']);
-  });
-  it('a first version has nothing to differ from', () => {
-    expect(changedPoints(now, null)).toEqual([]);
-  });
-  // UAT 2026-11-12 (founder): the owner sets a position on EVERY point not yet set, changed or not (supersedes decision (d)).
-  it('a reader lists every point; the owner every point without their own position', () => {
-    const prev = [{ statement: 'Same' }];
-    expect(readingPoints({ isOwner: false, points: now, previous: prev, ownerPositionOf: () => null }).map(p => p.id)).toEqual(['1', '2']);
-    expect(readingPoints({ isOwner: true, points: now, previous: prev, ownerPositionOf: () => null }).map(p => p.id)).toEqual(['1', '2']);
-    expect(readingPoints({ isOwner: true, points: now, previous: prev, ownerPositionOf: id => (id === '2' ? 'agree' : null) }).map(p => p.id)).toEqual(['1']);
-    expect(readingPoints({ isOwner: true, points: now, previous: null, ownerPositionOf: () => 'agree' })).toEqual([]);
-  });
-});
-
-describe('tapOf', () => {
-  it('folds the seven levels to agree, unsure or disagree', () => {
-    expect([tapOf('strongly_agree'), tapOf('somewhat_agree'), tapOf('unsure'), tapOf('somewhat_disagree'), tapOf('strongly_disagree'), tapOf(null)])
-      .toEqual(['agree', 'agree', 'unsure', 'disagree', 'disagree', null]);
-  });
-});
-
-describe('the projector\'s time left with a reading part', () => {
-  const timing = roundTiming({ seatingS: 120, readingS: 180, firstS: 450, secondS: 450, splitSpeakers: false, observerS: 180 });
+describe('the projector\'s time left in a two-part mastermind round', () => {
+  const timing = roundTiming({ seatingS: 0, readingS: 0, firstS: 450, secondS: 450, splitSpeakers: false, observerS: 180 });
   const at = (s: number) => roundClock('2026-11-11T10:00:00Z', new Date('2026-11-11T10:00:00Z').getTime() + s * 1000, true, timing);
-  it('says reading comes after finding the table, and the talk after reading', () => {
-    expect(screenTimeLeft(at(30), timing, true)?.next).toBe('then 3 min reading');
-    const reading = screenTimeLeft(at(130), timing, true);
-    expect(reading?.left).toBe('2:50 left');
-    expect(reading?.next).toBe('then 15 min to talk');
+  it('Talk names the observer as the next real part, with no seating or reading wording', () => {
+    const talk = screenTimeLeft(at(30), timing, true);
+    expect(at(30).phase).toBe('first');
+    expect(talk?.left).toBe('14:30 left');
+    expect(talk?.next).toBe('then 3 min observer');
   });
-  it('with no reading part finding the table leads straight to the talk', () => {
-    const none = roundTiming({ seatingS: 120, readingS: 0, firstS: 450, secondS: 450, splitSpeakers: false, observerS: 180 });
-    const clock = roundClock('2026-11-11T10:00:00Z', new Date('2026-11-11T10:00:00Z').getTime() + 30_000, true, none);
-    expect(screenTimeLeft(clock, none, true)?.next).toBe('then 15 min to talk');
+  it('Observer ends the round', () => {
+    expect(screenTimeLeft(at(15 * 60 + 40), timing, true)?.next).toBe('then the round ends');
+  });
+  it('a round that still has a reading part keeps naming it (rounds saved earlier)', () => {
+    const old = roundTiming({ seatingS: 120, readingS: 180, firstS: 450, secondS: 450, splitSpeakers: false, observerS: 180 });
+    const clock = roundClock('2026-11-11T10:00:00Z', new Date('2026-11-11T10:00:00Z').getTime() + 30_000, true, old);
+    expect(screenTimeLeft(clock, old, true)?.next).toBe('then 3 min reading');
   });
 });
 

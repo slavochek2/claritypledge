@@ -158,43 +158,57 @@ export const RETRY_REFUSED: Record<string, string> = {
   expired: 'This draft has expired. Open your drafts to continue.',
 };
 
-// ── The round card per phase (UAT 2026-11-11, items 1, 4, 5, 6) ─────────────────────────────────────────────────────
+/** [FOUNDER DECISION: copy, proposed] A table whose Clarity Canvas owner has no canvas (founder (b): roles stay as usual). */
+export const NO_CANVAS_OWNER_LINE = 'No Clarity Canvas yet: talk about your business idea';
+export const NO_CANVAS_TABLE_LINE = 'Talk it through: no canvas';
 
-/** The part of the round as the card tells them apart: the clock's own phase names (round-clock.ts). */
+// ── The round card: every step of my role, always visible (UAT 2026-11-13 (b), F2) ──────────────────────────────────
+
+/** The part of the round as the card tells them apart: the clock's own phase names (round-clock.ts). A mastermind round has `first` (Talk) and `observer`. */
 export type CardPhase = 'seating' | 'reading' | 'first' | 'second' | 'observer' | 'over';
 
 /** First names of the people the instruction speaks of (any may be the fallback name). */
 export interface TableNames { owner: string; partner: string }
 
+/** One numbered step of my role; `current` marks the steps of the part running now. */
+export interface RoleStep { text: string; current: boolean }
+
 const ZERO_TO_TEN = 'from 0 to 10';
-const READ_LINE = (owner: string) => `Read ${owner}\u2019s canvas quietly. Set your position on each point, especially where you disagree.`;
 
 /**
- * [FOUNDER DECISION: copy, approved] The instruction for my role in the current part, as numbered steps (one entry = one plain line; two = steps 1, 2).
- * Names are the first names at the table. Null while finding the table (the header says it) and once the time is up, and for the owner and the peer in the observer's part (they just listen).
+ * [FOUNDER DECISION: copy, proposed] Every step of my role, in order, numbered by the list. The steps of the current part are `current`: The owner and the peer have three steps (in the Observer part none is highlighted); Talk
+ * highlights the observer's steps 1 and 2 and the Observer part highlights their last step. Names are first
+ * names at the table. `noCanvas`: the owner has no canvas, so the steps that name a canvas are replaced by the talk-it-through line
+ * (the observer's steps do not name a canvas to open, so only "Open ... canvas" goes).
  */
-export function instructionLine(role: MastermindRole, phase: CardPhase, n: TableNames): string[] | null {
-  const own = role === 'owner';
-  switch (phase) {
-    case 'reading': return [own ? 'Check your canvas: set your position on every point if not already.' : READ_LINE(n.owner)];
-    case 'first':
-    case 'second':
-      if (role === 'observer') return ['Make sure the listener stays in their role: no disagreeing, no own point of view yet. Keep talking time balanced: no more than 1 minute per person. Ring the bell to remind people of their roles and the time.'];
-      return own
-        ? [
-          `${n.partner} explains your canvas back. Then ask: \u201CHow well do you think you understand my canvas, ${ZERO_TO_TEN}?\u201D`,
-          `At 8 or more, ${n.partner} challenges your canvas. They ask you: \u201CHow well do you think you understand my challenge, ${ZERO_TO_TEN}?\u201D`,
-        ]
-        : [
-          `Explain ${n.owner}\u2019s canvas back in your own words. Then answer: how well you think you understand their canvas, ${ZERO_TO_TEN}.`,
-          `At 8 or more, challenge their canvas: explain where and why you disagree with their points. Then ask ${n.owner}: \u201CHow well do you think you understand my challenge, ${ZERO_TO_TEN}?\u201D`,
-        ];
-    case 'observer':
-      return role === 'observer'
-        ? [`Say what they can do better. If you like, say how well you think you understood the canvas, ${ZERO_TO_TEN}, and what was unclear.`]
-        : null;
-    default: return null;
-  }
+export function roleSteps(role: MastermindRole, phase: CardPhase, n: TableNames, noCanvas = false): RoleStep[] {
+  const talk = phase !== 'observer' && phase !== 'over';
+  const obs = phase === 'observer';
+  const build = (lines: string[], talkCount: number): RoleStep[] => lines.map((text, i) => ({ text, current: i < talkCount ? talk : obs }));
+  const all = role === 'owner'
+    ? build([
+      `Open your canvas so you see what ${n.partner} sees.`,
+      `${n.partner} explains your canvas back. Then ask: \u201CHow well do you think you understand my canvas, ${ZERO_TO_TEN}?\u201D`,
+      `At 8 or more, ${n.partner} challenges your canvas. They ask you: \u201CHow well do you think you understand my challenge, ${ZERO_TO_TEN}?\u201D`,
+    ], 3)
+    : role === 'partner'
+      ? build([
+        `Open ${n.owner}\u2019s canvas and go through it point by point. Set your position, especially where you disagree. Out loud is fine.`,
+        `Explain ${n.owner}\u2019s canvas back in your own words. Then answer: how well you think you understand their canvas, ${ZERO_TO_TEN}.`,
+        `At 8 or more, challenge their canvas: explain where and why you disagree with their points. Then ask ${n.owner}: \u201CHow well do you think you understand my challenge, ${ZERO_TO_TEN}?\u201D`,
+      ], 3)
+      : build([
+        `Open ${n.owner}\u2019s canvas.`,
+        'Make sure the listener stays in their role: no disagreeing, no own point of view yet. Keep talking time balanced: no more than 1 minute per person. Ring the bell to remind people of their roles and the time.',
+        `Observer part: say what they can do better. If you like, say how well you think you understood the canvas, ${ZERO_TO_TEN}, and what was unclear.`,
+      ], 2);
+  if (!noCanvas) return all;
+  // No canvas at the table: the talk-it-through line, then only the steps that do not name a canvas. The observer still gives
+  // feedback, so their last step stays, about "the idea" instead of "the canvas".
+  const kept = all.filter(st => !/canvas/i.test(st.text));
+  const last = all[all.length - 1];
+  if (role === 'observer' && last) kept.push({ text: last.text.replace('the canvas', 'the idea'), current: obs });
+  return [{ text: role === 'owner' ? NO_CANVAS_OWNER_LINE : NO_CANVAS_TABLE_LINE, current: talk }, ...kept];
 }
 
 /** The canvas button: always offered (primary), except to the observer in their own part. */
@@ -202,46 +216,3 @@ export function canvasOffer(role: MastermindRole, phase: CardPhase): 'primary' |
   return phase === 'observer' && role === 'observer' ? 'none' : 'primary';
 }
 
-/** [FOUNDER DECISION: copy, proposed] A table whose Clarity Canvas owner has no canvas (founder (b): roles stay as usual). */
-export const NO_CANVAS_OWNER_LINE = 'No Clarity Canvas yet: talk about your business idea';
-export const NO_CANVAS_TABLE_LINE = 'Talk it through: no canvas';
-/** [FOUNDER DECISION: copy, proposed] The owner's reading part when no point changed since their last version (or none lacks a position). */
-
-/** The three taps of a point and the stored position each writes. */
-export const POSITION_TAPS = [
-  { value: 'agree', label: 'Agree' },
-  { value: 'unsure', label: 'Unsure' },
-  { value: 'disagree', label: 'Disagree' },
-] as const;
-export type PositionTap = (typeof POSITION_TAPS)[number]['value'];
-
-/** Which tap a stored position shows as: its side (the seven levels fold to agree, unsure, disagree); null when none. */
-export function tapOf(position: string | null | undefined): PositionTap | null {
-  if (!position) return null;
-  if (position === 'unsure') return 'unsure';
-  return position.includes('disagree') ? 'disagree' : position.includes('agree') ? 'agree' : null;
-}
-
-const norm = (s: string): string => s.trim().replace(/\s+/g, ' ').toLowerCase();
-
-/**
- * Points of the current version that the previous published version did not have as they are now (by statement text: a rewritten
- * point is a new point). No previous version (a first version) has nothing to differ from: none changed. Pure.
- */
-export function changedPoints<T extends { statement: string }>(current: readonly T[], previous: readonly { statement: string }[] | null): T[] {
-  if (!previous) return [];
-  const before = new Set(previous.map(p => norm(p.statement)));
-  return current.filter(p => !before.has(norm(p.statement)));
-}
-
-/** What the reading part lists. The owner: every point they hold no position on yet (founder, UAT 2026-11-12: "Check your canvas:
- *  set your position on every point if not already"). A reader: every point. `previous` is no longer used for the owner. */
-export function readingPoints<T extends { id: string; statement: string }>(args: {
-  isOwner: boolean;
-  points: readonly T[];
-  previous: readonly { statement: string }[] | null;
-  ownerPositionOf: (pointId: string) => string | null;
-}): T[] {
-  if (!args.isOwner) return [...args.points];
-  return args.points.filter(p => !args.ownerPositionOf(p.id));
-}

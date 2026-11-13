@@ -170,18 +170,19 @@ describe('stored mastermind minutes are versioned', () => {
 describe('the mastermind round\'s minutes', () => {
   // host_start_round stores speakerS in BOTH first_s and second_s; a round with no swap adds the two into one talk.
   const row = { seatingS: MASTERMIND_MINUTES.seatingS, firstS: MASTERMIND_MINUTES.speakerS, secondS: MASTERMIND_MINUTES.speakerS, observerS: MASTERMIND_MINUTES.observerS, splitSpeakers: false };
-  it('sum to one 15-minute talk and 18 minutes at the table with feedback, after the two minutes to find the table', () => {
+  it('are two parts: a 15-minute talk and 3 minutes of observer, with no finding-the-table part and no reading part', () => {
     const t = roundTiming(row);
     expect(t.split).toBe(false);
     expect(t.secondMs).toBe(0);
     expect(t.firstMs).toBe(15 * 60_000);
     expect(t.firstMs + t.secondMs + t.observerMs).toBe(18 * 60_000);
-    expect(t.seatingMs).toBe(2 * 60_000);
+    expect(t.seatingMs).toBe(0);
+    expect(t.readingMs).toBe(0);
   });
-  it('run seating, talk, observer feedback, and never a second part', () => {
+  it('run talk, then observer, and never a seating, reading or second part', () => {
     const start = new Date(0).toISOString();
     const phaseAt = (min: number) => roundClock(start, min * 60_000, true, roundTiming(row)).phase;
-    expect([1, 3, 16, 18, 21].map(phaseAt)).toEqual(['seating', 'first', 'first', 'observer', 'over']);
+    expect([0, 1, 14, 16, 18, 21].map(phaseAt)).toEqual(['first', 'first', 'first', 'observer', 'over', 'over']);
   });
 });
 

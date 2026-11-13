@@ -98,7 +98,7 @@ export function PauseResumeButton() {
 
 /** `forEvent`: the capture belongs to an event, so its words are posted to the event's channel. */
 /** `onOpenRoom`: where the bar hides its arrow to the transcribe room (this event's own room), the popover keeps one quiet way there. */
-export function CaptureInfoButton({ forEvent = false, onOpenRoom }: { forEvent?: boolean; onOpenRoom?: () => void } = {}) {
+export function CaptureInfoButton({ forEvent = false, onOpenRoom, message }: { forEvent?: boolean; onOpenRoom?: () => void; /** Replaces the whole sheet with this one line (the idle bar). */ message?: string } = {}) {
   return (
     <Popover>
       <PopoverTrigger
@@ -108,6 +108,12 @@ export function CaptureInfoButton({ forEvent = false, onOpenRoom }: { forEvent?:
       >
         <Info className="h-4 w-4" aria-hidden="true" />
       </PopoverTrigger>
+      {message ? (
+        <PopoverContent className="space-y-2 text-sm" data-testid="capture-info-sheet">
+          <p>{message}</p>
+          {onOpenRoom && <button type="button" onClick={onOpenRoom} className="block text-blue-600 hover:underline" data-testid="capture-info-open-room">Open the live text</button>}
+        </PopoverContent>
+      ) : (
       <PopoverContent className="text-sm space-y-2" data-testid="capture-info-sheet">
         {/* Wording approved by the founder 2026-10-02. */}
         <p><span className="font-medium">What’s recorded:</span> your microphone, while this says Transcribing. Paused records nothing.</p>
@@ -120,6 +126,7 @@ export function CaptureInfoButton({ forEvent = false, onOpenRoom }: { forEvent?:
           <button type="button" onClick={onOpenRoom} className="block text-blue-600 hover:underline" data-testid="capture-info-open-room">Open the live text</button>
         )}
       </PopoverContent>
+      )}
     </Popover>
   );
 }

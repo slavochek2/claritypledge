@@ -8,16 +8,18 @@
  */
 import { type CSSProperties } from 'react';
 import { roundTiming } from '@/lib/round-clock';
-import { Bell, BellOff } from 'lucide-react';
+import { Bell, BellOff, Mic } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EventRoomMember } from '@/app/types';
+import type { RecordingState } from '@/app/data/event-mastermind-service';
 import type { EventRound } from '@/app/data/event-rounds-service';
 import type { Seat } from '@/lib/round-grouping';
 import { SCREEN_CARD_MAX_EM, SCREEN_GAP, SCREEN_PAD, screenLayout } from '@/lib/round-screen-layout';
 import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import { Avatar, ClockNumber, PhaseStrip, groupByTable, tableSeats, useBell, useClock, useRoundBell, useViewport } from './host-screen-parts';
 import { firstName, shortName } from './use-event-rounds';
-import { SCREEN_PART_CAPTION } from './mastermind-host-helpers';
+import { SCREEN_PART_NAME } from './mastermind-host-helpers';
+import { screenTimeLeft } from './screen-time-left';
 
 /** The header: the round name, the time left and the clock on one row, the phase strip full width on a row under it. */
 const MASTERMIND_HEADER = 190;
@@ -28,17 +30,20 @@ const SEAT_ROLE_WORD: Record<Seat['role'], string> = { first: 'Clarity Canvas ow
 
 const SEAT_HEIGHT_WITH_ROLE = 2.7 / 2.1;
 
-export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
+export function MastermindScreen({ round, rounds, seats, byId, room, ended, recordingOf }: {
   round: EventRound | null;
   rounds: EventRound[];
   seats: Seat[];
   byId: Map<string, EventRoomMember>;
   room: EventRoomMember[];
   ended: boolean;
+  /** Who is transcribing, from the host state the screen already reads (a mic shows while it is on). */
+  recordingOf?: (memberId: string) => RecordingState;
 }) {
   const clock = useClock(round, seats);
   const hasObserver = seats.some(s => s.role === 'observer');
   const timing = round ? roundTiming(round) : null;
+  const timeLeft = clock && timing ? screenTimeLeft(clock, timing, hasObserver) : null;
   const bell = useBell();
   useRoundBell(round, clock?.phase, bell);
   const { w, h } = useViewport();
@@ -84,12 +89,16 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
             <div className={cn('flex gap-x-10 gap-y-4', wide ? 'items-center' : 'flex-col')}>
               <h1 className="min-w-0 flex-1 truncate text-3xl font-semibold text-foreground sm:text-4xl" data-testid="screen-part">
                 {roundLabel(rounds, round)}
-                {SCREEN_PART_CAPTION[clock.phase] ? ` \u00b7 ${SCREEN_PART_CAPTION[clock.phase]}` : ''}
               </h1>
-              <div className="shrink-0 print:hidden">
+              {/* ONE countdown: the big clock, with the part it counts beside it. */}
+              <div className="flex shrink-0 items-baseline gap-4 print:hidden">
+                {clock.phase !== 'over' && (
+                  <span className="text-3xl font-medium text-foreground/80 sm:text-4xl" data-testid="screen-part-line">{SCREEN_PART_NAME[clock.phase]}</span>
+                )}
                 <ClockNumber clock={clock} large />
               </div>
             </div>
+            {timeLeft && <p className="text-xl font-normal text-foreground/80 sm:text-2xl" data-testid="screen-next-line">{timeLeft.next}</p>}
             {/* Full width on its own row; below 1024px the parts give up their label room (the labels truncate) instead of overflowing. */}
             {wide && <div className="min-w-0 print:hidden [&_li]:!min-w-0"><PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} large noLabels /></div>}
           </div>
@@ -112,7 +121,12 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
                             <Avatar member={m} className="!h-full !w-full !text-[1em] !ring-offset-1" />
                           </span>
                           <span className="min-w-0 leading-tight">
-                            <span className="block font-medium" style={{ fontSize: '1.75rem' }}>{crowded ? shortName(m?.displayName ?? '—') : m?.displayName ?? '—'}</span>
+                            <span className="flex items-center gap-2 font-medium" style={{ fontSize: '1.75rem' }}>
+                              <span className="min-w-0 truncate">{crowded ? shortName(m?.displayName ?? '—') : m?.displayName ?? '—'}</span>
+                              {recordingOf && recordingOf(s.id) !== 'off' && (
+                                <Mic className="h-[0.8em] w-[0.8em] shrink-0 text-blue-600" aria-label="Transcribing" role="img" data-testid="screen-seat-mic" />
+                              )}
+                            </span>
                             <span className="block text-foreground/70" style={{ fontSize: '1.25rem' }} data-testid="screen-seat-role">{SEAT_ROLE_WORD[s.role]}</span>
                           </span>
                         </div>

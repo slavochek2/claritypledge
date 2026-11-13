@@ -15,9 +15,11 @@
  */
 import { CanvasWorkspaceLayout } from '@/app/components/canvas/canvas-workspace-layout';
 import { CanvasPage } from '@/app/pages/canvas-page';
+import { bannerTarget, ownerBarBack } from './canvas-workspace-back';
 import { CloneDraftSheet } from './clone-draft-sheet';
 import { WorkspacePreparationBanner } from './PreparationBanner';
 import { RoundReturnBar, RoundReturnLive } from './RoundReturnBar';
+import { EventShareDialog } from './EventShareDialog';
 import { WorkspaceChat } from './workspace-chat';
 import { WorkspaceOwnerBar } from './workspace-owner-bar';
 import { WorkspaceProviders } from './workspace-providers';
@@ -27,19 +29,21 @@ export function CanvasWithThread() {
   const w = useCanvasWorkspacePage();
   const { handle, projectTag, mirror, active, held, panel, clone, rename, ownerBar, backTo, table, navState, publishing, wide, bump } = w;
   const { view, setView, panelOpen } = panel;
-  const { spot, publishing: isPublishing, publish } = publishing;
+  const bannerTo = bannerTarget({ backTo, ownerBar, table, roundBar: !!w.roundBar });
+  const ownBack = ownerBarBack({ banner: !!bannerTo, returnBar: !!w.roundBar, table });
+  const { spot, publishing: isPublishing, publish, shareOffer } = publishing;
   return (
     <WorkspaceProviders value={w.workspace} bus={w.bus}>
       <RoundReturnLive bar={w.roundBar} />
       <CanvasWorkspaceLayout
         active={active}
         roundBar={w.roundBar ? <RoundReturnBar {...w.roundBar} /> : null}
-        banner={backTo ? <WorkspacePreparationBanner to={backTo} state={navState} canvasKey={`${handle}/${projectTag}`} /> : null}
+        banner={bannerTo ? <WorkspacePreparationBanner to={bannerTo} state={navState} canvasKey={`${handle}/${projectTag}`} /> : null}
         view={view}
         panelOpen={panelOpen}
         bar={ownerBar ? (
           <WorkspaceOwnerBar
-            ready={held} handle={handle} projectTag={projectTag} rename={rename} onPick={w.pickVersion} onChanged={bump} onBack={table && !backTo ? () => w.navigate(table.to) : w.goBack}
+            ready={held} handle={handle} projectTag={projectTag} rename={rename} onPick={w.pickVersion} onChanged={bump} onBack={ownBack.kind === 'banner' || ownBack.kind === 'returnBar' ? undefined : ownBack.kind === 'table' ? () => w.navigate(ownBack.to) : w.goBack}
             active={active} view={view} onView={setView} panelOpen={panelOpen} onOpenPanel={w.openPanel} spot={{ state: spot, publishing: isPublishing, onPublish: publish }}
             onCancelClone={clone.cancel} onGoToDraft={w.openExistingDraft}
           />
@@ -47,6 +51,7 @@ export function CanvasWithThread() {
         canvas={<CanvasPage />}
         chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} canvasTitle={rename.title} focusable={wide ? panelOpen : view === 'chat'} onClose={w.closeThread} onRunActive={w.setRunActive} onDraftRead={w.spotRun.onDraftRead} onThreadAnswered={w.spotRun.onThreadAnswered} onOpened={w.openedDraft} onReload={bump} cloning={clone.pending} onStale={() => void clone.onStale()} />}
       />
+      <EventShareDialog open={!!shareOffer.offer} busy={shareOffer.busy} error={shareOffer.error} onShare={() => void shareOffer.share()} onNotNow={shareOffer.notNow} />
       <CloneDraftSheet sheet={clone.sheet} onAdd={clone.addToDraft} onStartOver={clone.startOver} onClose={w.dismissSheet} />
     </WorkspaceProviders>
   );

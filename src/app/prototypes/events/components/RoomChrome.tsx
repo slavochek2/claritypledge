@@ -55,11 +55,11 @@ export function RoomHeadRow({ onBack, tabs, className }: { onBack: () => void; t
  * shell's slot, so it is drawn once, here) or, while nothing is running, the page's own idle bar. The idle bar hides itself
  * while any capture is running, so there is never more than one bar on screen.
  */
-export function RoomHeadCapture({ idle, eventId }: { idle?: ReactNode; /** This room's event: its own capture needs no arrow back to /transcribe. */ eventId?: string }) {
+export function RoomHeadCapture({ idle, eventId, roundEvent }: { idle?: ReactNode; /** This room's event: its own capture needs no arrow back to /transcribe. */ eventId?: string; /** A round event: the running bar's info is the same one line as the idle bar's. */ roundEvent?: boolean }) {
   useLayoutEffect(() => claimRoomBar(), []);
   return (
     <>
-      <RoomCaptureBar short roomEventId={eventId} />
+      <RoomCaptureBar short roomEventId={eventId} roundEvent={roundEvent} />
       {idle}
     </>
   );

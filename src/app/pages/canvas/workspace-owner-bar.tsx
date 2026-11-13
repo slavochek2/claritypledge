@@ -20,7 +20,7 @@ export function WorkspaceOwnerBar(props: {
   rename: { title: string; canRename: boolean; save: (next: string) => void };
   onPick: (version: string) => void;
   onChanged: () => void;
-  onBack: () => void;
+  onBack?: () => void;
   active: boolean;
   view: WorkspaceView;
   onView: (v: WorkspaceView) => void;

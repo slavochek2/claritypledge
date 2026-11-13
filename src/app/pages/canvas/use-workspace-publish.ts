@@ -12,7 +12,8 @@ import { useCanvasPublish, type PublishedInfo } from '@/app/components/canvas/us
 import { getMessage } from '@/app/data/chat-service';
 import { chatPath } from '@/app/pages/chat/chat-view-model';
 import { CANVAS_WORKSPACE_PARAM } from '@/app/components/layout/bottom-nav-routes';
-import { usePreparationReturn, useTableReturn } from './use-preparation-return';
+import { useEventReturn, usePreparationReturn, useTableReturn } from './use-preparation-return';
+import { useEventShareOffer } from './use-event-share-offer';
 
 // [FOUNDER DECISION: wording, built as written in the spec's X15.]
 export const SEE_OFFER_LABEL = 'See offer';
@@ -44,6 +45,8 @@ export function useWorkspacePublish(args: {
   returnTo?: string | null;
   /** Only the canvas's owner is preparing it: anyone else gets neither the banner nor the jump. Default true. */
   owner?: boolean;
+  /** The page re-reads after a share the dialog made (so a stay-on-page Publish shows the new Share status). */
+  onShared?: () => void;
 }) {
   const { ready, runActive, pendingClone, setParams, state } = args;
   const { handle, projectTag } = useParams(); // the canvas on screen: the remembered return belongs to it alone
@@ -51,6 +54,12 @@ export function useWorkspacePublish(args: {
   const table = useTableReturn(state, `${handle}/${projectTag}`); // the event room's table this canvas was opened from (its banner), not a Publish target
   const returnTo = args.owner === false ? null : args.returnTo === undefined ? remembered : args.returnTo;
   const navigate = useNavigate();
+  const rememberedEvent = useEventReturn(state, `${handle}/${projectTag}`); // the event it was started or opened from, kept for this canvas
+  const eventId = args.owner === false ? null : rememberedEvent;
+  // After the person answers the share question (or when none is asked), Publish goes where it was going.
+  const leave = useCallback(() => { if (returnTo) navigate(returnTo, { replace: true }); }, [navigate, returnTo]);
+  const shareOffer = useEventShareOffer(leave, args.onShared);
+  const { ask: askShare } = shareOffer;
   const [closedDraftId, setClosedDraftId] = useState<string | null>(null);
   const published = useCallback(({ seq, versionName, replyMessageId, openOffers }: PublishedInfo) => {
     const draft = ready?.draft ?? null;
@@ -66,8 +75,10 @@ export function useWorkspacePublish(args: {
     const seeOffer = openOffers > 0 && draft ? { label: SEE_OFFER_LABEL, onClick: () => navigate(chatPath(draft.conversationId, { rootId: draft.threadRootId })) } : undefined;
     void replyFirstLine(replyMessageId, seq).then(text => (seeOffer ? toast.success(text, { action: seeOffer, duration: SEE_OFFER_TOAST_MS }) : toast.success(text)));
     // P1529 UAT round 1: a canvas made in the event's preparation returns there after Publish, where it is shared with the event.
-    if (returnTo) navigate(returnTo, { replace: true });
-  }, [ready, setParams, state, navigate, returnTo]);
+    // F7: a canvas started from an event's room offers to be shared with it first (once answered, the same return).
+    if (eventId && projectTag) askShare(eventId, projectTag);
+    else leave();
+  }, [ready, setParams, state, navigate, eventId, projectTag, askShare, leave]);
   const { state: spot, publishing, publish } = useCanvasPublish(ready, runActive, published, pendingClone);
-  return { closedDraftId, spot, publishing, publish, returnTo, table };
+  return { closedDraftId, spot, publishing, publish, returnTo, table, shareOffer };
 }

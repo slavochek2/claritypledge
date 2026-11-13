@@ -55,6 +55,17 @@ describe('auto-return to the table', () => {
     rounds.state = stateOf([round('r1', 1, true), round('r2', 2, false)]);
     view.rerender(<MemoryRouter initialEntries={['/canvas']}><Routes><Route path="/canvas" element={<Probe />} /><Route path="/events/e/room" element={<p>the table</p>} /></Routes></MemoryRouter>);
     expect(screen.getByTestId('round-return-line').textContent).toBe('Round 2 started. Back to your table in 5');
+    // The way back is offered during the countdown too, not only after it.
+    expect(screen.getByTestId('round-return-link').textContent).toBe('Back to your table');
+    fireEvent.click(screen.getByTestId('round-return-link'));
+    expect(screen.getByText('the table')).toBeTruthy();
+  });
+
+  it('Stay here cancels the countdown and the bar goes (the link stays only while the bar does)', () => {
+    rounds.state = stateOf([round('r1', 1, true)]);
+    const view = mount(<Probe />);
+    rounds.state = stateOf([round('r1', 1, true), round('r2', 2, false)]);
+    view.rerender(<MemoryRouter initialEntries={['/canvas']}><Routes><Route path="/canvas" element={<Probe />} /><Route path="/events/e/room" element={<p>the table</p>} /></Routes></MemoryRouter>);
     fireEvent.click(screen.getByTestId('round-return-stay'));
     act(() => { vi.advanceTimersByTime(10000); });
     expect(screen.getByText('none')).toBeTruthy();

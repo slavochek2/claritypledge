@@ -13,7 +13,10 @@ interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  /** Left out: no description is drawn (and none is announced). */
+  description?: string;
+  /** The description is an error: announced at once (role=alert) and drawn in the error colour. */
+  descriptionIsError?: boolean;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: 'default' | 'destructive';
@@ -30,6 +33,7 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   description,
+  descriptionIsError = false,
   confirmLabel = 'Confirm',
   cancelLabel = 'Cancel',
   variant = 'destructive',
@@ -61,11 +65,14 @@ export function ConfirmDialog({
       <DialogContent
         hideCloseButton
         className="w-[calc(100%-2rem)] max-w-sm rounded-xl shadow-xl sm:rounded-xl data-[state=closed]:!animate-none"
+        {...(description ? {} : { 'aria-describedby': undefined })}
         overlayClassName="data-[state=closed]:!animate-none"
       >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          {description && (
+            <DialogDescription {...(descriptionIsError ? { role: 'alert' } : {})} className={descriptionIsError ? 'text-destructive' : undefined}>{description}</DialogDescription>
+          )}
         </DialogHeader>
         <DialogFooter>
           <Button

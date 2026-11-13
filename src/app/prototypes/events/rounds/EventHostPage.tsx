@@ -103,7 +103,7 @@ import { EventWaitlistList } from '../components/EventWaitlistList';
 import { MastermindPreviewNotes } from './MastermindPreviewNotes';
 import { MastermindScreen } from './MastermindScreen';
 import { useHostFlow, useMastermindHost } from './use-mastermind-host';
-import { COLUMN_LABELS, MASTERMIND_FLOW, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, extendRefusal, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey, READY_HINT, READY_LABEL } from './mastermind-host-helpers';
+import { COLUMN_LABELS, MASTERMIND_FLOW, SCREEN_PART_NAME, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, extendRefusal, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey, READY_HINT, READY_LABEL } from './mastermind-host-helpers';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
 
 const START_LOCK_MS = 10_000;
@@ -132,6 +132,7 @@ const MIC_LETTER = { usbc: 'C', lightning: 'L', other: '?' } as const;
 /** The name of the part running now, beside the host's clock. */
 const PART_NAME: Record<Exclude<RoundPhase, 'over'>, string> = {
   seating: 'Finding tables',
+  // Only a round saved before the reading part was dropped can still be in it.
   reading: 'Reading',
   first: 'Speaker 1',
   second: 'Speaker 2',
@@ -170,8 +171,6 @@ const DEFAULT_SETTINGS: Settings = {
  * the step (P1430: finding a table steps in 30 s — a Demo table is found in 30 s). */
 const MINUTE_FIELDS: { key: keyof RoundMinutes; label: string; min: number; max: number; step: number }[] = [
   { key: 'seatingS', label: 'Tables', min: 0, max: 30 * 60, step: 30 },
-  // The sales mastermind's silent reading part; 0 = none (shown for that flow only).
-  { key: 'readingS', label: 'Reading', min: 0, max: 30 * 60, step: 60 },
   { key: 'speakerS', label: 'Speaker', min: 60, max: 60 * 60, step: 60 },
   { key: 'observerS', label: 'Observer', min: 0, max: 60 * 60, step: 60 },
 ];
@@ -1121,7 +1120,7 @@ export function EventHostPage() {
     );
   }
   if (isScreen) {
-    if (mm.active) return <MastermindScreen round={round} rounds={state.rounds} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
+    if (mm.active) return <MastermindScreen round={round} rounds={state.rounds} seats={seats} byId={byId} recordingOf={round && !round.endedAt ? mm.recordingOf : undefined} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
     return <ScreenView round={round} rounds={state.rounds} seats={seats} byId={byId} room={members.filter(m => !presence.get(m.id)?.leftAt)} ended={ended} />;
   }
 
@@ -1454,7 +1453,7 @@ export function EventHostPage() {
               </div>
               {clock.phase !== 'over' && (
                 <p className="text-sm" data-testid="host-part">
-                  <span className="font-medium">{clock.phase === 'first' && !timing.split ? 'Talk' : PART_NAME[clock.phase]}</span>
+                  <span className="font-medium">{mm.active ? SCREEN_PART_NAME[clock.phase] : clock.phase === 'first' && !timing.split ? 'Talk' : PART_NAME[clock.phase]}</span>
                   <span className="whitespace-nowrap text-muted-foreground"> · {formatClock(roundLeftMs)} left in round</span>
                 </p>
               )}
@@ -1730,12 +1729,11 @@ export function EventHostPage() {
                     }}
                   />}
                   <div className="space-y-1" data-testid="host-minutes">
-                    {MINUTE_FIELDS.filter(f => (f.key !== 'observerS' || settings.groupSize > 2 || mm.active) && (f.key !== 'readingS' || (mm.active && !chosen))).map(f => {
+                    {MINUTE_FIELDS.filter(f => (f.key !== 'observerS' || settings.groupSize > 2 || mm.active) && (!mm.active || f.key === 'speakerS' || f.key === 'observerS')).map(f => {
                       // One talk: the speaker row is the whole talk — both halves, stored as two equal
                       // parts so the round clock and the server keep one shape (roundTiming adds them).
                       const factor = f.key === 'speakerS' && !swapAtHalf ? 2 : 1;
-                      // The mastermind's clock and phase strip call this part "Finding tables".
-                      const label = factor === 2 ? 'Talk' : mm.active && f.key === 'seatingS' ? 'Finding tables' : f.label;
+                      const label = factor === 2 ? 'Talk' : f.label;
                       const value = (minutes[f.key] ?? 0) * factor;
                       const set = (next: number) =>
                         setMinutes({ ...minutes, [f.key]: Math.min(f.max * factor, Math.max(f.min * factor, next)) / factor });

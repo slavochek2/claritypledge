@@ -34,8 +34,10 @@ export const ROUND_UPDATE_CONSENT = "At the event each participant uses a microp
 
 /** [FOUNDER DECISION: copy, proposed] When a person's clean text reaches the event's chat: the full sentence, on the live text page and behind the info icon. */
 export const EVENT_TEXT_ARRIVES = "If you're at a table, your text reaches its chat about 2 minutes after the round ends.";
-/** The one-line form, in the bar and after stopping (founder, solo test 2026-11-02). */
+/** The one-line form, in the bar and after stopping (founder, solo test 2026-11-02): every event but a round event (UAT 2026-11-13 F5 keeps the round event's bar to the button and the info). */
 export const EVENT_TEXT_ARRIVES_SHORT = 'Text arrives after the round';
+/** [FOUNDER DECISION: copy, proposed] The ⓘ of the idle bar in a round event: the only line it says. */
+export const EVENT_IDLE_INFO = "Your table's words appear in your round's chat thread after the round.";
 
 // ─── P1604: transcription belongs to a chat ──────────────────────────────────
 
@@ -100,7 +102,7 @@ export const TRANSCRIPT_FAILED = "Transcript couldn't be prepared";
 
 /**
  * P1529 (founder 2026-11-13): ONE wording for starting capture in a round event, and for the idle state beside it. The founder picked
- * "Start transcribing" over "Start your mic"; "Not transcribing" is the idle text of every transcribe bar.
+ * "Start transcribing" over "Start your mic"; "Not transcribing" is the idle text of every transcribe bar except a round event's (button and info only).
  */
 export const START_TRANSCRIBING = 'Start transcribing';
 export const NOT_TRANSCRIBING = 'Not transcribing';

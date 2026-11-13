@@ -12,16 +12,13 @@ export function RoundReturnBar({ line, left, to, onStay }: RoundReturnBarProps) 
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-900 animate-in fade-in duration-300 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100" data-testid="round-return-bar">
       {/* [FOUNDER DECISION: copy, proposed] */}
       <span data-testid="round-return-line">
-        <span>{left === null ? line : `${line} Back to your table`}</span>
-        {left !== null && <span aria-hidden data-testid="round-return-count">{` in ${left}`}</span>}
+        <span>{line}</span>
+        {left !== null && <span aria-hidden data-testid="round-return-count">{` Back to your table in ${left}`}</span>}
       </span>
+      {/* The way back is offered throughout: during the countdown and after it. */}
+      <Link to={to} replace className="min-h-11 content-center underline" data-testid="round-return-link">Back to your table</Link>
       {left === null
-        ? (
-          <>
-            <Link to={to} replace className="min-h-11 content-center underline" data-testid="round-return-link">Back to your table</Link>
-            <button type="button" onClick={onStay} aria-label="Hide" className="ml-auto flex h-11 w-11 items-center justify-center rounded-full hover:bg-blue-100 dark:hover:bg-blue-900" data-testid="round-return-hide">×</button>
-          </>
-        )
+        ? <button type="button" onClick={onStay} aria-label="Hide" className="ml-auto flex h-11 w-11 items-center justify-center rounded-full hover:bg-blue-100 dark:hover:bg-blue-900" data-testid="round-return-hide">×</button>
         : <button type="button" onClick={onStay} className="min-h-11 underline" data-testid="round-return-stay">Stay here</button>}
     </div>
   );

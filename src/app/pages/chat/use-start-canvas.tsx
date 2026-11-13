@@ -22,6 +22,8 @@ export function useStartCanvas(opts?: {
   returnAfterPublish?: boolean;
   /** With returnAfterPublish: the preparation's step and length, for the workspace banner's "Step N of M". */
   prepStep?: { step: number; total: number };
+  /** The event this canvas is started for (with or without returnAfterPublish), so Publish can offer to share the canvas with it. */
+  eventId?: string;
 }): { start: (fromVersionId?: string | null) => Promise<void>; dialog: ReactNode } {
   const chat = useChat();
   const navigate = useNavigate();
@@ -30,6 +32,7 @@ export function useStartCanvas(opts?: {
   const [busy, setBusy] = useState(false);
   const returnAfterPublish = !!opts?.returnAfterPublish;
   const prepStep = opts?.prepStep;
+  const eventId = opts?.eventId;
 
   const slug = chat.authors[chat.userId]?.slug ?? null;
   const here = `${location.pathname}${location.search}`;
@@ -43,10 +46,10 @@ export function useStartCanvas(opts?: {
       }
       // `from`: ← in the workspace goes back to where the owner started. `tab`: a NEW canvas opens on the Thread tab below 1280px (W1).
       navigate(workspaceHref(slug, found.canvasName, found.versionName ?? null), {
-        state: { from: here, ...(newCanvas ? { tab: 'thread' } : {}), ...(returnAfterPublish ? { afterPublish: here, ...(prepStep ? { prepStep } : {}) } : {}) },
+        state: { from: here, ...(newCanvas ? { tab: 'thread' } : {}), ...(returnAfterPublish ? { afterPublish: here, ...(prepStep ? { prepStep } : {}) } : {}), ...(eventId ? { afterPublishEvent: eventId } : {}) },
       });
     },
-    [chat, slug, here, navigate, returnAfterPublish, prepStep],
+    [chat, slug, here, navigate, returnAfterPublish, prepStep, eventId],
   );
 
   const start = useCallback(

@@ -130,7 +130,7 @@ describe('§1/§1a: one header in the shell', () => {
     const row = within(head).getByTestId('room-head-row');
     expect(row.contains(back)).toBe(true);
     expect(row.compareDocumentPosition(within(head).getByTestId('room-transcribe-idle')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    expect(within(head).getByTestId('room-transcribe-idle')).toHaveTextContent('Not transcribing');
+    expect(within(head).getByTestId('room-transcribe-idle')).toHaveTextContent('Start transcribing');
     expect(within(head).getByTestId('room-transcribe-start')).toHaveTextContent('Start transcribing');
     expect(within(head).getByTestId('capture-info')).toBeInTheDocument();
     expect(screen.queryByTestId('room-back')).toBeNull();
@@ -142,7 +142,7 @@ describe('§1/§1a: one header in the shell', () => {
     const head = screen.getByTestId('room-sticky-head');
     // founder, solo test 2026-11-02: the Back is "← Event" on the tabs row, always to the event; "Back to readiness" is gone.
     expect(within(head).getByRole('button', { name: 'Back to the event' })).toHaveTextContent('Event');
-    expect(within(head).getByTestId('room-transcribe-idle')).toHaveTextContent('Not transcribing');
+    expect(within(head).getByTestId('room-transcribe-idle')).toHaveTextContent('Start transcribing');
   });
 
   it('frozen: no Transcribe anywhere, and Back is "Back to the event"', () => {

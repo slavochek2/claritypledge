@@ -110,6 +110,22 @@ describe('hidden tab: no requests, and one read when it returns', () => {
     expect(view.result.current.eveningOver).toBe(false);
   });
 
+  it('the projector reads the per-person state (who is transcribing) only while a round runs, at the host screen\'s own cadence', async () => {
+    const running = [round('r1', 1, false)];
+    const live = renderHook(() => useMastermindHost({ eventId: 'ev-1', active: true, screen: true, rounds: running, seatsByRound: SEATS, members: MEMBERS }));
+    await tick(10);
+    const first = h.getMastermindHostState.mock.calls.length;
+    expect(first).toBeGreaterThan(0);
+    await tick(HOST_STATE_POLL_MS * 2);
+    expect(h.getMastermindHostState.mock.calls.length).toBe(first + 2);
+    expect(h.getPreviousSessionPartners).not.toHaveBeenCalled(); // the projector never reads the plan's inputs
+    live.unmount();
+    h.getMastermindHostState.mockClear();
+    renderHook(() => useMastermindHost({ eventId: 'ev-1', active: true, screen: true, rounds: ROUNDS, seatsByRound: SEATS, members: MEMBERS }));
+    await tick(HOST_STATE_POLL_MS * 2);
+    expect(h.getMastermindHostState).not.toHaveBeenCalled(); // between rounds the projector reads no state
+  });
+
   it('a screen opened in a background tab reads nothing until it is shown', async () => {
     setVisibility('hidden');
     mount(false);

@@ -29,7 +29,7 @@ describe('host refresh', () => {
 
 describe('projector time left', () => {
   it('first speaker: the talk left (rest of both speakers), then observer feedback', () => {
-    expect(at(60 + 108)).toEqual({ left: '10:12 left', next: 'then 3 min observer feedback' });
+    expect(at(60 + 108)).toEqual({ left: '10:12 left', next: 'then 3 min observer' });
   });
   it('second speaker: its rest only', () => expect(at(60 + 360 + 60)?.left).toBe('5:00 left'));
   it('no observer: the round ends', () => expect(at(60 + 100, false)?.next).toBe('then the round ends'));

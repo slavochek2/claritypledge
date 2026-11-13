@@ -62,7 +62,7 @@ import { FlowRoundCard } from '@/app/prototypes/events/rounds/FlowRoundCard';
 
 const round = (over: Partial<EventRound> = {}): EventRound => ({
   id: 'r1', roundNo: 1, groupSize: 3, startedAt: new Date().toISOString(), endedAt: null,
-  seatingS: 60, firstS: 360, secondS: 360, observerS: 180, splitSpeakers: false, matchTag: null, showcase: false, ...over,
+  seatingS: 0, readingS: 0, firstS: 360, secondS: 360, observerS: 180, splitSpeakers: false, matchTag: null, showcase: false, ...over,
 });
 const seat = (roundId: string, id: string, role: RoundSeat['role'], table = 1): RoundSeat => ({ roundId, id, table, role, confirmedAt: null });
 const person = (id: string, displayName: string, profileId: string, profileSlug: string) =>
@@ -80,9 +80,9 @@ function liveRound(rounds: EventRound[] = [round()], seats: Record<string, Round
   h.state = { rounds, seatsByRound: new Map(Object.entries(seats)), topics: new Map() } satisfies EventRoundsState;
 }
 
-/** A round that started `secondsAgo` ago, with a 60 s finding minute, a 180 s reading part, 360 s of talk and 180 s of observer. */
+/** A round that started `secondsAgo` ago: two parts only, 360 s of talk then 180 s of observer (no finding-the-table part, no reading part). */
 const startedAgo = (secondsAgo: number) =>
-  liveRound([round({ startedAt: new Date(Date.now() - secondsAgo * 1000).toISOString(), readingS: 180, firstS: 180, secondS: 180 })]);
+  liveRound([round({ startedAt: new Date(Date.now() - secondsAgo * 1000).toISOString(), firstS: 180, secondS: 180 })]);
 /** Round 1 is over and nobody is seated: the owner between rounds. */
 const betweenRounds = () => liveRound([round({ endedAt: new Date().toISOString() })]);
 
@@ -135,10 +135,10 @@ describe('P1529 round screen: what each role sees', () => {
     [OWNER, ['You: owner', 'Erin W.: partner', 'Sam L.: observer'], true],
     [PARTNER, ['Haru T.: owner', 'You: partner', 'Sam L.: observer'], true],
     [OBSERVER, ['Haru T.: owner', 'Erin W.: partner', 'You: observer'], true],
-  ])('%#: the table, my role, the others, no instruction while finding the table, Open for every role', async (who, people, open) => {
+  ])('%#: the table, my role, the others, every step of my role listed, Open for every role', async (who, people, open) => {
     renderCard(who);
     expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
-    expect(screen.queryByTestId('round-card-instruction')).toBeNull(); // the header already says "find your table"
+    expect(screen.getByTestId('round-card-instruction').querySelectorAll('ol > li')).toHaveLength(3); // every step is always visible
     expect(screen.getByTestId('round-card-my-role').textContent).toBe(`You\u2019re the ${({ owner: 'Clarity Canvas owner', partner: 'peer', observer: 'observer' } as Record<string, string>)[people.find(l => l.startsWith('You'))!.split(": ")[1]]}`);
     // everyone at the table, me first, then the others in role order
     expect(lines()).toEqual([people.find(l => l.startsWith('You'))!, ...people.filter(l => !l.startsWith('You'))]);
@@ -876,108 +876,20 @@ describe('P1529 round screen: the gap after round 2 (End round 2, then the next 
   });
 });
 
-// ── The reading part and the observer's lines (UAT 2026-11-11, items 4, 5, 6 and decision (d)) ───────────────────────
+// ── No positions list on the card ─────────────────────────────────────────────────────────────────────────────
 
-type Pos = { userId: string; position: string };
-function canvasView(args: { points: [string, string][]; positions?: Record<string, Pos[]>; version: string; versions: { name: string; seq: number | null; draft: boolean }[] }) {
-  return {
-    points: args.points.map(([id, statement]) => ({ id, statement })),
-    positions: new Map(Object.entries(args.positions ?? {})),
-    version: args.version,
-    versions: args.versions,
-  };
-}
-const V2 = [{ name: 'v2', seq: 2, draft: false }, { name: 'v1', seq: 1, draft: false }];
-
-describe('P1529 round screen: the reading part', () => {
-  beforeEach(() => {
-    h.setPosition.mockResolvedValue(undefined);
-    h.getCanvas.mockImplementation(async (_o: string, _n: string, _v: string, _t: unknown, version?: string) =>
-      version === 'v1'
-        ? canvasView({ points: [['a', 'Same point']], version: 'v1', versions: V2 })
-        : canvasView({
-          points: [['a', 'Same point'], ['b', 'Rewritten point'], ['c', 'Another rewritten point']],
-          positions: { a: [{ userId: 'p-owner', position: 'agree' }], c: [{ userId: 'p-owner', position: 'unsure' }] },
-          version: 'v2',
-          versions: V2,
-        }));
-  });
-
-  it('a visitor lists every point, one tap writes the canvas\'s own position, with no grey prompt and no "owner hasn\'t taken a position" line', async () => {
-    startedAgo(70);
-    renderCard(PARTNER);
-    const rows = await screen.findAllByTestId('reading-point');
-    expect(rows.map(r => r.textContent)).toEqual([expect.stringContaining('Same point'), expect.stringContaining('Rewritten point'), expect.stringContaining('Another rewritten point')]);
-    expect(screen.queryByTestId('reading-no-owner-position')).toBeNull(); // the line is gone
-    expect(screen.queryByText(/first impression|hasn.t taken a position/)).toBeNull();
-    expect(screen.queryByText(/agree with all/i)).toBeNull();
-    fireEvent.click(rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement);
-    await waitFor(() => expect(h.setPosition).toHaveBeenCalledWith('p-owner', 'launch_plan', 'b', 'agree'));
-    await waitFor(() => expect((rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true'));
-    expect(screen.getByTestId('round-canvas-link')).toBeTruthy();
-  });
-
-  it('the owner lists only the points changed since their previous version that they hold no position on', async () => {
-    startedAgo(70);
-    renderCard(OWNER);
-    const rows = await screen.findAllByTestId('reading-point');
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.textContent).toContain('Rewritten point');
-    expect(screen.queryByTestId('reading-no-owner-position')).toBeNull();
-  });
-
-  it('the owner with nothing changed gets the one reading line in the box and no list', async () => {
-    startedAgo(70);
-    h.getCanvas.mockImplementation(async () => canvasView({ points: [['a', 'Same point']], version: 'v1', versions: [{ name: 'v1', seq: 1, draft: false }] }));
-    renderCard(OWNER);
-    expect((await screen.findByTestId('round-card-instruction')).textContent).toBe('Check your canvas: set your position on every point if not already.');
-    expect(screen.queryByTestId('reading-owner-nothing')).toBeNull();
-    expect(screen.queryByTestId('reading-list')).toBeNull();
-  });
-
-  it('there is no list outside the reading part, and nothing is read then', async () => {
-    startedAgo(30);
-    renderCard(PARTNER);
-    await screen.findByTestId('round-card-table');
-    startedAgo(300);
-    renderCard(PARTNER);
-    await screen.findAllByTestId('round-card-table');
-    expect(screen.queryByTestId('reading-list')).toBeNull();
+describe('P1529 round screen: no positions list on the card (UAT 2026-11-13 F4)', () => {
+  it('the owner, a reader and the observer see no list of points and the canvas is not read for one', async () => {
+    for (const who of [OWNER, PARTNER, OBSERVER]) {
+      startedAgo(70);
+      const view = renderCard(who);
+      await screen.findByTestId('round-card-table');
+      expect(screen.queryByTestId('reading-list')).toBeNull();
+      expect(screen.queryByTestId('reading-point')).toBeNull();
+      expect(screen.queryByText(/Agree|Unsure|Disagree/)).toBeNull();
+      view.unmount();
+    }
     expect(h.getCanvas).not.toHaveBeenCalled();
-  });
-
-  it('a round with no reading part (0) never shows the list', async () => {
-    liveRound([round({ startedAt: new Date(Date.now() - 70_000).toISOString(), readingS: 0 })]);
-    renderCard(PARTNER);
-    await screen.findByTestId('round-card-table');
-    expect(screen.queryByTestId('reading-list')).toBeNull();
-  });
-
-  it('two quick taps on one point are saved in order: the second waits for the first (finding 12)', async () => {
-    startedAgo(70);
-    let release: () => void = () => {};
-    h.setPosition.mockImplementationOnce(() => new Promise<void>(r => { release = () => r(); }));
-    renderCard(PARTNER);
-    const rows = await screen.findAllByTestId('reading-point');
-    fireEvent.click(rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement);
-    await waitFor(() => expect(h.setPosition).toHaveBeenCalledTimes(1));
-    fireEvent.click(rows[1]?.querySelector('[data-testid="reading-unsure"]') as HTMLElement);
-    await new Promise(r => setTimeout(r, 60));
-    expect(h.setPosition).toHaveBeenCalledTimes(1);
-    release();
-    await waitFor(() => expect(h.setPosition).toHaveBeenCalledTimes(2));
-    expect(h.setPosition).toHaveBeenLastCalledWith('p-owner', 'launch_plan', 'b', 'unsure');
-  });
-
-  it('the chosen position uses the default Button variant, with no hand-typed colour (finding 10)', async () => {
-    startedAgo(70);
-    renderCard(PARTNER);
-    const rows = await screen.findAllByTestId('reading-point');
-    fireEvent.click(rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement);
-    await waitFor(() => expect((rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement).getAttribute('aria-pressed')).toBe('true'));
-    const cls = (rows[1]?.querySelector('[data-testid="reading-agree"]') as HTMLElement).className;
-    expect(cls).toContain('bg-blue-600');
-    expect(cls).not.toContain('bg-blue-500');
   });
 });
 
@@ -1082,54 +994,51 @@ describe('P1529 round screen: review fixes (2026-11-11)', () => {
   });
 });
 
-describe('P1529 round screen: the one instruction per part', () => {
+describe('P1529 round screen: every step of my role, the current part highlighted', () => {
   const Q = (what: string) => `\u201CHow well do you think you understand my ${what}, from 0 to 10?\u201D`;
-  const READ = 'Read Haru\u2019s canvas quietly. Set your position on each point, especially where you disagree.';
+  const ALL = {
+    owner: ['Open your canvas so you see what Erin sees.', `Erin explains your canvas back. Then ask: ${Q('canvas')}`, `At 8 or more, Erin challenges your canvas. They ask you: ${Q('challenge')}`],
+    partner: ['Open Haru\u2019s canvas and go through it point by point. Set your position, especially where you disagree. Out loud is fine.', 'Explain Haru\u2019s canvas back in your own words. Then answer: how well you think you understand their canvas, from 0 to 10.', `At 8 or more, challenge their canvas: explain where and why you disagree with their points. Then ask Haru: ${Q('challenge')}`],
+    observer: ['Open Haru\u2019s canvas.', 'Make sure the listener stays in their role: no disagreeing, no own point of view yet. Keep talking time balanced: no more than 1 minute per person. Ring the bell to remind people of their roles and the time.', 'Observer part: say what they can do better. If you like, say how well you think you understood the canvas, from 0 to 10, and what was unclear.'],
+  };
+  const TALK = 70;
+  const OBS = 360 + 10;
+  const marked = (box: HTMLElement) => Array.from(box.querySelectorAll('ol > li')).map(li => li.getAttribute('aria-current') === 'step');
   it.each([
-    [OBSERVER, 70, [READ]],
-    [OBSERVER, 300, ['Make sure the listener stays in their role: no disagreeing, no own point of view yet. Keep talking time balanced: no more than 1 minute per person. Ring the bell to remind people of their roles and the time.']],
-    [OBSERVER, 60 + 180 + 360 + 10, ['Say what they can do better. If you like, say how well you think you understood the canvas, from 0 to 10, and what was unclear.']],
-    [OWNER, 70, ['Check your canvas: set your position on every point if not already.']],
-    [OWNER, 300, [`Erin explains your canvas back. Then ask: ${Q('canvas')}`, `At 8 or more, Erin challenges your canvas. They ask you: ${Q('challenge')}`]],
-    [PARTNER, 70, [READ]],
-    [PARTNER, 300, ['Explain Haru\u2019s canvas back in your own words. Then answer: how well you think you understand their canvas, from 0 to 10.', `At 8 or more, challenge their canvas: explain where and why you disagree with their points. Then ask Haru: ${Q('challenge')}`]],
-  ])('%#: the role reads its steps for the part now (two numbered steps in Talk for owner and partner)', async (who, secondsAgo, steps) => {
+    [OWNER, 'owner', TALK, [true, true, true]],
+    [OWNER, 'owner', OBS, [false, false, false]],
+    [PARTNER, 'partner', TALK, [true, true, true]],
+    [PARTNER, 'partner', OBS, [false, false, false]],
+    [OBSERVER, 'observer', TALK, [true, true, false]],
+    [OBSERVER, 'observer', OBS, [false, false, true]],
+  ] as const)('%#: the whole numbered list in both parts, the current part\u2019s steps marked', async (who, role, secondsAgo, current) => {
     startedAgo(secondsAgo);
     renderCard(who);
     const box = await screen.findByTestId('round-card-instruction');
-    expect(Array.from(box.querySelectorAll('p, li')).map(e => e.textContent)).toEqual(steps);
-    expect(box.querySelectorAll('ol > li')).toHaveLength(steps.length > 1 ? 2 : 0);
+    expect(Array.from(box.querySelectorAll('ol > li')).map(e => e.textContent)).toEqual(ALL[role]);
+    expect(marked(box)).toEqual([...current]);
   });
 
-  it.each([[OWNER], [PARTNER]])('%#: in the observer\'s part the owner and the partner have no instruction box', async who => {
-    startedAgo(60 + 180 + 360 + 10);
-    renderCard(who);
-    await screen.findByTestId('round-card-my-role');
-    expect(screen.queryByTestId('round-card-instruction')).toBeNull();
-  });
-
-  it('the header is the table (left), the time left (right) and the projector\'s part bar under it; no part word', async () => {
+  it('the header is the table (left), the part and the time left (right) and the projector\'s part bar under it: two segments', async () => {
     startedAgo(70);
     renderCard(OWNER);
     expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
+    expect(screen.getByTestId('round-card-part').textContent).toBe('Talk');
     expect(screen.getByTestId('round-card-time').textContent).toMatch(/^\d+:\d\d$/);
-    expect(screen.getByTestId('round-card-parts').querySelector('ol[aria-label="Round"]')).toBeTruthy();
-    expect(screen.queryByTestId('round-card-part')).toBeNull();
-    expect(screen.getByTestId('round-card-instruction').className).toContain('bg-blue-50');
+    const bar = screen.getByTestId('round-card-parts').querySelector('ol[aria-label="Round"]')!;
+    expect(bar.querySelectorAll('li')).toHaveLength(2);
     expect(screen.getByTestId('round-card-instruction').textContent).not.toContain('\u25B6');
   });
 
-  it('finding the table: the time and the part bar show, no instruction', async () => {
-    startedAgo(20);
+  it('in the observer part the header says Observer', async () => {
+    startedAgo(OBS);
     renderCard(OBSERVER);
-    expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
-    expect(screen.getByTestId('round-card-time').textContent).toMatch(/^\d+:\d\d$/);
-    expect(screen.getByTestId('round-card-parts')).toBeTruthy();
-    expect(screen.queryByTestId('round-card-instruction')).toBeNull();
+    await screen.findByTestId('round-card-table');
+    expect(screen.getByTestId('round-card-part').textContent).toBe('Observer');
   });
 
   it('the canvas is always the primary filled button, centred; none for the observer in their own part', async () => {
-    for (const ago of [70, 300, 60 + 180 + 360 + 10]) {
+    for (const ago of [70, 300, 360 + 10]) {
       startedAgo(ago);
       const view = renderCard(PARTNER);
       const link = await screen.findByTestId('round-canvas-link');
@@ -1137,7 +1046,7 @@ describe('P1529 round screen: the one instruction per part', () => {
       expect(link.closest('[class*="justify-center"]')).toBeTruthy();
       view.unmount();
     }
-    startedAgo(60 + 180 + 360 + 10);
+    startedAgo(360 + 10);
     renderCard(OBSERVER);
     await screen.findByTestId('round-card-my-role');
     expect(screen.queryByTestId('round-canvas-link')).toBeNull();

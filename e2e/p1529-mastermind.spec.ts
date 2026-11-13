@@ -464,15 +464,15 @@ let E1room = '';
 let A6second: { name: string; canvasId: string; versionId: string };
 let A6firstCanvasId = '';
 /**
- * The host's saved settings for an event (read on load, per browser): the mastermind's next-round minutes with the reading part at `readingS`
- * (0 = none, which keeps the walk short; the settings screen's own default is 3 minutes, exercised in AC11). Seeded before the page loads.
+ * The host's saved settings for an event (read on load, per browser): the mastermind's next-round minutes, two parts (Talk 15, Observer 3; no finding-the-table
+ * and no reading part, UAT 2026-11-13 (b)), stamped with the current minutes version. Seeded before the page loads.
  */
-async function seedReading(page: Page, ev: { id: string }, readingS: number): Promise<void> {
-  await page.addInitScript(([key, secs]) => {
-    try { localStorage.setItem(key as string, JSON.stringify({ mastermindMinutes: { seatingS: 120, speakerS: 450, observerS: 180, readingS: secs }, mastermindMinutesV: 3 })); } catch { /* defaults */ }
-  }, [`p1337-host-settings:${ev.id}`, readingS] as const);
+async function seedMinutes(page: Page, ev: { id: string }): Promise<void> {
+  await page.addInitScript((key) => {
+    try { localStorage.setItem(key as string, JSON.stringify({ mastermindMinutes: { seatingS: 0, speakerS: 450, observerS: 180, readingS: 0 }, mastermindMinutesV: 4 })); } catch { /* defaults */ }
+  }, `p1337-host-settings:${ev.id}`);
 }
-const hostEvent = async (page: Page, ev: { slug: string; id: string }) => { await seedReading(page, ev, 0); await asUser(page, host, `/events/${ev.slug}/host`); };
+const hostEvent = async (page: Page, ev: { slug: string; id: string }) => { await seedMinutes(page, ev); await asUser(page, host, `/events/${ev.slug}/host`); };
 
 test('SETUP E1: event, registrations through the real RPC, room members, five canvases shared', async () => {
   E1 = await makeEvent(ledger, host.user, `P1529 QA mastermind session 1 ${RUN_TAG()}`, { startsInMs: 0 });
@@ -830,7 +830,8 @@ test('WALK1 (round 1): host before round 1, the real preview, round 1 starts; th
     expect(lines[0], 'the owner face is first and says You').toBe('You: owner');
     expect(lines).toContain(`${first(partnerP)} Q.: partner`);
     await expect(pg.getByTestId('round-card-my-role')).toContainText('You\u2019re the Clarity Canvas owner');
-    await expect(pg.getByTestId('round-card-instruction'), 'finding the table (seating): the box is not drawn').toHaveCount(0);
+    await expect(pg.getByTestId('round-card-instruction').locator('ol > li'), 'every step of the owner is always listed').toHaveCount(3);
+    await expect(pg.getByTestId('round-card-part')).toHaveText('Talk');
     await expect(pg.getByTestId('round-canvas-link')).toHaveText('Open your canvas'); // always the primary button // the owner can open their own canvas too
     for (const gone of ['round-card-role', 'round-card-with', 'round-card-rule', 'round-canvas-card-toggle']) await expect(pg.getByTestId(gone)).toHaveCount(0);
     // the selector sits behind "See other canvases"; Open is there for their own canvas and for a chosen one
@@ -1527,24 +1528,23 @@ test('AC6 (five with canvases): one observes each round, rotated; the preview na
 
 test('AC11 (a first canvas after round 1): the ready line, the host\'s ready mark, seated as owner at the next round; a chosen canvas cannot be swapped', async ({ page, browser }) => {
   const { ev: E11 } = await eventWithPeople('P1529 QA late canvas', [A[0], A[1]], [O1, O2]);
-  // The ONE round with a reading part: the host's settings (not seeded here) open at the default of 3 minutes and the host sets 2.
+  // The ONE round that starts from the settings' own defaults (not seeded): two times only, Talk 15 and Observer 3.
   await asUser(page, host, `/events/${E11.slug}/host`);
   await expect(page.getByTestId('mm-people')).toBeVisible({ timeout: 90_000 });
   await page.getByTestId('host-settings').locator('summary').click();
-  await expect(page.getByTestId('host-minutes-readingS')).toHaveText('3 min');
-  await page.getByRole('button', { name: 'Reading: one minute less' }).click();
-  await expect(page.getByTestId('host-minutes-readingS')).toHaveText('2 min');
+  await expect(page.getByTestId('host-minutes-speakerS')).toHaveText('15 min');
+  await expect(page.getByTestId('host-minutes-observerS')).toHaveText('3 min');
+  for (const gone of ['host-minutes-seatingS', 'host-minutes-readingS']) await expect(page.getByTestId(gone)).toHaveCount(0);
   await pressHostPrimary(page);
   await expect(page.getByTestId('host-round-title')).toHaveText('Round 1', { timeout: 60_000 });
   const seats1 = await savedSeats(E11.id);
   note(`E11 ROUND 1: ${tableLine(seats1, 1)}`);
 
-  await ac('7e', 'reading part: set in the host settings and stored with the round; the host strip names it; the observer reads the silent-reading line; a visitor lists the owner\'s points and one tap saves a position; the owner sees the check-your-canvas line and a list of their unset points', async () => {
+  await ac('7e', 'two parts per round: stored with no finding-the-table and no reading part; the host strip names Talk; every role lists all its steps, the current part highlighted; no positions list on the card', async () => {
     const rid = await roundIdByNo(E11.id, 1);
-    expect((await supabaseAdmin.from('event_rounds').select('reading_s').eq('id', rid).single()).data!.reading_s, 'the 2 minutes the host set').toBe(120);
-    // Put the clock inside the reading part (2 minutes of finding the table come first), and keep the part open for the page loads below.
-    await supabaseAdmin.from('event_rounds').update({ reading_s: 900, started_at: new Date(Date.now() - 125_000).toISOString() }).eq('id', rid);
-    await expect(page.getByTestId('host-part')).toContainText('Reading', { timeout: 30_000 });
+    const stored = (await supabaseAdmin.from('event_rounds').select('seating_s, reading_s').eq('id', rid).single()).data!;
+    expect([stored.seating_s, stored.reading_s], 'no finding-the-table part and no reading part').toEqual([0, 0]);
+    await expect(page.getByTestId('host-part')).toContainText('Talk', { timeout: 30_000 });
     const table = [...tablesOf(seats1, 1).values()][0];
     const room = async (who: Person) => {
       const ctx = await browser.newContext();
@@ -1553,36 +1553,21 @@ test('AC11 (a first canvas after round 1): the ready line, the host\'s ready mar
       await waitForRoundCard(pg);
       return { ctx, pg };
     };
-    const obs = await room(byProfile(table.observers[0]));
-    // UAT 2026-11-12: one instruction line per role and part replaced the observer-only line
-    await expect(obs.pg.getByTestId('round-card-instruction')).toContainText(`Read ${first(byProfile(table.owner!))}\u2019s canvas quietly. Set your position on each point, especially where you disagree.`, { timeout: 60_000 });
-    await shots(obs.pg, 'round', 'reading-observer');
-    await obs.ctx.close();
-
-    const partnerP = byProfile(table.partner!), ownerP = byProfile(table.owner!);
-    const partner = await room(partnerP);
-    await expect(partner.pg.getByTestId('reading-list')).toBeVisible({ timeout: 90_000 });
-    await expect(partner.pg.getByTestId('round-card-instruction')).toContainText('Set your position on each point, especially where you disagree.');
-    await expect(partner.pg.getByTestId('round-canvas-link')).toBeVisible();
-    const rows = partner.pg.getByTestId('reading-point');
-    expect(await rows.count(), 'the owner\'s canvas points are listed').toBeGreaterThan(0);
-    expect(await partner.pg.getByText(/agree with all/i).count(), 'no agree-with-all').toBe(0);
-    const row = rows.first();
-    const statement = (await row.locator('p').first().innerText()).trim();
-    await shots(partner.pg, 'round', 'reading-partner');
-    await row.getByTestId('reading-agree').click();
-    await expect(row.getByTestId('reading-agree')).toHaveAttribute('aria-pressed', 'true', { timeout: 30_000 });
-    const pt = (await supabaseAdmin.from('points').select('id').eq('first_validator_id', ownerP.user.user.id).eq('statement', statement).limit(1).single()).data!;
-    await expect.poll(async () => (await supabaseAdmin.from('point_positions').select('position').eq('point_id', pt.id).eq('user_id', partnerP.user.user.id).maybeSingle()).data?.position ?? null, { timeout: 30_000 }).toBe('agree');
-    await partner.ctx.close();
-
-    const owner = await room(ownerP);
-    await expect(owner.pg.getByTestId('round-card-instruction')).toContainText('Check your canvas: set your position on every point if not already.', { timeout: 90_000 });
-    await expect(owner.pg.getByTestId('reading-owner-nothing')).toHaveCount(0);
-    await expect(owner.pg.getByTestId('reading-list'), 'the owner has points with no position of their own').toBeVisible({ timeout: 60_000 });
-    expect(await owner.pg.getByTestId('reading-point').count(), 'their unset points are listed').toBeGreaterThan(0);
-    await owner.ctx.close();
-    return `reading_s 120 stored; observer instruction shown; ${statement.slice(0, 40)}... saved as "agree" through the canvas's own position write; owner sees the check-your-canvas line and the list of their unset points`;
+    const steps = async (who: Person) => {
+      const r = await room(who);
+      const box = r.pg.getByTestId('round-card-instruction');
+      await expect(box.locator('ol > li')).toHaveCount(3, { timeout: 60_000 });
+      const current = await box.locator('ol > li[aria-current="step"]').count();
+      await expect(r.pg.getByTestId('reading-list'), 'positions are set on the canvas, not on the card').toHaveCount(0);
+      await shots(r.pg, 'round', 'two-parts');
+      await r.ctx.close();
+      return current;
+    };
+    const obs = await steps(byProfile(table.observers[0]));
+    const partner = await steps(byProfile(table.partner!));
+    const owner = await steps(byProfile(table.owner!));
+    expect([obs, partner, owner], 'Talk highlights the observer\'s steps 1 and 2 and the owner\'s and the peer\'s steps 1 to 3').toEqual([2, 3, 3]);
+    return 'seating_s 0 and reading_s 0 stored; host strip says Talk; every role lists 3 steps, the current ones highlighted; no positions list';
   }, page);
 
   const pub = await publishCanvas(ledger, O1, 'Gus first canvas');

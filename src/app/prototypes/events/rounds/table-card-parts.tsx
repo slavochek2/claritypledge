@@ -9,19 +9,24 @@ import { Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { PersonAvatar } from '@/components/ui/person-avatar';
-import { formatClock, type RoundClock, type RoundTiming } from '@/lib/round-clock';
+import { formatClock, type RoundClock, type RoundPhase, type RoundTiming } from '@/lib/round-clock';
+import { SCREEN_PART_NAME } from './mastermind-host-helpers';
+import { partLeftMs } from './screen-time-left';
 import { PhaseStrip } from './host-screen-parts';
 import type { PersonRef, EventRoomMember } from '@/app/types';
 import type { RoundSeat } from '@/app/data/event-rounds-service';
-import { MISSING_NAME, ROLE_EXPLAINER, ROLE_WORD, tableFaces, type MastermindRole } from './mastermind-round-helpers';
+import { MISSING_NAME, ROLE_EXPLAINER, ROLE_WORD, tableFaces, type MastermindRole, type RoleStep } from './mastermind-round-helpers';
 
 /** Table name large on the left, the time left on the right; under them the projector's own part bar (no labels). */
 export function TableStatus({ table, clock, timing, hasObserver }: { table: number; clock: RoundClock | null; timing: RoundTiming; hasObserver: boolean }) {
   return (
     <div data-testid="round-card-status">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-3xl font-semibold" data-testid="round-card-table">Table {table}</h2>
-        {clock && <p className="text-3xl font-semibold tabular-nums" data-testid="round-card-time">{clock.phase === 'over' ? 'Time\u2019s up' : formatClock(clock.phaseRemainingMs)}</p>}
+        <div>
+          <h2 className="text-3xl font-semibold" data-testid="round-card-table">Table {table}</h2>
+          {clock && clock.phase !== 'over' && <p className="text-base font-medium text-muted-foreground" data-testid="round-card-part">{SCREEN_PART_NAME[clock.phase as Exclude<RoundPhase, 'over'>]}</p>}
+        </div>
+        {clock && <p className="text-3xl font-semibold tabular-nums" data-testid="round-card-time">{clock.phase === 'over' ? 'Time\u2019s up' : formatClock(partLeftMs(clock, timing))}</p>}
       </div>
       {clock && <div className="mt-2" data-testid="round-card-parts"><PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} noLabels /></div>}
     </div>
@@ -56,13 +61,22 @@ export function MyRole({ role }: { role: MastermindRole }) {
   );
 }
 
-/** The blue instruction box: one plain line, or numbered steps. */
-export function InstructionBox({ steps }: { steps: string[] }) {
+/** Every step of my role as a numbered list; the steps of the current part are highlighted (blue, aria-current). */
+export function InstructionBox({ steps }: { steps: RoleStep[] }) {
   return (
-    <div className="mt-3 rounded-lg bg-blue-50 p-3 text-base font-medium" data-testid="round-card-instruction">
-      {steps.length > 1
-        ? <ol className="list-decimal space-y-2 pl-5">{steps.map(t => <li key={t}>{t}</li>)}</ol>
-        : <p>{steps[0]}</p>}
+    <div className="mt-3 rounded-lg border border-blue-100 p-3 text-base" data-testid="round-card-instruction">
+      <ol className="list-decimal space-y-2 pl-5 marker:font-semibold">
+        {steps.map(st => (
+          <li
+            key={st.text}
+            aria-current={st.current ? 'step' : undefined}
+            data-current={st.current ? 'true' : 'false'}
+            className={st.current ? 'rounded-md bg-blue-50 px-2 py-1 font-medium text-blue-900 ring-1 ring-blue-200' : 'px-2 py-1 text-muted-foreground'}
+          >
+            {st.text}
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

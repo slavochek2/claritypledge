@@ -1,8 +1,8 @@
 /**
  * @file MastermindRoundCard.tsx
  * @description P1529 §5 (D1, D3, D5, D19; redesigned UAT 2026-11-11): the sales mastermind's round screen. A seated person sees the header
- * (table, time left, part of the round), their own role (with an (i) popover), everyone at the table, ONE instruction
- * for their role in the current part, and the table's canvas as one primary button ("See other canvases" is a
+ * (table, time left, part of the round), their own role (with an (i) popover), everyone at the table, every numbered step
+ * of their role (the current part's steps highlighted), and the table's canvas as one primary button ("See other canvases" is a
  * centred link that lists the other shared canvases, each its own link; it never changes the button or seating). It asks for nothing: no confirm, no half-time swap, no sliders. The two
  * contracts the room page depends on are kept from RoundCard: it owns the round poll, and it reports the moment upward.
  * Two differences in the moment, on purpose: `atTable` is never true (there is no "we're seated" tap, and no statement
@@ -22,10 +22,8 @@ import { roundClock, roundTiming } from '@/lib/round-clock';
 import { firstName, roundsPolling, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { useEventCanvasChoices, useOwnerUpdate, useRoundCanvas, useRoundsGap } from './use-mastermind-round';
 import { offerCards } from './mastermind-offer-cards';
-import { MISSING_NAME, NO_CANVAS_OWNER_LINE, NO_CANVAS_TABLE_LINE, canvasOffer, instructionLine, mastermindTable } from './mastermind-round-helpers';
+import { MISSING_NAME, canvasOffer, mastermindTable, roleSteps } from './mastermind-round-helpers';
 import { buildFaces, CanvasOpen, InstructionBox, MyRole, OtherCanvases, TablePeople, TableStatus } from './table-card-parts';
-import { useReadingPoints } from './use-reading-points';
-import { MastermindReadingList } from './MastermindReadingList';
 import { MastermindWaiting } from './MastermindWaiting';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 
@@ -85,19 +83,11 @@ export function MastermindRoundCard({
   const choices = useEventCanvasChoices(eventId, seated, round?.id ?? null);
   const navigate = useNavigate();
 
-  // The part of the round now, from the round's own clock (the same one the host and the projector read): the reading part lists points.
+  // The part of the round now, from the round's own clock (the same one the host and the projector read).
   const tableHasObserver = !!round && !!mine && (state.seatsByRound.get(round.id) ?? []).some(s => s.table === mine.table && s.role === 'observer');
   const now = useNow(seated);
   const clock = round && seated ? roundClock(round.startedAt, now, tableHasObserver, roundTiming(round)) : null;
   const phase = clock?.phase ?? null;
-  const reading = useReadingPoints({
-    enabled: phase === 'reading' && !!canvas?.shared,
-    ownerId: canvas?.ownerProfileId ?? null,
-    name: canvas?.canvasName ?? null,
-    viewerId: self?.profileId ?? null,
-    isOwner,
-    roundId: round?.id ?? null,
-  });
 
   if (!self) return null;
 
@@ -133,8 +123,7 @@ export function MastermindRoundCard({
   const first = (role: 'first' | 'second' | 'observer') => firstName(roster.find(m => m.id === tableSeats.find(s => s.role === role)?.id)?.displayName ?? '') || MISSING_NAME;
   const faces = buildFaces(tableSeats, mine.id, roster, name);
   const names = { owner: first('first'), partner: first('second') };
-  const noCanvasPart = noCanvas && phase !== 'seating' && phase !== 'over' && phase !== 'observer';
-  const steps = !phase ? null : noCanvasPart ? [isOwner ? NO_CANVAS_OWNER_LINE : NO_CANVAS_TABLE_LINE] : instructionLine(table.role, phase, names);
+  const steps = roleSteps(table.role, phase ?? 'over', names, noCanvas);
   // Every other canvas shared with the event. A failed read leaves none: the table's canvas alone, no chooser.
   const others = choices.failed || !tableOwnerId ? [] : choices.list.filter(c => c.ownerId !== tableOwnerId);
   const tableLink = canvas?.shared && canvas.canvasName ? canvasPageHref(canvas.ownerSlug, canvas.canvasName) : null;
@@ -149,9 +138,7 @@ export function MastermindRoundCard({
         <TableStatus table={mine.table} clock={clock} timing={roundTiming(round)} hasObserver={tableHasObserver} />
         {!table.owner && <p className="mt-2 text-base font-medium break-words" data-testid="round-card-setup">The host is still setting up your table</p>}
         <MyRole role={table.role} />
-        {steps && <InstructionBox steps={steps} />}
-
-        {phase === 'reading' && canvas?.shared && <MastermindReadingList reading={reading} />}
+        <InstructionBox steps={steps} />
         <TablePeople faces={faces} />
 
         {table.owner && (unshared

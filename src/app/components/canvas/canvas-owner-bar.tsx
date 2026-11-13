@@ -51,7 +51,8 @@ export function CanvasOwnerBar({ ready, handle, projectTag, title, canRename, on
   onPick: (version: string) => void;
   /** a share, unshare or access change was confirmed: read the canvas again */
   onChanged: () => void;
-  onBack: () => void;
+  /** Absent when the banner above the bar carries the page's only back (a canvas opened from an event). */
+  onBack?: () => void;
   /** The workspace (`?ws=1`) is on: the switcher below 1280px and the Thread button from it exist. */
   active: boolean;
   view: WorkspaceView;

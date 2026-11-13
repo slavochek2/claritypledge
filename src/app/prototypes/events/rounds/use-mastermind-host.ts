@@ -109,12 +109,15 @@ export function useMastermindHost({ eventId, active, screen, rounds, seatsByRoun
     }
   }, [eventId]);
 
+  // The projector reads the per-person state (for who is transcribing) only while a round runs, at the host screen's own cadence.
+  const roundRunning = rounds.some(r => !r.endedAt);
+  const readState = host && (!screen || roundRunning);
   useEffect(() => {
-    if (!host || screen) return;
+    if (!readState) return;
     // Metered services rule 3: a hidden tab makes no request, and reads once when it is shown again.
     if (visibleNow()) void refreshState();
     return startVisiblePoll(() => void refreshState(), HOST_STATE_POLL_MS);
-  }, [host, screen, refreshState]);
+  }, [readState, refreshState]);
 
   // The session this one continues: read until it answers. A failed read plans without that rule, says so, and tries again.
   useEffect(() => {

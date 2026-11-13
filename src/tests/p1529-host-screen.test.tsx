@@ -394,8 +394,28 @@ describe('seating through the mastermind plan (§4)', () => {
     expect(alert.textContent).toContain('Eva F.');
     const args = h.hostStartRound.mock.calls[0] as unknown[];
     expect(args[2]).toBe(4);
-    expect(args[4]).toEqual({ seatingS: 120, speakerS: 450, observerS: 180, readingS: 180 });
+    expect(args[4]).toEqual({ seatingS: 0, speakerS: 450, observerS: 180, readingS: 0 });
     expect(args[5]).toBe(false);
+  });
+});
+
+describe('the round status names the part (UAT 2026-11-13 F1)', () => {
+  const seats = { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] };
+  it('mastermind: Talk, even for a round saved with a half-time swap; never Speaker 1 or 2', async () => {
+    setRounds([round({ startedAt: ago(30_000), seatingS: 0, splitSpeakers: true })], seats);
+    renderHost({ flow: MM });
+    expect((await screen.findByTestId('host-part')).textContent).toMatch(/^Talk/);
+    expect(screen.getByTestId('host-part').textContent).not.toMatch(/Speaker/);
+  });
+  it('mastermind: Observer in the observer part', async () => {
+    setRounds([round({ startedAt: ago(15 * MIN + 30_000), seatingS: 0 })], { r1: [...seats.r1, seat('r1', 'm-c', 'observer', 1)] });
+    renderHost({ flow: MM });
+    expect((await screen.findByTestId('host-part')).textContent).toMatch(/^Observer/);
+  });
+  it('Clarity Night keeps Speaker 1', async () => {
+    setRounds([round({ startedAt: ago(30_000), seatingS: 0, splitSpeakers: true })], seats);
+    renderHost();
+    expect((await screen.findByTestId('host-part')).textContent).toMatch(/^Speaker 1/);
   });
 });
 
@@ -713,12 +733,12 @@ describe('Clarity Night controls with no meaning here (§4, §7)', () => {
     expect(screen.queryByText('One demo table')).toBeNull();
     expect(screen.queryByTestId('host-choose-recorders')).toBeNull();
     expect(screen.queryByTestId('host-suggest-pair')).toBeNull();
-    // The first part is named as the clock names it.
-    expect(screen.getByText('Finding tables')).toBeTruthy();
-    expect(screen.queryByText('Tables')).toBeNull();
-    // One talk of 15 minutes (stored as 2 x 7.5), 2 to find the table and 3 of observer feedback.
+    // Two parts only (UAT 2026-11-13 F1): no Tables, no Finding tables, no Reading row.
+    for (const gone of ['Finding tables', 'Tables', 'Reading', 'Swap at half time']) expect(screen.queryByText(gone)).toBeNull();
+    expect(screen.queryByTestId('host-minutes-seatingS')).toBeNull();
+    expect(screen.queryByTestId('host-minutes-readingS')).toBeNull();
+    // One talk of 15 minutes (stored as 2 x 7.5) and 3 of observer.
     expect(screen.getByTestId('host-minutes-speakerS').textContent).toBe('15 min');
-    expect(screen.getByTestId('host-minutes-seatingS').textContent).toBe('2 min');
     expect(screen.getByTestId('host-minutes-observerS').textContent).toBe('3 min');
     expect(screen.getByText('Talk')).toBeTruthy();
   });
