@@ -6,14 +6,16 @@
  *   - `landing_page_viewed` (variant "build-right-thing", referrer from the query), once on load;
  *   - `alignment_audit_cta_clicked` on each discovery-call CTA. `location` keeps the value the old
  *     layout sent, the CTA size "hero", for both CTAs, so the funnel's history stays comparable;
- *   - the invite redirects: ?referrer= goes to /sign-pledge, otherwise ?login= goes to /login;
+ *   - the invite redirects (shared useInviteRedirects): ?referrer= goes to /sign-pledge, otherwise
+ *     ?login= goes to /login, replacing the invite entry in history;
  *   - SEO: indexed, url "/".
  *
  * Hero copy (eyebrow, H1, sub-line) is LOCKED by the P1004 UI Contract and lives verbatim in
  * builders-fable.tsx.
  */
 import { useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
+import { useInviteRedirects } from "@/app/hooks/useInviteRedirects";
 import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 import { BuildersFable } from "@/app/components/landing/fable/builders-fable";
@@ -26,7 +28,6 @@ const TRACKING: FableTracking = {
 
 export function BuildRightThingLanding() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
 
   useEffect(() => {
     analytics.track("landing_page_viewed", {
@@ -35,14 +36,9 @@ export function BuildRightThingLanding() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  // Keeps existing pledge-invite links working (carried over from program-page).
-  useEffect(() => {
-    if (searchParams.get("referrer")) {
-      navigate("/sign-pledge");
-    } else if (searchParams.get("login")) {
-      navigate("/login");
-    }
-  }, [searchParams, navigate]);
+  // Keeps existing pledge-invite links working (carried over from program-page); replaces the
+  // invite entry so Back does not bounce through it (P1680).
+  useInviteRedirects();
 
   return (
     <BuildersFable
