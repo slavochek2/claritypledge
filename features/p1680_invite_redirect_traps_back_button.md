@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 337
 severity: medium
@@ -10,14 +10,17 @@ exec_model: sonnet
 exec_effort: medium
 tags: [navigation, landing, invite, history]
 disclosure: public
-delivery_stage: reproduce
-pipeline_ran: [create-bug, reproduce]
+date_resolved: 2026-11-13
+root_cause: "Invite redirect used a push navigation, so the invite URL stayed one entry back and Back re-mounted it, re-firing the redirect (and landing_page_viewed)"
+resolution: "useInviteRedirects navigates with { replace: true }; /builders uses the shared hook instead of its inline copy"
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p1680-invite-redirect-history.test.tsx
   root_cause: "Invite redirect uses navigate() push, so the invite URL stays one entry back; Back re-mounts the landing, which redirects again (and re-fires landing_page_viewed)"
   confidence: high
   surfaces_in_scope: [hiring, coach, founder, builders]
-  surfaces_deferred: ["/tree/old-landing (DEV-only, clarity-pledge-landing.tsx) — founder call, not prod-reachable"]
+  surfaces_deferred: [P1681]
   reproduced_at: 2026-11-13
 ---
 
@@ -74,10 +77,25 @@ Back returns to the invite URL, which immediately redirects forward again.
 
 Pass `{ replace: true }` to both navigate calls in the hook. Point `/builders` at the shared hook instead of its inline copy (it already calls the view effect first, so ordering is unchanged). Pin the history behaviour in a vitest test with a `MemoryRouter` that has a prior entry: after the redirect, `navigate(-1)` lands on the prior entry, not the invite URL.
 
+## Resolution
+
+`src/app/hooks/useInviteRedirects.ts` navigates with `{ replace: true }`, so the invite entry is replaced by `/sign-pledge` or `/login` and Back goes to whatever came before it. `/builders` (`build-right-thing-landing.tsx`) now calls the shared hook instead of its inline copy, after its view effect as before. The DEV-only `/tree/old-landing` copy is filed as P1681.
+
+In development, StrictMode runs the redirect effect twice. With the old push, that left two `/sign-pledge` entries; with replace, it is idempotent.
+
+**Evidence**
+
+- **Canary** (`src/tests/p1680-invite-redirect-history.test.tsx`, MemoryRouter `[/prior, invite URL]`) has 20 cases: 5 entry paths (`/hiring`, `/coach`, `/founder`, `/builders`, and `/`, which forwards to `/builders`) × (`?referrer`, `?login`, both, empty).
+  - Before the fix: 12 of 16 failed (the original 16 cases), Back staying on the target.
+  - After: 20 of 20 pass.
+  - Known-bad control (hook reverted to push): 15 of 20 fail, and the 5 empty-value cases pass.
+- **Real Chromium** against the dev server, prior page `/about` then the invite URL then Back. The fixed build returns to `/about` in 10 of 10 cases, with 0 console errors and 0 page errors. An unfixed `main` control never returns to `/about`, in 8 of 8 cases. A cold arrival lands at `history.state.idx=0`, and Back leaves the site.
+- **Full vitest suite:** 1044 files, 13,637 tests passed, 0 failed.
+
 ## Acceptance Criteria
 
-- [ ] From a prior page, opening `/hiring?referrer=x` then pressing Back returns to the prior page (same for `/coach`, `/founder`, `/builders`, and for `?login=1`)
-- [ ] `?referrer` still wins over `?login`; empty values still do not redirect
-- [ ] `landing_page_viewed` still fires once with `referrer` before the redirect on all four pages
-- [ ] Regression test passes: `src/tests/p1680-*.test.tsx`
-- [ ] No console errors during the redirect
+- [x] From a prior page, opening `/hiring?referrer=x` then pressing Back returns to the prior page (same for `/coach`, `/founder`, `/builders`, and for `?login=1`). Covered by the canary and the real-browser probe; `/` is covered too.
+- [x] `?referrer` still wins over `?login`; empty values still do not redirect. Covered by the canary and by the existing p1674 and p1671 suites, which still pass.
+- [x] `landing_page_viewed` still fires once with `referrer` before the redirect on all four pages. The canary asserts exactly one view, with its referrer and variant, already tracked when the target mounts, and no second view after Back. That the view comes before the redirect is effect declaration order in each page's source; the test cannot separate the two.
+- [x] Regression test passes: `src/tests/p1680-invite-redirect-history.test.tsx`
+- [x] No console errors during the redirect. The real-browser probe saw 0 console errors and 0 page errors across 10 cases.
