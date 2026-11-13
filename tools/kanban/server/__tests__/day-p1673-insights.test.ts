@@ -109,6 +109,28 @@ describe('P1673 insight cards in the view', () => {
     expect(stillYours(withI).length).toBe(stillYours(base).length)
   })
 
+  it('an insight is never sent to the agent, answered or not: its text comes from analytics data', () => {
+    const fp = insightIssue(insight('a')).fp
+    const r = withInsights(parsed(synthReport()), [insight('a')])
+    const v = buildView(r, [{ run_id: r.pass_id, at: '2026-10-04T08:00:00Z', kind: 'option', target: fp, option_id: 'own', text: 'Which page?' }])
+    expect(collect(v).count).toBe(collect(viewOf([])).count)
+    expect(collect(v).issues.some((x) => x.issue.fp === fp)).toBe(false)
+    expect(cardState(v.issues.find((i: IssueView) => i.fp === fp) as IssueView).kind).toBe('answered')
+  })
+
+  it('two insights with the same key are one card', () => {
+    const r = withInsights(parsed(synthReport()), [insight('a'), insight('a')])
+    expect(r.issues.filter((i) => i.fp.startsWith(INSIGHT_FP))).toHaveLength(1)
+  })
+
+  it('two insights of one read get two different fingerprints, stable across reads', () => {
+    const a = insightIssue(insight('shift:who:Real visitors:up')).fp
+    const b = insightIssue(insight('shift:who:Real visitors:down')).fp
+    expect(a).not.toBe(b)
+    expect(insightIssue(insight('shift:who:Real visitors:up')).fp).toBe(a)
+    expect(a).toMatch(/^insight:[0-9a-f]{16}$/)
+  })
+
   it('a report with no undecided insight is unchanged', () => {
     const r = parsed(synthReport())
     expect(withInsights(r, [])).toBe(r)
@@ -210,6 +232,15 @@ describe('P1673 routes', () => {
     expect(insightCards(await getRun())).toHaveLength(0)
     // neither choice is a decision line in the run
     expect(await decisionsFile()).toBe('')
+  })
+
+  it('a second decision on the same insight is refused and writes nothing: no double count, no flip', async () => {
+    await seedRuns({ [RUN]: synthReport() })
+    writeRead(dir, read([insight('a')]))
+    expect((await decideWeekly({ key: 'a', decision: 'confirm' })).status).toBe(200)
+    expect((await decideWeekly({ key: 'a', decision: 'confirm' })).status).toBe(409)
+    expect((await decideWeekly({ key: 'a', decision: 'dismiss' })).status).toBe(409)
+    expect((await ledger()).trim().split('\n')).toHaveLength(1)
   })
 
   it('a dismissed insight does not come back; a confirmed one of an older read does', async () => {

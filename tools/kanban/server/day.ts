@@ -25,7 +25,7 @@ import { KANBAN_CONFIG } from '../config'
 import { ackWaitMs, collectionHash, dayClock, dayLauncher, launchWorkdir, sweepLaunchDirs, waitForAck, writePromptFile } from './dayLaunch'
 import { appendDecisionLines, parseLines, readDecisionsText, Refusal } from './dayStore'
 import { ledgerOf, markLine, resendLine } from './dayStories'
-import { analyticsDir, appendLedger, latestRead, latestReadFileDate, ledgerUnreadable, readLedger } from './analyticsStore'
+import { analyticsDir, appendLedger, latestRead, latestReadFileDate, readLedger, readLedgerStrict } from './analyticsStore'
 import {
   buildPrompt,
   buildView,
@@ -178,11 +178,10 @@ function undecidedInsightsNow(): { insights: Insight[]; error: boolean } {
     const dir = analyticsDir()
     const good = latestRead(dir)
     if (!good || good.status !== 'collected' || latestReadFileDate(dir) !== good.date) return { insights: [], error: false }
-    // an unreadable ledger must not bring a dismissed insight back: that is a failed load, not "nothing"
-    if (ledgerUnreadable(dir)) return { insights: [], error: true }
     // a dismiss hides its key for good; a confirm hides only the card of the read it was made on
     const decided = new Set(
-      readLedger(dir)
+      // an unreadable ledger throws here: a failed load, never "nothing" and never a dismissed card again
+      readLedgerStrict(dir)
         .filter((e) => e.decision === 'dismiss' || (e.decision === 'confirm' && (e.at ?? '') >= good.date))
         .map((e) => e.key),
     )
@@ -403,7 +402,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
   })
 
   // The page's own origin only (the same guard as Start fixing), JSON only. The key must be one
-  // the latest read raised: the body never names a path.
+  // the latest read raised and no decision has hidden yet: the body never names a path.
   app.post('/api/day/analytics/decision', (req, res) => {
     if (!dayEnabled()) return res.status(404).json({ error: 'Day page is not enabled' })
     if (!fromBoard(req)) return res.status(403).json({ error: 'Only the Day page can record this' })
@@ -414,7 +413,9 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
     }
     try {
       const dir = analyticsDir()
-      if (!latestRead(dir)?.insights.some((i) => i.key === body.key)) return res.status(409).json({ error: 'Not an insight in the latest read' })
+      // P1673: only an insight still waiting for a decision: a second press, a retry after a lost reply or a stale
+      // second tab must not write a second line (a confirm is counted by the "keep the insights?" criterion)
+      if (!undecidedInsightsNow().insights.some((i) => i.key === body.key)) return res.status(409).json({ error: 'Not an undecided insight in the latest read' })
       appendLedger(dir, body.key, body.decision, now())
       res.json({ success: true })
     } catch {

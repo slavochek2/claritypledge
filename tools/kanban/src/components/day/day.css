@@ -567,3 +567,5 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-under .d-dest { margin-left: auto; font-size: 13px; }
 .d-pass { padding: 4px 0; font-size: 13px; color: var(--fg2); }
 .d-checklist .d-spanel { margin-top: 0; }
+/* P1673: a weekly insight's More info is one line per fact */
+.d-preline { white-space: pre-line; }

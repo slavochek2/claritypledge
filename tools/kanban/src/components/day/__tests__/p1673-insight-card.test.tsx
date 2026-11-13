@@ -68,7 +68,8 @@ describe('an insight in the normal finding card', () => {
     expect(h).toContain('Not a problem')
     expect(h).toContain('Your answer or question')
     // exactly three numbered choices, and the separate insight block is gone
-    expect(h.match(/role="radio"|type="radio"/g)?.length ?? 0).toBeGreaterThanOrEqual(3)
+    const slice = h.slice(h.indexOf('data-insight-tag'), h.indexOf('</article>'))
+    expect(slice.match(/type="radio"/g)).toHaveLength(3)
     expect(h).not.toContain('data-insights')
     expect(h).not.toContain('Dismiss')
     expect(h).not.toContain('Confirm')

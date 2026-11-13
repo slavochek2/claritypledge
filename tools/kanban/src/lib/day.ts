@@ -680,7 +680,7 @@ export interface IssueView extends DayIssue {
    */
   came_back: boolean
   answered_before?: { at: string; option_id: string; label: string }
-  /** index into options of the preselected (recommended) option */
+  /** index into options of the preselected (recommended) option; -1 on a weekly-insight card (P1673): none is recommended, so read it with `?.` */
   recommended_index: number
   /** P1489: the fps of the other cards in this view that share this card's cause, in view order */
   same_cause?: string[]
@@ -1761,12 +1761,14 @@ function toView(issue: DayIssue, report: DayReport, checks: Map<string, DayCheck
   }
 }
 
-/** FNV-1a: a short, stable fingerprint part for an insight key (keys hold spaces; fps may not). */
-const fnv = (s: string): string => {
-  let h = 0x811c9dc5
+/** FNV-1a over a seed: a short, stable hash (insight keys hold spaces; fingerprints may not). */
+const fnv = (s: string, seed = 0x811c9dc5): string => {
+  let h = seed
   for (let k = 0; k < s.length; k++) h = Math.imul(h ^ s.charCodeAt(k), 0x01000193) >>> 0
   return h.toString(16).padStart(8, '0')
 }
+/** Two independent 32-bit rounds: 64 bits, so two insights of one read never share a fingerprint in practice. */
+const insightHash = (key: string) => fnv(key) + fnv(key, 0x9747b28c)
 
 /**
  * P1673: one weekly insight as a normal finding card (Point A / Obstacle / Point B, More info,
@@ -1777,7 +1779,7 @@ export function insightIssue(i: Insight): DayIssue {
   const before = i.seen_count > 0 ? `raised ${i.seen_count} time${i.seen_count === 1 ? '' : 's'} before` : 'first week it is raised'
   const more = [`Base: ${i.base}`, `Comparison: ${i.comparison}`, `Confidence: ${i.confidence}`, ...(i.pattern ? [`Pattern: seen ${i.seen_count} times before`] : [])]
   return {
-    fp: `${INSIGHT_FP}${fnv(i.key)}`,
+    fp: `${INSIGHT_FP}${insightHash(i.key)}`,
     topic: 'Weekly insight',
     title: i.observation,
     point_a: `${i.numbers}, ${before}`,
@@ -1798,7 +1800,8 @@ export function insightIssue(i: Insight): DayIssue {
 export function withInsights(report: DayReport, insights: Insight[]): DayReport {
   if (!insights.length) return report
   const have = new Set(report.issues.map((x) => x.fp))
-  return { ...report, issues: [...insights.map(insightIssue).filter((x) => !have.has(x.fp)), ...report.issues] }
+  const fresh = insights.map(insightIssue).filter((x) => !have.has(x.fp) && have.add(x.fp))
+  return { ...report, issues: [...fresh, ...report.issues] }
 }
 
 const NO_CHECKS = 'run:no-checks'
@@ -2075,7 +2078,8 @@ function sentBefore(sent: ReadonlySet<string>, issue: IssueView, x: { option_id:
 export function collect(view: DayView, alreadySent: ReadonlySet<string> = new Set(), ledger?: StoryEntry[]): Collected {
   const issues = view.issues
     .map((issue) => ({ issue, ...effective(issue) }))
-    .filter((x) => x.option_id !== PARK && (x.written || isAgentWork(x.issue)) && !sentBefore(alreadySent, x.issue, x))
+    // P1673: a weekly insight is never sent: its text comes from analytics data, and Confirm queues no work
+    .filter((x) => !isInsightCard(x.issue) && x.option_id !== PARK && (x.written || isAgentWork(x.issue)) && !sentBefore(alreadySent, x.issue, x))
   // A Fix decision outlives the breakage it answered: send it only while the connection is still broken.
   const broken = new Set(view.connections.filter((c) => connectionBroken(c.state)).map((c) => c.id))
   const connections = Object.values(view.connection_fixes).filter((d) => broken.has(d.target) && !alreadySent.has(sentKey.connection(d.target)))

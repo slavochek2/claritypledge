@@ -33,6 +33,8 @@ const ledger = () => {
   }
 }
 const INSIGHT = 'article[data-issue^="insight:"]'
+// a read left behind would put an insight card first in every later spec (day-page.spec.ts reads recommended_index)
+test.afterEach(() => rmSync(ANALYTICS, { recursive: true, force: true }))
 
 async function openDay(page: Page, routes: Record<string, unknown>, width = 375) {
   await page.setViewportSize({ width, height: 1400 })
@@ -96,7 +98,7 @@ test('report: an undecided insight is a normal finding card, listed first and ta
   await card.getByRole('button', { name: /More info/ }).click()
   await expect(card).toContainText('Base: no earlier weekly read carried this failure')
   await expect(card).toContainText('Confidence: medium')
-  await expect(card.getByRole('link', { name: /linked replay or report/ })).toHaveAttribute('href', 'https://eu.mixpanel.com/project/1')
+  await expect(card.getByRole('link', { name: 'Open the link' })).toHaveAttribute('href', 'https://eu.mixpanel.com/project/1')
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)
 })
@@ -168,4 +170,37 @@ test('report: an unreadable ledger says Insights could not load, never "nothing 
   await openDay(page, {})
   await expect(page.locator('[data-insights-error]')).toHaveText('Insights could not load')
   await expect(page.locator(INSIGHT)).toHaveCount(0)
+})
+
+test('report: a failed save keeps the card with an error, and the same press can be retried', async ({ page }) => {
+  putRead()
+  await openDay(page, {}, 1280)
+  const card = page.locator(INSIGHT)
+  await expect(card).toHaveCount(1)
+  await page.route('**/api/day/analytics/decision', (r) => r.fulfill({ status: 500, json: { error: 'boom' } }))
+  await card.getByText('Real problem').click()
+  await expect(page.getByText(/Not saved/)).toBeVisible()
+  await expect(card).toHaveCount(1)
+  expect(ledger()).toEqual([])
+  await page.unroute('**/api/day/analytics/decision')
+  await card.getByText('Real problem').click()
+  await expect(card).toHaveCount(0)
+  expect(ledger().map((e) => e.decision)).toEqual(['confirm'])
+})
+
+test('report: a double press sends one decision', async ({ page }) => {
+  putRead()
+  await openDay(page, {}, 1280)
+  await expect(page.locator(INSIGHT)).toHaveCount(1)
+  let posts = 0
+  await page.route('**/api/day/analytics/decision', async (r) => {
+    posts++
+    await new Promise((res) => setTimeout(res, 600)) // the first save is still in flight when the second press lands
+    await r.continue()
+  })
+  await page.keyboard.press('1')
+  await page.keyboard.press('1')
+  await expect(page.locator(INSIGHT)).toHaveCount(0)
+  expect(posts).toBe(1)
+  expect(ledger().map((e) => e.decision)).toEqual(['confirm'])
 })

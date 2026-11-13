@@ -62,26 +62,7 @@ export function writeRead(dir: string, read: StoredRead): void {
   chmodSync(join(dir, 'reads', `${read.date}.json`), 0o600)
 }
 
-/**
- * P1673: the ledger exists but cannot be read. readLedger answers [] for that, which would show an
- * insight the founder already dismissed again; the Day page treats it as a failed load instead.
- */
-export function ledgerUnreadable(dir: string): boolean {
-  try {
-    readFileSync(join(dir, 'ledger.jsonl'), 'utf-8')
-    return false
-  } catch (e) {
-    return (e as NodeJS.ErrnoException)?.code !== 'ENOENT'
-  }
-}
-
-export function readLedger(dir: string): LedgerEntry[] {
-  let text: string
-  try {
-    text = readFileSync(join(dir, 'ledger.jsonl'), 'utf-8')
-  } catch {
-    return []
-  }
+function parseLedger(text: string): LedgerEntry[] {
   const out: LedgerEntry[] = []
   for (const line of text.split('\n')) {
     if (!line.trim()) continue
@@ -93,6 +74,28 @@ export function readLedger(dir: string): LedgerEntry[] {
     }
   }
   return out
+}
+
+export function readLedger(dir: string): LedgerEntry[] {
+  try {
+    return parseLedger(readFileSync(join(dir, 'ledger.jsonl'), 'utf-8'))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * P1673: one read that tells a missing ledger (nothing decided yet: []) from one that exists but cannot
+ * be read (throws). readLedger answers [] for both, which would show an insight the founder already
+ * dismissed again; the Day page treats the throw as a failed load instead.
+ */
+export function readLedgerStrict(dir: string): LedgerEntry[] {
+  try {
+    return parseLedger(readFileSync(join(dir, 'ledger.jsonl'), 'utf-8'))
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException)?.code === 'ENOENT') return []
+    throw e
+  }
 }
 
 export function appendLedger(dir: string, key: string, decision: 'confirm' | 'dismiss', at: Date): void {

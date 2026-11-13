@@ -142,7 +142,7 @@ function CardList(p: { issues: IssueView[]; index: number; cardOpen: boolean; se
         done: isDone(states[k]),
         kind: states[k].kind,
         // P1463: a done row's ✓ already says it — the word is only for what is not done
-        word: isDone(states[k]) ? '' : STATE_WORD[states[k].kind],
+        word: isDone(states[k]) ? '' : isInsightCard(i) ? 'Insight' : STATE_WORD[states[k].kind],
         attrs: { 'data-list-card': i.fp, 'data-list-state': states[k].kind },
       }))}
       current={p.cardOpen ? Math.min(p.index, p.issues.length - 1) : -1}
@@ -642,7 +642,7 @@ function IssueCard(p: Props) {
             {detail.more_info && (
               <div>
                 <dt>Details</dt>
-                <dd style={issue.insight_key ? { whiteSpace: 'pre-line' } : undefined}>{detail.more_info}</dd>
+                <dd className={issue.insight_key ? 'd-preline' : undefined}>{detail.more_info}</dd>
               </div>
             )}
             {insightHref && (
@@ -650,7 +650,7 @@ function IssueCard(p: Props) {
                 <dt>Where to look</dt>
                 <dd>
                   <a className="d-link sm d-tap" href={insightHref} target="_blank" rel="noopener noreferrer">
-                    Open the linked replay or report
+                    Open the link
                   </a>
                 </dd>
               </div>

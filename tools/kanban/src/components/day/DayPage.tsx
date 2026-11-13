@@ -329,14 +329,26 @@ export function DayPage() {
    */
   const decideInsight = useCallback(
     async (i: IssueView, optionId: string) => {
-      if (!runId || !i.insight_key || insightInFlight.current.has(i.fp)) return
+      if (!runId || !i.insight_key) return
+      if (insightInFlight.current.has(i.fp)) {
+        // the first press is still being saved: say so instead of silently ignoring this one
+        say('Still saving your first choice')
+        return
+      }
       insightInFlight.current.add(i.fp)
       setChoice((c) => ({ ...c, [i.fp]: optionId }))
       try {
-        await postWeeklyDecision(i.insight_key, optionId === INSIGHT_DISMISS ? 'dismiss' : 'confirm')
+        try {
+          await postWeeklyDecision(i.insight_key, optionId === INSIGHT_DISMISS ? 'dismiss' : 'confirm')
+        } catch (e) {
+          say(`Not saved: ${e instanceof Error && e.message ? e.message : 'Could not save the decision'}`)
+          // a refusal (409) means the card is stale: re-read, so a decided or replaced insight leaves the list
+          if (e instanceof HttpError && e.status === 409) await reload(runId)
+          return
+        }
+        // reload() reports its own failure on the page; a saved decision is never shown as "Not saved"
+        // (a retry would write the same decision into the ledger twice)
         await reload(runId)
-      } catch (e) {
-        say(`Not saved: ${e instanceof Error && e.message ? e.message : 'Could not save the decision'}`)
       } finally {
         insightInFlight.current.delete(i.fp)
         setChoice((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== i.fp)))
@@ -518,7 +530,8 @@ export function DayPage() {
   /** The founder's answer is on the page but not in the file yet: typed text, or a pick still being written. */
   const queuedLocally = useCallback(
     (i: IssueView) => {
-      if (i.decision || isAgentWork(i)) return false
+      // P1673: an insight's answer or in-flight Real problem / Not a problem is never part of what Start fixing sends
+      if (i.decision || isAgentWork(i) || isInsightCard(i)) return false
       const kind = choice[i.fp]
       if (isFree(kind)) return !!(drafts[i.fp] ?? '').trim()
       return kind !== undefined && kind !== PARK
@@ -894,7 +907,7 @@ export function DayPage() {
           {ok && view && (
             <>
               {/* P1468: one layout for the queue — the card or the statement opens inside it */}
-              {tab === 'report' && ok.insightsError && !readOnly && (
+              {tab === 'report' && ok.insightsError && (
                 <div className="d-note" role="alert" data-insights-error>
                   Insights could not load
                 </div>
