@@ -1,12 +1,11 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 335
 workstream: website
 created_date: '2026-11-13'
 tags: [landing, design, use-cases]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: heuristic
 spec_review_hash: 0ba63ee546f7a11742243c5ffe52784bc338bec96d763091744c8635784ec5ca
 spec_review_vendors: [codex, gemini]
+completed_at: 2026-11-13
 ---
 
 # P1674: The remaining use-case pages move to the fable style
