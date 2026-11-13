@@ -144,6 +144,14 @@ export type WeeklyReadPayload =
 
 export const getWeeklyRead = () => fetch('/api/day/analytics').then((r) => json<WeeklyReadPayload>(r))
 
+/** P1669: the public Mixpanel boards. `invalid` holds variable names only, never values. */
+export interface BoardsPayload {
+  boards: { key: string; label: string; url: string }[]
+  invalid: string[]
+}
+
+export const getMixpanelBoards = () => fetch('/api/day/mixpanel-boards').then((r) => json<BoardsPayload>(r))
+
 export const postWeeklyDecision = (key: string, decision: 'confirm' | 'dismiss') =>
   fetch('/api/day/analytics/decision', {
     method: 'POST',

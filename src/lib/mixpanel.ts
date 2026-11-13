@@ -6,6 +6,7 @@
 // ALL tracked events are automatically captured for ML training (future-proof).
 
 import type { SessionEventsCollector } from './session-events-collector';
+import { readFirstTouchUtm } from './utm';
 
 declare global {
   interface Window {
@@ -14,10 +15,14 @@ declare global {
       identify: (userId: string) => void;
       people: {
         set: (properties: Record<string, unknown>) => void;
+        set_once?: (properties: Record<string, unknown>) => void;
       };
       reset: () => void;
+      register?: (properties: Record<string, unknown>, options?: Record<string, unknown>) => void;
       stop_session_recording?: () => void;
     };
+    /** P1669: set by index.html on the first real input of this page load. */
+    __p1669Interacted?: boolean;
   }
 }
 
@@ -125,6 +130,36 @@ export async function isInternalAccount(
   return internalEmailHashAllowlist().has(hash);
 }
 
+/**
+ * P1669: a new account carries the first channel that brought this browser here. `profile_created`
+ * is the one sign-up event (AuthCallbackPage is its only writer), so the rule lives here rather than
+ * at the call site: the first-touch utm_* set rides on the event and is set once on the profile.
+ * Event properties override the SDK's last-touch utm_* super properties.
+ */
+const FIRST_TOUCH_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const;
+
+export function withFirstTouch(event: string, properties?: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (event !== 'profile_created') return properties;
+  const firstTouch = readFirstTouchUtm();
+  if (Object.keys(firstTouch).length === 0) return properties;
+  window.mixpanel?.people.set_once?.(firstTouch);
+  // All five keys together, so the sign-up shows one touch: a key the first touch did not carry is
+  // null, never filled in from a later link's super properties.
+  const oneTouch: Record<string, unknown> = {};
+  for (const key of FIRST_TOUCH_KEYS) oneTouch[key] = firstTouch[key] ?? null;
+  return { ...properties, ...oneTouch };
+}
+
+/**
+ * P1669: sign-out calls mixpanel.reset(). The SDK version read during review (2.85) keeps
+ * page-load-only super properties through it; the snippet loads the latest SDK, so this puts
+ * has_interacted back defensively for a person who already interacted. Idempotent either way.
+ */
+export function restoreInteracted(): void {
+  if (typeof window === 'undefined' || !window.__p1669Interacted) return;
+  window.mixpanel?.register?.({ has_interacted: true }, { persistent: false });
+}
+
 export const analytics = {
   /**
    * Register an ML events collector. While registered, ALL tracked events
@@ -154,7 +189,7 @@ export const analytics = {
 
     if (!isProduction) return;
     if (typeof window !== 'undefined' && window.mixpanel) {
-      window.mixpanel.track(event, properties);
+      window.mixpanel.track(event, withFirstTouch(event, properties));
     }
   },
 
@@ -176,6 +211,7 @@ export const analytics = {
     if (!isProduction) return;
     if (typeof window !== 'undefined' && window.mixpanel) {
       window.mixpanel.reset();
+      restoreInteracted();
     }
   },
 

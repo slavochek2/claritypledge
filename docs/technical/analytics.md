@@ -8,16 +8,22 @@ This document catalogs all Mixpanel events tracked in the Clarity Pledge app.
 
 **Purpose:** Show the founder each week how real people behave, without inventing patterns from small numbers (P1640). `/weekly` step 2.9.0 runs a fixed list of queries through the Mixpanel MCP. The result is stored in `~/.claude-analytics/`, outside the repo, and shown in the Analytics tab on the Day page. `/day` only reads it, through the `cp.analytics` check, which reports `problem` when the latest read is not collected or is 8 or more days old.
 
-The tab answers seven questions: who is here, what they do, how much time, who returns, do they explore, do they get stuck, is the practice working. Clean data starts 2026-11-06. No percentage shows on a base under 30. The default line is "No change worth your attention." An insight appears only for a new failure class, a real-user first or stuck session, or a shift beyond `1.96 * sqrt(current + previous)` on a base of at least 30. There are at most 3, and a dismissed one does not return. Sections read "not yet reconciled" until the Supabase reconciliation in P1640's follow-up spec passes.
+The read answers seven questions: who is here, what they do, how much time, who returns, do they explore, do they get stuck, is the practice working. Clean data starts 2026-11-06. No percentage shows on a base under 30. An insight appears only for a new failure class, a real-user first or stuck session, or a shift beyond `1.96 * sqrt(current + previous)` on a base of at least 30. There are at most 3, and a dismissed one does not return. Since P1669 the insights show as cards at the top of the Day page's Report tab, only while one is undecided, with Confirm and Dismiss. The Analytics tab embeds the five Mixpanel boards below instead of the seven sections; the read itself is unchanged.
 
 **Sources:**
 - Mixpanel: behavioral events (sessions, stories, gaps)
 - Supabase prod: account health (total users, verified, unverified, signups this week)
 
-**Dashboards:**
-- Session Value: https://eu.mixpanel.com/project/3968494/view/4464294/app/boards#id=10989894
-- Activation: https://eu.mixpanel.com/project/3968494/view/4464294/app/boards#id=10989933
-- Retention: https://eu.mixpanel.com/project/3968494/view/4464294/app/boards#id=10989955
+**Dashboards (P1669):** built on bot-proof signals (clicks, accounts, RSVPs, practice sessions). Links below need a Mixpanel login. The old Session Value, Activation and Retention boards are deleted.
+- 1 · Pulse: https://eu.mixpanel.com/project/3968494/app/boards#id=11645736
+- 2 · Path to value: https://eu.mixpanel.com/project/3968494/app/boards#id=11645737
+- 3 · Do they come back?: https://eu.mixpanel.com/project/3968494/app/boards#id=11645738
+- 4 · Friction: https://eu.mixpanel.com/project/3968494/app/boards#id=11645741
+- 5 · What do people use?: https://eu.mixpanel.com/project/3968494/app/boards#id=11646127
+
+The Day page's Analytics tab embeds each board's **public** share link (no passcode, readable by anyone holding it). Those links live only in `.env.local` as `MIXPANEL_BOARD_PULSE`, `_PATH`, `_RETURN`, `_FRICTION`, `_USE`, never in a committed file. Public Boards must be enabled in Project Settings (owner only). The boards hold aggregate reports only: never add a person list, a per-user breakdown, or a `utm_*` breakdown below channel level to them.
+
+**Real people (P1669):** count with `is_bot` not set. `index.html` tags known non-human traffic on every event with `is_bot: true` and `bot_reason` (`webdriver`, `headless_ua`, `crawler_ua`, `headless_window`), and does not record it. `headless_window` is a desktop browser with no touch, not in fullscreen or app mode, on a headless default screen size, with no window frame and no taskbar or menu bar, which is what headless Chromium reports. Traffic is tagged, never dropped, so a wrong tag is reversible. `has_interacted: true` is on every event after the first tap, key press, touch move or wheel in that page load (not scroll: the app and scrapers scroll in code). The same hook replaces Clarity Chat conversation, thread and message ids (including the old `/home/c/` links) with `[id]` in every string of an event that points at a chat page, including `$current_url` and the SDK's bare query property. Unit fixtures: `src/tests/p1669-bot-tag.test.ts`; wire proof: `e2e/p1669-bot-tag.spec.ts`. A stealth bot with a normal window still gets through; `has_interacted` is the backstop for counting.
 
 **Event audit:** Run /weekly — it includes a subagent that checks for missing events after new features ship.
 
@@ -713,6 +719,9 @@ iOS PWA install instructions were shown to the user.
 
 ## Feed
 
+### `feed_viewed`
+P1669: the feed page (`/feed`) was opened. No properties.
+
 ### `feed_tag_filtered`
 User clicked a tag in the tag cloud to filter the feed.
 
@@ -969,7 +978,32 @@ Visitor clicked the "Events" nav link, which routes to `/org/cm` (`EVENTS_NAV_TO
 |----------|------|-------------|
 | `source` | string | `bottom_nav` (mobile bottom nav), `desktop_top_nav` (logged-in desktop icon nav row, `simple-navigation.tsx`), `desktop_dropdown` (avatar dropdown menu), `mobile_menu` (hamburger menu), or `footer` |
 
+### `group_viewed`
+P1669: a group page (`/groups/:slug`) showed a group. A completed join is `org_joined` above.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `org_slug` | string | Organization slug |
+
 **Discrepancy from the originating audit:** the audit's assumed `source` values were `bottom_nav/desktop_dropdown/mobile_menu/footer`. A fifth real call site exists — the logged-in desktop icon nav row in `simple-navigation.tsx` (`StaticNavLinks`) — which doesn't match any of those four; it's tracked as `desktop_top_nav`.
+
+---
+
+## Page views and visit length (P1669)
+
+Named view events fire once per view through `useTrackView` (`src/hooks/use-track-view.ts`), which survives StrictMode double mounts and fires again when the slug changes.
+
+| Event | Surface | Properties |
+|---|---|---|
+| `feed_viewed` | `/feed` | none |
+| `group_viewed` | `/groups/:slug` | `org_slug` |
+| `group_join_viewed` | `/groups/:slug/join` (a completed join is `org_joined`) | `org_slug` |
+| `chats_viewed` | `/chats` list | none |
+| `chat_opened` | a conversation in Clarity Chat | none: never a conversation, message or contact id |
+| `event_prepare_viewed` | `/events/:slug/prepare` | `event_slug` |
+| `event_rsvp_confirm_viewed` | `/events/:slug/confirm` | `event_slug` |
+
+**Visit length.** A session is measured from its first to its last event, so a reader who never clicks used to produce a 0-second session. `src/lib/engagement.ts` measures visible time from timestamps and sends `page_engaged` each time the visible time on a page passes another 30 seconds (`seconds_visible`), stopping after 10 minutes per page, and `page_left` (`seconds_visible` plus `page_path`, the page that was left) on an in-app navigation, a hidden tab or closing (by beacon), only when the visible time has grown. Both events carry `view_id`, random per page view, and `seconds_visible` is the running total of that view: a visit's length is the largest `seconds_visible` per `view_id` across both events, never a sum. Up to 3 leaves per view come from hiding the tab (app switching); leaving for another route or closing the page always reports, and a hidden tab sends nothing, even if the route changes behind it. iOS Safari does not always fire `pagehide` on close, so a visit's length may stop at its last heartbeat. The sign-out reset puts `has_interacted` back defensively. A local check every second notices route changes; it makes no request. Tagged bots send neither, except `webdriver` (our own smokes). Volume is budgeted in the P1669 spec's Cost Budget. `page_engaged` and `page_left` go straight to the SDK, so they never enter the live-session ML collector. Named view events go through `analytics.track` like any other event. They fire for the route, before the page loads its data: a slug that does not exist still counts, and chats count only when signed in. Keep the project's session definition timeout-based.
 
 ---
 
@@ -1107,8 +1141,10 @@ capture code. Confirmed live: a tagged pageview against production surfaced as a
 
 | Value | Channel |
 |-------|---------|
-| `whatsapp` | WhatsApp/Telegram DM or group share |
-| `facebook` | Facebook group event post |
+| `whatsapp` | WhatsApp DM or group share |
+| `telegram` | Telegram group share (P1669; before it, Telegram used `whatsapp`) |
+| `messenger` | Facebook Messenger DM (P1669) |
+| `facebook` | Facebook group event post or personal post |
 | `luma` | Luma event listing |
 | `eventbrite` | Eventbrite listing |
 | `email` | Email/newsletter |
@@ -1125,8 +1161,13 @@ capture code. Confirmed live: a tagged pageview against production surfaced as a
 | `event-listing` | Listing on a third-party events platform |
 | `newsletter` | Email send |
 | `calendar-subscribe` | The `/cm` page's "Add this calendar to yours" link |
+| `personal-post` | A post on the founder's own Facebook profile (P1669) |
+
+**Who applies it (P1669):** the event-promotion skills tag every claritypledge.com link they post, per platform (`promote-all.md` § "Channel tag (UTM)"). A series short link forwards the five `utm_*` keys through `api/series-redirect` to the event page; before P1669 that last hop dropped them.
 
 **`utm_campaign`** — the event slug or promo identifier, e.g. `chiang-mai-run-2026-09`.
+
+**First touch on the account (P1669).** The SDK's own UTM super properties are last-touch. `index.html` also keeps the first UTM set a browser ever arrives with (`localStorage` `cp_first_touch_utm`), and `profile_created` carries it as `utm_*` event properties and sets the same keys once on the user profile. Every `utm_*` value, on any event and inside any URL on an event, is cut to letters, digits, `-`, `_` and `.`, at most 64 characters. Limit: a sign-up finished in a different browser from the one that opened the link (a WhatsApp in-app browser, then the email link in Safari) carries no first touch.
 
 **Not the same mechanism as `?referrer=<profile_id>`** (person-to-person sharing, e.g.
 `witness-card.tsx`) — that answers "which person shared this," a separate question from "which

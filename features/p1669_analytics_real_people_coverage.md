@@ -59,10 +59,35 @@ Blast radius: medium. It touches analytics init and track call sites on many pag
 | A bot filter drops real people (e.g. privacy browsers) | MITIGATE | Before ship: unit fixtures for privacy browsers (Brave, Firefox, Safari, DuckDuckGo, Samsung Internet, in-app WhatsApp and Messenger browsers) must classify as human. After ship: any account whose `profile_created` carries `is_bot: true` is a false positive and a fail. A before/after count cannot separate the filter from normal traffic swings |
 | Historical data stays polluted | ACCEPT | Boards already use bot-proof signals; clean data starts at ship |
 | Session settings are project-wide and change old reports | ACCEPT | Old session numbers are meaningless anyway |
+| A real desktop in a frameless, barless window on a headless default screen size is tagged `headless_window` | ACCEPT | Fullscreen and installed-app modes are excluded, and the size must be a headless default (800x600, 1024x768, 1280x720, 1366x768, 1920x1080). A Windows user with an auto-hidden taskbar, or a Linux tiling window manager with no panel, in a frameless window at one of those sizes still matches. Tagged, not dropped, so it is reversible; the `profile_created` check above catches it |
+| A stealth bot with a normal window and user agent | ACCEPT | Not catchable in the browser without fingerprinting; `has_interacted` (real input only, never `scroll`) is the backstop for counting |
+| Route view events fire before the page loads its data | ACCEPT | A group or event slug that does not exist still counts as a view; chats count only when signed in. Shared links point at real pages, so this is rare |
+| `has_interacted` set before the SDK finishes loading | ACCEPT | The SDK applies queued settings before queued events, so events tracked in that first second can carry the flag. Only within the first load |
+| A board embed may be refused by Mixpanel (frame headers on an unknown or unshared token) | MITIGATE | Not testable until real public links exist. The tab says what to check and links each board out |
 
 **Non-Goals**
 - Do NOT rebuild an in-app analytics dashboard.
 - Do NOT change the P1640 weekly read logic, beyond using clean data.
+
+## Cost Budget
+
+Mixpanel is metered (`docs/technical/metered-services.md`, registry row "Mixpanel": Free plan, 1M events per month; Growth: first 1M free, then $0.00028 per event). The heartbeat is a timer (rule 2: no push signal says "still reading"; without it a reader's session has no length). A hidden tab sends nothing (rule 3).
+
+Named inputs, read from the registry row's "Where usage is read" (`Run-Query` on `$all_events` and `$mp_web_page_view`, last 30 days): **P** = page views per month, **V** = visible seconds per page view.
+
+| Measure | Per user (one page view) | Per hour | Per test run |
+|---|---|---|---|
+| `page_engaged` | `floor(min(V, 600) / 30)`, at most `600 / 30 = 20` | `3600 / 30 = 120` for one tab visible all hour on new pages, `20` on one page (cap) | 0: the P1669 e2e harness intercepts every Mixpanel call |
+| `page_left` | at most `MAX_LEAVES = 3` on hides plus 1 on leaving for another route, and only when the visible time has grown | at most 4 per page view | 0 (intercepted) |
+| Named view events | at most 1 (`feed_viewed`, `group_viewed`, `group_join_viewed`, `chats_viewed`, `chat_opened`, `event_prepare_viewed`, `event_rsvp_confirm_viewed`) | at most 1 per page view | 0 (intercepted) |
+| Prod smokes (webdriver, send heartbeats) | pages per smoke run x 1 `page_left` (each page is open under 30 s) | | pages per smoke run x 1 |
+| Tagged bots other than webdriver | 0 heartbeats, 0 `page_left`; their view events and page views were already counted before P1669 | | |
+
+Monthly upper bound added by P1669 = `P x (20 + 4 + 1) = 25P` (every page view open 10 visible minutes, which the 1-second median session says is far from the case).
+
+1. **Fits the plan limit today?** Yes. `25P + current monthly events` is under 1M at the 30-day counts read on 2026-11-12.
+2. **Fits at 10x?** The upper bound does not: `25 x 10P` is over 1M. A realistic `V` (most page views well under 30 visible seconds, so 0 heartbeats) fits.
+3. **If not:** Mixpanel Growth, $0.00028 per event above the first 1M (registry row), or raise the interval to 60 s and halve the heartbeat term.
 
 ## Done-When
 
@@ -71,10 +96,10 @@ Blast radius: medium. It touches analytics init and track call sites on many pag
 - [ ] A test sign-up through a UTM-tagged link shows that `utm_source` on its `profile_created` event and on its user profile
 - [ ] A scripted 60-second visit shows a session of 50 seconds or more in Mixpanel
 - [ ] Each new event appears in Mixpanel Live Events from a real prod visit, and the Path to value board includes them
-- [ ] The promotion skills append UTM parameters to shared event links (one sample link pasted)
-- [ ] Dead-tap replay findings filed (inbox note or spec)
+- [x] The promotion skills append UTM parameters to shared event links (one sample link pasted)
+- [x] Dead-tap replay findings filed (inbox note or spec)
 - [ ] Kanban Analytics tab embeds the five public boards (no passcode; links read from `.env.local` `MIXPANEL_BOARD_*`, never committed); the old insights section is gone and insights appear as `/day` cards. Boards: [Pulse](https://eu.mixpanel.com/project/3968494/app/boards#id=11645736), [Path](https://eu.mixpanel.com/project/3968494/app/boards#id=11645737), [Return](https://eu.mixpanel.com/project/3968494/app/boards#id=11645738), [Friction](https://eu.mixpanel.com/project/3968494/app/boards#id=11645741), [Use](https://eu.mixpanel.com/project/3968494/app/boards#id=11646127)
-- [ ] `docs/technical/analytics.md` points at the new boards; the old empty boards are deleted
+- [x] `docs/technical/analytics.md` points at the new boards; the old empty boards are deleted
 
 ## Related
 

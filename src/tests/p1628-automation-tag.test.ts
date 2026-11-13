@@ -136,7 +136,9 @@ describe('P1628: init wiring', () => {
   }
 
   it('wires p1628BeforeSend as the hook and keeps the recording switch byte-identical', () => {
-    expect(html).toMatch(/hooks:\s*\{\s*before_send_events:\s*p1628BeforeSend\s*\}/);
+    // P1669 composed the hook again: p1669BeforeSend tags bots, and starts by calling p1628BeforeSend.
+    expect(html).toMatch(/hooks:\s*\{\s*before_send_events:\s*p1669BeforeSend\s*\}/);
+    expect(html).toMatch(/function p1669BeforeSend\(item\) \{\s*var redacted = p1628BeforeSend\(item\);/);
     expect(html).toMatch(/record_sessions_percent:\s*p1325NoRecord\s*\?\s*0\s*:\s*100/);
   });
 

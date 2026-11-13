@@ -20,7 +20,7 @@ import { useClearLinkTokensOnAuthChange } from "@/lib/canvas-link-token";
 import { PwaInstallProvider } from "@/hooks/use-pwa-install";
 import { OfflineStatusProvider, useConnectivity } from "@/app/contexts/offline-status-context";
 import { letterCodeRead } from "@/app/data/offline-reads-letters";
-import { OfflinePackPreloader } from "@/app/components/offline/offline-pack-preloader";
+import { AppRouteEffects } from "@/app/components/layout/app-route-effects";
 import { AppUpdatePrompt } from "@/app/components/pwa/app-update-prompt";
 import { readThrough } from "@/lib/offline-read-cache";
 import { NeedsConnection } from "@/app/components/offline/needs-connection";
@@ -357,7 +357,7 @@ export default function ClarityPledgeApp() {
       <RoomCaptureProvider>
       <RoomCaptureBarFallback />
       <ListReturnCacheAuthReset />
-      <OfflinePackPreloader />
+      <AppRouteEffects />
       {/* P1416: a resumed PWA never navigates; offer the new build when one is live. */}
       <AppUpdatePrompt />
       <AgentAccountsProvider>

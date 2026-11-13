@@ -37,7 +37,8 @@ import { MonitoringTab } from './MonitoringTab'
 import { ReflectionTab, BOARD_NOTE, EarlierStoriesOf } from './ReflectionTab'
 import { cycle, DEFAULT_POS, sideOf } from './positions'
 import { StatsTab } from './StatsTab'
-import { WeeklyReadTab } from './WeeklyReadTab'
+import { BoardsTab } from './BoardsTab'
+import { InsightCards } from './InsightCards'
 import './day.css'
 
 type Tab = 'report' | 'stats' | 'analytics' | 'monitoring'
@@ -861,6 +862,7 @@ export function DayPage() {
           {ok && view && (
             <>
               {/* P1468: one layout for the queue — the card or the statement opens inside it */}
+              {tab === 'report' && <InsightCards />}
               {tab === 'report' && (
                 <DailyReport
                   key={ok.id}
@@ -923,7 +925,7 @@ export function DayPage() {
                 />
               )}
               {tab === 'stats' && <StatsTab stats={ok.report.stats} notes={ok.report.notes} goals={ok.report.goals} goal={ok.report.goal} />}
-              {tab === 'analytics' && <WeeklyReadTab />}
+              {tab === 'analytics' && <BoardsTab />}
               {tab === 'monitoring' && (
                 <MonitoringTab report={ok.report} view={view} readOnly={readOnly} quotaHistory={ok.quotaHistory} onRaise={raise} onUndoRaise={undoRaise} />
               )}

@@ -10,6 +10,7 @@ import { shouldSkipFolder, isFeatureFile, VALID_STATUS, VALID_TYPE, VALID_SIZE, 
 import { KANBAN_CONFIG } from '../config'
 import { inboxEnabled, registerInboxRoutes } from './inbox'
 import { dayEnabled, registerDayRoutes } from './day'
+import { registerMixpanelBoardRoutes } from './mixpanelBoards'
 
 const app = express()
 // CORS is an ORIGIN ALLOWLIST, not a wildcard. Restored here after being lost:
@@ -1084,6 +1085,8 @@ registerInboxRoutes(app, DEFAULT_PROJECT_ROOT, (target, res) => openInVSCode(['-
 
 // P1399: the Day page — /day runs and the founder's decisions. Off unless KANBAN_DAY_DIR is set.
 registerDayRoutes(app)
+// P1669: the Analytics tab's five public Mixpanel boards, links read from .env.local per request.
+registerMixpanelBoardRoutes(app)
 
 // GET /api/weekly - read weekly commitment from ~/.claude_weekly_last_run
 app.get('/api/weekly', (_req, res) => {

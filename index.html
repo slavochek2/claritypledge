@@ -192,6 +192,133 @@
           return out;
         }
         /* P1628-END */
+        /* P1669-BEGIN — known non-human traffic is TAGGED is_bot (with bot_reason) on every event, never
+           dropped, and is not recorded (the P1628 smoke opt-in still applies, so the health and CSP smokes
+           keep proving /record). Signals are all readable before the first event:
+             webdriver        navigator.webdriver (P1628's is_automation traffic also carries is_bot)
+             headless_ua      HeadlessChrome / PhantomJS in the user agent
+             crawler_ua       a crawler or HTTP-library user agent
+             headless_window  a desktop browser with no touch, not in fullscreen or app mode, on a headless
+                              default screen size, whose window has no frame (outer = inner) AND whose
+                              screen has no taskbar or menu bar (available = full screen).
+           Measured 2026-11-12: both headless Chromium 156 modes report 1280x720 with outer = inner and
+           available = full, matching the prod bot traffic (Chrome 156, Mac 1280x720 / Windows 1920x1080);
+           a real desktop Chrome also showed outer = inner but available < full (the menu bar), which is why
+           the frame check alone is never enough. Geography is evidence for checking this, never the rule.
+           has_interacted marks events sent after the first tap, key press, touch move or wheel in this page load: a
+           page view flushes within 1s (P881), before anyone has interacted, so it cannot be a bot signal.
+           utm_* values (on any event, including the SDK's own super properties) are cut to a safe set, and
+           the first UTM set ever seen in this browser is kept for sign-up attribution (src/lib/utm.ts). */
+        var p1669Nav = window.navigator || {};
+        var p1669Ua = String(p1669Nav.userAgent || '');
+        var p1669Screen = window.screen || {};
+        function p1669BotReason() {
+          if (p1628Automation) return 'webdriver';
+          if (/headlesschrome|phantomjs/i.test(p1669Ua)) return 'headless_ua';
+          /* "bot" only as a crawler names itself (Googlebot/2.1, GPTBot/1.2, "Bytespider;"), never inside a
+             phone model name (CUBOT P80, "Robot X1"). */
+          if (/(?:bot|crawler|spider)(?:\/|;|\)|$)|slackbot|bingpreview|google-inspectiontool|slurp|scraper|lighthouse|pagespeed|facebookexternalhit|python|curl\/|wget|go-http-client|node-fetch|axios|okhttp|java\//i.test(p1669Ua)) return 'crawler_ua';
+          var touch = (p1669Nav.maxTouchPoints || 0) > 0 || /mobi|android|iphone|ipad|ipod/i.test(p1669Ua);
+          /* A real person in fullscreen (F11, kiosk) or an installed app can show the same frameless,
+             barless shape, so those display modes never count; and the screen must be one of the
+             headless or VM default sizes (prod bots: 1920x1080 and 1280x720). */
+          var fullscreen = false;
+          try {
+            fullscreen = !!(window.matchMedia && (window.matchMedia('(display-mode: fullscreen)').matches || window.matchMedia('(display-mode: standalone)').matches));
+          } catch (e) { fullscreen = true; }
+          var defaultSize = /^(?:800x600|1024x768|1280x720|1366x768|1920x1080)$/.test(p1669Screen.width + 'x' + p1669Screen.height);
+          if (!touch && !fullscreen && defaultSize && p1669Screen.availHeight === p1669Screen.height && p1669Screen.availWidth === p1669Screen.width &&
+              window.outerHeight === window.innerHeight && window.outerWidth === window.innerWidth) return 'headless_window';
+          return '';
+        }
+        var p1669Bot = p1669BotReason();
+        window.__p1669Bot = p1669Bot;
+        p1325NoRecord = p1325NoRecord || (p1669Bot !== '' && window.__p1628KeepRecorderForSmoke !== true);
+        function p1669CleanUtm(value) {
+          return String(value).replace(/[^A-Za-z0-9._-]/g, '').slice(0, 64);
+        }
+        var p1669UtmKeys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+        try {
+          var p1669Query = new URLSearchParams(window.location.search || '');
+          var p1669First = {};
+          var p1669Any = false;
+          for (var p1669i = 0; p1669i < p1669UtmKeys.length; p1669i++) {
+            var p1669Raw = p1669Query.get(p1669UtmKeys[p1669i]);
+            var p1669Val = p1669Raw ? p1669CleanUtm(p1669Raw) : '';
+            if (p1669Val) { p1669First[p1669UtmKeys[p1669i]] = p1669Val; p1669Any = true; }
+          }
+          if (p1669Any && !window.localStorage.getItem('cp_first_touch_utm')) {
+            window.localStorage.setItem('cp_first_touch_utm', JSON.stringify(p1669First));
+          }
+        } catch (e) { /* storage blocked: attribution is best-effort */ }
+        /* A super property, not a hook flag: before_send_events runs when the batch flushes, so a hook
+           flag would also mark events tracked just before the first tap. persistent:false keeps it to
+           this page load (never written to the cookie). */
+        var p1669Interacted = false;
+        function p1669OnInteract() {
+          if (p1669Interacted) return;
+          p1669Interacted = true;
+          /* Read by analytics.reset() (src/lib/mixpanel.ts): sign-out clears super properties. */
+          window.__p1669Interacted = true;
+          if (window.mixpanel && window.mixpanel.register) window.mixpanel.register({ has_interacted: true }, { persistent: false });
+        }
+        if (window.addEventListener) {
+          /* Input a person makes. Not `scroll`: the app scrolls in code (scroll-to-top on every route
+             change), and so do scrapers, so a scroll proves nothing. */
+          var p1669Events = ['pointerdown', 'keydown', 'touchstart', 'touchmove', 'wheel'];
+          for (var p1669j = 0; p1669j < p1669Events.length; p1669j++) {
+            window.addEventListener(p1669Events[p1669j], p1669OnInteract, { once: true, passive: true, capture: true });
+          }
+        }
+        /* Every string on every event, including the SDK's own $current_url: a Clarity Chat conversation,
+           thread or message id (/chats/c/<id>/t/<id>?m=<id>, also percent-encoded inside a login
+           redirect) becomes [id], and a utm_* value inside a URL is cleaned like the property itself. */
+        var p1669ChatConv = /((?:\/|%2F)(?:chats|home)(?:\/|%2F)c(?:\/|%2F))[^/?#&%\s"'<>]+/gi;
+        var p1669ChatThread = /((?:\/|%2F)(?:chats|home)(?:\/|%2F)c(?:\/|%2F)\[id\](?:\/|%2F)t(?:\/|%2F))[^/?#&%\s"'<>]+/gi;
+        /* Decided per EVENT, not per string: the SDK also sends the bare query ("?m=<id>") of a chat page
+           as its own property, which never says "chats" (P1669 review). /home/* is the old chat path. */
+        var p1669ChatPage = /(?:\/|%2F)(?:chats|home)(?:\/|%2F|["?#]|$)/i;
+        var p1669ChatMessage = /((?:[?&;]|%3F|%26)m(?:=|%3D))[^&#%\s"'<>]+/gi;
+        /* The value stops at a raw separator or an encoded one (%26 &, %23 #, %3F ?), so a utm value
+           inside a percent-encoded redirect URL does not swallow the parameters after it. */
+        var p1669UtmInUrl = /((?:[?&#;]|%3F|%26)utm_[a-z]+(?:=|%3D))((?:(?!%26|%23|%3F)[^&#\s"'<>])*)/gi;
+        function p1669ScrubString(text, chatEvent) {
+          var s = text.replace(p1669ChatConv, '$1[id]').replace(p1669ChatThread, '$1[id]');
+          if (chatEvent) s = s.replace(p1669ChatMessage, '$1[id]');
+          return s.replace(p1669UtmInUrl, function (_m, key, raw) {
+            var value = raw;
+            try { value = decodeURIComponent(raw); } catch (e) { /* keep raw */ }
+            return key + p1669CleanUtm(value);
+          });
+        }
+        function p1669Scrub(value, chatEvent) {
+          if (typeof value === 'string') return p1669ScrubString(value, chatEvent);
+          if (Array.isArray(value)) return value.map(function (v) { return p1669Scrub(v, chatEvent); });
+          if (value && typeof value === 'object') {
+            var out = {};
+            for (var key in value) {
+              if (Object.prototype.hasOwnProperty.call(value, key)) out[key] = p1669Scrub(value[key], chatEvent);
+            }
+            return out;
+          }
+          return value;
+        }
+        function p1669BeforeSend(item) {
+          var redacted = p1628BeforeSend(item);
+          var chatEvent = false;
+          try { chatEvent = p1669ChatPage.test(JSON.stringify(redacted)); } catch (e) { chatEvent = true; }
+          var out = p1669Scrub(redacted, chatEvent);
+          if (out && out.properties) {
+            if (p1669Bot) { out.properties.is_bot = true; out.properties.bot_reason = p1669Bot; }
+            for (var key in out.properties) {
+              if (Object.prototype.hasOwnProperty.call(out.properties, key) && /^\$?(?:initial_)?utm_/.test(key) && typeof out.properties[key] === 'string') {
+                out.properties[key] = p1669CleanUtm(out.properties[key]);
+              }
+            }
+          }
+          return out;
+        }
+        /* P1669-END */
 
         mixpanel.init('e6e1f42a455536dd1a4c7df26b5a9e71', {
           autocapture: { pageview: true, formContents: false },
@@ -201,7 +328,7 @@
           // backend error detail. Sentry is the error surface. Canary:
           // src/tests/p1233-mixpanel-no-console-capture.test.ts
           record_console: false,
-          hooks: { before_send_events: p1628BeforeSend },
+          hooks: { before_send_events: p1669BeforeSend },
           api_host: 'https://api-eu.mixpanel.com',
           // P881: default ~5s batch window strands events when the page dies
           // without pagehide (mobile app-switch/OS kill) and the user never
