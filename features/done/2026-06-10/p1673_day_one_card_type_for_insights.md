@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 334
 workstream: tooling
 created_date: '2026-11-13'
 tags: [kanban, day, ux, insights]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -14,6 +13,7 @@ exec_effort: medium
 driver: anomaly
 spec_review_hash: 114fdf3b16035e41512c86ba6e5e397caa11e0438286337c0c9296c07b141cde
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-13
 ---
 
 # P1673: Day page shows weekly insights as normal finding cards (one card type)
