@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 331
 workstream: analytics
 created_date: '2026-11-12'
 tags: [analytics, mixpanel, bots, tracking]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: medium
 driver: anomaly
 spec_review_hash: 059fd04098766feb956453050c3191fb3fecc0504d0e7b223820e7bfaa17d1e6
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-13
 ---
 
 # P1669: Analytics counts bots, hides sources, and misses the pages people use
