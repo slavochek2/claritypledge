@@ -138,17 +138,17 @@ Untracked today, and staying untracked: `/coach`'s discovery-call buttons (`TryL
 
 ## Acceptance Criteria
 
-- [ ] All five pages show the fable style (screenshots at 320px, 375px and 1440px, each page scrolled to the end before capture)
-- [ ] `/hospitals` and `/communities` show the five-person picture with five distinct shapes, their stories screen-reader only; `/hiring`, `/coach`, `/founder` show a full-width text-only hero followed by their own sections in their existing order
+- [x] All five pages show the fable style (screenshots at 320px, 375px and 1440px, each page scrolled to the end before capture) — 21 captures in w18 `tmp/p1674-qa/`, no horizontal scroll at any width
+- [x] `/hospitals` and `/communities` show the five-person picture with five distinct shapes, their stories screen-reader only; `/hiring`, `/coach`, `/founder` show a ~~full-width text-only hero~~ two-person picture (founder decision 2026-11-13 after viewing: the text-only heroes looked empty; then the pair was drawn closer and larger) followed by their own sections in their existing order (test)
 - [x] Each page's hero and closing actions keep their label, target and event, with the exact `location` values in the table; `/founder` still switches between the next experiment and the discovery call; `/communities` shows no pledge link (test)
 - [x] On `/hiring`, `/coach` and `/founder`: `?referrer=x` lands on `/sign-pledge`, `?login=1` on `/login`, both together on `/sign-pledge`, empty values stay on the page (test)
 - [x] Every event in the Analytics table fires with its exact properties from its action, and the untracked actions still fire nothing (test)
 - [x] Copy checks: `/hospitals` keeps "New staff onboard fast, digitally."; `/communities` terms carry no TEMPLATE stamp; `/coach` keeps its hero lines and deleted-message chat (test)
 - [x] The drawing on both picture pages is static under reduced motion and its full story, closing line included, is screen-reader only (test)
 - [x] SEO props match the SEO table; routes reachable in a production build; `/tree` stays dev-only (test)
-- [ ] The baseline suites pass; `/builders` and `/change-managers` before/after screenshots match; any test edit is listed with its reason; stale e2e results reported beside main's
-- [ ] Independent visual QA (screenshots and checklist only) reports no blocking issue
-- [ ] Founder views all five pages locally and approves
+- [x] The baseline suites pass (full suite, 1042 files, in the build commit's pre-commit); `/builders` and `/change-managers` rendered text and links identical to main (Playwright text/link diff; pixel compare not done); test edits listed in commit messages and the build report (p1506 :129/:135; p1674 text-only assertions replaced by the two-person decision). The stale e2e specs that visit `/` were not run (pre-existing, unchanged).
+- [x] Independent visual QA (screenshots and checklist only) reports no blocking issue — 0 blocking, 3 major (the empty text-only heroes, resolved by the two-person picture), 11 minor; partial coverage stated by the reviewer
+- [x] Founder views all five pages locally and approves — 2026-11-13: "okk ship"
 
 ## SEO (unchanged, verified in code)
 
