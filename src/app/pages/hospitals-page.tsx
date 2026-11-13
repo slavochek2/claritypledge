@@ -12,6 +12,7 @@
  * link; the exchange's own view event (HOSPITAL_CAST, the gap exchange's default); the noindex SEO
  * with its OG card.
  */
+import { CountUpPercent } from "@/app/components/landing/count-up-percent";
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { HeartPulseIcon } from "lucide-react";
@@ -25,7 +26,7 @@ import { HOSPITALS_OG } from "@/app/content/hospitals-og";
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { AGREED_HOSPITALS, CHANGE_REASONS, SHELL, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { RISE, STAGGER, VIEWPORT_ONCE } from "@/app/components/landing/fable/fable-motion";
-import { CountUp, Indented, PercentBar, RefSup, Reveal, SectionHeading } from "@/app/components/landing/fable/fable-parts";
+import { Indented, PercentBar, RefSup, Reveal, SectionHeading } from "@/app/components/landing/fable/fable-parts";
 import { CloseSection, ExchangeSection, FableHero, NormSection, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { FablePage } from "@/app/components/landing/fable/fable-use-case";
 import type { FableTracking } from "@/app/components/landing/fable/fable-tracking";
@@ -113,7 +114,7 @@ export function HospitalsPage() {
         nextId="stakes"
         nextLabel="Why it matters"
       />
-      <StakesBand id="stakes" big={<><span className="text-blue-400"><CountUp target={30} /></span>%</>} visual={<PercentBar percent={30} />}>
+      <StakesBand id="stakes" big={<><span className="text-blue-400"><CountUpPercent target={30} unit="" /></span>%</>} visual={<PercentBar percent={30} />}>
         of 23,658 US malpractice cases studied involved a communication failure.
         <RefSup n={1} label={REFERENCES[0]?.label} tone="dark" />
       </StakesBand>

@@ -14,6 +14,7 @@
  * buttons (the value the old layout sent, the button size); `hiring_exchange_viewed` via
  * HIRING_CAST; the invite redirects; SEO. The pledge link stays untracked.
  */
+import { CountUpPercent } from "@/app/components/landing/count-up-percent";
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ShieldCheckIcon } from "lucide-react";
@@ -26,7 +27,7 @@ import { FounderCredibility } from "@/app/components/landing/founder-credibility
 import { KeyHireCalculator } from "@/app/components/stakes/key-hire-calculator";
 import { KEY_HIRE_FAQS } from "@/app/content/faqs";
 import { HIRING_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
-import { CountUp, PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
+import { PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
 import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
 import type { FableTracking } from "@/app/components/landing/fable/fable-tracking";
@@ -89,7 +90,7 @@ function HiringStakes() {
   return (
     <StakesBand
       id="stakes"
-      big={<><span className="text-blue-400"><CountUp target={46} /></span>%</>}
+      big={<><span className="text-blue-400"><CountUpPercent target={46} unit="" /></span>%</>}
       visual={<PercentBar percent={46} />}
       after={<p className="text-lg italic text-white/70">Small understanding gaps compound.</p>}
     >

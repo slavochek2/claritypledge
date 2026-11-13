@@ -6,7 +6,7 @@
  * five distinct shapes, story for screen readers only, static under reduced motion).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, cleanup } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { readFileSync } from 'node:fs';
 import type { EventWithHost } from '@/app/types';
@@ -66,16 +66,18 @@ function renderAt(url: string) {
   );
 }
 const calls = () => track.mock.calls.map((c) => [c[0], c[1]]);
-/** Renders the page, clears the load-time events, clicks one element and returns what that click tracked. */
-function clickOn(url: string, target: () => HTMLElement) {
-  const { unmount } = renderAt(url);
+/** Renders the page afresh (own container, scoped query), clears the load-time events, clicks one element and returns what that click tracked. */
+function clickOn(url: string, target: (scope: ReturnType<typeof within>) => HTMLElement) {
+  cleanup(); // unmount any earlier render so only this page's DOM exists
+  const { unmount, container } = renderAt(url);
   track.mockClear();
-  fireEvent.click(target());
+  fireEvent.click(target(within(container)));
   const tracked = calls();
   unmount();
   return tracked;
 }
 const links = (name: string | RegExp) => screen.getAllByRole('link', { name });
+const scopedLinks = (scope: ReturnType<typeof within>, name: string | RegExp) => scope.getAllByRole('link', { name });
 const h2s = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
 
 beforeEach(() => {
@@ -128,9 +130,9 @@ describe('P1674 /hiring: events and actions', () => {
     for (const a of ctas) expect(a).toHaveAttribute('href', '/intro');
     expect(links('Take the Pledge')).toHaveLength(1);
     expect(links('Take the Pledge')[0]).toHaveAttribute('href', '/sign-pledge');
-    expect(clickOn('/hiring', () => links(CALL)[0]!)).toEqual([['alignment_audit_cta_clicked', { location: 'hero' }]]);
-    expect(clickOn('/hiring', () => links(CALL)[1]!)).toEqual([['alignment_audit_cta_clicked', { location: 'hero' }]]);
-    expect(clickOn('/hiring', () => links('Take the Pledge')[0]!)).toEqual([]);
+    expect(clickOn('/hiring', (s) => scopedLinks(s, CALL)[0]!)).toEqual([['alignment_audit_cta_clicked', { location: 'hero' }]]);
+    expect(clickOn('/hiring', (s) => scopedLinks(s, CALL)[1]!)).toEqual([['alignment_audit_cta_clicked', { location: 'hero' }]]);
+    expect(clickOn('/hiring', (s) => scopedLinks(s, 'Take the Pledge')[0]!)).toEqual([]);
   });
 });
 
@@ -156,8 +158,8 @@ describe('P1674 /coach: events and actions', () => {
     expect(within(book).getByRole('link', { name: CALL })).toBe(ctas[1]);
     expect(within(book).getByRole('link', { name: 'Take the Pledge' })).toBe(pledges[1]);
     for (const i of [0, 1]) {
-      expect(clickOn('/coach', () => links(CALL)[i]!)).toEqual([]);
-      expect(clickOn('/coach', () => links('Take the Pledge')[i]!)).toEqual([]);
+      expect(clickOn('/coach', (s) => scopedLinks(s, CALL)[i]!)).toEqual([]);
+      expect(clickOn('/coach', (s) => scopedLinks(s, 'Take the Pledge')[i]!)).toEqual([]);
     }
   });
 
@@ -181,7 +183,7 @@ describe('P1674 /founder: events and actions', () => {
     for (const a of ctas) expect(a).toHaveAttribute('href', '/intro');
     expect(screen.queryByText(WEBINAR_CTA_LABEL)).toBeNull();
     expect(screen.queryByText(/Live ·/)).toBeNull();
-    for (const i of [0, 1]) expect(clickOn('/founder', () => links(CALL)[i]!)).toEqual([['webinar_cta_clicked', { location: 'hero', has_event: false }]]);
+    for (const i of [0, 1]) expect(clickOn('/founder', (s) => scopedLinks(s, CALL)[i]!)).toEqual([['webinar_cta_clicked', { location: 'hero', has_event: false }]]);
   });
 
   it('with an upcoming event: both buttons are the next experiment, location "hero", has_event true, with the date line', () => {
@@ -192,14 +194,14 @@ describe('P1674 /founder: events and actions', () => {
     for (const a of ctas) expect(a).toHaveAttribute('href', WEBINAR_REGISTER_URL);
     expect(screen.queryByRole('link', { name: CALL })).toBeNull();
     expect(screen.getAllByText(/^Live · /)).toHaveLength(2);
-    for (const i of [0, 1]) expect(clickOn('/founder', () => links(WEBINAR_CTA_LABEL)[i]!)).toEqual([['webinar_cta_clicked', { location: 'hero', has_event: true }]]);
+    for (const i of [0, 1]) expect(clickOn('/founder', (s) => scopedLinks(s, WEBINAR_CTA_LABEL)[i]!)).toEqual([['webinar_cta_clicked', { location: 'hero', has_event: true }]]);
   });
 
   it('the hero pledge link goes to /sign-pledge and sends nothing', () => {
     renderAt('/founder');
     expect(links('Take the Pledge')).toHaveLength(1);
     expect(links('Take the Pledge')[0]).toHaveAttribute('href', '/sign-pledge');
-    expect(clickOn('/founder', () => links('Take the Pledge')[0]!)).toEqual([]);
+    expect(clickOn('/founder', (s) => scopedLinks(s, 'Take the Pledge')[0]!)).toEqual([]);
   });
 
   it('keeps the testimonials\' external links', () => {
@@ -216,9 +218,9 @@ describe('P1674 /hospitals: events and actions', () => {
     expect(calls()).toEqual([['landing_page_viewed', { variant: 'hospitals' }]]);
     expect(links(CALL)).toHaveLength(2);
     unmount();
-    expect(clickOn('/hospitals', () => links(CALL)[0]!)).toEqual([['hospitals_cta_clicked', { location: 'hero' }]]);
-    expect(clickOn('/hospitals', () => links(CALL)[1]!)).toEqual([['hospitals_cta_clicked', { location: 'closing' }]]);
-    expect(clickOn('/hospitals', () => screen.getByRole('link', { name: 'Take the Pledge' }))).toEqual([['hospitals_pledge_clicked', undefined]]);
+    expect(clickOn('/hospitals', (s) => scopedLinks(s, CALL)[0]!)).toEqual([['hospitals_cta_clicked', { location: 'hero' }]]);
+    expect(clickOn('/hospitals', (s) => scopedLinks(s, CALL)[1]!)).toEqual([['hospitals_cta_clicked', { location: 'closing' }]]);
+    expect(clickOn('/hospitals', (s) => s.getByRole('link', { name: 'Take the Pledge' }))).toEqual([['hospitals_pledge_clicked', undefined]]);
   });
 });
 
@@ -233,9 +235,9 @@ describe('P1674 /communities: events and actions', () => {
     expect(screen.queryByRole('link', { name: /Take the Pledge/ })).toBeNull();
     expect(screen.queryByRole('link', { name: CALL })).toBeNull();
     unmount();
-    expect(clickOn('/communities', () => links('Learn how it works')[0]!)).toEqual([['communities_cta_clicked', { location: 'hero' }]]);
-    expect(clickOn('/communities', () => links('Learn how it works')[1]!)).toEqual([['communities_cta_clicked', { location: 'closing' }]]);
-    expect(clickOn('/communities', () => screen.getByRole('link', { name: 'read the manifesto' }))).toEqual([['communities_manifesto_clicked', undefined]]);
+    expect(clickOn('/communities', (s) => scopedLinks(s, 'Learn how it works')[0]!)).toEqual([['communities_cta_clicked', { location: 'hero' }]]);
+    expect(clickOn('/communities', (s) => scopedLinks(s, 'Learn how it works')[1]!)).toEqual([['communities_cta_clicked', { location: 'closing' }]]);
+    expect(clickOn('/communities', (s) => s.getByRole('link', { name: 'read the manifesto' }))).toEqual([['communities_manifesto_clicked', undefined]]);
   });
 });
 
@@ -268,7 +270,7 @@ describe('P1674 the gap exchange on every page: its own view event, once, with n
 
 describe('P1674 the founder talk clip', () => {
   it.each(['/hiring', '/coach', '/founder', '/hospitals'] as const)('%s sends founder_clip_play from the clip', (path) => {
-    expect(clickOn(path, () => screen.getByRole('button', { name: /play the founder talk clip/i }))).toEqual([['founder_clip_play', { location: 'founder_credibility' }]]);
+    expect(clickOn(path, (s) => s.getByRole('button', { name: /play the founder talk clip/i }))).toEqual([['founder_clip_play', { location: 'founder_credibility' }]]);
   });
 });
 

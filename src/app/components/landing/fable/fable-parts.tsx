@@ -3,8 +3,8 @@
  * since P1671). Pure presentation, no data access; CTA analytics come from fable-tracking.ts. The hero example lives in fable-agreed.tsx and the
  * page sections in fable-sections.tsx.
  */
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { animate, motion, useInView, useReducedMotion } from "framer-motion";
+import type { ReactNode } from "react";
+import { motion } from "framer-motion";
 import { CalendarIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RISE, VIEWPORT_ONCE } from "./fable-motion";
@@ -158,23 +158,6 @@ export function DotStat({ value, denom, children }: { value: number; denom: numb
       <p className="col-span-2 sm:col-span-5 text-base sm:text-lg leading-snug text-foreground/75 text-balance">{children}</p>
     </motion.li>
   );
-}
-
-/**
- * A number that counts up from 0 on scroll-in, once. It starts at the real value, so a page whose
- * script never animates still shows the right number; under reduced motion it never moves.
- */
-export function CountUp({ target }: { target: number }) {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true, amount: 0.2 });
-  const [val, setVal] = useState(target);
-  useEffect(() => {
-    if (reduce || !inView) return;
-    const controls = animate(0, target, { duration: 1.1, ease: "easeOut", onUpdate: (v) => setVal(Math.round(v)) });
-    return () => controls.stop();
-  }, [inView, target, reduce]);
-  return <span ref={ref}>{val}</span>;
 }
 
 /** A stakes-band bar filled to a percentage, as on /change-managers. */

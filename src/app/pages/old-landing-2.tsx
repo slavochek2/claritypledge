@@ -14,6 +14,7 @@
  * `founder_exchange_viewed` via FOUNDER_CAST; the invite redirects; SEO. The pledge link stays
  * untracked.
  */
+import { CountUpPercent } from "@/app/components/landing/count-up-percent";
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ShieldCheckIcon } from "lucide-react";
@@ -28,7 +29,7 @@ import { Testimonials } from "@/app/components/landing/offers-section";
 import { PROGRAM_FAQS } from "@/app/content/faqs";
 import type { EventWithHost } from "@/app/types";
 import { FOUNDER_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
-import { CountUp, OrLink, PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
+import { OrLink, PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
 import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, PlainSection, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
 import { WebinarCTA, WebinarDateLine } from "./old-landing-2-webinar";
@@ -148,7 +149,7 @@ export function OldLanding2Page() {
       }
     >
       <FounderHero nextEvent={nextEvent} />
-      <StakesBand id="stakes" big={<><span className="text-blue-400"><CountUp target={65} /></span>%</>} visual={<PercentBar percent={65} />}>
+      <StakesBand id="stakes" big={<><span className="text-blue-400"><CountUpPercent target={65} unit="" /></span>%</>} visual={<PercentBar percent={65} />}>
         of high-potential startups fail from co-founder conflict
         <RefSup n={3} label={WASSERMAN} tone="dark" />
       </StakesBand>
