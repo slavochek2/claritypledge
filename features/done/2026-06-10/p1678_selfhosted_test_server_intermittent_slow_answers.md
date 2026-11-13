@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: comment
 rank: 339
 workstream: infrastructure
 created_date: '2026-11-13'
 tags: [selfhosted, test-env, latency, investigation]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 flow: inline
 drafted_by: opus
@@ -15,6 +14,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 6f512474d68476f15e721222540bd53d77c972d57860b645b68180abdca3a1df
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-13
 ---
 
 # P1678: Why the self-hosted TEST server sometimes takes 3 to 6 s to answer a trivial request
