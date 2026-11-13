@@ -1,7 +1,7 @@
 /**
  * @file use-start-room-capture.ts
  * @description The ONE way a person starts transcribing in an event room: the tap on the room's Transcribe bar and the sales
- * mastermind's "Start your mic" both call it. The tap is the consent (the join records it); `onFailed` runs when the join or the
+ * mastermind's "Start transcribing" both call it. The tap is the consent (the join records it); `onFailed` runs when the join or the
  * microphone did not open, so each caller says it in its own place.
  */
 import { useCallback, useState } from 'react';

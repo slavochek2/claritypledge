@@ -4,7 +4,7 @@
  * flight, a `busy_elsewhere` refusal and the first read after a first Send. `active` is what the Publish spot also reads ("Updating…").
  */
 import type { ReactNode } from 'react';
-import { REVISION_CAP_RUNS, SEND_SLOT_ELSEWHERE, SEND_SLOT_UPDATING } from './canvas-thread-copy';
+import { REVISION_CAP_RUNS, SEND_SLOT_ELSEWHERE, SEND_SLOT_NOT_UPDATED, SEND_SLOT_UPDATING } from './canvas-thread-copy';
 import type { CanvasThread, CanvasThreadStatus } from './use-canvas-thread';
 
 /** What the canvas workspace tells the thread panel it hosts (its presence also says: this is a canvas draft's thread from the first render). */
@@ -41,7 +41,8 @@ export function sendSlotOf(args: { live: CanvasThread | null; uploading: boolean
   const busy = !!live && (live.running || uploading);
   const held = !!holdFirstRead && readStatus === 'loading';
   return {
-    waiting: busy || sendWaiting ? SEND_SLOT_UPDATING : elsewhere ? SEND_SLOT_ELSEWHERE : undefined,
+    // A refused start keeps the draft busy (the database still counts the run) but is not "Updating…".
+    waiting: busy || sendWaiting ? (live?.startRefusal && !sendWaiting ? SEND_SLOT_NOT_UPDATED : SEND_SLOT_UPDATING) : elsewhere ? SEND_SLOT_ELSEWHERE : undefined,
     atCap: !!live && live.draft.state === 'open' && live.draft.runCount >= REVISION_CAP_RUNS,
     active: busy || held || !!runGoing || !!sendWaiting,
   };

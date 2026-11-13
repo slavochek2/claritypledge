@@ -6,6 +6,7 @@
  * Re-exported by canvas-draft-service.ts, which keeps the reads.
  */
 
+import { clearStartRefusal, markStartDone, markStartGoing, recordStartRefusal } from './canvas-start-refusals';
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
 import { throwDbError } from './db-error-logger';
@@ -133,12 +134,17 @@ export async function getCanvasDraftAvailability(): Promise<boolean | null> {
  * calling again after a reload is safe. NOT_READY: a voice note whose transcript is pending (call again when it is done).
  */
 export async function startCanvasRun(runId: string): Promise<RunStart> {
-  const { status, data } = await callCanvasDraft({ run_id: runId });
-  if (status === 200 || status === 202) {
-    const kind = data.kind === 'focus' || data.kind === 'fork_first' ? data.kind : 'message';
-    return typeof data.run_id === 'string' ? { ok: true, runId: data.run_id, kind } : { ok: false, code: 'FAILED' };
+  markStartGoing(runId);
+  const { status, data } = await callCanvasDraft({ run_id: runId }).catch(() => ({ status: 0, data: {} as Row })).finally(() => markStartDone(runId)); // a rejected request is a failed start
+  const accepted = status === 200 || status === 202;
+  if (accepted && typeof data.run_id === 'string') {
+    clearStartRefusal(runId);
+    return { ok: true, runId: data.run_id, kind: data.kind === 'focus' || data.kind === 'fork_first' ? data.kind : 'message' };
   }
-  return { ok: false, code: asCode(data.code, status) };
+  // An answer with no run id is a failure, never a start: said to the person like any other refusal.
+  const code = accepted ? 'FAILED' : asCode(data.code, status);
+  recordStartRefusal(runId, code); // the thread says what happened instead of "Updating…" (canvas-start-refusals; recorded here so every start path is covered)
+  return { ok: false, code };
 }
 
 /**

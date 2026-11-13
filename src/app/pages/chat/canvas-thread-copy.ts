@@ -169,6 +169,8 @@ export function startRefusedText(code: string, inputKind?: string | null): strin
  * The slot reads a status while the next Send must wait (the owner keeps typing), and at the cap the composer gives way to a sentence.
  */
 export const SEND_SLOT_UPDATING = 'Updating…';
+/** P1529: the same slot while the run's start was refused (the draft stays busy until Try again, shown under the message). [FOUNDER DECISION: copy] */
+export const SEND_SLOT_NOT_UPDATED = 'Not updated';
 export const SEND_SLOT_ELSEWHERE = 'Another of your canvases is updating.';
 export const UPLOAD_WAITS_LABEL = 'Upload waits for the update';
 /** D7 / J6 / D15: Undo sits under the mirror's reply of the newest applied run; while an update runs its spot is a status. [FOUNDER DECISION: wording, built as written; the spec quotes "Undo", "Undone." and "Undone".] */

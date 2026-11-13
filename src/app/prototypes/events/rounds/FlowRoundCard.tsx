@@ -6,7 +6,6 @@
  */
 import type { EventRoomMember, EventRoomSelf, EventWithHost } from '@/app/types';
 import { recipeForEvent } from '../series-recipes';
-import { eventCanvasTiming } from './canvas-setup';
 import { MastermindRoundCard } from './MastermindRoundCard';
 import { RoundCard, type RoundMoment } from './RoundCard';
 
@@ -21,7 +20,6 @@ export function FlowRoundCard({
   onMoment,
   onRoundsStarted,
   feedbackSlot,
-  onSetupEnd,
 }: {
   event: EventWithHost;
   self: EventRoomSelf | null;
@@ -33,11 +31,9 @@ export function FlowRoundCard({
   onRoundsStarted?: (started: boolean) => void;
   /** Mastermind only: the Feedback tab's slot after the feedback block (the next-version card goes there). */
   feedbackSlot?: HTMLElement | null;
-  /** Mastermind only: the canvas setup's end from the round card's own rounds read (undefined = not read). */
-  onSetupEnd?: (endsAt: number | null | undefined) => void;
 }) {
   return recipeForEvent(event).mastermind ? (
-    <MastermindRoundCard eventId={event.id} self={self} roster={roster} ended={ended} view={view} onMoment={onMoment} onRoundsStarted={onRoundsStarted} feedbackSlot={feedbackSlot} canvasSetup={eventCanvasTiming(event) === 'at_event' ? onSetupEnd ?? true : undefined} />
+    <MastermindRoundCard eventId={event.id} self={self} roster={roster} ended={ended} view={view} onMoment={onMoment} onRoundsStarted={onRoundsStarted} feedbackSlot={feedbackSlot} />
   ) : (
     <RoundCard
       eventId={event.id}

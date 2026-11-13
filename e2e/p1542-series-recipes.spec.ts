@@ -512,7 +512,7 @@ test.describe('P1542 series recipes', () => {
     await expect(page).toHaveURL(new RegExp(`/events/${futureHike.slug}/meet`), { timeout: 20_000 });
     const backToEvent = page.getByRole('button', { name: 'Back to the event' });
     await expect(backToEvent).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole('button', { name: /^Transcribe$/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Start transcribing$/ })).toHaveCount(0);
     await expect(page.getByText('Not transcribing')).toHaveCount(0);
     await page.getByTestId('room-step-learn').click();
     // Founder 2026-10-26 (item 4): the learning opens inside the room, under the same mounted bar.

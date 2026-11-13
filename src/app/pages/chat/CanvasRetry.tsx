@@ -6,7 +6,7 @@
  */
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { CANVAS_SECONDARY_PILL } from '@/app/components/canvas/canvas-pill-styles';
+import { CanvasPillButton } from './CanvasPillButton';
 import { retryCanvasRun, type CanvasDraft, type CanvasDraftRun } from '@/app/data/canvas-draft-service';
 import { DRAFT_ERROR_TEXT, notRetryableText, startRefusedText } from './canvas-thread-copy';
 import { sendRefusedText } from './use-canvas-actions';
@@ -38,9 +38,7 @@ export function CanvasRetry({ draft, run, reload }: { draft: Pick<CanvasDraft, '
   };
   return (
     <div className="px-4 py-1" data-testid="canvas-retry">
-      <button type="button" className={CANVAS_SECONDARY_PILL} aria-busy={busy} onClick={() => void retry()} data-testid="canvas-retry-button">
-        {TRY_AGAIN_LABEL}
-      </button>
+      <CanvasPillButton label={TRY_AGAIN_LABEL} busyLabel="Trying…" busy={busy} onClick={() => void retry()} testId="canvas-retry-button" />
     </div>
   );
 }

@@ -113,8 +113,9 @@ import { SHOW_PRACTICE_ROOMS } from './practice-rooms-switch';
 import { FlowRoundCard, type RoundMoment } from '../rounds/FlowRoundCard';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
 import { hiddenRoomSteps } from '../rounds/hidden-room-steps';
-import { eventCanvasTiming, useMyCanvasShared, useSetupPhase } from '../rounds/canvas-setup';
+import { eventCanvasTiming, useMyCanvasShared } from '../rounds/canvas-setup';
 import { CanvasSetupPhoneCard } from '../rounds/CanvasSetupParts';
+import { beforeRoundsStep, pickedStep } from '../rounds/room-landing';
 import { useFeedbackFinished } from '../use-feedback-finished';
 import { CloseInRoom } from '../close/CloseInRoom';
 import { RoomCloseView } from './RoomCloseView';
@@ -302,10 +303,8 @@ export function EventRoomMeet() {
   const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false, live: false, waiting: false });
   const seated = moment.seated;
   const [roundsStarted, setRoundsStarted] = useState(false);
-  // P1529 E5: a sales mastermind whose canvas is made at the event has a Canvas tab; the host's setup part lands everyone on it.
+  // P1529 E5: a sales mastermind whose canvas is made at the event has a Canvas tab, open from arrival (no host step).
   const canvasTab = !!event && recipeForEvent(event).mastermind && eventCanvasTiming(event) === 'at_event';
-  const [setupEnd, setSetupEnd] = useState<number | null | undefined>(undefined); // from the round card's own rounds read: no poll here
-  const setupRunning = useSetupPhase(setupEnd, canvasTab && !roundsStarted && granted).phase === 'running';
   // A step behind the current one the person tapped back to; null = follow the evening.
   // P1542 round 5: the learning (shown inside the room's frame) returns here on a named step (its finish: Opt in).
   const [viewingBack, setViewingBack] = useState<RoomStep | null>(() => (location.state as { roomStep?: RoomStep } | null)?.roomStep ?? null);
@@ -451,11 +450,11 @@ export function EventRoomMeet() {
   const currentStep: RoomStep =
     ((isFrozen || moment.eveningOver) && !hiddenSteps.includes('close')) || feedbackAlwaysOpen(event)
       ? 'close'
-      : canvasTab && setupRunning && !moment.seated && !roundsStarted // never back to Canvas once any round exists
-        ? 'canvas'
-        : moment.seated
+      : moment.seated
         ? moment.atTable ? 'compare' : 'table'
-        : step === 'answered' && !writeFailed && roomRecipe.room.rounds ? 'table' : 'principle'; // walkthrough 9: answered → wait at Table (a failed save stays to show it)
+        : step === 'answered' && !writeFailed && roomRecipe.room.rounds
+        ? beforeRoundsStep({ canvasTab, roundsStarted }) // walkthrough 9: answered → wait at Table, or at Canvas when it is made at the event (a failed save stays to show it)
+        : 'principle';
   // A room with no rounds that opened Feedback at the start still opens on the principle and roster (the
   // Close step is one tap away); once the evening is over it opens on Close like every room.
   // P1542 (founder 2026-10-23): the default step (defaultRoomStep). Only a step that is open can be the default.
@@ -480,7 +479,7 @@ export function EventRoomMeet() {
       roomBack.backToReady();
       return;
     }
-    setViewingBack(next === defaultView ? null : next);
+    setViewingBack(pickedStep(next, defaultView));
   };
   // P1542: the card's words come from the series' recipe (Clarity Night's are the default).
   const closeCopy = recipeForEvent(event).roomClose;
@@ -581,7 +580,7 @@ export function EventRoomMeet() {
                   if (!learningRef.current) return;
                   if (learnThenJoin) return openFeedback(true, true);
                   leaveView();
-                  setViewingBack(next === defaultView ? null : next);
+                  setViewingBack(pickedStep(next, defaultView));
                 },
               }}
             />
@@ -643,7 +642,6 @@ export function EventRoomMeet() {
               view={viewing === 'table' || viewing === 'compare' ? viewing : 'hidden'}
               onMoment={setMoment}
               onRoundsStarted={setRoundsStarted}
-              onSetupEnd={setSetupEnd}
               feedbackSlot={viewing === 'close' ? afterFeedbackSlot : null}
             />
           )}

@@ -42,7 +42,7 @@ test.describe('P1307 a11y: the room\'s "Transcribe" (walkthrough 7 — the switc
     const bar = page.getByTestId('room-transcribe-idle');
     await expect(bar).toHaveAttribute('role', 'status');
     await expect(bar).toHaveAttribute('aria-live', 'polite');
-    const start = page.getByRole('button', { name: 'Transcribe' });
+    const start = page.getByRole('button', { name: 'Start transcribing' });
     await expect(start).toBeVisible({ timeout: 10_000 });
     await expect(start).toHaveAccessibleDescription(/posted to your round's thread/i);
   });
@@ -53,7 +53,7 @@ test.describe('P1307 a11y: the room\'s "Transcribe" (walkthrough 7 — the switc
     await page.goto(`/events/${event.slug}/ready`);
     await page.getByRole('button', { name: /continue/i }).click();
 
-    const start = page.getByRole('button', { name: 'Transcribe' });
+    const start = page.getByRole('button', { name: 'Start transcribing' });
     await start.focus();
     await expect(start).toBeFocused();
     await page.keyboard.press('Enter');

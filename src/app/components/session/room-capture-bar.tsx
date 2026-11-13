@@ -15,7 +15,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { ArrowRight, Mic, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import type { SliceDestination } from '@/app/data/transcribe-slice-destination';
-import { EVENT_TEXT_ARRIVES_SHORT, EVENT_TRANSCRIBE_FIRST_SENTENCE, ROUND_UPDATE_CONSENT } from './capture-copy';
+import { EVENT_TEXT_ARRIVES_SHORT, EVENT_TRANSCRIBE_FIRST_SENTENCE, NOT_TRANSCRIBING, ROUND_UPDATE_CONSENT, START_TRANSCRIBING } from './capture-copy';
 import { CaptureChatLink } from './capture-chat-link';
 import { TranscriptReadyWatcher } from './transcript-ready-watcher';
 import { SessionBar } from './session-bar';
@@ -267,7 +267,7 @@ export function RoomCaptureBarFallback() {
  * 7). Once capture runs, this disappears and today's running banner takes its place; outside the
  * event room nothing changes.
  */
-const IDLE_TEXT = 'Not transcribing';
+const IDLE_TEXT = NOT_TRANSCRIBING;
 /** Never breaks: a 320 px phone put "Not" and "transcribing" on two lines beside the button. */
 const idleLabel = <span className="whitespace-nowrap">{IDLE_TEXT}</span>;
 /**
@@ -288,7 +288,7 @@ export function RoomTranscribeIdleBar({
   onFailed: () => void;
   /** P1529 D13: this event's round words feed the owner's next version, so the tap says so. */
   roundUpdates?: boolean;
-  /** Round events: a round is running and I am seated, so "Start your mic" is the filled primary. */
+  /** Round events: a round is running and I am seated, so "Start transcribing" is the filled primary. */
   emphasize?: boolean;
 }) {
   const capture = useRoomCapture();
@@ -311,7 +311,7 @@ export function RoomTranscribeIdleBar({
   const running = VISIBLE_PHASES.has(capture.phase);
   if (offline || busyPhase || capturing || running) return null;
   const primary = {
-    label: starting ? 'Starting…' : roundUpdates ? 'Start your mic' : 'Transcribe',
+    label: starting ? 'Starting…' : START_TRANSCRIBING,
     emphasis: roundUpdates && emphasize,
     description: roundUpdates ? `${EVENT_TRANSCRIBE_FIRST_SENTENCE} ${ROUND_UPDATE_CONSENT} Transcription follows our Terms and Privacy Policy.` : IDLE_DETAIL,
     disabled: starting,
@@ -323,7 +323,7 @@ export function RoomTranscribeIdleBar({
       tone="idle"
       testId="room-transcribe-idle"
       ariaLabel="Room transcription"
-      text={roundUpdates ? <><span className="whitespace-nowrap">Not recording</span> <span className="hidden sm:inline"> &middot; {EVENT_TEXT_ARRIVES_SHORT}</span></> : stopped ? <>{idleLabel}. {EVENT_TEXT_ARRIVES_SHORT}</> : idleLabel}
+      text={roundUpdates ? <>{idleLabel} <span className="hidden sm:inline"> &middot; {EVENT_TEXT_ARRIVES_SHORT}</span></> : stopped ? <>{idleLabel}. {EVENT_TEXT_ARRIVES_SHORT}</> : idleLabel}
       // Walkthrough 9: the same ⓘ as the running bar — what is recorded and where it goes, one tap
       // away before anyone starts, without a line of small print on every page.
       adornment={<CaptureInfoButton forEvent />}

@@ -97,3 +97,10 @@ export const TRANSCRIPT_TITLE = 'Transcript';
 export const TRANSCRIPT_PROCESSING = 'Cleaning up the transcript…';
 /** [FOUNDER DECISION: copy, proposed] A job failed, or ran past its bound. The live text, if any, stays readable. */
 export const TRANSCRIPT_FAILED = "Transcript couldn't be prepared";
+
+/**
+ * P1529 (founder 2026-11-13): ONE wording for starting capture in a round event, and for the idle state beside it. The founder picked
+ * "Start transcribing" over "Start your mic"; "Not transcribing" is the idle text of every transcribe bar.
+ */
+export const START_TRANSCRIBING = 'Start transcribing';
+export const NOT_TRANSCRIBING = 'Not transcribing';

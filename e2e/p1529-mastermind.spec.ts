@@ -1722,7 +1722,7 @@ test('AC13: a Clarity Night event opens as before (room, host screen with half-t
   }, page);
 });
 
-test('AC-CS (canvas made at the event): Start canvas setup, projector, Canvas tab and mirror agent card, observer line, End setup', async ({ page, browser }) => {
+test('AC-CS (canvas made at the event): no host setup step, Canvas tab and mirror agent card from arrival, observer line', async ({ page, browser }) => {
   const CS = await makeEvent(ledger, host.user, `P1529 QA canvas at event ${RUN_TAG()}`, { startsInMs: 0, canvasTiming: 'at_event' });
   const room = await makeTranscribeRoom(ledger, CS);
   stoppers.push(await keepRoomOpen(ledger, host.user, room));
@@ -1734,26 +1734,12 @@ test('AC-CS (canvas made at the event): Start canvas setup, projector, Canvas ta
   for (const p of [...holders, owner, O1]) await joinRoom(ledger, p, CS, { transcribeRoom: room });
   for (const p of holders) expect((await shareForEvent(p, CS.id, 'canvas')).status).toBe('ok');
   await asUser(page, host, `/events/${CS.slug}/host`);
-  await page.evaluate((id) => localStorage.setItem(`p1337-host-settings:${id}`, JSON.stringify({ canvasSetupS: 120 })), CS.id);
-  await page.reload();
-  await ac('CS1', 'host: first primary is "Start canvas setup"; pressing it starts the part (End setup)', async () => {
-    await expect(page.getByTestId('host-primary')).toHaveText('Start canvas setup', { timeout: 90_000 });
-    await page.getByTestId('host-primary').click();
-    await expect(page.getByTestId('host-primary')).toHaveText('End setup', { timeout: 60_000 });
-    await expect(page.getByTestId('host-canvas-setup')).toBeVisible();
-    await shots(page, 'canvas-setup', 'host-running', [1280, 375]);
-    return 'Start canvas setup -> End setup; host status line visible';
+  await ac('CS1', 'host: no canvas setup step; the primary is the round preview', async () => {
+    await expect(page.getByTestId('host-primary')).toHaveText('Preview round 1 tables', { timeout: 90_000 });
+    await expect(page.getByTestId('host-canvas-setup')).toHaveCount(0);
+    return 'primary is Preview round 1 tables; no setup status';
   }, page);
-  await ac('CS2', 'projector shows "Make your Clarity Canvas" with the clock', async () => {
-    const pr = await (await browser.newContext()).newPage();
-    await asUser(pr, host, `/events/${CS.slug}/host?view=screen`);
-    await expect(pr.getByTestId('screen-part')).toHaveText('Make your Clarity Canvas', { timeout: 90_000 });
-    await expect(pr.getByTestId('screen-canvas-setup-clock')).toBeVisible();
-    await shots(pr, 'canvas-setup', 'projector', [1280, 375]);
-    await pr.context().close();
-    return 'screen-part + clock';
-  });
-  await ac('CS3', 'participant room: Canvas tab and "Open your mirror agent" card', async () => {
+  await ac('CS3', 'participant room: lands on Canvas from arrival with the "Open your mirror agent" card', async () => {
     const pg = await (await browser.newContext()).newPage();
     await asUser(pg, owner, `/events/${CS.slug}/meet`);
     await expect(pg.getByTestId('room-step-canvas')).toBeVisible({ timeout: 120_000 });
@@ -1773,11 +1759,6 @@ test('AC-CS (canvas made at the event): Start canvas setup, projector, Canvas ta
     await pg.context().close();
     return 'canvas-setup-observer';
   });
-  await ac('CS5', 'host ends setup; primary becomes "Preview round 1 tables"', async () => {
-    await page.getByTestId('host-primary').click();
-    await expect(page.getByTestId('host-primary')).toHaveText('Preview round 1 tables', { timeout: 60_000 });
-    return 'End setup -> Preview round 1 tables';
-  }, page);
 });
 
 function RUN_TAG(): string { return Math.random().toString(36).slice(2, 6); }

@@ -18,7 +18,6 @@ import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
 import { Avatar, ClockNumber, PhaseStrip, groupByTable, tableSeats, useBell, useClock, useRoundBell, useViewport } from './host-screen-parts';
 import { firstName, shortName } from './use-event-rounds';
 import { SCREEN_PART_CAPTION } from './mastermind-host-helpers';
-import { CanvasSetupScreen } from './CanvasSetupParts';
 
 /** The header: the round name, the time left and the clock on one row, the phase strip full width on a row under it. */
 const MASTERMIND_HEADER = 190;
@@ -29,15 +28,13 @@ const SEAT_ROLE_WORD: Record<Seat['role'], string> = { first: 'Clarity Canvas ow
 
 const SEAT_HEIGHT_WITH_ROLE = 2.7 / 2.1;
 
-export function MastermindScreen({ round, rounds, seats, byId, room, ended, setupLeftMs = null }: {
+export function MastermindScreen({ round, rounds, seats, byId, room, ended }: {
   round: EventRound | null;
   rounds: EventRound[];
   seats: Seat[];
   byId: Map<string, EventRoomMember>;
   room: EventRoomMember[];
   ended: boolean;
-  /** P1529 E5: the "Make your Clarity Canvas" part is running (time left); null otherwise. */
-  setupLeftMs?: number | null;
 }) {
   const clock = useClock(round, seats);
   const hasObserver = seats.some(s => s.role === 'observer');
@@ -127,8 +124,6 @@ export function MastermindScreen({ round, rounds, seats, byId, room, ended, setu
             ))}
           </div>
         </>
-      ) : setupLeftMs !== null ? (
-        <CanvasSetupScreen leftMs={setupLeftMs} />
       ) : (
         <div className="grid min-h-[80vh] place-items-center text-center">
           <div>

@@ -14,6 +14,9 @@ import {
   type CanvasDraftRun,
   isDraftingRunKind,
 } from '@/app/data/canvas-draft-service';
+import { useRefusedStart } from './use-refused-start';
+import { useRunPoll } from './use-run-poll';
+import { startInFlight, startRefusalOf } from '@/app/data/canvas-start-refusals';
 import { emitCanvasDraftEvent, subscribeCanvasDraftEvents } from '@/app/data/canvas-draft-events';
 
 /** How often a going run is re-read (only while the tab is on screen). */
@@ -34,6 +37,8 @@ export interface CanvasThread {
   run: CanvasDraftRun | null;
   /** A run is active: running, or queued, and still inside its server lease (queued 3 minutes, running 5). */
   running: boolean;
+  /** The newest run is still queued and its start was refused (terms, an error): it is not going, and the thread says why. null otherwise. */
+  startRefusal?: string | null;
   /**
    * When the newest DRAFT-kind run that finished began (ms), or null. A newer one than the last seen tells the canvas page beside
    * this thread that the draft's points changed (see the "updated" event below).
@@ -65,6 +70,9 @@ const isWaitingVoice = (run: CanvasDraftRun): boolean => run.state === 'queued' 
 const ageOf = (run: CanvasDraftRun, now: number): number => now - new Date((isWaitingVoice(run) && run.readyAt) || run.startedAt || run.createdAt).getTime();
 /** The lease of an active run: how long it counts as active before the server's expire step fails it. */
 const leaseOf = (run: CanvasDraftRun): number => (isWaitingVoice(run) && !run.readyAt ? VOICE_WAIT_MS : run.state === 'queued' ? QUEUED_LEASE_MS : RUN_DEAD_MS);
+
+/** How long a run's lease has left (negative: past it); null: no run. */
+const leaseLeftOf = (run: CanvasDraftRun | null): number | null => (run ? leaseOf(run) - ageOf(run, Date.now()) : null);
 
 /** S2: an active run is queued or running, inside its lease. A queued run nobody claimed is still active (the server refuses a second Send) until the lease ends. */
 export function runIsGoing(run: CanvasDraftRun | null, now = Date.now()): boolean {
@@ -130,7 +138,7 @@ interface Asks { n: number; last: number; done: boolean; jitter: number }
  * Request count: a voice run whose dispatch works costs the client 0 start requests; a stranded one costs 2 per ask (the queued-run lookup and the
  * start), 6 at most, per tab that is on screen.
  */
-function useRestartStrandedRun(run: CanvasDraftRun | null, draftId: string | null, load: () => Promise<void>, visible: boolean): void {
+export function useRestartStrandedRun(run: CanvasDraftRun | null, draftId: string | null, load: () => Promise<void>, visible: boolean): void {
   const queuedId = run?.state === 'queued' ? run.id : null;
   const voice = run?.inputKind === 'voice';
   const readyAt = run?.readyAt ? Date.parse(run.readyAt) : null;
@@ -139,7 +147,7 @@ function useRestartStrandedRun(run: CanvasDraftRun | null, draftId: string | nul
   const [tick, setTick] = useState(0);
   useEffect(() => {
     if (!queuedId || !draftId) return;
-    if (voice && (readyAt === null || !visible)) return; // nothing can start it yet, or nobody is looking
+    if (!visible || (voice && readyAt === null)) return; // nobody is looking (any kind), or a voice run has nothing to start yet
     const mine = asks.current.get(queuedId) ?? { n: 0, last: 0, done: false, jitter: Math.random() };
     asks.current.set(queuedId, mine);
     if (mine.done || mine.n >= (voice ? MAX_VOICE_ASKS : 1)) return;
@@ -152,6 +160,8 @@ function useRestartStrandedRun(run: CanvasDraftRun | null, draftId: string | nul
     let alive = true;
     const t = setTimeout(() => {
       if (mine.done) return;
+      // Its start was refused (the notice says so, Try again is the way out) or the caller's own start is still going: never a second, silent start.
+      if (startRefusalOf(queuedId) || startInFlight(queuedId)) { mine.done = true; return; }
       mine.n += 1;
       mine.last = Date.now();
       void startQueuedCanvasRun(draftId).then(
@@ -210,11 +220,16 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
     const t = setTimeout(() => setRead((prev) => (prev?.root === rootId ? prev : { root: rootId, loaded: null, error: true })), FIRST_READ_MAX_MS);
     return () => clearTimeout(t);
   }, [rootId, firstReadOut]);
-  const running = runIsGoing(loaded?.run ?? null);
+  const run = loaded?.run ?? null;
+  const startRefusal = useRefusedStart(run, leaseLeftOf(run), visible, load);
+  // A refused start keeps `running` true: the database still counts the queued run as busy, so Send and Publish stay blocked until Try again.
+  // Only the words change ("Not updated", canvas-send-slot and the Publish spot).
+  const running = runIsGoing(run);
   // Read until the run settles: past its lease it is still `queued`/`running` in the table until a state read makes the server fail it.
-  const settling = isActiveState(loaded?.run ?? null);
+  // A refused run is not polled: nothing is about to change it. The server settles it by lease expiry; the next read is a user action or the usual load paths.
+  const settling = isActiveState(run) && !startRefusal;
 
-  useRestartStrandedRun(loaded?.run ?? null, loaded?.draft.id ?? null, load, visible);
+  useRestartStrandedRun(run, loaded?.draft.id ?? null, load, visible);
 
   // The canvas page beside this thread (P1536) is told when the draft's points changed: a read shows a NEWER finished draft run
   // than the last one seen for this draft (however many runs came and went between two reads). The first read of a draft only
@@ -237,8 +252,9 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
   }, [draftId, load]);
 
   // A hidden tab does not poll; coming back reads once (the run may have ended meanwhile) and polling resumes.
-  const wasRunning = useRef(settling);
-  wasRunning.current = settling;
+  // The visibility-return read covers a refused run too (it is visible and bounded): Send and Publish must not stay blocked for good.
+  const wasRunning = useRef(false);
+  wasRunning.current = isActiveState(run);
   useEffect(() => {
     const onChange = () => {
       const now = tabIsVisible();
@@ -248,18 +264,14 @@ export function useCanvasThread(rootId: string | null, refreshKey: number): Canv
     document.addEventListener('visibilitychange', onChange);
     return () => document.removeEventListener('visibilitychange', onChange);
   }, [load]);
-  useEffect(() => {
-    if (!settling || !visible) return;
-    const t = setInterval(() => void load(), RUN_POLL_MS);
-    return () => clearInterval(t);
-  }, [settling, visible, load]);
+  useRunPoll(settling, visible, load, RUN_POLL_MS);
 
   const retry = useCallback(() => {
     setRead(null);
     void load();
   }, [load]);
 
-  return { ...statusOf(rootId, read, loaded, { running, reload: load }), retry };
+  return { ...statusOf(rootId, read, loaded, { running, startRefusal, reload: load }), retry };
 }
 
 /** What the read amounts to for this root: nothing asked, still reading, the draft, or why there is none. */
@@ -267,7 +279,7 @@ function statusOf(
   rootId: string | null,
   read: { root: string; loaded: Loaded | null; error: boolean } | null,
   loaded: Loaded | null,
-  live: { running: boolean; reload: () => Promise<void> },
+  live: { running: boolean; startRefusal: string | null; reload: () => Promise<void> },
 ): { status: CanvasThreadStatus; thread: CanvasThread | null } {
   if (!rootId) return { status: 'idle', thread: null };
   if (!read || read.root !== rootId) return { status: 'loading', thread: null };

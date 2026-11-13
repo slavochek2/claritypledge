@@ -19,6 +19,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { NOT_TRANSCRIBING } from '@/app/components/session/capture-copy';
 
 const R = (p: string) => join(process.cwd(), p);
 const GATE = R('src/app/prototypes/events/components/EventRoomGate.tsx');
@@ -46,20 +47,22 @@ describe('P1307 D2/D12 after P1337 walkthrough 7: consent is the room bar\'s "Tr
   it('the bar carries the approved strings: "Not transcribing" (walkthrough 9), what the tap does, and the terms reminder', () => {
     const s = read(IDLE_BAR);
     for (const copy of [
-      'Not transcribing',
       'EVENT_TRANSCRIBE_FIRST_SENTENCE', // P1592: the description opens with the channel sentence (capture-copy.ts)
       // Founder, 2026-09-14: a reminder, not an agreement.
       'Transcription follows our Terms and Privacy Policy',
     ]) {
       expect(s.includes(copy), `room-capture-bar.tsx is missing the approved string: "${copy}"`).toBe(true);
     }
+    // The idle words are one constant (capture-copy.ts), used by the bar: assert the value and the use.
+    expect(NOT_TRANSCRIBING).toBe('Not transcribing');
+    expect(s.includes('NOT_TRANSCRIBING'), 'the bar must use the shared constant').toBe(true);
     expect(s.includes('By continuing, you agree to our'), 'the old agreement wording must be gone').toBe(false);
   });
 
   it('D12: the idle bar starts capture only from the tap (onClick), never on render or in an effect', () => {
     const s = read(IDLE_BAR);
     const bar = s.slice(s.indexOf('export function RoomTranscribeIdleBar'));
-    // The start itself lives in ONE shared hook (the room's Transcribe tap and the mastermind's "Start your mic" both use it).
+    // The start itself lives in ONE shared hook (the room's Transcribe tap and the mastermind's "Start transcribing" both use it).
     expect(bar.match(/startCapture\(/g) ?? [], 'the bar calls no startCapture itself').toHaveLength(0);
     expect(/onClick:\s*start\b/.test(bar), 'the button\'s onClick is the shared start').toBe(true);
     expect(/useEffect\([\s\S]{0,300}\bstart\b/.test(bar), 'no effect starts capture').toBe(false);

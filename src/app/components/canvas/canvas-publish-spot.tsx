@@ -7,6 +7,8 @@
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAnyStartRefusal } from '@/app/data/canvas-start-refusals';
+import { SEND_SLOT_NOT_UPDATED } from '@/app/pages/chat/canvas-thread-copy';
 import { SPOT_BOX, statusText, type PublishSpotState } from './canvas-publish-spot-state';
 
 // Two lines at most: "Nothing to publish yet" is wider than the box in one line at 12px, and the box is 44px tall.
@@ -15,7 +17,8 @@ const STATUS = 'flex w-full items-center justify-end gap-1.5 text-right text-xs 
 const BUSY = new Set(['updating', 'publishing']);
 
 export function CanvasPublishSpot({ state, publishing = false, onPublish }: { state: PublishSpotState; publishing?: boolean; onPublish: () => void }) {
-  const text = statusText(state, publishing);
+  const refused = useAnyStartRefusal() && state.kind === 'updating' && !publishing; // blocked, but not working: no spinner
+  const text = refused ? SEND_SLOT_NOT_UPDATED : statusText(state, publishing);
   return (
     <div className={SPOT_BOX} data-testid="publish-spot" data-state={publishing ? 'publishing' : state.kind} aria-busy={state.kind === 'loading'}>
       {state.kind === 'loading' ? (
@@ -27,7 +30,7 @@ export function CanvasPublishSpot({ state, publishing = false, onPublish }: { st
         </Button>
       ) : (
         <p role="status" className={STATUS} data-testid="publish-spot-status">
-          {BUSY.has(publishing ? 'publishing' : state.kind) && <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" data-testid="publish-spot-spinner" />}
+          {!refused && BUSY.has(publishing ? 'publishing' : state.kind) && <Loader2 aria-hidden className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" data-testid="publish-spot-spinner" />}
           <span className="line-clamp-2">{text}</span>
         </p>
       )}

@@ -35,7 +35,7 @@ describe('the idle transcription banner', () => {
     expect(screen.getByText(/posted to your round's thread/)).toHaveClass('sr-only'); // read out, never a visible line
     const button = screen.getByTestId('room-transcribe-start');
     expect(button).toHaveAccessibleDescription(expect.stringContaining("After each round, a clean version is posted to your round's thread, where the host and attendees can read it."));
-    expect(button).toHaveTextContent('Transcribe');
+    expect(button).toHaveTextContent('Start transcribing');
     expect(button.className).toContain('border'); // outlined, not a second filled primary
     expect(button.className).not.toContain('bg-blue-500');
   });
@@ -65,10 +65,10 @@ describe('the idle transcription banner', () => {
     expect(screen.queryByTestId('room-transcribe-idle')).toBeNull();
   });
 
-  it('a round event: "Not recording · Text arrives after the round", "Start your mic"; filled while a round runs and I am seated, outline otherwise', () => {
+  it('a round event: "Not transcribing · Text arrives after the round", "Start transcribing"; filled while a round runs and I am seated, outline otherwise', () => {
     const view = render(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" onFailed={() => {}} roundUpdates />);
-    expect(screen.getByTestId('room-transcribe-idle')).toHaveTextContent('Not recording · Text arrives after the round');
-    expect(screen.getByTestId('room-transcribe-start')).toHaveTextContent('Start your mic');
+    expect(screen.getByTestId('room-transcribe-idle')).toHaveTextContent('Not transcribing · Text arrives after the round');
+    expect(screen.getByTestId('room-transcribe-start')).toHaveTextContent('Start transcribing');
     expect(screen.getByTestId('room-transcribe-start').className).toContain('border');
     view.rerender(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" onFailed={() => {}} roundUpdates emphasize />);
     expect(screen.getByTestId('room-transcribe-start').className).toContain('bg-blue-600');

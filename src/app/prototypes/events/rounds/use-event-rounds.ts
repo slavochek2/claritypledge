@@ -37,7 +37,7 @@ export function useEventRounds(
   eventId: string | undefined,
   enabled = true,
   live = true,
-  { intervalMs = ROUNDS_POLL_MS, visibleOnly = false, withCanvasSetup = false }: { intervalMs?: number; visibleOnly?: boolean; withCanvasSetup?: boolean } = {},
+  { intervalMs = ROUNDS_POLL_MS, visibleOnly = false }: { intervalMs?: number; visibleOnly?: boolean } = {},
 ) {
   const [state, setState] = useState<EventRoundsState>(EMPTY_ROUNDS_STATE);
   const [loaded, setLoaded] = useState(false);
@@ -64,10 +64,9 @@ export function useEventRounds(
         do {
           again.current = false;
           try {
-            const next = await getEventRoundsState(eventId, { withCanvasSetup });
+            const next = await getEventRoundsState(eventId);
             if (activeEvent.current !== eventId) return;
-            // A failed or skipped (hidden tab) setup read keeps the last known end (never read as "not started").
-            setState(prev => (next.canvasSetupEnd === undefined && next.rounds.length === 0 && prev.canvasSetupEnd !== undefined ? { ...next, canvasSetupEnd: prev.canvasSetupEnd } : next));
+            setState(next);
             setLoaded(true);
           } catch {
             /* keep what is shown */
@@ -79,7 +78,7 @@ export function useEventRounds(
     })();
     current.current = { eventId, loop, token };
     return loop;
-  }, [eventId, withCanvasSetup]);
+  }, [eventId]);
 
   useEffect(() => {
     setState(EMPTY_ROUNDS_STATE);
