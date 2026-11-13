@@ -106,6 +106,37 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Alternatives rejected:** Rebuilding the in-house tab (it duplicates Mixpanel with worse data). Links instead of embeds (the founder chose embeds). Passcode-protected embeds (the passcode is typed on every view, with no gain once links stay out of the repo).
 **Consequences:** Anyone holding a link can view that board read-only. A leaked link is turned off in Mixpanel Project Settings → Public Boards. Any new board report with a path breakdown must keep the personal-page exclusions. The two Flows reports on board 5 were not checked as an outsider sees them. UNTESTED falsifier: a board report shows a member's name or a private page path.
 
+## 2026-11-13 [product]: A secondary button is blue-bordered, never white, app-wide
+
+**Context:** The founder had asked many times for no white buttons, and they kept coming back. Root cause: the shared `outline` variant was white with a grey border, and the Button Decision Rules (rule 2) prescribed it for every alternative action, so ~90 files produced white buttons by following the rules.
+**Decision:** The `outline` variant itself is now the blue-bordered secondary look (blue border, pale blue fill, blue text). Rule 2 in `docs/design-system.md` says "blue-bordered secondary; never a white or grey action button". The visual QA checklist (`.claude/rules/visual-qa.md`) and the code-review criteria carry a "No white buttons" check. Destructive actions stay red text (rule 5); some Discard/Delete buttons that had used outline were moved to rule 5.
+**Alternatives rejected:** Fixing the white buttons one call site at a time (the rule kept regenerating them). A lint rule alone (cannot tell an action button from a neutral surface).
+**Consequences:** Every outline button in the app changed colour in one commit (P1529 branch). The app never enables dark mode, so the hard-coded light palette is safe today; a dark mode would need `dark:` tokens on the variant.
+**References:** `src/components/ui/button.tsx`, `docs/design-system.md` (Button Decision Rules), P1529 spec UAT 2026-11-13 (c) G1
+
+## 2026-11-13 [product]: A canvas owner's next version reasons from everything said at the table, and is reviewed before it is published
+
+**Context:** In a Sales Mastermind test the peer talked specifically about the owner's canvas, and the owner's next version came back "nothing changed": the mirror's base rules said only the owner's words make a point and that numbers need the owner's words (D23, P1529), and these rules override the round-update instruction. The one-tap next version also published itself without the owner seeing it.
+**Decision:** (1) In round-update mode the AI runs on a separate rule set (`ROUND_RULES`): ideas, challenges, numbers and prices said by anyone at the table count; the model resolves conflicts itself and makes the change (no "choice" question); numbers must appear in the round's material, never invented; a canvas still never names or quotes a person; what a peer says about their own business is advice, not a fact about the owner's. (2) "Create next version" makes a draft and opens it with the mirror agent; Publish is one more tap; nothing publishes by itself (the client auto-publish chain is removed).
+**Alternatives rejected:** Keeping the strict owner-words rule and only clarifying the prompt (peers' numbers would still be dropped). Keeping one-tap publish with the loosened rules (a peer's figures could reach a shared canvas unseen).
+**Consequences:** Founder's words: "Anything can change the canvas... He should not be blocked." Verified on TEST: a peer's "100 to 1,000 employees" and a new price reached the owner's v2. Known limitation: a peer's facts about their own business could still be misattributed; the owner's review is the safeguard. Amends P1529 D23 and the 2026-11-11 one-tap publish.
+**References:** `supabase/functions/_shared/canvas-prompt.ts` (ROUND_RULES), `canvas-parse.ts`, `canvas-support.ts`, `src/app/prototypes/events/rounds/use-mastermind-round.ts`, P1529 spec UAT 2026-11-13 (e), (f)
+
+## 2026-11-13 [product]: A Sales Mastermind round is "Discussion" then "Observer feedback", with every role step always visible
+
+**Context:** The round had timed parts (find your table, silent reading, talk, observer) and showed each role's instructions per part. In practice nobody follows timed reading; people start talking at once, so per-part instructions hid exactly when they were needed.
+**Decision:** Two parts only, "Discussion" (default 20 min) and "Observer feedback" (3 min). Each role's steps are a numbered list that is always visible, the current part's steps highlighted; reading is step 1, done while talking. Labels say "Discussion round N". The projector shows one countdown labelled with the part. Clarity Night is unchanged.
+**Alternatives rejected:** Keeping all parts but showing all instructions (the timers would still pretend people follow them). No parts at all (the observer loses their moment).
+**Consequences:** Host settings show only Discussion round and Observer feedback minutes. Round thread titles in the chat are still "Round N" (made in the database), pending a founder decision.
+**References:** `src/app/prototypes/events/rounds/mastermind-round-helpers.ts` (roleSteps), `mastermind-host-helpers.ts`, P1529 spec UAT 2026-11-13 (b), (c)
+
+## 2026-11-13 [process]: Testing a branch on the shared TEST server needs four checks before trusting a result
+
+**Context:** One day of founder testing on the P1529 branch (port 6300) hit four environment traps, each looking like a product bug: transcripts never arrived (the audio bucket's CORS list had no localhost:6300, so every chunk upload was refused); canvas runs spun forever (another branch had deployed its edge functions to the shared TEST server, older terms version); a "redeploy" changed nothing (deploy-functions.sh deploys only the last function name given); walk runs failed at random steps (a full vitest run wipes test-results/ under a running walk; machine load average 60-80 from other sessions).
+**Decision:** Before trusting a TEST result on a branch: run `scripts/selfhosted/branch-functions-check.sh` and redeploy one function name per call if it differs; make sure the worktree's port is in the audio bucket's CORS list; never run a full vitest and a Playwright walk at the same time; check `uptime` before reading a flaky walk as a regression.
+**Consequences:** Filed as INBOX-334 (deploy script), INBOX-335 (vitest wipes test-results), INBOX-336 (bucket CORS not in the repo), INBOX-338 (transcription failures are silent). localhost:6300 was added to the bucket's CORS by hand with the founder's OK.
+**References:** P1529 spec, scripts/selfhosted/deploy-functions.sh, scripts/selfhosted/branch-functions-check.sh
+
 ## 2026-11-12 [product]: The Clarity Group Terms get a use-case page for community organizers, /communities, not a standalone terms page
 
 **Context:** A community organizer asked which guidelines their community should have, and why. There was no single link to send: the terms appeared only inside landing pages and inside one group's join flow, and nothing explained why they exist. A first build, a standalone /group-terms page (terms, then why, then how), was rejected by the founder as too much at once.
