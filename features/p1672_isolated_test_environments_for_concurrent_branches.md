@@ -14,7 +14,7 @@ exec_effort: high
 driver: anomaly
 ---
 
-# P1672: Concurrent branches get isolated TEST environments, not one shared server
+# P1672: Concurrent branches get isolated TEST lanes, not one shared server
 
 ## Problem
 
@@ -22,216 +22,296 @@ driver: anomaly
 volume, one set of cron jobs and vault secrets. The function deploy ships the deploying checkout's whole
 tree. A full deploy prunes every function the checkout lacks. A single-function deploy still replaces all
 of `_shared`, the shared import map, the router and the JWT list. Every deploy recreates the functions
-container. Every landing on main that touches function inputs full-deploys main's tip.
+container (`scripts/selfhosted/deploy-functions.sh:353-375, 411-417`). Every landing on main that touches
+function inputs full-deploys main's tip (`scripts/selfhosted/lib/deploy-on-land.sh`).
 
 **Complication:** Two open branches with **no function directory in common** keep erasing each other.
-P1631 adds `clarify-draft` (browser-called). P1529 changes `dispatch-event-emails` (fired by a database
-cron job), `send-event-emails`, `request-letter-response-signin` and 13 `_shared` files. A P1529 full
-deploy prunes `clarify-draft`; any P1631 deploy puts main's `_shared` back over P1529's. The P1529 session
-logged on 2026-11-11: *"TEST functions overwritten by P1653 and P1631: this caused the canvas-draft 409
-'terms' and drafts stuck queued. Fixed by redeploying each time."* Deploy output across 2026-11-06 to
-2026-11-10 shows ownership of `canvas-draft`, `_shared` and `transcribe-slice` alternating between
-branches. The 2026-11-05 decision (P1312) chose "detect, do not prevent" and deferred "a server per
-branch or a deploy lease ... until the receipts show evidence runs regularly waiting on redeploys". That
-evidence now exists.
+- **P1631** adds `clarify-draft`, which is called from the browser.
+- **P1529** changes `dispatch-event-emails` (fired by a database cron job), `send-event-emails`,
+  `request-letter-response-signin` and 13 `_shared` files.
+- A P1529 full deploy prunes `clarify-draft`. Any P1631 deploy puts main's `_shared` back over P1529's.
 
-Functions are only the most visible shared piece. The branches also share the schema: a screen of their
-migrations found no table or function both define, but P1631 re-defines 4 of main's database objects and
-P1529 re-defines 11, on the server every other branch uses. `migrate.sh` cannot see this: it only checks
-that nothing local is pending (`scripts/selfhosted/migrate.sh:141-166`) and never flags extra versions
-another branch applied.
+The P1529 session logged on 2026-11-11: *"TEST functions overwritten by P1653 and P1631: this caused the
+canvas-draft 409 'terms' and drafts stuck queued. Fixed by redeploying each time."* The 2026-11-05
+decision (P1312) chose "detect, do not prevent". It deferred "a server per branch or a deploy lease ...
+until the receipts show evidence runs regularly waiting on redeploys". That evidence now exists.
+
+**Functions are only the most visible shared piece.** The schema is shared too:
+- No table or function is defined by both branches, but P1631 re-defines 4 of main's database objects and
+  P1529 re-defines 11, on the server every other branch uses.
+- `migrate.sh` cannot see this. It only checks that nothing local is pending
+  (`scripts/selfhosted/migrate.sh:141-166`) and never flags extra versions another branch applied.
+- Today the main lane receives landed migrations **only because branches apply them while they are being
+  built**. Neither the landing hook nor `/ship` applies migrations to TEST.
+  - `deploy-on-land.sh` deploys functions only.
+  - `/ship` migrates prod.
+  - `check-test-drift.sh` only warns (`scripts/git-ops.sh:5702-5706`).
 
 **Why hosted Supabase never showed it:** the hosted deploy ran `supabase functions deploy <fn>` per
-function (`scripts/deploy-functions.sh:207`), which bundles that function with its own copy of `_shared`
-and deletes nothing. Two branches clashed only when both changed the same function. The self-hosted
+function (`scripts/deploy-functions.sh:207`). That bundles each function with its own copy of `_shared`
+and deletes nothing, so two branches clashed only when both changed the same function. The self-hosted
 volume (P1557, 2026-10-28) shares one `_shared` and prunes, so every deploy now hits everyone.
 
-**Question:** How do two or more active branches test at the same time, including database changes and
-cron-driven paths, without redeploying over each other, and without a landing on main disturbing them?
+**Question:** How do two or more active branches test at the same time, without redeploying over each
+other, and without a landing on main disturbing them? That has to cover database changes and cron-driven
+paths too.
 
 > Founder framing, verbatim: "This over deploying and removing something from test server is a continuous issue ... It seems to be that P1631 and P1529 are competing for test server and like deploying and removing and deploying and removing and functions are not working and we cannot test. How do we structurally solve this issue?"
 >
-> And on the decision: "i'm okay with this let's go forward in the best way possible ... if we need to upgrade server to something bigger you can let me know"
+> On going ahead: "i'm okay with this let's go forward in the best way possible ... if we need to upgrade server to something bigger you can let me know"
+>
+> On how it should feel: "I want to continue working on them and not think about what you do and when you're finished then the whole thing works."
 
 ## Appetite
 
-Blast radius: **high**. It touches every branch's test loop, the function deploy, `migrate.sh`, the
-landing redeploy and the E2E gate. Reversibility: medium. Slots are additive containers on the existing
-VM and the main lane keeps working throughout, but the script changes are shared by every session.
-Decision density: low. The founder approved the direction and the VM upgrade path. One open call is
-listed under Open Questions.
+**Blast radius: high.** It touches every branch's test loop, the function deploy, `migrate.sh`, the
+landing hook, the E2E admission lock and the TEST resolver.
+
+**Reversibility: medium.** Lanes are additive containers on the existing VM. The main lane keeps serving
+every worktree throughout. The script changes, though, are shared by every session.
+
+**Decision density: low.** The founder settled both open calls on 2026-11-13 (below). The one deliberate
+destructive step, the main-lane baseline cleanup, asks for the founder's OK at the moment it runs.
+
+## Decisions
+
+- **D1 (founder, 2026-11-13): no interim lease; one lane first.** All four spec reviewers judged a
+  whole-server lease not worth building: old checkouts ignore it, it starves landings, and it leaves one
+  branch's schema behind for the next.
+  - Stage 1 builds a single lane and puts the cron-driven branch (P1529's kind of work) on it. That is the
+    case the shared server structurally cannot test.
+  - Browser-only branches stay on the main lane until stage 2.
+  - The founder's sessions keep working unchanged meanwhile.
+- **D2 (founder, 2026-11-13): lanes answer only on the founder's private network (Tailscale).** The Mac
+  and the TEST VM are both already on it. The main lane stays as reachable as it is today. A cloud-run
+  agent or CI job cannot use a lane unless its machine joins the network.
+- **D3: the word is "lane", not "slot".** "Slot" already means a worktree (`wN`) and a P1607 E2E admission
+  slot (`scripts/lib/e2e-slot-lock.mjs`).
 
 ## Invariants
 
-- **Prod is unreachable from all of this.** No slot command, resolver or script path may target prod or
-  hosted TEST. Hosted TEST stays paused; restoring it is the founder's act (decisions.md 2026-11-03,
-  "Hosted TEST is switched off by default", P1606).
-- **Fail closed, never fall back.** A worktree whose slot claim is unknown, expired or released refuses to
-  run, deploy or migrate. It never silently uses the main lane instead. Fallback makes a missing deploy
-  look like a pass (review finding, 2026-11-13).
-- **Main lane is written only by landings and explicit main deploys.** Once Phase 2 ships, no branch
-  deploy or branch migration writes the main lane.
-- **A slot's database never calls another environment.** Vault URLs, cron targets and any stored
-  function address inside a slot point at that slot's own gateway. A cloned database carries main's
-  values until rewritten, so the rewrite happens before any cron job in the slot is enabled.
+- **Prod is unreachable from all of this.** No lane command, resolver or script path may target prod or
+  hosted TEST. Hosted TEST stays off by default, and switching it on is the founder's act (decisions.md
+  2026-11-03, "Hosted TEST is switched off by default", P1606).
+- **A claimed worktree fails closed, never falls back.** A worktree whose lane claim is released, expired,
+  failed or unknown refuses to run, deploy or migrate. It never silently uses the main lane, because
+  fallback makes a missing deploy look like a pass.
+  - An **unclaimed** worktree, which is the default for client-only branches, uses the main lane exactly as
+    today.
+- **The landing hook always targets the main lane**, whichever worktree runs it and whatever that worktree
+  has claimed.
+- **A lane never calls another environment.** Before the lane takes any request, every outbound address a
+  lane's database or functions can use points at that lane's own gateway. That covers vault URLs, trigger
+  targets, function env and the edge-functions' own Supabase URL. A cloned database carries main's values
+  until rewritten. Until the rewrite is verified, the lane stays quarantined: no cron, no
+  trigger-fired HTTP and no client access.
 - **No migration replay from empty and no committed dump.** The chain cannot build from empty
   (decisions.md 2026-08-20; P1132, P1538). The P1557 schema dump stays private and off git.
-- **Mail from tests never reaches a real inbox** beyond the founder's relay rule (decisions.md
-  2026-10-28, P1557 mail sink).
-- **TEST-only credentials only** (decisions.md 2026-10-29: self-hosted TEST holds AI and storage keys,
-  all TEST-only). A slot gets the same set and nothing from prod.
-- **One resolver per worktree.** Which TEST environment a worktree targets has exactly one answer, read
-  by the dev server, Playwright, `migrate.sh` and the deploy alike (extends P1591's single-resolver
-  ruling, decisions.md 2026-10-29).
+- **A lane emails nobody but the founder.** Auth mail goes to the sink (decisions.md 2026-10-28). Event
+  mail, which calls the mail provider's HTTPS API directly (`supabase/functions/_shared/email-helpers.ts:578`)
+  and bypasses the SMTP sink, passes through a recipient guard in a lane: only the founder's addresses are
+  delivered, and everything else is captured.
+- **TEST-only credentials only** (decisions.md 2026-10-29). A lane gets its own JWT secret and keys, and
+  never anything from prod.
+- **One answer per worktree for "which TEST environment".** Every consumer reads it from one place. This
+  changes P1591's single resolver (decisions.md 2026-10-29) from one shared answer to one answer per
+  worktree, with the main lane as the answer for every unclaimed worktree.
 
 ## Solution
 
-Two phases. Phase 1 stops the clobbering now. Phase 2 removes the cause.
+### Stage 1: one lane, the protocol, and the main lane kept current
 
-### Phase 1: a whole-environment TEST lease (containment)
+**A lane** is a trimmed second self-hosted Supabase stack on the same VM. It is its own compose project
+with its own network, container names, volumes and ports, reached through the existing Caddy at its own
+hostname, which answers only on Tailscale (D2).
+- **It contains:** Postgres (with cron, net and vault), auth, PostgREST, realtime (with its own tenant),
+  storage (with its own empty volume), the edge runtime, the gateway, and meta. Meta stays because the
+  raw-SQL E2E helper runs through it (`scripts/selfhosted/run-test-sql.sh:20,55`).
+- **It leaves out** studio and imgproxy.
+- **It has its own JWT secret, anon key and service key**, so a token minted on the main lane does not
+  work on a lane, and the reverse.
 
-One holder owns the TEST server for the length of a test session. The lease covers every write path:
-branch function deploys, `migrate.sh` on TEST, E2E runs that need branch functions, and the landing
-redeploy. A second branch's write refuses with the holder's branch, age and how to wait. A landing's
-detached redeploy waits for the lease, bounded, then runs. If the bound passes it records a failure the
-drift check reports, the same channel it uses today. The lease has an owner-alive check, so a crashed
-session does not hold it forever (the deploy lock's `dg_lock_owner_dead` is the precedent). Phase 1 makes
-branches take turns. It does not let them run at once.
+**Lane lifecycle and ownership.**
+- **States:** `provisioning → ready → draining → free`, plus `failed`.
+- **Allocation:** atomic, through a lock held on the VM, which is the authority. A lock in one checkout's
+  git dir does not count.
+- **Generation token:** each claim carries one, so a process from an earlier claim cannot write after the
+  lane is reassigned.
+- **Before reuse:** release drains the lane (connections, functions, background work).
+- **Reclaim:** a lane is reclaimed on lease expiry with a heartbeat. It is never reclaimed because a branch
+  looks gone: unpushed local branches would read as gone. An unreadable inventory reclaims nothing.
 
-### Phase 2: a bounded pool of isolated environments on the TEST VM
+**The per-worktree answer.**
+- **Where it lives:** the claim is recorded per worktree in the git common dir. It is **never** written
+  into the env files: each worktree's `.env.test.local`, `.env.local` and `.env.development.local` are
+  symlinks to main's (`scripts/setup-worktree.sh`), so writing one would repoint every worktree.
+- **What it answers:** `{lane: main | lane-N, origin, keys}`.
+- **Who reads it:** every consumer of the TEST target. That is the dev server, Playwright, `migrate.sh`,
+  the function deploy, `run-test-sql.sh`, `supabase-readonly-sql.py`, `branch-functions-check.sh`,
+  `deploy-drift.sh`, `health.sh`, `upkeep.sh`, the DB-latency check, the E2E SQL helper and both E2E
+  locks. `/dev` greps the full list. Hard-coded container names (`supabase-edge-functions`,
+  `supabase-db`, `supabase-meta`) become per-lane values.
 
-Two **slots** to start, each a trimmed self-hosted Supabase stack beside the main lane on the same VM.
-Each slot has its own Postgres (with cron and vault), auth, PostgREST, realtime, storage, edge runtime and
-gateway, reached at its own hostname behind the existing Caddy. Admin-only services (studio, imgproxy,
-meta) are left out.
+**Making a lane ready.**
+1. **Quarantine** the empty lane: cron off, `net` requests blocked, no client route.
+2. **Copy** the main-lane database into it, server side. The copy method is chosen and proven in `/dev`,
+   and it must reproduce owners, ACLs, default privileges, RLS policies and security-definer functions
+   (P1538: a green restore had 299 wrong ACLs).
+3. **Re-create vault entries** from the main lane's own `vault.decrypted_secrets`, read on the server and
+   never printed. The Mac secrets file is not the source: several entries were generated on the server
+   and exist nowhere else (decisions.md 2026-10-29). Rewrite the URL-valued entries to the lane's origin,
+   and the key-valued entries to the lane's own keys.
+4. **Clear inherited runnable work** (dispatch, transcription and Mirror queues, scheduled sends).
+5. **Apply** the branch's migrations and **deploy** its functions.
+6. **Lift the quarantine** only after the outbound-address check passes. Repeat the check after any later
+   branch migration, because a migration can add a schedule or trigger.
 
-- **Claim / release.** A worktree claims a free slot. The slot is reset to a fresh copy of the main
-  lane's database, then the branch's own migrations are applied and its functions deployed. Claiming
-  writes the worktree's env so the dev server, Playwright, `migrate.sh` and the deploy all resolve to
-  that slot through the one resolver. Release frees the slot. A slot whose branch is gone is reclaimed
-  only after a grace period and a check that no run is active. An unreadable branch inventory never
-  means "delete everything".
-- **Database copy.** Copy from the live main-lane database on the VM. It is already private and already
-  correct, which avoids the from-empty replay and avoids moving the dump. The copy must reproduce owners,
-  ACLs, default privileges, RLS policies and security-definer functions (the P1538 lesson: a green
-  restore had 299 wrong ACLs). It must then rewrite vault secrets and cron targets to the slot, and
-  clear queued work inherited from main before cron starts (see Cost Budget).
-- **Reset is the answer to a bad migration.** A branch that amends or drops one of its migrations resets
-  its slot. There is no hand-repair of a shared ledger.
-- **Main lane unchanged.** Landings keep full-deploying main's tip to the main lane only. The ancestry
-  guard keeps protecting the main lane. Branch deploys go to slots and never need it.
-- **Evidence binds to the environment.** The P1312 branch-function check compares a slot against its own
-  branch. A slot's drift is not reported as main-lane drift.
-- **Capacity.** Measure two concurrent E2E runs plus main-lane traffic. Upgrade the VM only if the
-  measurement shows contention (see Cost Budget for the upgrade price).
+**Services a lane does not isolate in stage 1.** Each is left unconfigured in a lane, so it fails with a
+clear "not available in a lane" message instead of reaching main:
+- **Transcription.** The external worker reads its own fixed Supabase URL and service key
+  (`services/transcribe-room-batch/config.py`), so it would act on main's jobs.
+- **Voice notes.** The cloud bucket's paths carry no environment segment, so a lane's retention sweep
+  could delete main's objects (`supabase/functions/chat-voice/handler.ts`).
 
-The acceptance demonstration, from the Codex review: **two simultaneous runs. P1529's real scheduled
-dispatch processes its own fixtures in its slot, P1631 runs `clarify-draft` in another slot, and a main
-landing during both changes neither run's code or database.**
+Branches that need either keep the main lane.
+
+**Inherited storage rows.** Rows that reference main's bytes are not copied. A lane's own uploads work,
+and tests create their own fixtures.
+
+**The main lane, kept current and protected.**
+- **The landing hook applies main's newly landed migrations to the main lane** under the same lock and
+  failure record as the function deploy. Without this, once branches migrate their own lanes, the main
+  lane, and every lane cloned from it, falls behind main.
+- **The E2E admission lock** (P1607, `SELFHOSTED_SLOT_LIMIT = 3`) becomes:
+  - a **VM-wide capacity limit**, because CPU is shared;
+  - **per-lane exclusivity and leftover sweep**, because databases are not shared.
+
+**First user.** The cron-driven branch moves onto lane 1. When the founder's P1529 session next deploys
+or tests, it is pointed at lane 1, with no action from the founder (D1).
+
+### Stage 2: second lane, clean baseline, protected main lane
+
+- **A second lane**, so a browser-only branch with function changes (P1631's kind) leaves the main lane.
+- **Main-lane baseline cleanup.** Make the main-lane migration ledger equal main's migration files, with
+  no versions applied by unlanded branches. It runs only once no active branch depends on the main lane
+  for unlanded schema. It is destructive on shared TEST, so it waits for the founder's OK at the time it
+  runs (db-access.md).
+- **Server-side refusal on the main lane.** The VM refuses a function deploy or migration aimed at the
+  main lane unless it comes from main's landing or an explicit main deploy. It holds whichever script
+  version a checkout runs, because the refusal lives on the server.
+- **Capacity.** Measure two lanes plus the main lane under concurrent E2E. P1607 measured 3 runs on one
+  stack at about half of the 4 CPUs. Recommend the VM upgrade to the founder only if the measurement
+  shows contention.
+
+**The acceptance demonstration, run at the end of stage 2:**
+- Two branches run in two lanes at the same time.
+- One processes its own fixtures through its real scheduled dispatch.
+- The other runs a branch-only browser-called function.
+- A landing on main during both runs changes neither lane's served functions nor its schema, and does
+  bring the main lane forward.
 
 ## Alternatives Considered
 
 | Option | Verdict | Why |
 |---|---|---|
-| **A. Per-branch function overlay on the shared server, chosen by request header** (first proposal this session) | Rejected | Reviewed by Gemini, Codex and GLM (3 of 3 rejected). Verified by command: (1) browsers send no custom header value on the CORS preflight, so a branch-only function's preflight hits main's tree and fails (the router creates a worker for OPTIONS too, `supabase/selfhosted/functions-main/index.ts:93-118`; Codex reproduced it against the real router); (2) P1529's dispatch is fired by a cron tick that reads one vault URL and sends an empty body (`supabase/migrations/20260907170000_p1256_cron_tick_sends_jwt_and_secret_header.sql:42-66`), so no header can reach it; (3) the JWT list is loaded once at router start (`index.ts:26-40`); (4) any reachable client could select unreviewed branch code holding the TEST service key; (5) the schema stays shared. |
-| B. Lease only, no pool | Phase 1 only | Ends the clobbering but serializes branches, the founder's complaint. |
-| Per-branch edge-runtime container, shared database | Rejected as end state | Fixes functions, preflight and function-to-function calls, but cron, queues and schema stay shared, so P1529's path is still untestable. |
-| Each worktree runs functions locally (`supabase functions serve`) against the shared TEST database (GLM's pick) | Rejected | Same shared-schema and cron gap. Cloud cron cannot reach a laptop. Ties tests to the Mac being on with Docker running. |
-| Slots in local Docker on the Mac (36 GB) | Rejected | The founder chose the server path ("if we need to upgrade server ... let me know"). Local slots compete with the parallel AI sessions for memory and stop when the Mac sleeps. |
-| Hosted Supabase preview branches | Rejected | Paid per branch-hour. Needs a push per test cycle and cannot test uncommitted work. Hosted TEST is paused by founder rule. Compatibility with the custom self-hosted router was not verified. |
-| D. Merged integration branch | Rejected | Couples branches through merge conflicts. Integration evidence, not branch evidence. |
-| E. Fixed-order single-function deploys | Stopgap only | Works for P1631 and P1529 today (neither touches the JWT list, import map or router; both are rebased) but is undone by every landing. |
+| **Per-branch function overlay on the shared server, selected by a request header** (first proposal) | Rejected | Gemini, Codex and GLM each rejected it. Checked by command:<br>(1) Browsers send no custom header value on the CORS preflight, so a branch-only function's preflight lands on main's tree and fails. The router creates a worker for OPTIONS too (`supabase/selfhosted/functions-main/index.ts:93-118`).<br>(2) P1529's dispatch is fired by a cron tick that reads one vault URL (`supabase/migrations/20260907170000_p1256_cron_tick_sends_jwt_and_secret_header.sql:42-66`).<br>(3) The JWT list is loaded once at router start (`index.ts:26-40`).<br>(4) Any reachable client could pick unreviewed branch code holding the TEST service key.<br>(5) The schema stays shared. |
+| **Whole-server lease as an interim phase** (first draft of this spec) | Rejected (D1) | All four spec reviewers rejected it:<br>- Old checkouts and `migrate.sh` ignore a checkout-local lease.<br>- It has no owner model across separate commands.<br>- The landing redeploy waits 300 s for the lock and gives up at 1200 s (`deploy-on-land.sh:33,82`), so landings starve.<br>- It leaves one branch's schema for the next. |
+| Per-branch edge-runtime container, shared database | Rejected as end state | Cron, queues and schema stay shared. |
+| Each worktree runs functions locally against the shared TEST database | Rejected | Same shared-schema and cron gap. Cloud cron cannot reach a laptop. |
+| Lanes in local Docker on the Mac | Rejected | The founder chose the server path. Lanes would compete with parallel AI sessions for memory and stop when the Mac sleeps. |
+| Hosted Supabase preview branches | Rejected | Paid per branch-hour. Needs a push per test cycle. Hosted TEST is off by founder rule. Fit with the custom router is unverified. |
+| Merged integration branch | Rejected | Couples branches through merge conflicts. |
 
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
 |---|---|---|
-| Copied database carries main's vault URLs, so a slot's cron calls main-lane functions | MITIGATE | Invariant above. Rewrite before cron is enabled; verify by reading `vault.decrypted_secrets` names and the cron job targets in the slot. |
-| Vault secrets encrypted under the main lane's key do not decrypt in a slot's Postgres | MITIGATE | UNVERIFIED either way. Re-create slot vault secrets from the Mac secrets file rather than copying ciphertext. |
-| Inherited pending rows (transcription retries, email dispatch) make a slot's cron call paid services: Gemini, the GPU transcription service | MITIGATE | Clear or mark inherited queue rows before enabling cron. Cost Budget below. |
-| Copy reproduces the schema but not permissions (P1538: 299 wrong ACLs on a green restore) | MITIGATE | Catalog comparison of owners, ACLs, default privileges, RLS and security-definer functions between the main lane and a fresh slot, as P1557 did. |
-| CPU contention under concurrent E2E (hosted TEST was left because concurrent E2E timed out) | MITIGATE | Measured Done-When below; upgrade path priced in Cost Budget. |
-| Slot hostnames expose unreviewed branch code with TEST keys to the internet | MITIGATE | Slot ingress no weaker than the main lane's. Whether to restrict slots further is an Open Question. |
-| Lease left by a crashed session blocks every branch | MITIGATE | Owner-alive check plus a printed clear command, as the deploy lock does. |
-| A third branch needs a slot while both are taken | ACCEPT | It waits on the lease for the main lane, or the founder raises the pool size. Two slots cover today's evidence (2 of 22 worktrees change functions). |
-| Old worktrees run their own stale copy of the scripts and bypass slot routing | MITIGATE | Same limit P1612 recorded. The main-lane lease refuses an unrouted branch write, whichever script version runs. |
-| Auth redirect allowlists and storage buckets differ per slot | ACCEPT | Configured at slot creation from the main lane's settings. Checked by the acceptance demonstration's sign-in step. |
+| The copy reproduces the schema but not permissions | MITIGATE | Catalog comparison (owners, ACLs, default privileges, RLS, security-definer) between the main lane and a fresh lane, as P1557 did. |
+| Vault ciphertext copied without its key decrypts to NULL, and every reader degrades to a quiet "skipping" warning | MITIGATE | Vault entries are re-created from decrypted values, never copied as ciphertext. The check reads them back by effect: the dispatch tick reaches the lane. |
+| A trigger fires HTTP during restore or migration, before cron is even on (`supabase/migrations/20261027120700_p1576_mirror_voice_server_trigger.sql:76`) | MITIGATE | Quarantine starts before the restore and blocks `net` requests until the outbound-address check passes. |
+| Copied IDs collide with main's in an external service | MITIGATE | Transcription and voice are unconfigured in lanes in stage 1 (Solution). |
+| The main lane holds unlanded branch schema, so stage-1 lanes inherit it | ACCEPT for stage 1 | The claim prints the ledger diff against main's files so the tester sees it. Stage 2's cleanup removes it. |
+| CPU contention with two lanes plus the main lane | MITIGATE | VM-wide E2E capacity limit, measured in stage 2. Upgrade priced in Cost Budget. |
+| A crashed claimer holds a lane forever | MITIGATE | Lease expiry with heartbeat, and drain before reuse. |
+| A third branch needs a lane while both are taken | ACCEPT | It waits for a lane or stays on the main lane as an unclaimed worktree. Raising the pool beyond two is a later founder call, not this spec. |
+| Rollback leaves worktrees holding claims to lanes that no longer exist | MITIGATE | Rollback clears every claim record, so those worktrees become unclaimed and use the main lane. |
 
 **Non-Goals**
 
 - Do NOT change prod, the prod deploy path or hosted TEST.
 - Do NOT repair the from-empty migration replay (P1132 and P1085 own it).
-- Do NOT build the request-header overlay (option A).
-- Do NOT change product code beyond environment configuration (no per-call header helper, no CORS change).
-- Do NOT build more than two slots or an autoscaler.
-- Do NOT remove the P1312, P1612 or P1584 machinery from the main lane. Re-bind it per environment only where a slot needs it.
+- Do NOT build the request-header overlay or an interim lease.
+- Do NOT isolate the transcription worker or the voice-note bucket in this spec.
+- Do NOT change product code beyond environment configuration and the lane recipient guard.
+- Do NOT build more than two lanes or an autoscaler.
 
 ## Cost Budget
 
-Slots run on the existing credits-paid VM. Without an upgrade, the compute cost added is zero. The
-metered exposure is what a slot's cron jobs and functions call.
+Lanes run on the existing credits-paid VM. Without an upgrade, the added compute cost is zero. The
+metered exposure is what a lane's cron jobs and functions call outward.
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests (cron to slot functions) | n/a | `cron jobs copied into a slot x ticks per hour each x slots`. Job set and schedules are read from `cron.job` at build time (currently includes `canvas_draft_material_expire`, `chat_voice_retention`, `chat_voice_sweep`, `transcribe_post_retry`, `transcribe_round_clean` and the event dispatch tick). Internal to the VM, not a paid unit | same as per hour, for the run's length |
-| Egress (bytes) | n/a | slot to Mac dev servers, same traffic a branch generates on the main lane today, moved not added | unchanged vs today |
-| Log lines | n/a | per slot container logs on the VM disk; bounded by the existing log rotation (UNVERIFIED, check at build) | n/a |
-| Paid service units | n/a | `inherited pending jobs x paid calls per job x registry price`. **Target 0** by clearing inherited queues before cron starts. After that, only fixtures the branch itself creates call Gemini, GPU transcription or Mailgun, as they would on the main lane today | unchanged vs today |
-| VM upgrade, only if measured contention | n/a | e2-standard-4 to e2-standard-8 adds 4 vCPU and 16 GiB: `(4 x E2 core rate + 16 x E2 RAM rate) x 730 h` (registry row: Compute Engine, read 2026-10-26); figure in .private/ | n/a |
+| Requests (cron and triggers to lane functions) | n/a | `cron jobs in a lane x ticks per hour each x lanes`, read from `cron.job` at build. Internal to the VM, not a paid unit | same, for the run's length |
+| Egress (bytes) | n/a | lane to Mac dev servers over Tailscale. Branch traffic that runs on the main lane today moves to a lane; none is added | unchanged vs today |
+| Log lines | n/a | per-lane container logs on the VM disk, with log rotation set on every lane service | n/a |
+| Paid service units | n/a | `inherited runnable jobs x paid calls per job x registry price`. **0 by construction:** queues are cleared before quarantine lifts, and transcription and voice are unconfigured in lanes. Gemini and Mailgun calls come only from fixtures the branch creates, as on the main lane today, and the recipient guard limits Mailgun to the founder's addresses | unchanged vs today |
+| VM upgrade, only if measured contention | n/a | e2-standard-4 to e2-standard-8 adds 4 vCPU and 16 GiB: `(4 x E2 core rate + 16 x E2 RAM rate) x 730 h` (registry row: Compute Engine, read 2026-10-26). Figure in .private/ | n/a |
 
-1. **Fits the plan limit today?** Fits: no new paid service, and paid calls are held at today's level by
-   the queue-clearing rule. Compute is credits-paid. Runway is read privately per the registry row.
-2. **Fits at 10x?** Ten slots would not fit memory on the current machine, by the measurement below. The
-   pool is capped at two on purpose.
-3. **If either answer is no:** e2-standard-8 at the list price above (figure in .private/), from credits,
-   decided by the founder after the capacity measurement.
+1. **Fits the plan limit today?** Fits. There is no new paid service and no added paid calls. Compute is
+   credits-paid, and runway is read privately per the registry row.
+2. **Fits at 10x?** No. Ten lanes would not fit this machine, which is why the pool is capped at two.
+3. **If either answer is no:** e2-standard-8 at the list price above (figure in .private/), from credits.
+   The founder decides after the stage-2 measurement.
 
-**Capacity reading, 2026-11-13 (read-only, over SSH):** e2-standard-4, 16 GB. 3.65 GB used, 12.3 GB
-available. Load average about 1.3. Disk 15 of 77 GB. The full main-lane stack's containers use about
-2.8 GB at idle, of which the gateway is the largest (about 0.77 GB). A trimmed slot is estimated, not
-measured, at 1.5 to 2.3 GB idle, so two slots should fit memory. CPU under concurrent E2E is the
-unmeasured limit.
+**Capacity reading, 2026-11-13 (read-only, over SSH):**
+- Machine: e2-standard-4, 16 GB.
+- In use: 3.65 GB used, 12.3 GB available, load average about 1.3, disk 15 of 77 GB.
+- The main stack's containers use about 2.8 GB at idle. The gateway is the largest, at about 0.77 GB.
+- A trimmed lane is estimated, not measured, at 1.5 to 2.3 GB idle.
+- P1607 measured CPU on one stack: 3 concurrent E2E runs used about half of 4 CPUs.
 
 ## Done-When
 
-Phase 1
-- [ ] While one branch holds the TEST lease, a function deploy, a `migrate.sh` run and a branch-function E2E run from another branch each refuse, naming the holder, its age and how to wait. Shown by running all three.
-- [ ] A landing during a held lease redeploys main's tip after the lease is released, not during it. Shown in the landing log.
-- [ ] A lease whose owner process is dead is detected and cleared without hand editing. Shown by killing a holder.
+Each check works by effect and carries a control that must fail first.
 
-Phase 2
-- [ ] **Acceptance demonstration:** two slots in use at once. One holds P1529's work (or a branch with a cron-fired function) and its real scheduled dispatch processes that slot's fixtures. The other runs `clarify-draft` from P1631 (or a branch-only function). A main landing during both runs changes neither slot's served functions nor its schema, verified by hashes and a catalog read before and after.
-- [ ] Claiming a slot from a worktree makes its dev server, Playwright, `migrate.sh` and the function deploy all report the slot as their target, with no hand edit of an env file.
-- [ ] A worktree with a released or unknown slot claim refuses to run, deploy or migrate, and does not reach the main lane.
-- [ ] A fresh slot matches the main lane on owners, ACLs, default privileges, RLS policies and security-definer functions (catalog comparison output).
-- [ ] Inside a slot, every vault secret and cron target points at that slot's gateway. Shown by listing them (names and hosts only, never values).
-- [ ] A slot's cron run after creation calls no paid service for work inherited from the main lane. Shown by the slot's function logs and the paid-call counts staying flat.
-- [ ] Mail sent from a slot lands in the sink. Only the founder's relay rule forwards anything.
-- [ ] Two concurrent E2E runs in two slots, plus main-lane traffic, measured for CPU, memory and timeouts. The reading is recorded privately, with an upgrade recommendation for the founder if contention shows.
-- [ ] A slot whose branch is gone is reclaimed after the grace period and only when no run is active. An unreadable branch list reclaims nothing.
-- [ ] `docs/decisions.md` records the reversal of the 2026-11-05 "detect, do not prevent" deferral, and the testing docs say how to claim, use and release a slot.
+Stage 1
+- [ ] Lane 1 is `ready` on the VM. From the Mac over Tailscale, its gateway serves auth, REST, realtime, storage, functions and meta. From a machine off Tailscale it does not answer (shown both ways).
+- [ ] A worktree that claims lane 1 has its dev server, Playwright, `migrate.sh`, function deploy, raw-SQL helper and DB-latency check all hit lane 1, shown by lane-1 access logs, not by printed target lines. A repo grep finds no consumer left reading the fixed main-lane origin or container names outside the resolver.
+- [ ] An unclaimed worktree behaves exactly as today, shown by an unchanged E2E run on the main lane.
+- [ ] A worktree with a released or unknown claim refuses to run, deploy and migrate, and the main-lane access log shows nothing from it. Control: the same worktree with a valid claim succeeds.
+- [ ] Isolation by effect: during a full cycle of lane 1's cron jobs and a trigger-firing fixture, the main lane's gateway log shows zero requests from lane 1. Control: one deliberate request from lane 1 to the main lane does appear in that log.
+- [ ] A fresh lane matches the main lane on owners, ACLs, default privileges, RLS policies and security-definer functions (catalog comparison output).
+- [ ] After quarantine lifts, the lane's queues hold zero inherited runnable rows, and a scheduled tick processes only a fixture created in the lane.
+- [ ] An event email from lane 1 to a non-founder fixture address is captured, never delivered, and one to the founder's address is delivered. Shown from the guard's capture log and the provider's event log.
+- [ ] Transcription and voice in lane 1 return the "not available in a lane" message and write nothing to the main lane or the voice bucket.
+- [ ] A landing that carries a migration leaves the main-lane ledger containing it. A landing during a lane-1 run changes neither lane 1's served functions nor its schema (hashes and catalog read before and after).
+- [ ] Two simultaneous claims never get the same lane (race test). A process holding an old generation token cannot write after reassignment. A claim whose heartbeat stops is reclaimed after expiry, never on branch inventory.
+- [ ] An exclusive E2E run in lane 1 does not block a main-lane run, and the VM-wide limit still caps total concurrent runs.
+
+Stage 2
+- [ ] **Acceptance demonstration** (Solution): two lanes in use at once, one through its real scheduled dispatch and one through a branch-only browser-called function, while a main landing changes neither lane and brings the main lane forward.
+- [ ] Main-lane ledger minus main's migration files is empty after the cleanup, shown as a diff, run with the founder's OK.
+- [ ] The VM refuses a branch's function deploy and migration aimed at the main lane, including from a checkout running pre-P1672 scripts. Control: a main landing deploy still passes.
+- [ ] CPU, memory and timeouts measured under two concurrent lane E2E runs plus main-lane traffic. The reading is recorded privately, with an upgrade recommendation for the founder if contention shows.
+- [ ] `docs/decisions.md` records the reversal of the 2026-11-05 "detect, do not prevent" deferral and the P1591 resolver change. The testing docs say how a lane is claimed, used and released.
 
 ## Rollback Strategy
 
-Phase 1: remove the lease checks; deploys and migrations behave as today. Phase 2: release all slots,
-stop their containers and remove the slot resolver entries. The main lane is untouched throughout and
-remains what every worktree used before.
+1. Clear every lane claim record, so every worktree becomes unclaimed and uses the main lane.
+2. Stop the lane containers and remove their volumes and Caddy routes.
 
-## Open Questions
-
-1. [FOUNDER DECISION: slot ingress] Slots expose unreviewed branch code holding the TEST keys. Keep them
-   reachable like the main lane (public HTTPS, keys gate requests), or restrict slot hostnames to
-   Tailscale only? Restricting is stronger but needs every dev machine and CI path on Tailscale.
-2. Should Phase 1's lease also be held by plain E2E runs of client-only branches? They write test data
-   to the shared database but deploy nothing.
+The landing hook's migration step and the E2E lock change stay, because they are correct for the main lane
+alone.
 
 ## Related
 
 - [P1312](done/2026-06-10/p1312_branch_tests_run_against_old_edge_functions_on_test.md): detect-only branch-function check. This spec acts on its deferred alternative.
-- P1612: ancestry guard, deploy lock and landing redeploy. Main-lane protection kept.
+- P1612: ancestry guard, deploy lock and landing redeploy.
 - [P1557](done/2026-06-10/p1557_self_hosted_supabase_test_database.md): self-hosted TEST, restore procedure and mail sink.
-- P1584: TEST server upkeep and health reporting. Slots join its checks.
-- P1591: single TEST resolver.
+- [P1607](done/2026-06-10/p1607_parallel_e2e_on_self_hosted_test.md): E2E admission slots and the CPU measurement.
+- P1584: TEST server upkeep and health reporting. Lanes join its checks.
+- P1591: single TEST resolver, changed here to one answer per worktree.
 - P1132 and [P1085](p1085_trusted_e2e_core_in_ci.md): from-empty migration replay, not attempted here.
-- [P1550](p1550_p1532_full_e2e_run_user_count_proof.md): full E2E runs at one worker while TEST is shared.
+- [P1550](p1550_p1532_full_e2e_run_user_count_proof.md): full E2E at one worker while TEST is shared.
 - P1631 and P1529: the colliding branches in the evidence.
