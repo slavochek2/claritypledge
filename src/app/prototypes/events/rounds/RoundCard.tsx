@@ -110,6 +110,8 @@ export interface RoundMoment {
   live: boolean;
   /** Before a round, or sitting this one out: the Table step shows what comes next. */
   waiting: boolean;
+  /** P1529 H3 (the mastermind): a next-version card is waiting in Table, so Feedback says so. Absent in every other flow. */
+  nextVersionOffered?: boolean;
 }
 
 const firstWord = (name: string | undefined) => (name ? name.split(' ')[0] ?? name : '?');

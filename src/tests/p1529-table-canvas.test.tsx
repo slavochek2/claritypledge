@@ -242,9 +242,20 @@ describe('a busy page is never moved', () => {
     expect(live.textContent).toBe('');
     view.rerender(<RoundReturnLive bar={{ line: 'Round 1 ended.', left: 5, to: '/t', onStay: () => undefined }} />);
     expect(screen.getByTestId('round-return-live')).toBe(live);
-    expect(live.textContent).toBe('Round 1 ended. Back to your table.');
+    expect(live.textContent).toBe('Round 1 ended. Back to your table in 5 seconds.'); // the countdown is said once, politely
     view.rerender(<RoundReturnLive bar={{ line: 'Round 1 ended.', left: 3, to: '/t', onStay: () => undefined }} />);
-    expect(live.textContent).toBe('Round 1 ended. Back to your table.');
+    expect(live.textContent).toBe('Round 1 ended. Back to your table in 5 seconds.'); // the ticking never re-announces
+    // cancelling the auto-return ("Stay here": no countdown, the message stays) is announced once
+    view.rerender(<RoundReturnLive bar={{ line: 'Round 1 ended.', left: null, to: '/t', onStay: () => undefined }} />);
+    expect(live.textContent).toBe('Staying here.');
+    view.rerender(<RoundReturnLive bar={{ line: 'Round 1 ended.', left: null, to: '/t', onStay: () => undefined }} />);
+    expect(live.textContent).toBe('Staying here.');
+    // the same message counting down AGAIN after "Stay here" is announced again
+    view.rerender(<RoundReturnLive bar={{ line: 'Round 1 ended.', left: 6, to: '/t', onStay: () => undefined }} />);
+    expect(live.textContent).toBe('Round 1 ended. Back to your table in 6 seconds.');
+    // the same words for a different move (another destination) are announced again
+    view.rerender(<RoundReturnLive bar={{ line: 'Round 1 ended.', left: 8, to: '/other', onStay: () => undefined }} />);
+    expect(live.textContent).toBe('Round 1 ended. Back to your table in 8 seconds.');
   });
 });
 

@@ -95,7 +95,7 @@ describe('P1512 — group page "Open chat"', { timeout: 30000 }, () => {
     expect(screen.getByRole('button', { name: /manage membership/i })).toBeInTheDocument();
     // Secondary: the outline variant, never a second primary.
     expect(button.className).toContain('border');
-    expect(button.className).not.toContain('bg-blue');
+    expect(button.className).not.toMatch(/\bbg-blue-[5-9]00\b/);
     fireEvent.click(button);
     expect(await screen.findByTestId('where')).toHaveTextContent('/chats/c/c-builders');
   });

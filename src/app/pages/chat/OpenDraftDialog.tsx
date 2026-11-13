@@ -51,7 +51,7 @@ export function OpenDraftDialog({
           </p>
         )}
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button type="button" variant="outline" className="min-h-11" aria-busy={busy} onClick={() => void discard()}>
+          <Button type="button" variant="ghost" className="min-h-11 text-red-600 hover:bg-red-50 hover:text-red-700" aria-busy={busy} onClick={() => void discard()}>
             Discard it and start here
           </Button>
           <Button type="button" className="min-h-11" onClick={onContinue}>

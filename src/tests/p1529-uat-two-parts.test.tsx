@@ -34,11 +34,16 @@ import { isRoundEvent, markRoundEvent } from '@/lib/round-event-registry';
 import { afterPublishEventOf } from '@/lib/canvas-hrefs';
 import { roundClock, roundTiming } from '@/lib/round-clock';
 import { TableStatus } from '@/app/prototypes/events/rounds/table-card-parts';
-import { bannerTarget, ownerBarBack } from '@/app/pages/canvas/canvas-workspace-back';
+import { ownerBarBack } from '@/app/pages/canvas/canvas-workspace-back';
 import { PreparationBanner } from '@/app/pages/canvas/PreparationBanner';
 import { CanvasPageBack } from '@/app/components/canvas/canvas-page-back';
 import { CanvasWorkspaceContext, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
 import { useEventReturn } from '@/app/pages/canvas/use-preparation-return';
+import { Button } from '@/components/ui/button';
+import { CaptureLevelMeter } from '@/app/components/session/capture-level-meter';
+import { RoundReturnLive } from '@/app/pages/canvas/RoundReturnBar';
+import { CanvasOpen } from '@/app/prototypes/events/rounds/table-card-parts';
+import { MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, SCREEN_PART_NAME, discussionRoundLabel, minuteRowLabel, nextDiscussionRoundLabel, roundNames } from '@/app/prototypes/events/rounds/mastermind-host-helpers';
 import type { EventRound } from '@/app/data/event-rounds-service';
 import type { EventRoomMember } from '@/app/types';
 
@@ -131,23 +136,33 @@ describe('F3: the projector shows who is transcribing', () => {
   const renderScreen = (recordingOf?: (id: string) => 'off' | 'silent' | 'words') =>
     render(<MemoryRouter><MastermindScreen round={round} rounds={[round]} seats={seats} byId={byId} room={[]} ended={false} recordingOf={recordingOf} /></MemoryRouter>);
 
-  it('a mic shows beside each person whose transcription is on (silent or words), and none for off', () => {
+  it('G4: a small grey moving wave (not a mic icon) shows beside each person whose transcription is on (silent or words), and none for off', () => {
     renderScreen(id => ({ a: 'words', b: 'off', c: 'silent' } as const)[id as 'a']);
     const seatsEls = screen.getAllByTestId('screen-seat');
     const hasMic = (role: string) => !!seatsEls.find(s => s.getAttribute('data-role') === role)!.querySelector('[data-testid="screen-seat-mic"]');
     expect([hasMic('first'), hasMic('second'), hasMic('observer')]).toEqual([true, false, true]);
+    const wave = screen.getAllByTestId('screen-seat-mic')[0]!;
+    expect(wave.querySelector('svg')).toBeNull(); // no mic icon
+    expect(wave.querySelectorAll('i').length).toBeGreaterThan(2);
+    const bar = wave.querySelector('i')!;
+    expect(bar.className).toMatch(/bg-muted-foreground/);
+    expect(bar.className).not.toMatch(/blue/);
+    expect(bar.className).toMatch(/animate-\[clarity-wave/);
+    expect(bar.className).toMatch(/motion-reduce:animate-none/); // prefers-reduced-motion: the bars stand still
   });
   it('no state read yet: no mic anywhere', () => {
     renderScreen(undefined);
     expect(screen.queryByTestId('screen-seat-mic')).toBeNull();
   });
-  it('the part with the time left, and the next line naming only the next real part; no finding-tables or reading words', () => {
+  it('G2: left "Discussion round N", right the part and ONE clock; no "then N min observer" line; no finding-tables or reading words', () => {
     renderScreen(() => 'off');
-    // ONE countdown: the big clock, with the part beside it; the line under it only names what comes next.
-    expect(screen.getByTestId('screen-part-line').textContent).toBe('Talk');
+    // ONE countdown: the big clock, with the part beside it. The screen says what happens now, so no "next" line.
+    expect(screen.getByTestId('screen-part').textContent).toBe('Discussion round 1');
+    expect(screen.getByTestId('screen-part-line').textContent).toBe('Discussion');
+    expect(screen.queryByTestId('screen-next-line')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/then \d+ min/);
     expect(screen.getAllByTestId('round-clock')).toHaveLength(1);
     expect(screen.getByTestId('round-clock').textContent).toMatch(/^1[45]:\d\d$/);
-    expect(screen.getByTestId('screen-next-line').textContent).toBe('then 3 min observer');
     expect(document.body.textContent?.match(/\d+:\d\d/g)).toHaveLength(1);
     expect(document.body.textContent).not.toMatch(/find your table|reading|finding tables|undefined/i);
   });
@@ -237,7 +252,7 @@ describe('F1 phone header: time left and part name', () => {
   it('a round with a swap at half time shows the whole talk left, as the projector does', () => {
     const t = roundTiming({ seatingS: 0, readingS: 0, firstS: 450, secondS: 450, splitSpeakers: true, observerS: 180 });
     render(<TableStatus table={1} clock={clockAt(30, t)} timing={t} hasObserver />);
-    expect(screen.getByTestId('round-card-part').textContent).toBe('Talk');
+    expect(screen.getByTestId('round-card-part').textContent).toBe('Discussion');
     expect(screen.getByTestId('round-card-time').textContent).toBe('14:30');
   });
   it('a round saved before the change names its finding-the-table and reading parts, never "Talk"', () => {
@@ -388,14 +403,11 @@ describe('F5 info text', () => {
 });
 
 describe('round-3 follow-ups', () => {
-  it('the owner\'s canvas opened from the room gets the banner with the room as its back, unless the return bar shows', () => {
+  it('G6: the owner\'s canvas opened from the room has no banner: its header carries the one back (to the table), hidden while the return bar shows; the preparation keeps its banner back', () => {
     const table = { to: '/events/x/meet' };
-    expect(bannerTarget({ backTo: null, ownerBar: true, table, roundBar: false })).toBe('/events/x/meet');
-    expect(bannerTarget({ backTo: null, ownerBar: true, table, roundBar: true })).toBeNull();
-    expect(bannerTarget({ backTo: null, ownerBar: false, table, roundBar: false })).toBeNull(); // a reader has no banner
-    expect(bannerTarget({ backTo: '/events/x/prepare?step=4', ownerBar: true, table, roundBar: false })).toBe('/events/x/prepare?step=4');
-    expect(bannerTarget({ backTo: null, ownerBar: true, table: null, roundBar: false })).toBeNull();
-    // and the bar then draws no back of its own: one back, the banner's
+    expect(ownerBarBack({ banner: false, table })).toEqual({ kind: 'table', to: '/events/x/meet' });
+    expect(ownerBarBack({ banner: false, returnBar: true, table })).toEqual({ kind: 'returnBar' });
+    // the before-event preparation still has a way back: its banner (the bar then draws none)
     expect(ownerBarBack({ banner: true, table })).toEqual({ kind: 'banner' });
   });
   it('the full (non-compact) bar of a round event says the same one line', () => {
@@ -411,5 +423,130 @@ describe('round-3 follow-ups', () => {
     expect(alert.textContent).toBe("Couldn't share your Clarity Canvas. Try again.");
     expect(alert.className).toContain('text-destructive');
     expect(alert.className).not.toMatch(/amber|yellow|orange/);
+  });
+});
+
+describe('UAT 2026-11-13 (c) G1: no white action buttons', () => {
+  it('the outline variant is the blue-bordered secondary: a blue border, a pale blue fill, no white bg-background, no grey border-input', () => {
+    render(<Button variant="outline">Alternative</Button>);
+    const cls = screen.getByRole('button').className;
+    expect(cls).toMatch(/border-blue-600/);
+    expect(cls).toMatch(/bg-blue-50/);
+    expect(cls).toMatch(/text-blue-700/);
+    expect(cls).not.toMatch(/\bbg-background\b/);
+    expect(cls).not.toMatch(/border-input/);
+  });
+  it('the table card\'s canvas button is blue-bordered while the mic is off and filled blue once transcribing', () => {
+    const target = { to: '/x', label: 'Open your canvas' };
+    const { unmount } = render(<MemoryRouter><CanvasOpen micFirst offer="primary" target={target} linkState={null} /></MemoryRouter>);
+    expect(screen.getByTestId('round-canvas-link').className).toMatch(/border-blue-600/);
+    expect(screen.getByTestId('round-canvas-link').className).not.toMatch(/bg-background|border-input/);
+    unmount();
+    render(<MemoryRouter><CanvasOpen offer="primary" target={target} linkState={null} /></MemoryRouter>);
+    expect(screen.getByTestId('round-canvas-link').className).toMatch(/bg-blue-600/);
+  });
+});
+
+describe('UAT 2026-11-13 (c) G2: Discussion', () => {
+  it('names the parts Discussion and Observer feedback, with a 20 minute discussion by default and a new stored version', () => {
+    expect(SCREEN_PART_NAME.first).toBe('Discussion');
+    expect(SCREEN_PART_NAME.second).toBe('Discussion');
+    expect(SCREEN_PART_NAME.observer).toBe('Observer feedback');
+    expect(MASTERMIND_MINUTES.speakerS * 2).toBe(20 * 60); // one block, stored as two equal halves
+    expect(MASTERMIND_MINUTES.observerS).toBe(3 * 60);
+    expect(MASTERMIND_MINUTES_VERSION).toBeGreaterThanOrEqual(5);
+  });
+  it('the projector title and the settings rows say Discussion for the mastermind only', () => {
+    const rounds = [{ roundNo: 1, showcase: true }, { roundNo: 2, showcase: false }, { roundNo: 3, showcase: false }];
+    expect(discussionRoundLabel(rounds, rounds[1]!)).toBe('Discussion round 1'); // counted number: the Demo is not counted
+    expect(discussionRoundLabel(rounds, rounds[2]!)).toBe('Discussion round 2');
+    expect(discussionRoundLabel(rounds, rounds[0]!)).toBe('Demo');
+    expect(nextDiscussionRoundLabel(rounds, false)).toBe('Discussion round 3');
+    expect(nextDiscussionRoundLabel(rounds, true)).toBe('Demo');
+    // a flow other than the mastermind keeps "Round N"
+    expect(roundNames(false).name(rounds, rounds[2]!)).toBe('Round 2');
+    expect(roundNames(true).name(rounds, rounds[2]!)).toBe('Discussion round 2');
+    expect(minuteRowLabel(true, 'speakerS', true, 'Speaker')).toBe('Discussion round');
+    expect(minuteRowLabel(true, 'observerS', false, 'Observer')).toBe('Observer feedback');
+    expect(minuteRowLabel(false, 'speakerS', true, 'Speaker')).toBe('Talk'); // Clarity Night unchanged
+    expect(minuteRowLabel(false, 'observerS', false, 'Observer')).toBe('Observer');
+    expect(minuteRowLabel(false, 'speakerS', false, 'Speaker')).toBe('Speaker');
+  });
+});
+
+describe('UAT 2026-11-13 (c) G3: the recording bar\'s waveform is quiet', () => {
+  it('thin, short and muted grey, never bright blue', () => {
+    const { unmount } = render(<CaptureLevelMeter quiet active />);
+    const meter = screen.getByTestId('capture-level-meter');
+    expect(meter.className).toMatch(/\bh-4\b/);
+    const bar = meter.querySelector('i')!;
+    expect(bar.className).toMatch(/bg-muted-foreground/);
+    expect(bar.className).not.toMatch(/blue/);
+    unmount();
+    // every other call site (the /transcribe page's row) keeps the standard bars
+    render(<CaptureLevelMeter active />);
+    expect(screen.getByTestId('capture-level-meter').querySelector('i')!.className).toMatch(/bg-blue-500/);
+    cleanup();
+    // and the room recording bar asks for the quiet ones
+    h.capture = capturing();
+    render(<RoomCaptureBar short />);
+    expect(screen.getByTestId('capture-level-meter').querySelector('i')!.className).toMatch(/bg-muted-foreground/);
+  });
+});
+
+describe('UAT 2026-11-13 (c) G7: no "open the room" arrow on pages inside the event', () => {
+  const at = (state: unknown, short: boolean, props: Record<string, unknown> = {}) => render(
+    <MemoryRouter initialEntries={[{ pathname: '/someone/canvas', state }]}><RoomCaptureBar short={short} {...props} /></MemoryRouter>);
+  it.each([['short', true], ['full', false]])('%s bar, a canvas opened from the event: no arrow; the info keeps "Open the live text"', (_n, short) => {
+    markRoundEvent('e1');
+    const open = vi.fn();
+    h.capture = capturing({ eventId: 'e1', open });
+    at({ backToTable: '/events/x/meet', tableEvent: 'e1' }, short);
+    expect(screen.queryByRole('button', { name: 'Open the room' })).toBeNull();
+    expect(screen.queryByTestId('room-capture-bar-open')).toBeNull();
+    fireEvent.click(screen.getByTestId('capture-info'));
+    fireEvent.click(screen.getByTestId('capture-info-open-room'));
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+  it.each([['short', true], ['full', false]])('%s bar, any other page (home, sessions) while a round event captures: the arrow stays', (_n, short) => {
+    markRoundEvent('e1');
+    h.capture = capturing({ eventId: 'e1' });
+    at(null, short);
+    expect(screen.getByTestId('room-capture-bar-open')).toBeInTheDocument();
+    // a canvas opened from ANOTHER event's table keeps it too
+    cleanup();
+    at({ tableEvent: 'other' }, short);
+    expect(screen.getByTestId('room-capture-bar-open')).toBeInTheDocument();
+  });
+  it('inside the event\'s own room the arrow is gone as before', () => {
+    markRoundEvent('e1');
+    h.capture = capturing({ eventId: 'e1' });
+    at(null, true, { roomEventId: 'e1' });
+    expect(screen.queryByTestId('room-capture-bar-open')).toBeNull();
+  });
+});
+
+describe('UAT 2026-11-13 (c) review fixes', () => {
+  it('the round-return live region says the countdown once, and the ticking does not change the announcement', () => {
+    const bar = { line: 'Round 1 ended.', left: 10, to: '/t', onStay: () => {} };
+    const view = render(<RoundReturnLive bar={bar} />);
+    expect(screen.getByTestId('round-return-live').textContent).toBe('Round 1 ended. Back to your table in 10 seconds.');
+    view.rerender(<RoundReturnLive bar={{ ...bar, left: 7 }} />);
+    expect(screen.getByTestId('round-return-live').textContent).toBe('Round 1 ended. Back to your table in 10 seconds.');
+    view.rerender(<RoundReturnLive bar={{ ...bar, left: null }} />);
+    expect(screen.getByTestId('round-return-live').textContent).toBe('Staying here.'); // the auto-return was cancelled: said once
+    view.rerender(<RoundReturnLive bar={null} />);
+    expect(screen.getByTestId('round-return-live').textContent).toBe('');
+  });
+  it('a new offer opens without the last offer\'s share error', async () => {
+    h.getMyEventCanvas.mockResolvedValue({ name: 'canvas_1', shared: false, fixed: false });
+    h.setEventCanvas.mockRejectedValue(new Error('network'));
+    const hook = renderHook(() => useEventShareOffer(vi.fn()));
+    await act(async () => { hook.result.current.ask('e1', 'canvas_1'); });
+    await waitFor(() => expect(hook.result.current.offer).not.toBeNull());
+    await act(async () => { await hook.result.current.share(); });
+    expect(hook.result.current.error).not.toBeNull();
+    await act(async () => { hook.result.current.ask('e1', 'canvas_2'); });
+    expect(hook.result.current.error).toBeNull();
   });
 });

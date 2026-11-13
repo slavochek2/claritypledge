@@ -6,6 +6,7 @@
  * text, no Try again: an unchanged canvas is an outcome, never a failure); and, only for a real failure, "Could not make your next version"
  * with a secondary Try again. Never shown during a running round (the card decides that). Stances are never asked for here (D7).
  */
+import { OpenYourCanvas } from './OpenYourCanvas';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,8 @@ export function MastermindUpdateTask({
   partner,
   tweakHref,
   openHref = null,
+  canvasHref = null,
+  heading = null,
   chatHref = null,
   linkState,
   onPreview,
@@ -41,6 +44,10 @@ export function MastermindUpdateTask({
   tweakHref: string | null;
   /** The owner's canvas page, for "Open it" once the next version is published. */
   openHref?: string | null;
+  /** The owner's canvas page for "Open your canvas" under the primary, on every face that does not already link it (null: none). */
+  canvasHref?: string | null;
+  /** After the evening ends the card carries its heading ("The evening is over") itself: one card, not an empty one above it. */
+  heading?: string | null;
   /** The round's chat with the transcript, when one is known: "Open the transcript" under "nothing to add". */
   chatHref?: string | null;
   /** Router state that makes the canvas page offer "Back to your table". */
@@ -58,6 +65,7 @@ export function MastermindUpdateTask({
   return (
     <section className="rounded-xl border border-blue-200 bg-card p-5 shadow-sm" data-testid="mastermind-task" data-face={nothingNew ? 'nothing_new' : face}>
       {/* [FOUNDER DECISION: copy] every sentence on this card */}
+      {heading && <h2 className="mb-3 text-xl font-semibold" data-testid="mastermind-over-heading">{heading}</h2>}
       {face === 'make' && (
         <>
           <h2 className="text-xl font-semibold" data-testid="mastermind-task-title">{taskTitle(roundName, partner)}</h2>
@@ -146,6 +154,8 @@ export function MastermindUpdateTask({
           <Link to={ARTIFACTS_CANVASES_DRAFTS} className={LINK}>Open your drafts</Link>
         </>
       )}
+
+      {canvasHref && face !== 'published' && face !== 'no_canvas' && <OpenYourCanvas href={canvasHref} linkState={linkState} testId="mastermind-task-canvas" />}
 
       {note && !(nothingNew && note.kind === 'nothing_new') && note.face !== face && (
         <p

@@ -4,6 +4,7 @@
  * "Stay here" (the owner with an open draft: the line, a link to the table and a Hide, no countdown). Blue like the preparation banner, a plain fade-in.
  * Screen readers hear the line once (the live region); the ticking number is aria-hidden. Wording is DRAFT: [FOUNDER DECISION: copy, proposed].
  */
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { RoundReturnBarProps } from './use-table-canvas';
 
@@ -25,9 +26,21 @@ export function RoundReturnBar({ line, left, to, onStay }: RoundReturnBarProps) 
 }
 
 /**
- * The announcement, once. The live region is mounted (empty) with the page and only its text changes when the host moves the rounds, so screen readers announce it;
- * the bar itself carries no live region and its countdown is aria-hidden.
+ * The announcements, each once. The live region is mounted (empty) with the page and only its text changes, so screen readers announce it; the bar itself carries no
+ * live region and its countdown is aria-hidden (a ticking number would be read every second). The countdown's starting value is said once, inside the line; when the
+ * person cancels the auto-return ("Stay here": the countdown goes away while the message stays) it says "Staying here." once. A new message is told apart by its line AND
+ * its destination, so two moves with the same words are still two announcements.
  */
 export function RoundReturnLive({ bar }: { bar: RoundReturnBarProps | null }) {
-  return <p className="sr-only" role="status" aria-live="polite" data-testid="round-return-live">{bar ? `${bar.line} Back to your table.` : ''}</p>;
+  const [said, setSaid] = useState<{ key: string; line: string; left: number | null; counting: boolean; cancelled: boolean } | null>(null);
+  // Adjusting state while rendering (React's documented pattern): the first value seen for a message is the one announced.
+  const key = bar ? `${bar.line}|${bar.to}` : '';
+  const counting = !!bar && bar.left !== null;
+  const fresh = bar ? { key, line: bar.line, left: bar.left, counting, cancelled: false } : null;
+  if (!bar) { if (said) setSaid(null); }
+  else if (said?.key !== key) setSaid(fresh);
+  else if (counting && !said.counting) setSaid(fresh); // a new countdown for the same message (after "Stay here"): announced again
+  else if (!counting && said.counting) setSaid({ ...said, counting: false, cancelled: true });
+  const text = !bar || !said ? '' : said.cancelled ? 'Staying here.' : `${said.line} Back to your table${said.left !== null ? ` in ${said.left} seconds` : ''}.`;
+  return <p className="sr-only" role="status" aria-live="polite" data-testid="round-return-live">{text}</p>;
 }

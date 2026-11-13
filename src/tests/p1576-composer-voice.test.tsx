@@ -397,15 +397,15 @@ describe('a failure looks like a failure, and its buttons are buttons', () => {
     expect(alert.querySelector('svg')).not.toBeNull();
   });
 
-  it('Retry is the default Button (the one blue, no hand-typed colour), Discard is an outline Button; both at least 40px tall, in a row under the message', async () => {
+  it('Retry is the default Button (the one blue, no hand-typed colour), Discard is a ghost red-text Button (rule 5, it loses the recording); both at least 40px tall, in a row under the message', async () => {
     await failed();
     const retry = screen.getByRole('button', { name: 'Retry' });
     const discard = screen.getByRole('button', { name: 'Discard voice message' });
     for (const b of [retry, discard]) expect(b.className).toMatch(/\bmin-h-10\b/);
     expect(retry.className).toMatch(/\bbg-blue-600\b/); // from the variant, per the Button Decision Rules
     expect(retry.className).not.toMatch(/text-blue-|font-semibold/); // never hand-typed (P1568)
-    expect(discard.className).toMatch(/\bborder\b/);
-    expect(discard.className).not.toMatch(/text-(red|blue)-/);
+    expect(discard.className).toMatch(/\btext-red-600\b/); // rule 5: losing something is red text, no box
+    expect(discard.className).not.toMatch(/border-blue|bg-blue|bg-background/);
     const alert = screen.getByRole('alert');
     expect(retry.parentElement).not.toBe(within(alert).getByText("Couldn't send the voice message.").closest('p'));
   });

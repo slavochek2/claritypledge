@@ -15,7 +15,7 @@
  */
 import { CanvasWorkspaceLayout } from '@/app/components/canvas/canvas-workspace-layout';
 import { CanvasPage } from '@/app/pages/canvas-page';
-import { bannerTarget, ownerBarBack } from './canvas-workspace-back';
+import { ownerBarBack } from './canvas-workspace-back';
 import { CloneDraftSheet } from './clone-draft-sheet';
 import { WorkspacePreparationBanner } from './PreparationBanner';
 import { RoundReturnBar, RoundReturnLive } from './RoundReturnBar';
@@ -29,7 +29,8 @@ export function CanvasWithThread() {
   const w = useCanvasWorkspacePage();
   const { handle, projectTag, mirror, active, held, panel, clone, rename, ownerBar, backTo, table, navState, publishing, wide, bump } = w;
   const { view, setView, panelOpen } = panel;
-  const bannerTo = bannerTarget({ backTo, ownerBar, table, roundBar: !!w.roundBar });
+  // G6: only the before-event preparation keeps its banner (its step line); a canvas opened from the table has none, its header row carries the back.
+  const bannerTo = backTo;
   const ownBack = ownerBarBack({ banner: !!bannerTo, returnBar: !!w.roundBar, table });
   const { spot, publishing: isPublishing, publish, shareOffer } = publishing;
   return (

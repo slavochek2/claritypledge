@@ -12,15 +12,7 @@ export function fromOf(state: unknown): string | null {
 }
 
 /**
- * Where the banner above the owner's bar sends back (null: no banner). The preparation's `afterPublish` first; else the owner's canvas opened from
- * the event's room (a table link) gets the same banner with the room as its back, unless the round-return bar is on screen (its link is the way back then).
- */
-export function bannerTarget(args: { backTo: string | null; ownerBar: boolean; table: { to: string } | null | undefined; roundBar: boolean }): string | null {
-  return args.backTo ?? (args.ownerBar && args.table && !args.roundBar ? args.table.to : null);
-}
-
-/**
- * Whose ← the owner's bar draws (F6: exactly one back on screen). `banner`: the preparation banner above carries the only back (the bar draws none);
+ * Whose ← the owner's bar draws (F6: exactly one back on screen). `banner`: the preparation banner above (the event's before-event preparation, `afterPublish`) carries the only back (the bar draws none); a canvas opened from the table has no banner (P1529 G6) and its header carries the back;
  * `returnBar`: the host moved the rounds and the return bar is on screen, its link is the one way back; `table`: a canvas opened from the table goes back to it; `history`: anything else goes where the opener left (workspaceBackTarget).
  */
 export function ownerBarBack(args: { banner: boolean; returnBar?: boolean; table: { to: string } | null | undefined }): { kind: 'banner' } | { kind: 'returnBar' } | { kind: 'table'; to: string } | { kind: 'history' } {

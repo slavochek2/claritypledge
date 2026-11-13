@@ -378,7 +378,7 @@ describe('P1614 visual QA: error outline, read-only look, Dismiss', () => {
     open('A'); type('my wording');
     rerender(view([pt('B', 'Other')]));
     const dismiss = screen.getByTestId('canvas-point-editor-dismiss');
-    expect(dismiss.className, 'outline variant: a visible border').toContain('border-input');
+    expect(dismiss.className, 'outline variant: a visible border').toContain('border-blue-600');
     const notice = screen.getByTestId('canvas-point-editor-notice');
     const follows = (a: Node, b: Node) => !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     expect(follows(notice, dismiss), 'Dismiss follows the notice').toBe(true);

@@ -274,15 +274,17 @@ function changedBoxesOf(acc: Acc, ctx: Ctx, basePoints: readonly BasePoint[]): s
 function buildCtx(pc: ParseContext, scope: readonly string[]): Ctx {
   const haystack = ownerHaystack(pc.material);
   const ownCanvas = [...pc.basePoints, ...(pc.draftPoints ?? [])].map((p) => `${p.statement} ${p.story ?? ''}`).join('\n');
+  // P1529 UAT 2026-11-13 (e) I1: in round-update mode a number or price said by anyone in the round's material counts (never one said nowhere).
+  const said = pc.roundUpdate === true ? normalizeForQuote(pc.material.items.map((i) => i.text).join('\n')) : haystack;
   return {
     base: new Map(pc.basePoints.map((p) => [p.id, p])),
     from: pc.baseLabel ?? 'the earlier version',
     haystack,
     ownCanvas,
     ownerTyped: pc.material.items.filter((i) => i.owner && i.kind === 'note').map((i) => i.text).join('\n\n'), // a blank line: separate messages are never one sentence
-    namesOther: ((n) => (pc.roundUpdate ? withRoundNames(n, pc.material, pc.basePoints) : n))(namesMatcher(pc.otherNames, derivedNames(pc.material, pc.ownerName))),
-    numbers: new Set([...numbersIn(haystack), ...numbersIn(ownCanvas)]),
-    priceWords: priceWordsOf(`${haystack}\n${normalizeForQuote(ownCanvas)}`, pc.material, pc.basePoints.length > 0),
+    namesOther: ((n) => (pc.roundUpdate === true ? withRoundNames(n, pc.material, pc.basePoints) : n))(namesMatcher(pc.otherNames, derivedNames(pc.material, pc.ownerName))),
+    numbers: new Set([...numbersIn(said), ...numbersIn(ownCanvas)]),
+    priceWords: priceWordsOf(`${said}\n${normalizeForQuote(ownCanvas)}`, pc.material, pc.basePoints.length > 0),
     derived: new Map((pc.draftPoints ?? []).filter((d) => d.from_point_id).map((d) => [d.from_point_id as string, d])),
     scope: new Set(scope),
     rebuild: new Set(pc.rebuild ?? []),

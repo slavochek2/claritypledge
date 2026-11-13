@@ -63,7 +63,7 @@ describe('/sessions: a transcription session', () => {
   it('Copy is a design-system button: the outline variant, 44px, on the title row (founder final look: no longer the screen\'s primary)', async () => {
     await open();
     const copy = screen.getByRole('button', { name: 'Copy transcript to clipboard' });
-    expect(copy.className).toMatch(/border-input/);     // the outline variant
+    expect(copy.className).toMatch(/border-blue-600/);     // the outline variant
     expect(copy.className).toMatch(/min-h-11/);          // 44px touch target
     expect(copy.closest('[data-page-header]'), 'on the title row').not.toBeNull();
     const blue = Array.from(document.querySelectorAll('button')).filter((b) => /bg-blue-600/.test(b.className));

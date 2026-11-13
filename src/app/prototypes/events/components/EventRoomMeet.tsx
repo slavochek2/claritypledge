@@ -301,7 +301,7 @@ export function EventRoomMeet() {
   const [principleOpen, setPrincipleOpen] = useState(false);
   // P1337: the round's moment, reported by the round card (it owns the poll). While you sit at a
   // table the page is your table (walkthrough 6); the step bar names the moment (walkthrough 7).
-  const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false, live: false, waiting: false });
+  const [moment, setMoment] = useState<RoundMoment>({ seated: false, atTable: false, eveningOver: false, live: false, waiting: false, nextVersionOffered: false });
   const seated = moment.seated;
   const [roundsStarted, setRoundsStarted] = useState(false);
   // P1529 E5: a sales mastermind whose canvas is made at the event has a Canvas tab, open from arrival (no host step).
@@ -328,8 +328,6 @@ export function EventRoomMeet() {
   const [learnMounted, setLearnMounted] = useState(false);
   // Round 8b (Gemini MED 4): the learning's step header is portalled into the room's sticky head, so it stays pinned.
   const [learnHeadSlot, setLearnHeadSlot] = useState<HTMLDivElement | null>(null);
-  // After the Feedback tab's block: the mastermind's next-version card is portalled here, so feedback comes first in DOM and focus order.
-  const [afterFeedbackSlot, setAfterFeedbackSlot] = useState<HTMLDivElement | null>(null);
   const barObserver = useRef<ResizeObserver | null>(null);
   const setBarRef = useCallback((node: HTMLDivElement | null) => {
     barObserver.current?.disconnect();
@@ -499,6 +497,7 @@ export function EventRoomMeet() {
       onSelect={onStep}
       hidden={hiddenSteps}
       closeOpen={feedbackOpenAnytime(event)}
+      tableOpen={roomRecipe.mastermind}
       withCanvas={canvasTab}
       labels={roomRecipe.room.steps ? { principle: roomRecipe.room.steps.principle, close: roomRecipe.room.steps.close } : undefined}
       learn={learnsInBar && event
@@ -594,6 +593,14 @@ export function EventRoomMeet() {
       )}
       {/* P1542 review round 4: drawn only while shown (no hidden second copy of the close). Typed answers survive a
           tab switch in the tab's storage (use-close-draft.ts); the tick comes only from a persisted finish. */}
+      {/* P1529 H3: the next version lives in Table; Feedback only says so, at the top, while one is waiting. */}
+      {(viewing === 'close' || feedback) && !learning && moment.nextVersionOffered && (
+        <div className={PAGE_CONTAINER}>
+          <button type="button" onClick={() => onStep('table')} className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-blue-600 underline" data-testid="room-next-version-link">
+            Your next version is waiting in Table &rarr;
+          </button>
+        </div>
+      )}
       {event && user && feedback && (
         <CloseInRoom
           event={event}
@@ -647,7 +654,6 @@ export function EventRoomMeet() {
               view={viewing === 'table' || viewing === 'compare' ? viewing : 'hidden'}
               onMoment={setMoment}
               onRoundsStarted={setRoundsStarted}
-              feedbackSlot={viewing === 'close' ? afterFeedbackSlot : null}
             />
           )}
           {viewing === 'canvas' && canvasTab && !learning && !feedback && self && <CanvasSetupPhoneCard eventId={event.id} event={event} self={self} onShared={setCanvasShared} />}
@@ -661,7 +667,6 @@ export function EventRoomMeet() {
               onLearnFirst={() => openLearn(true)}
             />
           )}
-          <div ref={setAfterFeedbackSlot} className="empty:hidden" data-testid="room-after-feedback-slot" />
           {showAnswered && step === 'answered' && (
             <div className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-card px-4" data-testid="room-principle-folded">
               <button

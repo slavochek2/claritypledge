@@ -111,7 +111,7 @@ describe('LetterOverviewPage hierarchy', () => {
     const preview = screen.getByRole('button', { name: 'Preview' });
     const copy = screen.getByRole('button', { name: 'Copy public link' });
     for (const secondary of [preview, copy]) {
-      expect(secondary.className).toContain('border-input'); // the shared outline variant
+      expect(secondary.className).toContain('border-blue-600'); // the shared outline variant
       expect(secondary.className).not.toMatch(/\bbg-(primary|blue-[5-9]00)\b/);
       expect(secondary.className).toMatch(/\bmin-h-10\b/);
       expect(secondary.parentElement).toBe(add.parentElement); // one row of actions

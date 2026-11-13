@@ -80,6 +80,43 @@ When the owner's message conflicts with the canvas (a later message, when the re
   - "recommended": "A" for the first option, "B" for the second, or "keep". "reason": why, as one short clause that reads after the word "because" ("you say this is the problem now"). No names, no numbers the owner did not give.
 - Not a conflict, so no "choice": a statement about a box with no current point (a plain "new" point, as always), a detail that fits what a current point already says, an explicit request to reword, shorten, move or remove a named point, a greeting or a question. Those are handled with actions as before.`;
 
+/** Cuts the text from `from` up to (not including) `to`, and puts `by` there. A marker that is missing throws: a silent no-op would send the refusing rule. */
+function replaceSpan(text: string, from: string, to: string, by: string): string {
+  const a = text.indexOf(from);
+  const b = a < 0 ? -1 : text.indexOf(to, a + from.length);
+  if (a < 0 || b < 0) throw new Error(`ROUND_RULES: marker not found: ${a < 0 ? from : to}`);
+  return text.slice(0, a) + by + text.slice(b);
+}
+/** One exact replacement of every occurrence; a text that is not there throws, as above. */
+function sub(text: string, from: string, by: string): string {
+  if (!text.includes(from)) throw new Error(`ROUND_RULES: text not found: ${from}`);
+  return text.split(from).join(by);
+}
+
+/**
+ * P1529 UAT 2026-11-13 (e): the rules of a round-update run. The system rules override everything, so the lines that say "only the
+ * owner's words make a point", "a point needs an owner quote" and "on a conflict the owner decides" are rewritten for this mode:
+ * everything said in the round's conversation is material, the agent resolves conflicts itself, and no person is named or quoted.
+ * Every other mode reads DRAFT_RULES, byte for byte. Every rewrite is bounded to its own block and throws when its marker is gone.
+ */
+export const ROUND_RULES = ((): string => {
+  const END = 'Those are handled with actions as before.';
+  let r = DRAFT_RULES;
+  if (!r.endsWith(END)) throw new Error('ROUND_RULES: DRAFT_RULES no longer ends with the conflict block');
+  r = replaceSpan(r, '- Each data item says whose words it holds.', '- Files and links', '- Each data item says whose words it holds. "owner" items are the owner\'s own words (their messages, their files, their links). "other_person" items are other people\'s words (a copied chat, an event transcript of the round). In a round-update run they are material: their ideas, challenges, numbers and prices about the owner\'s offer, customers and canvas count, and you NEVER quote them or name their author. What a person says about THEIR OWN business (their revenue, churn, clients, prices) is not a fact about the owner\'s business: use it only as advice or a challenge to the owner\'s canvas, never as a figure or fact written into it.\n');
+  r = replaceSpan(r, '- Files and links are not only', '- ' + NAMING_RULE.slice(0, 12), '- Files and links hold OTHER people: never write their names or their companies\' names.\n');
+  r = replaceSpan(r, '- Nothing invented.', '- Keep how sure', '- Nothing invented. Write a point only when the conversation or the canvas supports it; a number or price must appear there. For each NEW or REWORDED point "quote" may be empty. Use your own reasoning on what makes the canvas clearer and more honest.\n');
+  r = sub(r, 'Only what the owner says has happened is a result', 'Only what was said in the conversation to have happened is a result, and only about the owner\'s own business');
+  r = sub(r, 'Every factual clause traces to the owner\'s material.', 'Every factual clause traces to the conversation or the canvas.');
+  r = sub(r, 'the owner\'s material states', 'the material states');
+  r = sub(r, 'only when the owner\'s words state it for that price', 'only when the conversation or canvas states it for that price');
+  r = sub(r, 'the owner\'s own newer words contradict the point', 'newer words in the conversation contradict the point');
+  // The last two blocks (the owner's words, then the conflict rule) are the end of DRAFT_RULES; nothing follows them.
+  r = replaceSpan(r, 'The owner\'s own words:', 'When the owner\'s message conflicts', 'The conversation\'s words:\n- In a round-update run, everything said in the round\'s conversation is evidence for the next version, whoever said it. Never refuse a point, or call it unsupported, because the owner did not say it. Do not answer that nothing changed only because the words came from someone else.\n- Your own knowledge never makes a point: write only from the conversation and the canvas.\n\n');
+  r = replaceSpan(r, 'When the owner\'s message conflicts', END, 'When what was said conflicts with the canvas or with itself:\n- You decide. Resolve the conflict by your own reasoning about what makes the canvas clearer and more honest, and make the change with "reword", "new", "move" or "drop" actions. Never ask the owner to choose and never return a "choice": return the actions.\n- ');
+  return r.endsWith('- ' + END) ? r.slice(0, -END.length - 2) : r;
+})();
+
 const DRAFT_SCHEMA = {
   type: 'OBJECT',
   properties: {
@@ -154,11 +191,11 @@ const CHOICE_SCHEMA = {
 };
 
 /**
- * A run that may offer a choice: a message, not the first draft, whose own message has words (they are stored as the choice's request).
+ * A run that may offer a choice: a message, not the first draft, not a round update (P1529 UAT 2026-11-13 (e): the agent decides a conflict itself), whose own message has words (they are stored as the choice's request).
  * The ONE predicate: the request asks for "choice" exactly when the parse will read it (the engine passes the same frame and material).
  */
-export const choiceAllowed = (f: Pick<RunFrame, 'kind' | 'firstDraft'>, material: Pick<Material, 'items'>): boolean =>
-  f.kind === 'message' && !f.firstDraft && material.items.some((i) => i.trigger === true && i.text.trim() !== '');
+export const choiceAllowed = (f: Pick<RunFrame, 'kind' | 'firstDraft' | 'roundUpdate'>, material: Pick<Material, 'items'>): boolean =>
+  f.kind === 'message' && !f.firstDraft && f.roundUpdate !== true && material.items.some((i) => i.trigger === true && i.text.trim() !== '');
 
 /**
  * The response schema of a run: a message on a canvas that already has a draft may answer with a "choice" (P1646), decided before its
@@ -226,7 +263,7 @@ export function frameInstruction(f: RunFrame): string {
     return `The owner is answering a choice that is no longer open. Their earlier request is the owner message quoted in the data item of kind "earlier_request". Check it against the canvas as it is now and return a "choice" when it still conflicts with a current point, quoting the earlier request; return no actions. ${f.taggedBoxes?.length ? `It may change only ${titles(f.taggedBoxes)}: return "scope" as exactly that.` : 'Return in "scope" only the boxes it is about.'} The focus stays: leave "focus" empty and leave out "focus_reason".`;
   }
   if (f.roundUpdate) {
-    return `This run follows a live conversation about this canvas (the copied transcript). Write a better version: reason from the whole conversation, whoever said what and however it was said; the owner need not have agreed out loud. This replaces the rule that a point needs the owner's quote: "quote" may be empty. Use your judgement on what makes the canvas clearer and more honest, and keep what still holds. All nine boxes may change. Never name or quote anyone, never state a fact about another person or their business, and never add a number or price the owner did not state. The focus stays; leave "focus" empty.${knownGroupsLine(f)}`;
+    return `This run follows a live conversation about this canvas (the copied transcript). Write a better version: reason from the whole conversation, whoever said what and however it was said; the owner need not have agreed out loud. This replaces the rule that a point needs the owner's quote: "quote" may be empty. Use your judgement on what makes the canvas clearer and more honest, and keep what still holds. All nine boxes may change. Ideas, challenges, numbers and prices said by anyone in the conversation count as material for the new version; a number or price must appear in the conversation or on the canvas, never invented. When what was said conflicts, resolve it by your own reasoning about what makes the canvas clearer and more honest, and make the change; do not refuse, and do not answer that nothing changed only because the words came from someone else. Never name or quote anyone. What a person says about their own business (their revenue, churn, clients) is not a fact about the owner's business: use it only as advice or a challenge to this canvas. The focus stays; leave "focus" empty.${knownGroupsLine(f)}`;
   }
   if (f.taggedBoxes?.length) {
     const file = f.inputKind === 'file' ? FILE_TAGGED_LINE : '';
@@ -247,7 +284,7 @@ export function buildDraftRequest(ctx: DraftContext): GeminiRequest {
   const frame: RunFrame = ctx.frame ?? { kind: 'message', firstDraft: ctx.basePoints.length === 0, taggedBoxes: null, focus: null, targetGroup: null, rebuild: [] };
   const instruction = `${frameInstruction(frame)} Return only JSON, following the rules.${cutNote}`;
   return {
-    systemInstruction: { parts: [{ text: DRAFT_RULES }] },
+    systemInstruction: { parts: [{ text: frame.roundUpdate === true ? ROUND_RULES : DRAFT_RULES }] },
     contents: [{ role: 'user', parts: [{ text: `${dataBlock({ ...ctx, frame })}\n\n<<INSTRUCTION>>\n${instruction}` }] }],
     generationConfig: {
       maxOutputTokens: MAX_OUT_TOKENS,

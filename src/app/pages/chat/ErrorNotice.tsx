@@ -22,12 +22,18 @@ export function ErrorNotice({ message, testId, children }: { message: ReactNode;
 
 /**
  * A way out of an error, by the Button Decision Rules (docs/design-system.md): the one action inside the notice
- * (`primary`: Retry, Insert) is the default Button, auto width (rule 8); the way out of it is an outline Button.
- * Colour comes from the variant, never from classes typed here (P1568).
+ * (`primary`: Retry, Insert) is the default Button, auto width (rule 8); the way out of it is an outline Button. A way out that LOSES
+ * something (`destructive`: Discard) is rule 5: a ghost Button with red text, no box. Colour comes from the variant, never typed blue here (P1568).
  */
-export function NoticeButton({ label, onClick, primary = false, children }: { label: string; onClick: () => void; primary?: boolean; children: ReactNode }) {
+export function NoticeButton({ label, onClick, primary = false, destructive = false, children }: { label: string; onClick: () => void; primary?: boolean; destructive?: boolean; children: ReactNode }) {
   return (
-    <Button type="button" variant={primary ? 'default' : 'outline'} aria-label={label} onClick={onClick} className="min-h-10 px-4">
+    <Button
+      type="button"
+      variant={primary ? 'default' : destructive ? 'ghost' : 'outline'}
+      aria-label={label}
+      onClick={onClick}
+      className={destructive ? 'min-h-10 px-4 text-red-600 hover:bg-red-50 hover:text-red-700' : 'min-h-10 px-4'}
+    >
       {children}
     </Button>
   );

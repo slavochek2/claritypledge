@@ -117,7 +117,7 @@ const UNITS: Record<string, number> = {
 const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
 const COMPOUND_RE = new RegExp(`\\b(${Object.keys(TENS).join('|')})[ -](${Object.keys(UNITS).slice(1, 10).join('|')})\\b`, 'g');
 const WORD_RE = new RegExp(`\\b(${[...Object.keys(UNITS), ...Object.keys(TENS)].join('|')})\\b`, 'g');
-const NUM_RE = /(\d+(?:[.,]\d+)*)\s?(thousand|grand|million|billion|percent|mm|bn|k|m|b|%)?(?![\p{L}])/giu;
+const NUM_RE = /(\d+(?:[.,]\d+)*|(?<![\p{L}\p{N}])\.\d+)\s?(thousand|grand|million|billion|percent|mm|bn|k|m|b|%)?(?![\p{L}])/giu;
 const MAGNITUDE: Record<string, string> = { thousand: 'k', grand: 'k', k: 'k', million: 'm', mm: 'm', m: 'm', billion: 'b', bn: 'b', b: 'b', percent: '%', '%': '%' };
 
 /** Number words become digits ("twenty-five" 25, "three" 3). */
@@ -138,11 +138,21 @@ export function digitsOf(raw: string): string {
   return raw.replace(',', '.');
 }
 
+const MULTIPLIER: Record<string, number> = { k: 1e3, m: 1e6, b: 1e9 };
+/** "40 thousand", "40k" and "40,000" are one number: a magnitude is multiplied out, so only a percent keeps a suffix. */
+function canonicalNumber(digits: string, magnitude: string): string {
+  const mult = MULTIPLIER[magnitude];
+  // A decimal without a magnitude is normalised too ("2.50" is "2.5", ".5" is "0.5"); a whole number keeps its digits.
+  if (!mult) return (digits.includes('.') && Number.isFinite(Number(digits)) ? String(Number(digits)) : digits) + magnitude;
+  const v = Number(digits);
+  return Number.isFinite(v) ? String(Math.round(v * mult * 1e6) / 1e6) : digits + magnitude;
+}
+
 /** Every number in a text, as a normalised token: digits plus an optional magnitude (k, m, b, %). */
 export function numbersIn(text: string): Set<string> {
   const out = new Set<string>();
   for (const m of wordsToDigits(fold(text)).matchAll(NUM_RE)) {
-    out.add(digitsOf(m[1] ?? '') + (m[2] ? MAGNITUDE[m[2].toLowerCase()] ?? '' : ''));
+    out.add(canonicalNumber(digitsOf(m[1] ?? ''), m[2] ? MAGNITUDE[m[2].toLowerCase()] ?? '' : ''));
   }
   return out;
 }

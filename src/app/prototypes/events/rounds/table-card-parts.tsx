@@ -35,7 +35,7 @@ export function TableStatus({ table, clock, timing, hasObserver }: { table: numb
 
 export interface TableFace { id: string; you: boolean; role: MastermindRole; name: string; person: PersonRef }
 
-/** The table's seats as faces (You first), each with the roster's avatar and pledge ring. */
+/** The table's seats as faces (me first, kept for the card's own use), each with the roster's avatar and pledge ring. */
 export function buildFaces(seats: RoundSeat[], mineId: string, roster: EventRoomMember[], nameOf: (id: string) => string): TableFace[] {
   return tableFaces(seats, mineId).map(f => {
     const m = roster.find(r => r.id === f.seat.id);
@@ -81,15 +81,15 @@ export function InstructionBox({ steps }: { steps: RoleStep[] }) {
   );
 }
 
-/** Everyone at the table, me included: a 32px avatar (pledge ring) and the name ("You" for me, bold, no role: the heading says it); the others' role, muted. */
+/** The others at the table (no "You" row, P1529 G8: my own role is the line above): a 32px avatar (pledge ring), the name and the role word, muted. */
 export function TablePeople({ faces }: { faces: TableFace[] }) {
   return (
     <ul className="mt-2 space-y-2" data-testid="round-card-others">
-      {faces.map(f => (
-        <li key={f.id} className="flex items-center gap-2 text-base" data-testid="round-card-person" data-name={f.you ? 'You' : f.name} data-role={f.role}>
+      {faces.filter(f => !f.you).map(f => (
+        <li key={f.id} className="flex items-center gap-2 text-base" data-testid="round-card-person" data-name={f.name} data-role={f.role}>
           <PersonAvatar person={f.person} size="sm" className="!h-8 !w-8" />
-          <span className={f.you ? 'font-bold' : 'font-medium'}>{f.you ? 'You' : f.name}</span>
-          {!f.you && <span className="text-sm text-muted-foreground">{ROLE_WORD[f.role]}</span>}
+          <span className="font-medium">{f.name}</span>
+          <span className="text-sm text-muted-foreground">{ROLE_WORD[f.role]}</span>
         </li>
       ))}
     </ul>

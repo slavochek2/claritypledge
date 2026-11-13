@@ -45,8 +45,8 @@ describe('the transcript view header', () => {
     expect(within(header).getByRole('heading', { name: 'Transcript · Ben' })).toBeTruthy();
     const copy = within(header).getByRole('button', { name: /copy transcript/i });
     expect(copy.className).toMatch(/min-h-11/);
-    expect(copy.className).toMatch(/border-input/);           // the outline variant (founder), not a white outline
-    expect(copy.className).not.toMatch(/bg-primary|bg-blue/);
+    expect(copy.className).toMatch(/border-blue-600/);           // the outline variant (founder), not a white outline
+    expect(copy.className).not.toMatch(/bg-primary|bg-blue-[5-9]00/);
     // right of the title in the same flex row
     const title = within(header).getByRole('heading');
     expect(title.compareDocumentPosition(copy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

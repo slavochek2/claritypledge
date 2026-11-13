@@ -11,7 +11,7 @@
 import { useEffect, useRef } from 'react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { cn } from '@/lib/utils';
-import { LEVEL_BAR_CLASS, levelBarHeight } from '@/lib/audio/level-bar';
+import { LEVEL_BAR_CLASS, QUIET_LEVEL_BAR_CLASS, levelBarHeight } from '@/lib/audio/level-bar';
 
 /** Steps of `data-level` (0 = flat), kept so a test or a probe can read "the voice is moving it" without measuring pixels. */
 const STEPS = 5;
@@ -29,7 +29,8 @@ const heightPct = levelBarHeight;
 const COMPACT_BARS = 8;
 
 /** The waveform (the same look as the chat dictation bar's level bars), moving with the voice. */
-export function CaptureLevelMeter({ active }: { active: boolean }) {
+/** `quiet`: the room recording bar's thin grey waveform (P1529 G3); every other place keeps the standard bars. */
+export function CaptureLevelMeter({ active, quiet = false }: { active: boolean; quiet?: boolean }) {
   const { subscribeLevel } = useRoomCapture();
   const ref = useRef<HTMLSpanElement>(null);
 
@@ -73,10 +74,10 @@ export function CaptureLevelMeter({ active }: { active: boolean }) {
       aria-hidden="true"
       data-testid="capture-level-meter"
       data-level="0"
-      className="inline-flex h-6 shrink-0 items-center gap-[3px]"
+      className={cn('inline-flex shrink-0 items-center', quiet ? 'h-4 gap-[2px]' : 'h-6 gap-[3px]')}
     >
       {FLAT.map((_, i) => (
-        <i key={i} style={{ height: heightPct(0) }} className={cn('block', LEVEL_BAR_CLASS, i < BARS - COMPACT_BARS && 'max-sm:hidden')} />
+        <i key={i} style={{ height: heightPct(0) }} className={cn('block', quiet ? QUIET_LEVEL_BAR_CLASS : LEVEL_BAR_CLASS, i < BARS - COMPACT_BARS && 'max-sm:hidden')} />
       ))}
     </span>
   );

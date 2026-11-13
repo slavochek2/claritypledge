@@ -10,6 +10,7 @@ import type { RoundPhase } from '@/lib/round-clock';
 import type { SeatingProblem } from '@/lib/mastermind-seating-check';
 import type { Seat, SeatRole } from '@/lib/round-grouping';
 import type { EventFlow } from '../series-recipes';
+import { displayRoundNo, nextDisplayNo, nextRoundLabel, roundLabel, type NumberedRound } from '@/lib/round-numbering';
 
 export const MASTERMIND_FLOW: EventFlow = 'sales-mastermind';
 
@@ -22,14 +23,14 @@ export const FLOW_NAMES: Record<EventFlow, string> = {
 };
 
 /**
- * A Sales Mastermind round has two parts (UAT 2026-11-13 (b)): Talk (15 minutes, the owner and the peer in one block, no swap at half
- * time) then Observer (3). No finding-the-table part and no silent reading part: both are stored as 0, so the server's columns and
+ * A Sales Mastermind round has two parts (UAT 2026-11-13 (b), renamed (c) G2): Discussion (20 minutes, the owner and the peer in one block, no swap at half
+ * time) then Observer feedback (3). No finding-the-table part and no silent reading part: both are stored as 0, so the server's columns and
  * every clock keep one shape. The talk is stored as `speakerS` x 2 (host_start_round writes the same seconds into first_s and
- * second_s; a no-split round adds them), so 450 s is a 15-minute talk.
+ * second_s; a no-split round adds them), so 600 s is a 20-minute discussion.
  */
-export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 0, speakerS: 450, observerS: 180, readingS: 0 };
+export const MASTERMIND_MINUTES: RoundMinutes = { seatingS: 0, speakerS: 600, observerS: 180, readingS: 0 };
 /** Version of the stored mastermind minutes: bump when the defaults change, so minutes a host saved earlier are not kept. */
-export const MASTERMIND_MINUTES_VERSION = 4;
+export const MASTERMIND_MINUTES_VERSION = 5;
 /** Pure: saved host settings without mastermind minutes that were stored under an older version (Clarity Night's are untouched). */
 export function dropStaleMastermindMinutes<T extends { mastermindMinutes?: unknown; mastermindMinutesV?: number }>(saved: T): T {
   if (saved.mastermindMinutesV === MASTERMIND_MINUTES_VERSION) return saved;
@@ -42,11 +43,36 @@ export const MASTERMIND_GROUP_SIZE = 4;
 /** [FOUNDER DECISION: copy] The host grid's columns in this flow (the Clarity Night grid says Speaker 1 and 2). */
 export const COLUMN_LABELS: Record<SeatRole, string> = { first: 'Clarity Canvas owner', second: 'Peer', observer: 'Observer' };
 
-/** [FOUNDER DECISION: copy, proposed] The part of the round the projector names beside the time left ("Talk · 12:30 left"). */
+/** [FOUNDER DECISION: copy, proposed] The part of the round the projector names beside the time left ("Discussion · 12:30 left"). Founder 2026-11-13 (c) G2: "Discussion", not "Talk". */
 export const SCREEN_PART_NAME: Record<Exclude<RoundPhase, 'over'>, string> = {
   // Only rounds saved before the two-part change can still be in these two; they keep their own names.
-  seating: 'Find your table', reading: 'Reading', first: 'Talk', second: 'Talk', observer: 'Observer',
+  seating: 'Find your table', reading: 'Reading', first: 'Discussion', second: 'Discussion', observer: 'Observer feedback',
 };
+
+/** This flow's name for a round, built from the counted round number: "Discussion round 2" (a Demo keeps its name). Clarity Night keeps `roundLabel`. */
+export function discussionRoundLabel(rounds: readonly NumberedRound[], round: NumberedRound): string {
+  const n = displayRoundNo(rounds, round);
+  return n === null ? 'Demo' : `Discussion round ${n}`;
+}
+
+/** The same for the round about to start. */
+export function nextDiscussionRoundLabel(rounds: readonly NumberedRound[], demo: boolean): string {
+  const n = nextDisplayNo(rounds, demo);
+  return n === null ? 'Demo' : `Discussion round ${n}`;
+}
+
+/** The two round-naming functions of a flow: the mastermind says "Discussion round N", every other flow "Round N". */
+export function roundNames(mastermind: boolean) {
+  return mastermind
+    ? { name: discussionRoundLabel, next: nextDiscussionRoundLabel }
+    : { name: roundLabel, next: nextRoundLabel };
+}
+
+/** The host's minutes rows: the mastermind names them "Discussion round" and "Observer feedback"; other flows keep their own labels. */
+export function minuteRowLabel(mastermind: boolean, key: string, oneTalk: boolean, fallback: string): string {
+  if (mastermind) return key === 'speakerS' ? 'Discussion round' : key === 'observerS' ? 'Observer feedback' : fallback;
+  return oneTalk ? 'Talk' : fallback;
+}
 
 /** The round's first minutes cannot have words: a table is only said to be silent after them. */
 export const SILENT_TABLE_GRACE_MS = 5 * 60_000;
@@ -182,3 +208,24 @@ export function extendRefusal(error: unknown): string | null {
  * source for the people list and the table tile. */
 export const READY_LABEL = 'Ready';
 export const READY_HINT = 'Their Clarity Canvas is shared and they have not owned a table yet. Setting up the next round seats them.';
+
+// ── The principle's opt-out: a mark, never a rule (UAT 2026-11-13 (d), H1) ──────────────────────────────────────────
+
+/** [FOUNDER DECISION: copy, proposed] The small host-screen mark beside a person who opted out of the Clarity Meeting Principle. */
+export const OPTED_OUT_MARK = 'opted out';
+
+/**
+ * [FOUNDER DECISION: copy, proposed] The one line under the proposed tables when someone who opted out sits as Clarity Canvas owner or peer
+ * ("Kira opted out of the principle."). Null when nobody does. Names are the caller's (first names). Observers are not named: the
+ * principle's roles are the owner's and the peer's.
+ */
+export function optedOutLine(names: string[]): string | null {
+  if (names.length === 0) return null;
+  const who = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `${who} opted out of the principle.`;
+}
+
+/** The people seated as owner or peer who opted out, in seat order. Pure. */
+export function optedOutSeated(seats: readonly Seat[], optedOut: (memberId: string) => boolean): string[] {
+  return seats.filter(s => s.role !== 'observer' && optedOut(s.id)).map(s => s.id);
+}

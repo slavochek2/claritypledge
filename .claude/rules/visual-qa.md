@@ -15,6 +15,7 @@ VISUAL QA CHECKLIST (per screenshot):
 □ Alignment: Are baselines, left edges, centers flush where expected?
 □ Touch targets: Are interactive elements >= 40px height?
 □ One primary action: At most ONE full-width primary button per view? (P955 — competing primaries split intent; deterministically blocked by the p955-gate)
+□ No white buttons: Is every action button filled blue (primary) or blue-bordered (secondary)? A white or grey outlined action button is a finding (founder rule, P1529 G1; the `outline` variant is blue-bordered).
 □ No dead controls: No disabled submit/primary button rendered as decoration in an empty/initial state? (P955 — model state correctly, don't render-then-disable; deterministically blocked by the p955-gate)
 □ Responsive squeeze: At narrowest width, do elements degrade gracefully?
 □ Edge data: What happens with count=0, count=999, very long text?

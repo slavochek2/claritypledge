@@ -20,7 +20,7 @@ import { Avatar } from './host-screen-parts';
 import { shortName } from './use-event-rounds';
 import type { MastermindHost } from './use-mastermind-host';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
-import { NOT_REGISTERED_LINE, PREVIEW_LOCK_LINE, RECORDING_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal, READY_LABEL, READY_HINT } from './mastermind-host-helpers';
+import { NOT_REGISTERED_LINE, OPTED_OUT_MARK, PREVIEW_LOCK_LINE, RECORDING_WORDS, canvasLine, isObserver, isUnregistered, observerRefusal, READY_LABEL, READY_HINT } from './mastermind-host-helpers';
 
 /** [FOUNDER DECISION: copy] */
 const COPY = {
@@ -76,13 +76,17 @@ export function SilentTablesBanner({ nos }: { nos: number[] }) {
  * One list of people, one row each: avatar and name with the Doors, Ready and not-registered marks, a line with the canvas, the mic and
  * the recording state, then the participant or observer switch and Mark out. `title` says which people these are in this phase.
  */
-export function MastermindPeople({ title, members, host, onMarkOut, locked = false }: {
+export function MastermindPeople({ title, members, host, onMarkOut, locked = false, connector = true, optedOut }: {
   title: string;
   members: EventRoomMember[];
   host: MastermindHost;
   onMarkOut: (memberId: string) => void;
   /** A seating preview is open: the switch and Mark out give way to one line (no dead disabled buttons). */
   locked?: boolean;
+  /** Whether the mic connector (C / L / ?) shows: not while a round runs (UAT 2026-11-13 (d), H2). */
+  connector?: boolean;
+  /** H1: who opted out of the principle (a host-only mark, never a rule). */
+  optedOut?: (memberId: string) => boolean;
 }) {
   const [refusal, setRefusal] = useState<{ id: string; text: string } | null>(null);
 
@@ -119,6 +123,9 @@ export function MastermindPeople({ title, members, host, onMarkOut, locked = fal
                   {person?.registered && comesAtDoors(person) && (
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700" title={COPY.doorsHint} data-testid="mm-doors">{COPY.doors}</span>
                   )}
+                  {optedOut?.(m.id) && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground" title="Opted out of the Clarity Meeting Principle" data-testid="mm-opted-out">{OPTED_OUT_MARK}</span>
+                  )}
                   {host.isReady(m.id) && (
                     <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700" title={COPY.readyHint} data-testid="mm-ready">{COPY.ready}</span>
                   )}
@@ -126,7 +133,7 @@ export function MastermindPeople({ title, members, host, onMarkOut, locked = fal
                 {isUnregistered(person) && <p role="status" className="text-xs font-medium text-red-600" data-testid="mm-not-registered">{NOT_REGISTERED_LINE}</p>}
                 <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                   <span>{canvasLine(person)}</span>
-                  {phone && (
+                  {connector && phone && (
                     <span className="inline-flex items-center" title={MIC_HINTS[phone]} aria-label={MIC_HINTS[phone]} data-testid="mm-mic">
                       <Mic className="h-3.5 w-3.5" />
                       <span className="text-[10px] font-semibold leading-none">{PHONE_LETTER[phone]}</span>

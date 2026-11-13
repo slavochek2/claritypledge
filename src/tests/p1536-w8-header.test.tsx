@@ -132,7 +132,7 @@ function Where() {
   const l = useLocation();
   return <output data-testid="where">{l.pathname}{l.search}</output>;
 }
-function mount(at: string) {
+function mount(at: string | { pathname: string; state?: unknown }) {
   return render(
     <MemoryRouter initialEntries={[at]}>
       <ChatContext.Provider value={chatValue}>
@@ -357,6 +357,27 @@ describe('S3b.7: the owner\'s header, draft and published', () => {
     await screen.findByTestId('canvas-clone');
     expect(screen.getAllByRole('button', { name: 'Go back' })).toHaveLength(1);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  });
+
+  it('P1529 G6: a canvas opened from the event\'s table has no banner; the header carries the one back, to the table', async () => {
+    mount({ pathname: '/p/ana/canvas/canvas', state: { backToTable: '/events/x/meet', tableEvent: 'e1' } });
+    await grid();
+    expect(screen.queryByTestId('preparation-banner')).toBeNull();
+    expect(screen.queryByText(/Publish, then share/)).toBeNull();
+    expect(screen.getAllByRole('button', { name: 'Go back' })).toHaveLength(1);
+    fireEvent.click(await screen.findByTestId('workspace-back'));
+    await screen.findByTestId('elsewhere');
+    expect(screen.getByTestId('where')).toHaveTextContent('/events/x/meet');
+  });
+
+  it('P1529 G6: a canvas opened from the before-event preparation still has a way back: its banner (the header draws none)', async () => {
+    mount({ pathname: '/p/ana/canvas/canvas', state: { afterPublish: '/events/x/prepare' } });
+    await grid();
+    expect(screen.getByTestId('preparation-banner')).toBeTruthy();
+    expect(screen.queryByTestId('workspace-back')).toBeNull();
+    fireEvent.click(screen.getByTestId('preparation-banner-back'));
+    await screen.findByTestId('elsewhere');
+    expect(screen.getByTestId('where')).toHaveTextContent('/events/x/prepare');
   });
 
   it('← goes to Artifacts > Canvases when nobody sent the owner here', async () => {

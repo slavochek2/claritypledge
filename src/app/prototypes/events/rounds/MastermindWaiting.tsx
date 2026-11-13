@@ -5,12 +5,14 @@
  * [FOUNDER DECISION: copy, proposed].
  */
 import type { ReactNode } from 'react';
+import { OpenYourCanvas } from './OpenYourCanvas';
 import type { EventRound } from '@/app/data/event-rounds-service';
-import { nextRoundLabel, roundLabel } from '@/lib/round-numbering';
+import { EVENING_OVER } from './mastermind-round-helpers';
+import { discussionRoundLabel, nextDiscussionRoundLabel } from './mastermind-host-helpers';
 import { waitingWords } from './mastermind-round-helpers';
 import { MastermindOtherCanvases } from './MastermindOtherCanvases';
 
-export function MastermindWaiting({ eventId, rounds, round, view, showWaiting, between, over, task }: {
+export function MastermindWaiting({ eventId, rounds, round, view, showWaiting, between, over, task, canvasHref = null, linkState }: {
   eventId: string;
   rounds: EventRound[];
   /** The round that is on, if any. */
@@ -23,28 +25,37 @@ export function MastermindWaiting({ eventId, rounds, round, view, showWaiting, b
   /** The evening is over (the host ended it, or the event closed). */
   over: boolean;
   task: ReactNode;
+  /** The person's own canvas at this event (null: none): between rounds it is one tap away (P1529 G5). */
+  canvasHref?: string | null;
+  linkState?: unknown;
 }) {
   const last = rounds[rounds.length - 1];
   const words = waitingWords({
-    runningLabel: round ? roundLabel(rounds, round) : null,
+    runningLabel: round ? discussionRoundLabel(rounds, round) : null,
     showcase: !!round?.showcase,
-    betweenLabel: between && last ? roundLabel(rounds, last) : null,
-    nextLabel: nextRoundLabel(rounds, false),
+    betweenLabel: between && last ? discussionRoundLabel(rounds, last) : null,
+    nextLabel: nextDiscussionRoundLabel(rounds, false),
   });
+  // Between rounds, the way to my canvas, inside the "is over" card (a next-version card carries its own).
+  const openCanvas = (between ? showWaiting : over) && view === 'table' && canvasHref && <OpenYourCanvas href={canvasHref} linkState={linkState} testId={between ? 'mastermind-between-canvas' : 'mastermind-over-canvas'} />;
   // One focus between rounds: the owner's card if there is one, else "{round} is over".
   const card = showWaiting && view === 'table' && !task && (
     <section className="rounded-xl border border-border bg-card p-5" data-testid={between ? 'mastermind-between' : 'mastermind-waiting'}>
       <h2 className="text-xl font-semibold">{words.title}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{words.body}</p>
+      {openCanvas}
     </section>
   );
-  // The host ended the evening: the room moves to Feedback by itself; this is what shows where Feedback is not on screen.
-  const end = over && view === 'table' && (
+  // The host ended the evening: people land on Feedback, and Table stays tappable with this line, the next-version card and the way to the canvas (H3).
+  // With a next-version card the heading is inside that card (one card, not an empty one above it).
+  const end = over && view === 'table' && !task && (
     <section className="rounded-xl border border-border bg-card p-5" data-testid="mastermind-over">
-      <h2 className="text-xl font-semibold">The rounds are over</h2>
+      <h2 className="text-xl font-semibold">{EVENING_OVER}</h2>
+      {openCanvas}
     </section>
   );
   // One focus at a time: the state, then the owner's task, then (collapsed) the other canvases as a backup.
   const backup = (card || (showWaiting && view === 'table' && task)) && <MastermindOtherCanvases eventId={eventId} />;
-  return <>{end}{card}{task}{backup}</>;
+  // The next-version card is Table's: Feedback (view hidden) shows feedback only, plus a link to Table (H3).
+  return <>{end}{card}{view === 'table' && task}{backup}</>;
 }

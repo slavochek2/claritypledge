@@ -1,31 +1,32 @@
 /**
  * @file mastermind-offer-cards.tsx
  * @description P1529: the owner's next-version card (and the "could not read it" card) that the round card shows between rounds, built
- * from the round state apart from the round poll. On the Feedback tab the card goes BELOW the feedback (order-last in the room's column),
- * under a small heading. Wording is a draft: [FOUNDER DECISION: copy].
+ * from the round state apart from the round poll. The card lives in the Table tab, before and after the evening ends (UAT 2026-11-13 (d), H3); Feedback only links to it. Wording is a draft: [FOUNDER DECISION: copy].
  */
-import { createPortal } from 'react-dom';
 import type { NavigateFunction } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import type { EventRoundsState } from '@/app/data/event-rounds-service';
 import { canvasPageHref } from '@/app/pages/chat/canvas-links';
 import { workspaceHref } from '@/lib/canvas-hrefs';
-import { roundLabel } from '@/lib/round-numbering';
+import { discussionRoundLabel } from './mastermind-host-helpers';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import { firstName } from './use-event-rounds';
 import type { OwnerUpdate } from './use-mastermind-round';
 import { MastermindUpdateTask } from './MastermindUpdateTask';
-import { nothingToAdd, taskFace } from './mastermind-round-helpers';
+import { OpenYourCanvas } from './OpenYourCanvas';
+import { EVENING_OVER, nothingToAdd, taskFace } from './mastermind-round-helpers';
 
-export function offerCards({ owner, state, roster, self, live, feedbackSlot, linkState, navigate }: {
+export function offerCards({ owner, ownCanvas, state, roster, self, live, over = false, linkState, navigate }: {
   owner: OwnerUpdate;
+  /** The person's own canvas tag at this event (null: none known). */
+  ownCanvas: string | null;
   state: EventRoundsState;
   roster: EventRoomMember[];
   self: EventRoomSelf;
   /** A round is running: the card is never shown then. */
   live: boolean;
-  /** The Feedback tab's slot AFTER the feedback block: the cards are portalled into it so DOM and focus order put feedback first. Null elsewhere. */
-  feedbackSlot: HTMLElement | null;
+  /** The evening is over: the cards carry the heading "The evening is over" themselves (H3). */
+  over?: boolean;
   linkState: unknown;
   navigate: NavigateFunction;
 }) {
@@ -40,20 +41,26 @@ export function offerCards({ owner, state, roster, self, live, feedbackSlot, lin
     const partner = mineAt ? seats.find(s => s.table === mineAt.table && s.role === 'second') : undefined;
     return partner ? firstName(roster.find(m => m.id === partner.id)?.displayName ?? '') || null : null;
   };
+  // P1529 G5: a person with a canvas at this event gets the way to it between rounds; one way only, so a card that already links the canvas ("Open it" once published) keeps it alone.
+  const myCanvasHref = face === 'published' ? null : canvasPageHref(mySlug, owner.canvasName ?? ownCanvas ?? owner.draft?.canvasName ?? null);
   const settled = !live && !face && owner.nothingRound ? state.rounds.find(r => r.id === owner.nothingRound) : undefined;
   const settledCard = settled && (
     <section className="rounded-xl border border-border bg-card p-5" data-testid="mastermind-task-nothing-new">
-      <p className="text-sm text-muted-foreground">{nothingToAdd(roundLabel(state.rounds, settled), partnerOf(settled.id))}</p>
+      {over && <h2 className="mb-1 text-xl font-semibold" data-testid="mastermind-over-heading">{EVENING_OVER}</h2>}
+      <p className="text-sm text-muted-foreground">{nothingToAdd(discussionRoundLabel(state.rounds, settled), partnerOf(settled.id))}</p>
+      {myCanvasHref && <OpenYourCanvas href={myCanvasHref} linkState={linkState} testId="mastermind-task-canvas" />}
     </section>
   );
   const taskCard = settledCard || face && offerRound && (
     <MastermindUpdateTask
       face={face}
       owner={owner}
-      roundName={roundLabel(state.rounds, offerRound)}
+      roundName={discussionRoundLabel(state.rounds, offerRound)}
       partner={partnerOf(offerRound.id)}
       tweakHref={draftHref(owner.draft)}
-      openHref={canvasPageHref(mySlug, owner.canvasName ?? owner.draft?.canvasName ?? null)}
+      openHref={canvasPageHref(mySlug, owner.canvasName ?? ownCanvas ?? owner.draft?.canvasName ?? null)}
+      canvasHref={myCanvasHref}
+      heading={over ? EVENING_OVER : null}
       linkState={linkState}
       onPreview={() => void owner.preview(d => { const to = draftHref(d); if (to) navigate(to, { state: linkState }); })}
     />
@@ -65,14 +72,5 @@ export function offerCards({ owner, state, roster, self, live, feedbackSlot, lin
       <Button type="button" variant="outline" size="sm" className="mt-2 min-h-11" onClick={() => void owner.reread()} data-testid="mastermind-offer-retry">Try again</Button>
     </section>
   );
-  // On the Feedback tab the feedback comes first, in DOM order too: both cards go into the slot after it, under a small heading.
-  const after = (taskCard || readFailedCard) && feedbackSlot && createPortal(
-    <div data-testid="mastermind-task-after-feedback">
-      <h3 className="mb-2 text-sm font-medium text-muted-foreground">Before you go: your next version</h3>
-      <div className="space-y-4">{readFailedCard}{taskCard}</div>
-    </div>,
-    feedbackSlot,
-  );
-  const task = feedbackSlot ? after : taskCard;
-  return { task, readFailedCard: feedbackSlot ? null : readFailedCard };
+  return { task: taskCard, readFailedCard, myCanvasHref };
 }

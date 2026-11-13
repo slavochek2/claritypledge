@@ -35,7 +35,7 @@ function VoiceFailed({ voice }: { voice: VoiceNote }) {
   return (
     <ErrorNotice testId="voice-failed" message={voice.errorText}>
       {voice.canRetry && <NoticeButton label="Retry" primary onClick={() => void voice.retry()}>Retry</NoticeButton>}
-      <NoticeButton label="Discard voice message" onClick={voice.discard}>Discard</NoticeButton>
+      <NoticeButton label="Discard voice message" destructive onClick={voice.discard}>Discard</NoticeButton>
     </ErrorNotice>
   );
 }

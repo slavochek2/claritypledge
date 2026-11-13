@@ -28,6 +28,7 @@ export function useEventShareOffer(leave: () => void, onShared?: () => void) {
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const ask = useCallback((eventId: string, name: string) => {
+    setError(null); // a new offer never opens with the last offer's failure on it
     getMyEventCanvas(eventId)
       .then(c => { if (!alive.current) return; if (c?.shared && c.name === name) leave(); else setOffer({ eventId, name, fixed: !!c?.fixed }); })
       // An unreadable state is not "already shared": the question is asked anyway, and Share runs the normal path (set, then the share_canvas fallback).

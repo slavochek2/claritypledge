@@ -190,7 +190,7 @@ Always use shadcn/ui `<Button>` component with variants. Don't create custom but
 
 **Available variants** (from [src/components/ui/button.tsx](../src/components/ui/button.tsx)):
 - `default` - Primary action: brand blue (`bg-blue-600`, hover `blue-700`). Never hand-type the colour; lint rejects it (P1568)
-- `outline` - Secondary action
+- `outline` - Secondary action: blue-bordered (`border-blue-600 bg-blue-50 text-blue-700`); never a white or grey action button (P1529 G1)
 - `ghost` - Tertiary action
 - `destructive` - Delete, remove, disconnect
 - `link` - Text link style
@@ -203,7 +203,7 @@ One question decides every button: **what does it do?** Visual reference: `/tree
 | # | What it does | Style | Placement |
 |---|--------------|-------|-----------|
 | 1 | The step forward (Continue, Save, Send) | The default `<Button>` (filled blue; no hand-typed colour classes), full width | Bottom of the screen/card. **Only one per screen.** |
-| 2 | A real alternative (Edit, Save and share) | `variant="outline"` (white + border), full width | Directly under the primary |
+| 2 | A real alternative (Edit, Save and share) | `variant="outline"` (blue-bordered, never white or grey), full width | Directly under the primary |
 | 3 | Backing out (Cancel, Skip, Not now) | `variant="ghost"`, muted text, no box | Under the alternatives, last |
 | 4 | Going somewhere else (Learn more, See profile) | A link (`<a>`/`<Link>`), blue underlined text — never a button | Inline, where the reader needs it |
 | 5 | Losing something (Delete, Remove, Discard) | Red text (`variant="ghost"` + `text-red-600`), then a confirmation step | Last, small; never the biggest thing on screen |

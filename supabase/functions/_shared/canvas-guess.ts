@@ -73,7 +73,8 @@ function refuseUnverified(acc: VetAcc, ctx: VetCtx, statement: string): void {
  * point is also unsupported). True when the point may be written; a refusal is counted.
  */
 export function vetEvidence(acc: VetAcc, ctx: VetCtx, a: Record<string, unknown>, statement: string, extraSource = ''): boolean {
-  // P1529 D23: a next version from a live round needs no owner quote and is never a guess; names and numbers stay checked.
+  // P1529 D23 + UAT 2026-11-13 (e): a next version from a live round needs no owner quote and is never a guess. Names stay checked;
+  // numbers must appear in the round's material (ctx.numbers is built from all of it in this mode), not only in the owner's words.
   if (ctx.roundUpdate) {
     if (ctx.namesOther(statement)) { acc.droppedNames += 1; return false; }
     if (!numbersSupported([statement], ctx.numbers)) { acc.droppedUnverified += 1; return false; }

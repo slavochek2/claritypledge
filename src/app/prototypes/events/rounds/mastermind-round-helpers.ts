@@ -96,6 +96,12 @@ export function taskFace(offer: NextVersionOffer | null, publishFailed = false):
   }
 }
 
+/** [FOUNDER DECISION: copy, proposed] The heading of Table once the host ended the evening (H3). */
+export const EVENING_OVER = 'The evening is over';
+
+/** H3: a next-version card is WAITING for the person (something to make, being made, or to try again): Feedback links to it. A published, missing or empty offer is not waiting. */
+export const nextVersionWaiting = (face: TaskFace | null): boolean => face === 'make' || face === 'pending' || face === 'creating' || face === 'ready' || face === 'failed';
+
 /** True while a read of the offer can still change by itself: the words arriving, a draft being written or published. */
 export const offerCanChange = (offer: NextVersionOffer | null): boolean =>
   !offer || offer.state === 'transcript_pending' || offer.state === 'drafting' || (offer.state === 'ready' && offer.autoPublish);

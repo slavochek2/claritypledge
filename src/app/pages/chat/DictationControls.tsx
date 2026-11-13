@@ -146,7 +146,7 @@ export function DictationOverflow({ fits, onRetry, onDiscard }: { fits: boolean;
       {fits
         ? <NoticeButton label="Insert dictated text" primary onClick={onRetry}>Insert</NoticeButton>
         : <NoticeButton label="Retry" primary onClick={onRetry}>Retry</NoticeButton>}
-      <NoticeButton label="Discard dictated text" onClick={onDiscard}>Discard</NoticeButton>
+      <NoticeButton label="Discard dictated text" destructive onClick={onDiscard}>Discard</NoticeButton>
     </ErrorNotice>
   );
 }
@@ -157,7 +157,7 @@ export function DictationStatus({ dictation }: { dictation: Dictation }) {
     return (
       <ErrorNotice testId="dictation-status" message={dictation.errorText ?? "Couldn't transcribe."}>
         {dictation.canRetry && <NoticeButton label="Retry" primary onClick={() => void dictation.retry()}>Retry</NoticeButton>}
-        <NoticeButton label="Discard recording" onClick={dictation.discard}>Discard</NoticeButton>
+        <NoticeButton label="Discard recording" destructive onClick={dictation.discard}>Discard</NoticeButton>
       </ErrorNotice>
     );
   }

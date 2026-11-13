@@ -155,17 +155,21 @@ function useDraftAddress(eventId: string, draftId: string | null): OwnerUpdate['
   return draft;
 }
 
-/** The owner's canvas tag for this event, read when `enabled` (once published): the published page's address, with no draft involved. */
-function useOwnCanvasName(eventId: string, enabled: boolean, refresh: unknown): string | null {
-  const [name, setName] = useState<string | null>(null);
+/**
+ * The person's canvas tag for this event, read when `enabled` and the tab is in view. Kept per event (a different event starts empty); a failed or empty
+ * read is tried again at the next refresh or tab return, so "Open it" is never hidden for good by one bad read.
+ */
+export function useOwnCanvasName(eventId: string, enabled: boolean, refresh: unknown): string | null {
+  const [read, setRead] = useState<{ eventId: string; name: string } | null>(null);
+  const visible = useTabVisible();
+  const known = read?.eventId === eventId;
   useEffect(() => {
-    // Tried again at every refresh of the offer (tab return, round change) until it is known; a failure leaves "Open it" hidden.
-    if (!enabled || name) return;
+    if (!enabled || !visible || known) return;
     let live = true;
-    getMyEventCanvas(eventId).then(c => { if (live) setName(c?.name ?? null); }).catch(() => { /* "Open it" just stays hidden */ });
+    getMyEventCanvas(eventId).then(c => { if (live && c?.name) setRead({ eventId, name: c.name }); }).catch(() => { /* tried again at the next refresh or tab return */ });
     return () => { live = false; };
-  }, [eventId, enabled, name, refresh]);
-  return name;
+  }, [eventId, enabled, visible, known, refresh]);
+  return known ? read!.name : null;
 }
 
 /** One tap of "Create next version" (autoPublish) or "Preview first": the sentence to show, and the draft it made. */

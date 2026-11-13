@@ -16,8 +16,9 @@ const buttonVariants = cva(
         dark: "bg-primary text-primary-foreground shadow hover:bg-primary/90",
         destructive:
           "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+        // P1529 G1: the blue-bordered secondary (same colours as SECONDARY_PILL_COLOURS). Never a white or grey action button.
         outline:
-          "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
+          "border border-blue-600 bg-blue-50 text-blue-700 shadow-sm [@media(hover:hover)]:hover:bg-blue-100",
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost: "hover:bg-accent hover:text-accent-foreground",

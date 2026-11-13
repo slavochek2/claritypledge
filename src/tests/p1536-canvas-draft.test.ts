@@ -1023,7 +1023,7 @@ describe('P1536 A8: a point must be supported by its quote, and its numbers by t
     expect([...contentWords('The Café owners, and the shops')].sort()).toEqual(['cafe', 'owner', 'shop']);
   });
   it('numbers: digits, thousands separators, currency, magnitudes and number words are the same number', () => {
-    expect([...numbersIn('2,500 baht, $500, 10M, ten million, one to three, 4.5%')].sort()).toEqual(['10m', '1', '2500', '3', '4.5%', '500'].sort());
+    expect([...numbersIn('2,500 baht, $500, 10M, ten million, one to three, 4.5%')].sort()).toEqual(['10000000', '1', '2500', '3', '4.5%', '500'].sort());
     expect(numbersIn('We have 3 months')).toEqual(new Set(['3']));
     expect(numbersIn('no numbers here').size).toBe(0);
   });

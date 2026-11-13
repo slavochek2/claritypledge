@@ -85,7 +85,7 @@ import {
   type RoundPhase,
 } from '@/lib/round-clock';
 import type { EventRoomMember } from '@/app/types';
-import { MIC_HINTS, PREPARED_HINT, prepMarksByProfile, type PrepMarkState } from '../prep/PrepMarks';
+import { MIC_HINTS, PREPARED_HINT, optInsByProfile, prepMarksByProfile, type PrepMarkState } from '../prep/PrepMarks';
 import { firstName, shortName, useEventRounds, useNow } from './use-event-rounds';
 import { numericPositions, useTagPositions } from './use-tag-positions';
 import { PairBadge, RoleBadge } from './RoleBadge';
@@ -103,7 +103,7 @@ import { EventWaitlistList } from '../components/EventWaitlistList';
 import { MastermindPreviewNotes } from './MastermindPreviewNotes';
 import { MastermindScreen } from './MastermindScreen';
 import { useHostFlow, useMastermindHost } from './use-mastermind-host';
-import { COLUMN_LABELS, MASTERMIND_FLOW, SCREEN_PART_NAME, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, extendRefusal, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey, READY_HINT, READY_LABEL } from './mastermind-host-helpers';
+import { COLUMN_LABELS, MASTERMIND_FLOW, SCREEN_PART_NAME, MASTERMIND_GROUP_SIZE, MASTERMIND_MINUTES, MASTERMIND_MINUTES_VERSION, dropStaleMastermindMinutes, minuteRowLabel, roundNames, OPTED_OUT_MARK, extendRefusal, seatGuardRefusal, silentTables, tablesNowTitle, tablesProposedTitle, waitingSetKey, READY_HINT, READY_LABEL } from './mastermind-host-helpers';
 import type { RecordingState } from '@/app/data/event-mastermind-service';
 
 const START_LOCK_MS = 10_000;
@@ -356,6 +356,8 @@ interface PersonMarks {
   recording?: RecordingState;
   /** D17: a canvas is shared and the person has not owned a table yet. The seated people have no row in the mastermind's list, so the tile carries it. */
   ready?: boolean;
+  /** H1: opted out of the Clarity Meeting Principle (the mastermind's host screen only; never the projector). */
+  optedOut?: boolean;
 }
 
 /** Host-only, never on the screen: prepared · recording volunteer (+ the mic they need) · live transcription. */
@@ -377,6 +379,9 @@ function StatusMarks({ marks, lifted }: { marks?: PersonMarks; lifted: boolean }
       )}
       {marks?.ready && (
         <span className={cn('rounded-full px-1.5 text-[10px] font-semibold leading-4', lifted ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700')} title={READY_HINT} data-testid="mm-ready">{READY_LABEL}</span>
+      )}
+      {marks?.optedOut && (
+        <span className={cn('rounded-full px-1.5 text-[10px] font-semibold leading-4', lifted ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')} title="Opted out of the Clarity Meeting Principle" data-testid="mm-opted-out">{OPTED_OUT_MARK}</span>
       )}
       {marks?.recording && <RecordingMark state={marks.recording} lifted={lifted} />}
       {marks?.transcribing && (
@@ -896,6 +901,8 @@ export function EventHostPage() {
   const byId = useMemo(() => new Map(roster.map(m => [m.id, m])), [roster]);
   const profileIds = useMemo(() => members.map(m => m.profileId).filter((p): p is string => !!p), [members]);
   const mm = useMastermindHost({ eventId, active: flow === MASTERMIND_FLOW, screen: isScreen, rounds: state.rounds, seatsByRound: state.seatsByRound, members, refreshRounds: refresh });
+  // The mastermind says "Discussion round N" everywhere a round is named; every other flow keeps "Round N".
+  const rn = roundNames(mm.active);
   // The waiting list re-reads only when its set changes, not on every host-state poll (spec Cost Budget).
   const waitingKey = useMemo(() => waitingSetKey(mm.people), [mm.people]);
   // Showcase (founder walkthrough 6, option 7C), called the Demo since P1430: the host chooses who
@@ -922,17 +929,36 @@ export function EventHostPage() {
   const pendingRef = useRef<number | null>(null);
   const recorderProfiles = useMemo(() => new Set(prepRows.filter(r => r.researchState === 'confirmed').map(r => r.profileId)), [prepRows]);
   const prepMarks = useMemo(() => prepMarksByProfile(prepRows), [prepRows]);
-  const marksFor = useCallback(
-    (memberId: string): PersonMarks => {
+  const optIns = useMemo(() => optInsByProfile(prepRows), [prepRows]);
+  // Fresh without a new read: the room's own answer arrives on the roster subscription the page already holds (realtime, every state visible) and wins over the
+  // preparation rows, which are only re-read once a minute; a person with no answer in the room falls back to those rows.
+  const isOptedOut = useCallback((memberId: string) => {
+    const member = byId.get(memberId);
+    if (member?.optedIn != null) return member.optedIn === false;
+    return optIns.get(member?.profileId ?? '')?.state === 'out';
+  }, [optIns, byId]);
+  // Marks by place (UAT 2026-11-13 (d), H2). The mastermind: a round PREVIEW shows the mic connector, the recording state and the opt-out mark; a RUNNING round the
+  // recording state and the opt-out mark (no connector); PAST rounds only the connector. Other flows keep one set of marks everywhere.
+  const marksAt = useCallback(
+    (memberId: string, place: 'preview' | 'running' | 'past'): PersonMarks => {
       const profileId = byId.get(memberId)?.profileId;
-      // The mastermind: the phone answer is the mic mark, and the three recording states replace the red dot.
-      if (profileId && mm.active) return { prep: { prepared: !!prepMarks.get(profileId)?.prepared, mic: mm.personOf(memberId)?.phone ?? null }, transcribing: false, recording: mm.recordingOf(memberId), ready: mm.isReady(memberId) };
+      if (profileId && mm.active) {
+        const connector = mm.personOf(memberId)?.phone ?? null;
+        if (place === 'past') return { prep: { prepared: false, mic: connector }, transcribing: false };
+        // Exactly the listed marks (H2): no prepared tick and no "ready" pill; the connector only in a preview.
+        return { prep: { prepared: false, mic: place === 'preview' ? connector : null }, transcribing: false, recording: mm.recordingOf(memberId), optedOut: isOptedOut(memberId) };
+      }
       return profileId ? { prep: prepMarks.get(profileId), transcribing: transcribing.has(profileId) } : { transcribing: false };
     },
-    [byId, prepMarks, transcribing, mm],
+    [byId, prepMarks, transcribing, mm, isOptedOut],
   );
+  const previewMarksFor = useCallback((memberId: string) => marksAt(memberId, 'preview'), [marksAt]);
+  const pastMarksFor = useCallback((memberId: string) => marksAt(memberId, 'past'), [marksAt]);
 
   const round = currentRound(state);
+  // The tables of a running round, and the people outside them: a running round's marks. With no round on, the people list is a proposal's place (connector shown).
+  const marksFor = useCallback((memberId: string) => marksAt(memberId, round ? 'running' : 'preview'), [marksAt, round]);
+  const tableMarksFor = useCallback((memberId: string) => marksAt(memberId, 'running'), [marksAt]);
   const seats: RoundSeat[] = round ? state.seatsByRound.get(round.id) ?? [] : [];
   const lastRound = state.rounds[state.rounds.length - 1];
   const evening = state.rounds.length === 0 ? 'before' : lastRound?.endedAt ? 'ended' : 'running';
@@ -1067,7 +1093,7 @@ export function EventHostPage() {
     if (state.rounds.length + 1 !== preview.roundNo) {
       const started = state.rounds[state.rounds.length - 1];
       if (!startingRef.current && started && started.roundNo !== pendingRef.current) {
-        setNotice(`${roundLabel(state.rounds, started)} was started on another device.`);
+        setNotice(`${rn.name(state.rounds, started)} was started on another device.`);
       }
       setPreview(null);
       return;
@@ -1182,7 +1208,7 @@ export function EventHostPage() {
   const startPreview = async () => {
     if (!preview || busy) return;
     const only = preview.demo ? chosen : null;
-    const label = preview.demo ? 'Demo' : nextRoundLabel(state.rounds, false);
+    const label = preview.demo ? 'Demo' : rn.next(state.rounds, false);
     // Re-read who is here at the moment of Start, not as of the last 4-second poll (Codex review):
     // never start an arrangement that seats someone who left, or leaves out someone who arrived.
     setBusy('saving');
@@ -1316,7 +1342,7 @@ export function EventHostPage() {
   // A round has ended, the evening has not: what is offered is the next round's tables or the evening's end.
   const mmBetween = mmBefore && state.rounds.length > 0;
   const canEndEvening = !!round || (mm.active && state.rounds.length > 0 && !ended);
-  const roundTitle = ended ? 'Evening ended' : round ? roundLabel(state.rounds, round) : mmBetween && lastRound ? `${roundLabel(state.rounds, lastRound)} ended` : null;
+  const roundTitle = ended ? 'Evening ended' : round ? rn.name(state.rounds, round) : mmBetween && lastRound ? `${rn.name(state.rounds, lastRound)} ended` : null;
 
   // After time is up the host may still give more time while the round is open: the server extends the round's last part (observer, else the talking part's end) so one minute remains; the part named here is the same one.
   const extend = () => {
@@ -1366,13 +1392,13 @@ export function EventHostPage() {
   // bottom of the controls column, away from this button (walkthrough 9).
   const hasNext = !ended && nextNo <= MAX_ROUNDS;
   // P1430: the next round's name — "Demo" when the host chose who sits, else the next counted round.
-  const nextLabel = nextRoundLabel(state.rounds, !!chosen);
+  const nextLabel = rn.next(state.rounds, !!chosen);
   const startLabel = chosen ? 'Start the Demo' : `Start ${nextLabel.toLowerCase()}`;
   // The mastermind's button says what it does: it opens a proposal, and the running round keeps running until "Start now".
   // ONE primary slot whose label follows the state: End round N while a round runs, then the next round's tables. The cap never hides End round.
   // [FOUNDER DECISION: copy, proposed] With fewer than two canvases shared the button says "Seat tables anyway".
   const seatAnyway = mm.active && mm.ready && mm.canvasCount < 2;
-  const primaryLabel = mm.active ? (round ? `End ${roundLabel(state.rounds, round).toLowerCase()}` : seatAnyway ? 'Seat tables anyway' : `Preview ${nextLabel.toLowerCase()} tables`) : round ? 'Next round' : startLabel;
+  const primaryLabel = mm.active ? (round ? `End ${rn.name(state.rounds, round).toLowerCase()}` : seatAnyway ? 'Seat tables anyway' : `Preview ${nextLabel.toLowerCase()} tables`) : round ? 'Next round' : startLabel;
   const primary = mm.active && round
     ? { label: primaryLabel, action: () => void run(() => mm.endRound()) }
     : hasNext ? { label: primaryLabel, action: openPreview } : null;
@@ -1462,25 +1488,25 @@ export function EventHostPage() {
           )}
           {preview && (
             <RoundPreview
-              label={preview.demo ? 'Demo' : nextRoundLabel(state.rounds, false)}
+              label={preview.demo ? 'Demo' : rn.next(state.rounds, false)}
               preview={preview}
               byId={byId}
-              marksFor={marksFor}
+              marksFor={previewMarksFor}
               busy={busy}
               onSwap={(a, b) => setPreview({ ...preview, seats: swapSeats(preview.seats, a, b), changed: null })}
               onShuffle={shufflePreview}
               onStart={startPreview}
               onBack={() => setPreview(null)}
               labels={mm.active && !preview.demo ? COLUMN_LABELS : undefined}
-              gridTitle={mm.active && !preview.demo ? tablesProposedTitle(nextRoundLabel(state.rounds, false)) : undefined}
-              notes={mm.active && !preview.demo ? <MastermindPreviewNotes roundNo={preview.roundNo} seats={preview.seats} ids={preview.ids} shuffle={preview.shuffle} host={mm} name={id => shortName(names.get(id) ?? 'Someone')} /> : undefined}
+              gridTitle={mm.active && !preview.demo ? tablesProposedTitle(rn.next(state.rounds, false)) : undefined}
+              notes={mm.active && !preview.demo ? <MastermindPreviewNotes roundNo={preview.roundNo} seats={preview.seats} ids={preview.ids} shuffle={preview.shuffle} host={mm} name={id => shortName(names.get(id) ?? 'Someone')} firstName={id => firstName(names.get(id) ?? 'Someone')} optedOut={isOptedOut} /> : undefined}
             />
           )}
           {!preview && (<>
           {primary && justStarted && !busy && round && (
             // The start lock: a few seconds with nothing to press, and the button's place says why.
             <p className="mt-4 flex min-h-12 items-center justify-center text-base text-muted-foreground" data-testid="host-just-started">
-              {roundLabel(state.rounds, round)} started
+              {rn.name(state.rounds, round)} started
             </p>
           )}
           {ended && nextNo <= MAX_ROUNDS && (
@@ -1733,7 +1759,7 @@ export function EventHostPage() {
                       // One talk: the speaker row is the whole talk — both halves, stored as two equal
                       // parts so the round clock and the server keep one shape (roundTiming adds them).
                       const factor = f.key === 'speakerS' && !swapAtHalf ? 2 : 1;
-                      const label = factor === 2 ? 'Talk' : f.label;
+                      const label = minuteRowLabel(mm.active, f.key, factor === 2, f.label);
                       const value = (minutes[f.key] ?? 0) * factor;
                       const set = (next: number) =>
                         setMinutes({ ...minutes, [f.key]: Math.min(f.max * factor, Math.max(f.min * factor, next)) / factor });
@@ -1816,7 +1842,7 @@ export function EventHostPage() {
                   byId={byId}
                   phase={clock.phase}
                   split={timing?.split ?? true}
-                  marksFor={marksFor}
+                  marksFor={tableMarksFor}
                   lifted={lifted}
                   isOut={isOut}
                   canSwap={canSwap}
@@ -1824,17 +1850,17 @@ export function EventHostPage() {
                   onTap={onTap}
                   labels={mm.active ? COLUMN_LABELS : undefined}
                   silentTableNos={silentNos}
-                  title={mm.active ? tablesNowTitle(roundLabel(state.rounds, round)) : undefined}
+                  title={mm.active ? tablesNowTitle(rn.name(state.rounds, round)) : undefined}
                 />
               )}
               {mm.active && mmBefore && !preview && (
                 <>
-                  <MastermindPeople title="People" members={waiting} host={mm} onMarkOut={id => setOut(id, true)} />
+                  <MastermindPeople title="People" members={waiting} host={mm} onMarkOut={id => setOut(id, true)} optedOut={isOptedOut} />
                   <EventWaitlistList eventId={event.id} isHost excludeProfileId={event.hostId} refreshKey={waitingKey} onAdded={() => void mm.refresh()} />
                 </>
               )}
               {mm.active && round && waiting.length > 0 && (
-                <MastermindPeople title="Not at a table" members={waiting} host={mm} locked={!!preview} onMarkOut={id => setOut(id, true)} />
+                <MastermindPeople title="Not at a table" members={waiting} host={mm} locked={!!preview} connector={false} optedOut={isOptedOut} onMarkOut={id => setOut(id, true)} />
               )}
               {!mm.active && <PeopleGroup
                 title={round ? 'Next round' : 'Here'}
@@ -1887,7 +1913,7 @@ export function EventHostPage() {
                 return (
                   <details key={r.id} className="group rounded-xl border border-border bg-card px-4 py-2">
                     <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 text-sm [&::-webkit-details-marker]:hidden">
-                      <span className="font-medium">{roundLabel(state.rounds, r)}</span>
+                      <span className="font-medium">{rn.name(state.rounds, r)}</span>
                       {/* The mastermind has no "we're seated" tap, so it would always read "0 of N tapped in". */}
                       {!mm.active && (
                         <span className="text-muted-foreground tabular-nums">
@@ -1897,7 +1923,7 @@ export function EventHostPage() {
                       <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
                     </summary>
                     <div className="pb-2 pt-1">
-                      <TablesGrid seats={past} byId={byId} phase="seating" labels={mm.active ? COLUMN_LABELS : undefined} />
+                      <TablesGrid seats={past} byId={byId} phase="seating" marksFor={mm.active ? pastMarksFor : undefined} labels={mm.active ? COLUMN_LABELS : undefined} />
                     </div>
                   </details>
                 );

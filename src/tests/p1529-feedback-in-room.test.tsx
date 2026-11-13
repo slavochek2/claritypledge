@@ -124,8 +124,9 @@ describe('the step bar', () => {
     expect(canOpenStep('close', 'table')).toBe(false);
     expect(canOpenStep('close', 'table', true)).toBe(true);
     expect(canOpenStep('close', 'close')).toBe(true);
-    // A tapped-back step never reopens the table once the evening is over, whatever closeOpen says.
+    // A tapped-back step never reopens the table once the evening is over, whatever closeOpen says; only the mastermind's tableOpen does (H3).
     expect(canOpenStep('table', 'close', true)).toBe(false);
+    expect(canOpenStep('table', 'close', true, true)).toBe(true);
     const { rerender } = render(<RoomSteps current="table" viewing="table" onSelect={() => {}} hidden={['ready', 'compare']} />);
     expect((screen.getByTestId('room-step-close') as HTMLButtonElement).disabled).toBe(true);
     rerender(<RoomSteps current="table" viewing="table" onSelect={() => {}} hidden={['ready', 'compare']} closeOpen />);
@@ -158,12 +159,31 @@ describe('the room', () => {
     expect(feedbackTab().disabled).toBe(false);
   });
 
-  it('when the host ends the evening the phones land on Feedback by themselves; the table is no longer a step to go back to', () => {
+  it('when the host ends the evening the phones land on Feedback by themselves; Table stays tappable (it holds the next version)', () => {
     moment.value = { seated: false, atTable: false, eveningOver: true, live: false, waiting: false };
     renderRoom(mastermind());
     expect(screen.getByTestId('room-steps').getAttribute('data-current')).toBe('close');
     expect(screen.getByTestId('room-close-feedback')).toBeTruthy();
-    expect((screen.getByTestId('room-step-table') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('room-step-table') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByTestId('room-next-version-link')).toBeNull(); // no card waiting: no line
+  });
+
+  it('H3: the line is on the Feedback view only, not on the other tabs', () => {
+    moment.value = { seated: false, atTable: false, eveningOver: false, live: false, waiting: true, nextVersionOffered: true };
+    renderRoom(mastermind());
+    expect(screen.getByTestId('room-steps').getAttribute('data-current')).not.toBe('close');
+    expect(screen.queryByTestId('room-next-version-link')).toBeNull();
+  });
+
+  it('H3: Feedback carries one line "Your next version is waiting in Table", only while a card is waiting, and it opens Table', () => {
+    moment.value = { seated: false, atTable: false, eveningOver: true, live: false, waiting: false, nextVersionOffered: true };
+    renderRoom(mastermind());
+    const link = screen.getByTestId('room-next-version-link');
+    expect(link.textContent).toMatch(/^Your next version is waiting in Table/);
+    expect(screen.queryByTestId('room-after-feedback-slot')).toBeNull();
+    fireEvent.click(link);
+    expect(screen.getByTestId('room-step-table').getAttribute('aria-current')).toBe('step'); // Table is the tab on screen now
+    expect(screen.queryByTestId('room-next-version-link')).toBeNull(); // Feedback is no longer on screen
   });
 
   it('Clarity Night is unchanged: Feedback stays closed until the host ends the evening', () => {

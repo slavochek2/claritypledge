@@ -20,9 +20,9 @@ import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import type { RoundMoment } from './RoundCard';
 import { roundClock, roundTiming } from '@/lib/round-clock';
 import { firstName, roundsPolling, shortName, useEventRounds, useNow } from './use-event-rounds';
-import { useEventCanvasChoices, useOwnerUpdate, useRoundCanvas, useRoundsGap } from './use-mastermind-round';
+import { useEventCanvasChoices, useOwnCanvasName, useOwnerUpdate, useRoundCanvas, useRoundsGap } from './use-mastermind-round';
 import { offerCards } from './mastermind-offer-cards';
-import { MISSING_NAME, canvasOffer, mastermindTable, roleSteps } from './mastermind-round-helpers';
+import { MISSING_NAME, canvasOffer, mastermindTable, nextVersionWaiting, roleSteps, taskFace } from './mastermind-round-helpers';
 import { buildFaces, CanvasOpen, InstructionBox, MyRole, OtherCanvases, TablePeople, TableStatus } from './table-card-parts';
 import { MastermindWaiting } from './MastermindWaiting';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
@@ -35,7 +35,6 @@ export function MastermindRoundCard({
   view,
   onMoment,
   onRoundsStarted,
-  feedbackSlot = null,
 }: {
   eventId: string;
   self: EventRoomSelf | null;
@@ -46,8 +45,6 @@ export function MastermindRoundCard({
   onMoment?: (moment: RoundMoment) => void;
   /** Whether any round has started: the room's optional preparation line steps aside once one has. */
   onRoundsStarted?: (started: boolean) => void;
-  /** The room's Feedback tab: the slot after the feedback block, where the next-version card is portalled (null: in place). */
-  feedbackSlot?: HTMLElement | null;
 }) {
   // The same poll as RoundCard: a round the host still runs outlives the clock's close.
   const [liveSeen, setLiveSeen] = useState(false);
@@ -71,11 +68,15 @@ export function MastermindRoundCard({
   // The gap between rounds: the evening's stamp, and what follows.
   const { eveningEnd, eveningOver, betweenRounds, idle } = useRoundsGap({ eventId, enabled: !!self, rounds: state.rounds, round, ended });
   const waiting = !seated && !eveningOver && !(ended && !live);
-  useEffect(() => { onMoment?.({ seated, atTable: false, eveningOver, live, waiting }); }, [onMoment, seated, eveningOver, live, waiting]);
   const started = state.rounds.length > 0;
   useEffect(() => { onRoundsStarted?.(started); }, [onRoundsStarted, started]);
 
   const owner = useOwnerUpdate(eventId, !!self, roundsKey, live);
+  // G5: the person's own canvas at this event, read once between rounds (a person with no offer still has the way to it).
+  const ownCanvas = useOwnCanvasName(eventId, !!self && (betweenRounds || eveningOver || (ended && !live)), roundsKey);
+  // H3: a next-version card is waiting in Table; the room's Feedback tab says so with one link.
+  const nextVersionOffered = !live && (owner.readFailed || nextVersionWaiting(taskFace(owner.offer, owner.publishFailed || owner.handEdited)));
+  useEffect(() => { onMoment?.({ seated, atTable: false, eveningOver, live, waiting, nextVersionOffered }); }, [onMoment, seated, eveningOver, live, waiting, nextVersionOffered]);
   const isOwner = mine?.role === 'first';
   // Whose canvas this is follows the seating (my table and its owner), so a move or a role swap inside a running round reads again.
   const seatKey = mine && round ? `${mine.table}|${(state.seatsByRound.get(round.id) ?? []).find(s => s.table === mine.table && s.role === 'first')?.id ?? ''}` : '';
@@ -92,12 +93,12 @@ export function MastermindRoundCard({
   if (!self) return null;
 
   const name = (id: string | undefined) => shortName(roster.find(m => m.id === id)?.displayName ?? '') || MISSING_NAME;
-  const { task, readFailedCard } = offerCards({ owner, state, roster, self, live, feedbackSlot, linkState: fromRoom, navigate });
+  const { task, readFailedCard, myCanvasHref } = offerCards({ owner, ownCanvas, state, roster, self, live, over: eveningOver || (ended && !live), linkState: fromRoom, navigate });
 
   if (!seated || !mine) {
     return (
       <>
-      {readFailedCard}
+      {view === 'table' && readFailedCard}
       <MastermindWaiting
         eventId={eventId}
         rounds={state.rounds}
@@ -108,6 +109,8 @@ export function MastermindRoundCard({
         between={betweenRounds}
         over={eveningOver || (ended && !live)}
         task={task}
+        canvasHref={myCanvasHref}
+        linkState={fromRoom}
       />
       </>
     );

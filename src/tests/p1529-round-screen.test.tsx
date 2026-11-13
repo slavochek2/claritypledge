@@ -2,7 +2,7 @@
  * P1529 §5 and §6: the sales mastermind's round screen. The server and the rounds poll are replaced by a fake that the
  * test sets; what is under test is what each person sees and which call each tap makes.
  */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventRoomMember } from '@/app/types';
@@ -57,6 +57,7 @@ vi.mock('@/app/prototypes/events/rounds/RoundCard', () => ({
   RoundCard: (props: Record<string, unknown>) => { h.classicProps(props); return <div data-testid="classic-round-card" />; },
 }));
 
+import type { RoundMoment } from '@/app/prototypes/events/rounds/RoundCard';
 import { MastermindRoundCard } from '@/app/prototypes/events/rounds/MastermindRoundCard';
 import { FlowRoundCard } from '@/app/prototypes/events/rounds/FlowRoundCard';
 
@@ -95,10 +96,10 @@ const DRAFT = { draftId: 'd1', revision: 4, runId: 'run1' };
 const Where = () => { const l = useLocation(); return <span data-testid="where" data-state={JSON.stringify(l.state)}>{l.pathname}</span>; };
 const FROM_ROOM = JSON.stringify({ backToTable: '/', tableEvent: 'e1' });
 
-function renderCard(selfMember: EventRoomMember, props: { view?: 'table' | 'compare' | 'hidden'; onMoment?: () => void; feedbackSlot?: HTMLElement | null } = {}) {
+function renderCard(selfMember: EventRoomMember, props: { view?: 'table' | 'compare' | 'hidden'; onMoment?: (moment: RoundMoment) => void } = {}) {
   return render(
     <MemoryRouter>
-      <MastermindRoundCard eventId="e1" self={selfMember} roster={ROSTER} view={props.view ?? 'table'} onMoment={props.onMoment} feedbackSlot={props.feedbackSlot} />
+      <MastermindRoundCard eventId="e1" self={selfMember} roster={ROSTER} view={props.view ?? 'table'} onMoment={props.onMoment} />
       <Where />
     </MemoryRouter>,
   );
@@ -140,8 +141,8 @@ describe('P1529 round screen: what each role sees', () => {
     expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
     expect(screen.getByTestId('round-card-instruction').querySelectorAll('ol > li')).toHaveLength(3); // every step is always visible
     expect(screen.getByTestId('round-card-my-role').textContent).toBe(`You\u2019re the ${({ owner: 'Clarity Canvas owner', partner: 'peer', observer: 'observer' } as Record<string, string>)[people.find(l => l.startsWith('You'))!.split(": ")[1]]}`);
-    // everyone at the table, me first, then the others in role order
-    expect(lines()).toEqual([people.find(l => l.startsWith('You'))!, ...people.filter(l => !l.startsWith('You'))]);
+    // G8: the others at the table in role order; no "You" row (my role is the line above)
+    expect(lines()).toEqual(people.filter(l => !l.startsWith('You')));
     if (open) expect((await screen.findByTestId('round-canvas-link')).textContent).toBe(who === OWNER ? 'Open your canvas' : 'Open Haru T.\u2019s canvas');
     else expect(screen.queryByTestId('round-canvas-link')).toBeNull();
     for (const gone of ['round-card-role', 'round-card-with', 'round-card-rule', 'round-canvas-card-toggle']) expect(screen.queryByTestId(gone)).toBeNull();
@@ -154,15 +155,16 @@ describe('P1529 round screen: what each role sees', () => {
     ] });
     renderCard(PARTNER);
     expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 2');
-    expect(screen.getByTestId('round-card-others').textContent).toMatch(/You.*Haru T\..*Sam L\./);
-    expect(lines()).toEqual(['You: partner', 'Haru T.: owner', 'Sam L.: observer']);
+    expect(screen.getByTestId('round-card-others').textContent).toMatch(/Haru T\..*Sam L\./);
+    expect(screen.getByTestId('round-card-others').textContent).not.toMatch(/You/);
+    expect(lines()).toEqual(['Haru T.: owner', 'Sam L.: observer']);
   });
 
   it('a person the roster has no name for shows the fallback name', async () => {
     liveRound([round()], { r1: [seat('r1', 'm-ghost', 'first'), seat('r1', 'm-partner', 'second')] });
     renderCard(PARTNER);
     expect((await screen.findByTestId('round-canvas-link')).textContent).toBe('Open Someone\u2019s canvas');
-    expect(lines()).toEqual(['You: partner', 'Someone: owner']);
+    expect(lines()).toEqual(['Someone: owner']);
   });
 
   it('asks for nothing during a round: no confirm, swap, phase, compare, slider or score; the owner has no button', async () => {
@@ -323,14 +325,21 @@ describe('P1529 round screen: the moment the room page reads', () => {
   it('reports seated, never "at table", and not over', async () => {
     const onMoment = vi.fn();
     renderCard(PARTNER, { onMoment });
-    await waitFor(() => expect(onMoment).toHaveBeenCalledWith({ seated: true, atTable: false, eveningOver: false, live: true, waiting: false }));
+    await waitFor(() => expect(onMoment).toHaveBeenCalledWith({ seated: true, atTable: false, eveningOver: false, live: true, waiting: false, nextVersionOffered: false }));
+  });
+
+  it('before round 1 an attendee with no round yet sees the waiting card "Discussion round 1 starts soon"', async () => {
+    liveRound([], {});
+    renderCard(OBSERVER);
+    const card = await screen.findByTestId('mastermind-waiting');
+    expect(card.textContent).toContain('Discussion round 1 starts soon');
   });
 
   it('waiting: a person with no seat in the live round is told what comes next', async () => {
     liveRound([round()], { r1: [seat('r1', 'm-partner', 'second')] });
     const onMoment = vi.fn();
     renderCard(OBSERVER, { onMoment });
-    expect((await screen.findByTestId('mastermind-waiting')).textContent).toMatch(/Round 1 · You join the next round/);
+    expect((await screen.findByTestId('mastermind-waiting')).textContent).toMatch(/Discussion round 1 · You join the next round/);
     expect(onMoment).toHaveBeenCalledWith(expect.objectContaining({ seated: false, waiting: true }));
   });
 
@@ -339,7 +348,7 @@ describe('P1529 round screen: the moment the room page reads', () => {
     // No stamp from the host: the round ended on its own, the evening goes on.
     const between = vi.fn();
     const second = renderCard(OWNER, { onMoment: between });
-    expect((await screen.findByTestId('mastermind-between')).textContent).toBe('Round 1 is overThe next round starts soon.');
+    expect((await screen.findByTestId('mastermind-between')).textContent).toContain('Discussion round 1 is overThe next round starts soon.');
     expect(between).toHaveBeenLastCalledWith(expect.objectContaining({ eveningOver: false, waiting: true }));
     expect(screen.queryByTestId('mastermind-over')).toBeNull();
     second.unmount();
@@ -349,7 +358,9 @@ describe('P1529 round screen: the moment the room page reads', () => {
     renderCard(OWNER, { onMoment: again });
     await waitFor(() => expect(again).toHaveBeenLastCalledWith(expect.objectContaining({ eveningOver: true })));
     expect(screen.queryByTestId('mastermind-between')).toBeNull();
-    expect(screen.getByTestId('mastermind-over').textContent).toBe('The rounds are over');
+    expect(screen.getByTestId('mastermind-over').textContent).toContain('The evening is over');
+    expect(screen.getByTestId('mastermind-over').textContent).not.toContain('The rounds are over');
+    expect(await screen.findByTestId('mastermind-over-canvas')).toBeTruthy(); // H3: Table holds the way to the canvas
   });
 });
 
@@ -370,10 +381,54 @@ describe('P1529 waiting state: one focus at a time', () => {
     expect(h.listSharedWithEvent).not.toHaveBeenCalled(); // nothing is read until it is opened
   });
 
+  it('G5: between rounds a person with a canvas at this event gets "Open your canvas" (blue-bordered) in the "is over" card, and a person without one does not', async () => {
+    betweenRounds();
+    renderCard(OWNER);
+    const link = await screen.findByTestId('mastermind-between-canvas');
+    expect(link.textContent).toBe('Open your canvas');
+    expect(link.className).toMatch(/border-blue-600/);
+    expect(link.className).not.toMatch(/bg-background|border-input/);
+    expect(screen.getByTestId('mastermind-between').contains(link)).toBe(true);
+  });
+
+  it('G5: with the next-version card offered the way to the canvas is inside that card, full width, and only once', async () => {
+    betweenRounds();
+    h.server.offer = offerOf('offer');
+    renderCard(OWNER);
+    const task = await screen.findByTestId('mastermind-task');
+    const link = await screen.findByTestId('mastermind-task-canvas');
+    expect(task.contains(link)).toBe(true);
+    expect(link.className).toMatch(/border-blue-600/);
+    expect(link.className).toMatch(/\bw-full\b/);
+    expect(screen.queryByTestId('mastermind-between-canvas')).toBeNull();
+    expect(screen.getAllByRole('link', { name: 'Open your canvas' })).toHaveLength(1);
+  });
+
+  it('G5: a failed first read of the canvas is tried again at the next tab return, not left hidden for good', async () => {
+    betweenRounds();
+    h.getMyEventCanvas.mockRejectedValueOnce(new Error('network'));
+    renderCard(OWNER);
+    await screen.findByTestId('mastermind-between');
+    expect(screen.queryByTestId('mastermind-between-canvas')).toBeNull();
+    Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    expect(await screen.findByTestId('mastermind-between-canvas')).toBeTruthy();
+  });
+
+  it('G5: no canvas at the event, no button', async () => {
+    betweenRounds();
+    h.getMyEventCanvas.mockResolvedValue(null);
+    renderCard(OWNER);
+    await screen.findByTestId('mastermind-between');
+    expect(screen.queryByTestId('mastermind-between-canvas')).toBeNull();
+  });
+
   it('between rounds with nothing to offer: "is over", no card', async () => {
     betweenRounds();
     renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-between')).textContent).toMatch(/Round 1 is over/);
+    expect((await screen.findByTestId('mastermind-between')).textContent).toMatch(/Discussion round 1 is over/);
     expect(screen.queryByTestId('mastermind-task')).toBeNull();
   });
 
@@ -438,7 +493,7 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
       return { status: 'started', draftId: 'd1', runId: 'run1', repeat: false, start: { ok: true, runId: 'run1', kind: 'message' } };
     });
     renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-title')).textContent).toBe('Round 1 with Erin: transcript ready');
+    expect((await screen.findByTestId('mastermind-task-title')).textContent).toBe('Discussion round 1 with Erin: transcript ready');
     expect(screen.getByTestId('mastermind-task-body').textContent).toBe('Make your next version from what was said.');
     expect(screen.getByTestId('mastermind-make').textContent).toBe('Create next version');
     expect(screen.getByTestId('mastermind-preview').textContent).toBe('Preview first');
@@ -465,8 +520,10 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
     h.server.offer = offerOf('offer');
     h.getEveningEnd.mockResolvedValue(new Date(Date.now() + 1000).toISOString());
     renderCard(OWNER);
-    expect(await screen.findByTestId('mastermind-task')).toBeTruthy();
-    expect(screen.getByTestId('mastermind-over')).toBeTruthy();
+    const task = await screen.findByTestId('mastermind-task');
+    // one card: "The evening is over" is the card's own heading, not a separate card above it
+    expect(task.querySelector('[data-testid="mastermind-over-heading"]')).toBeTruthy();
+    expect(screen.queryByTestId('mastermind-over')).toBeNull();
   });
 
   it('"Preview first" makes the draft without publishing (auto publish off) and opens it with the back-to-table state', async () => {
@@ -490,7 +547,7 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
   it('while the words are prepared: the sentence with the usual wait, no button; the button appears when they are ready', async () => {
     h.server.offer = offerOf('transcript_pending');
     renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-pending')).textContent).toBe('Round 1 with Erin: the transcript is on its way. Usually 1 to 3 minutes.');
+    expect((await screen.findByTestId('mastermind-task-pending')).textContent).toBe('Discussion round 1 with Erin: the transcript is on its way. Usually 1 to 3 minutes.');
     expect(screen.queryByTestId('mastermind-make')).toBeNull();
     h.server.offer = offerOf('offer');
     // The tab goes away and comes back (a real visibility change, not a bare event).
@@ -504,7 +561,7 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
   it('words not ready 10 minutes after the round: the terminal sentence, no button', async () => {
     h.server.offer = offerOf('transcript_missing');
     renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-missing')).textContent).toBe('The words from Round 1 did not arrive. Your canvas stays as it is.');
+    expect((await screen.findByTestId('mastermind-task-missing')).textContent).toBe('The words from Discussion round 1 did not arrive. Your canvas stays as it is.');
     expect(screen.queryByTestId('mastermind-make')).toBeNull();
   });
 
@@ -612,7 +669,7 @@ describe('P1529 §6: the states of one round\'s version', () => {
     h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
     renderCard(OWNER);
     const card = await screen.findByTestId('mastermind-task-nothing-new');
-    expect(card.textContent).toBe('Round 1 with Erin: nothing to add. What was said didn\u2019t change your canvas.');
+    expect(card.textContent).toBe('Discussion round 1 with Erin: nothing to add. What was said didn\u2019t change your canvas.');
     expect(card.querySelector('.text-destructive')).toBeNull();
     expect(screen.queryByTestId('mastermind-publish')).toBeNull();
     expect(screen.queryByTestId('mastermind-task-note')).toBeNull();
@@ -630,6 +687,43 @@ describe('P1529 §6: the states of one round\'s version', () => {
     expect(screen.getByTestId('mastermind-task-note').textContent).toMatch(/Nothing to add/);
   });
 
+  describe('the settled "nothing to add" card keeps exactly one working canvas link', () => {
+    const settle = () => {
+      h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
+      h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
+      h.discardCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('none'); return { ok: true, discarded: true }; });
+    };
+    const oneLink = async () => {
+      const card = await screen.findByTestId('mastermind-task-nothing-new');
+      await waitFor(() => expect(within(card).getAllByRole('link', { name: 'Open your canvas' })).toHaveLength(1));
+      const link = within(card).getByRole('link', { name: 'Open your canvas' });
+      expect(link.getAttribute('href')).toBe("/p/haru/canvas/launch_plan");
+      expect(screen.getAllByRole('link', { name: 'Open your canvas' })).toHaveLength(1);
+      return card;
+    };
+    it('between rounds', async () => {
+      settle();
+      renderCard(OWNER);
+      await oneLink();
+    });
+    it('after the evening ends, with the heading inside the same card', async () => {
+      settle();
+      betweenRounds();
+      h.getEveningEnd.mockResolvedValue(new Date(Date.now() + 1000).toISOString());
+      renderCard(OWNER);
+      const card = await oneLink();
+      expect(within(card).getByTestId('mastermind-over-heading').textContent).toBe('The evening is over');
+      expect(screen.queryByTestId('mastermind-over')).toBeNull();
+    });
+    it('the published face keeps one working link when the published-state read gave no canvas name (the person\'s own read supplies it)', async () => {
+      h.server.offer = { ...offerOf('published'), canvasName: null } as never;
+      renderCard(OWNER);
+      const open = await screen.findByTestId('mastermind-task-open');
+      expect(open.getAttribute('href')).toBe("/p/haru/canvas/launch_plan");
+      expect(screen.queryByTestId('mastermind-task-canvas')).toBeNull();
+    });
+  });
+
   it('after the discard, an offer of none still shows the round\u2019s "nothing to add" card until another offer arrives', async () => {
     h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
     h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
@@ -638,7 +732,7 @@ describe('P1529 §6: the states of one round\'s version', () => {
     const card = await screen.findByTestId('mastermind-task-nothing-new');
     await waitFor(() => expect(h.discardCanvasDraft).toHaveBeenCalled());
     await waitFor(() => expect(h.getMyNextVersionOffer.mock.calls.length).toBeGreaterThan(1));
-    expect((await screen.findByTestId('mastermind-task-nothing-new')).textContent).toBe('Round 1 with Erin: nothing to add. What was said didn\u2019t change your canvas.');
+    expect((await screen.findByTestId('mastermind-task-nothing-new')).textContent).toContain('Discussion round 1 with Erin: nothing to add. What was said didn\u2019t change your canvas.');
     expect(card).toBeTruthy();
     h.server.offer = offerOf('offer');
     for (const v of ['hidden', 'visible']) {
@@ -688,20 +782,40 @@ describe('P1529 §6: the states of one round\'s version', () => {
     expect(screen.getByTestId('mastermind-publish').textContent).toBe('Try again');
   });
 
-  it('on the Feedback tab the card is AFTER the feedback in the DOM, under "Before you go: your next version"', async () => {
+  it('H3: the next-version card is Table\'s, never Feedback\'s: with the view hidden it is not drawn, and the moment says a card is waiting', async () => {
     h.server.offer = offerOf('offer');
-    const host = document.createElement('div');
-    host.innerHTML = '<div data-testid="feedback-block">How was the evening?</div><div data-testid="slot"></div>';
-    document.body.appendChild(host);
-    const slot = host.querySelector('[data-testid="slot"]') as HTMLElement;
-    renderCard(OWNER, { view: 'hidden', feedbackSlot: slot });
-    const after = await screen.findByTestId('mastermind-task-after-feedback');
-    expect(slot.contains(after)).toBe(true);
-    const feedback = host.querySelector('[data-testid="feedback-block"]')!;
-    expect(feedback.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(after.querySelector('h3')!.textContent).toBe('Before you go: your next version');
-    expect(after.querySelector('[data-testid="mastermind-make"]')).toBeTruthy();
-    host.remove();
+    const onMoment = vi.fn();
+    renderCard(OWNER, { view: 'hidden', onMoment });
+    await waitFor(() => expect(onMoment).toHaveBeenCalledWith(expect.objectContaining({ nextVersionOffered: true })));
+    expect(screen.queryByTestId('mastermind-task')).toBeNull();
+    expect(screen.queryByTestId('mastermind-task-after-feedback')).toBeNull();
+  });
+
+  it('H3: after the host ends the evening, Table holds "The evening is over", the next-version card and "Open your canvas"', async () => {
+    betweenRounds();
+    h.getEveningEnd.mockResolvedValue(new Date(Date.now() + 1000).toISOString());
+    h.server.offer = offerOf('offer');
+    renderCard(OWNER);
+    const task = await screen.findByTestId('mastermind-task');
+    // one card: the heading is inside the next-version card, with no empty-looking card above it
+    expect(task.querySelector('[data-testid="mastermind-over-heading"]')!.textContent).toBe('The evening is over');
+    expect(screen.queryByTestId('mastermind-over')).toBeNull();
+    expect(await screen.findByTestId('mastermind-task-canvas')).toBeTruthy();
+  });
+
+  it('H3: a failed read of the offer counts as waiting, so Feedback still links to Table', async () => {
+    h.getMyNextVersionOffer.mockRejectedValue(new Error('offline'));
+    const onMoment = vi.fn();
+    renderCard(OWNER, { view: 'hidden', onMoment });
+    await waitFor(() => expect(onMoment).toHaveBeenCalledWith(expect.objectContaining({ nextVersionOffered: true })));
+  });
+
+  it('H3: a next version that is already published is not "waiting"', async () => {
+    h.server.offer = offerOf('published');
+    const onMoment = vi.fn();
+    renderCard(OWNER, { view: 'hidden', onMoment });
+    await waitFor(() => expect(onMoment).toHaveBeenCalled());
+    expect(onMoment).not.toHaveBeenCalledWith(expect.objectContaining({ nextVersionOffered: true }));
   });
 
   it('nothing new is bound to the draft revision: a hand-edited draft is NOT auto-published again, it waits for the Publish tap', async () => {
@@ -865,7 +979,7 @@ describe('P1529 round screen: the gap after round 2 (End round 2, then the next 
   it('after round 2 ends the card says so; the host ending the evening ends it for the phone', async () => {
     twoEnded();
     const { unmount } = renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-between')).textContent).toContain('Round 2 is over');
+    expect((await screen.findByTestId('mastermind-between')).textContent).toContain('Discussion round 2 is over');
     unmount();
     h.getEveningEnd.mockResolvedValue(new Date(Date.now() - 5_000).toISOString());
     const onMoment = vi.fn();
@@ -1023,7 +1137,7 @@ describe('P1529 round screen: every step of my role, the current part highlighte
     startedAgo(70);
     renderCard(OWNER);
     expect((await screen.findByTestId('round-card-table')).textContent).toBe('Table 1');
-    expect(screen.getByTestId('round-card-part').textContent).toBe('Talk');
+    expect(screen.getByTestId('round-card-part').textContent).toBe('Discussion');
     expect(screen.getByTestId('round-card-time').textContent).toMatch(/^\d+:\d\d$/);
     const bar = screen.getByTestId('round-card-parts').querySelector('ol[aria-label="Round"]')!;
     expect(bar.querySelectorAll('li')).toHaveLength(2);
@@ -1034,7 +1148,7 @@ describe('P1529 round screen: every step of my role, the current part highlighte
     startedAgo(OBS);
     renderCard(OBSERVER);
     await screen.findByTestId('round-card-table');
-    expect(screen.getByTestId('round-card-part').textContent).toBe('Observer');
+    expect(screen.getByTestId('round-card-part').textContent).toBe('Observer feedback');
   });
 
   it('the canvas is always the primary filled button, centred; none for the observer in their own part', async () => {

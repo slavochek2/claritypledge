@@ -12,6 +12,8 @@
  * renders nothing, as D3/D13 asked.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useInRouterContext, useLocation } from 'react-router-dom';
+import { tableEventOf } from '@/lib/canvas-hrefs';
 import { ArrowRight, Mic, Pause, Play, Square } from 'lucide-react';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import type { SliceDestination } from '@/app/data/transcribe-slice-destination';
@@ -26,6 +28,18 @@ import { useConnectivity, useOfflineStripShown } from '@/app/contexts/offline-st
 import { useRoomBarClaimed } from './room-bar-owner';
 import { useStartRoomCapture } from './use-start-room-capture';
 import { isRoundEvent } from '@/lib/round-event-registry';
+
+/**
+ * What the bar knows about the page it sits on: `isRound` (a round event's capture: the info says only where the words go) and `hideOpen` (no "open the room" arrow:
+ * inside this event's own room, or on a canvas opened from it; every other page keeps it, P1529 G7).
+ */
+function useBarScope(eventId: string | null, roomEventId: string | undefined, roundEvent: boolean, navState: unknown): { isRound: boolean; hideOpen: boolean } {
+  // A canvas opened from this event's table carries `tableEvent` in its navigation state.
+  const openedFromEvent = !!eventId && tableEventOf(navState) === eventId;
+  const inRoom = !!roomEventId && eventId === roomEventId;
+  const isRound = (roundEvent && inRoom) || isRoundEvent(eventId);
+  return { isRound, hideOpen: inRoom || (isRound && openedFromEvent) };
+}
 
 const VISIBLE_PHASES = new Set(['capturing', 'stalled', 'observing', 'paused']);
 
@@ -99,7 +113,7 @@ function EventArrivalHint() {
 
 /** The level waveform, except in a tab that only observes (the capturing tab owns the microphone). */
 function LevelMeterFor({ phase }: { phase: string }) {
-  return phase !== 'observing' ? <CaptureLevelMeter active={phase === 'capturing' || phase === 'stalled'} /> : null;
+  return phase !== 'observing' ? <CaptureLevelMeter quiet active={phase === 'capturing' || phase === 'stalled'} /> : null;
 }
 
 /** The one recorder control: Reconnect when nothing is being recorded, else Pause or Resume; none in an observing tab. */
@@ -161,18 +175,36 @@ function OfflineCaptureBar({ roomId }: { roomId: string }) {
   );
 }
 
-export function RoomCaptureBar({ short = false, roomEventId, roundEvent = false }: { short?: boolean; /** Drawn inside THIS event's room head: no "Open the room" for a capture that belongs to this event (another capture keeps it). */ roomEventId?: string; /** A round event (the sales mastermind): the info says only where the table's words go. */ roundEvent?: boolean }) {
+interface RoomCaptureBarProps {
+  short?: boolean;
+  /** Drawn inside THIS event's room head: no "Open the room" for a capture that belongs to this event (another capture keeps it). */
+  roomEventId?: string;
+  /** A round event (the sales mastermind): the info says only where the table's words go. */
+  roundEvent?: boolean;
+}
+
+/** The bar renders in the app's router and, bare, in tests: it reads the navigation state only where a router exists. */
+export function RoomCaptureBar(props: RoomCaptureBarProps) {
+  return useInRouterContext() ? <RoutedRoomCaptureBar {...props} /> : <RoomCaptureBarView {...props} navState={null} />;
+}
+
+function RoutedRoomCaptureBar(props: RoomCaptureBarProps) {
+  return <RoomCaptureBarView {...props} navState={useLocation().state} />;
+}
+
+function RoomCaptureBarView({ short = false, roomEventId, roundEvent = false, navState }: RoomCaptureBarProps & { navState: unknown }) {
   const { phase, roomId, open, endMyCapture, manualPaused, pausedByLiveRecord, eventId, destination } = useRoomCapture();
   const { offline } = useConnectivity();
   const status = useCaptureStatus();
   // A round event's bars (compact or full) say the same one-line info.
-  const isRound = (roundEvent && !!roomEventId && eventId === roomEventId) || isRoundEvent(eventId);
+  const { isRound, hideOpen } = useBarScope(eventId, roomEventId, roundEvent, navState);
 
   if (!VISIBLE_PHASES.has(phase) || !roomId) return null;
   // Of the pauses, only the two the person can see and undo render (D3/D13 for the rest).
   if (phase === 'paused' && !manualPaused && !pausedByLiveRecord) return null;
 
-  if (short && !offline) return <CompactCaptureBar roomId={roomId} hideOpen={!!roomEventId && eventId === roomEventId} roundEvent={isRound} />;
+  // The arrow (it duplicates the page's own back) is gone inside this event's room and on a canvas opened from it, not on other pages (P1529 G7); the ⓘ keeps "Open the live text".
+  if (short && !offline) return <CompactCaptureBar roomId={roomId} hideOpen={hideOpen} roundEvent={isRound} />;
 
   if (offline) return <OfflineCaptureBar roomId={roomId} />;
 
@@ -190,14 +222,14 @@ export function RoomCaptureBar({ short = false, roomEventId, roundEvent = false 
       adornment={
         <>
           <LevelMeterFor phase={phase} />
-          <CaptureInfoButton forEvent={!!eventId} message={isRound ? EVENT_IDLE_INFO : undefined} />
+          <CaptureInfoButton forEvent={!!eventId} onOpenRoom={hideOpen ? open : undefined} message={isRound ? EVENT_IDLE_INFO : undefined} />
         </>
       }
       extra={
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <PauseResumeButton />
           <StopCaptureButton onClick={() => void endMyCapture(roomId)} testId="room-capture-bar-end" />
-          {!(roomEventId && eventId === roomEventId) && <OpenRoomButton onClick={open} testId="room-capture-bar-open" />}
+          {!hideOpen && <OpenRoomButton onClick={open} testId="room-capture-bar-open" />}
         </div>
       }
     />

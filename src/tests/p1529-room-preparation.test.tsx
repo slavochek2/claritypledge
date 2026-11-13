@@ -201,7 +201,7 @@ describe('EventCanvasCard test ids and button variants', () => {
     expect(primary.className).toContain('bg-blue-600');
     expect(primary.className).toContain('h-8'); // size sm
     expect(primary.className).not.toContain('w-full');
-    expect(screen.getByTestId('event-canvas-make').className).toContain('border-input'); // outline
+    expect(screen.getByTestId('event-canvas-make').className).toContain('border-blue-600'); // outline
   });
   it('an open draft with a published canvas: the alternative is Continue your draft under its own test id', async () => {
     h.canvases = [{ name: 'canvas_1', title: 'Launch plan' }];

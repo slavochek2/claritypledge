@@ -41,7 +41,9 @@ const order = (step: RoomStep) => ALL_STEPS.findIndex(s => s.key === step);
  * ends. Table and Compare belong to a running round — once the evening has closed there is no
  * table to go back to, and no readiness to prepare.
  */
-export function canOpenStep(step: RoomStep, current: RoomStep, closeOpen = false): boolean {
+export function canOpenStep(step: RoomStep, current: RoomStep, closeOpen = false, tableOpen = false): boolean {
+  // `tableOpen` (P1529 H3, the mastermind): Table stays tappable after the evening ends, it holds the next version.
+  if (step === 'table' && tableOpen) return order(step) <= order(current) || current === 'close';
   // `closeOpen`: this series' Feedback can be opened at any time (feedbackOpenAnytime), though the current step is still the round's.
   if (step === 'close') return closeOpen || current === 'close';
   // P1542 review: nor readiness — the evening is over (frozen, or the host ended it), as the room's Back says.
@@ -59,6 +61,7 @@ export function RoomSteps({
   learn,
   done: doneOverride,
   closeOpen = false,
+  tableOpen = false,
   withCanvas = false,
   canvasDone,
 }: {
@@ -89,6 +92,8 @@ export function RoomSteps({
   done?: Partial<Record<RoomStep, boolean>>;
   /** P1529: Feedback is open before it is the current step (the mastermind's, open at any time). Absent = only when current. */
   closeOpen?: boolean;
+  /** P1529 H3: Table stays open after the evening ends (the mastermind's holds the next version). */
+  tableOpen?: boolean;
   /** P1529 E5: show the Canvas step (the mastermind with the canvas made at the event). */
   withCanvas?: boolean;
   /** With the Canvas step: whether this person's canvas is shared with the event (its tick). */
@@ -141,7 +146,7 @@ export function RoomSteps({
         )}
         {steps.map(({ key, label: shared }) => {
           const label = labels?.[key] ?? shared;
-          const open = canOpenStep(key, current, closeOpen);
+          const open = canOpenStep(key, current, closeOpen, tableOpen);
           const explicit = key === 'canvas' && withCanvas ? canvasDone : doneOverride?.[key];
           const done = explicit ?? order(key) < order(current);
           const reached = order(key) <= order(current) || (key === 'close' && closeOpen);

@@ -395,6 +395,13 @@ body {
   }
 }
 
+/* P1529 G4: the projector's small grey wave beside a person who is transcribing (the projector has no audio level for others, so it moves on its own).
+ * Reduced motion: the bars stand still at their own heights (the element drops the animation through motion-reduce). */
+@keyframes clarity-wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
 /* Anti-flash: loader is invisible for 300ms, then fades in.
  * Pure CSS — no JS timers, no re-renders, no test interference. */
 @keyframes clarity-appear {
