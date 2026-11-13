@@ -107,11 +107,48 @@ rather than reading the absence of load as the absence of a cause.
 
 ## Done-When
 
-- [ ] A 45-minute measurement is recorded in this spec: rounds taken, slow test-only rounds, the phase
+- [x] A 45-minute measurement is recorded in this spec: rounds taken, slow test-only rounds, the phase
       holding the time in each, whether one or both test requests were slow, and E2E-loaded rounds
-- [ ] Exactly one Decision Criterion is named as the outcome, with its numbers, and its follow-up is
+      (see Findings)
+- [x] Exactly one Decision Criterion is named as the outcome, with its numbers, and its follow-up is
       done (numbers added to P1672/P1607, a fix spec filed, or the spec closed as not reproduced or
-      unexplained)
+      unexplained). Outcome: criterion 1, not reproduced. `[post-push]` close with `/ship p1678`
+
+## Findings (2026-11-13)
+
+Window 19:02:14 to 19:47:09 local (45 min), sampler v2 (phase deltas, live-lock counter proved on a
+control directory, both anon keys checked for 200 before the window).
+
+| Measure | Value |
+|---|---|
+| Rounds | 214 |
+| E2E-loaded rounds (a live slot, exclusive or old lock) | 111 |
+| Slow test-only rounds (test above 2.0 s, Google and prod both under 1.0 s) | **4** |
+| ...of which E2E-loaded | 0 |
+| ...both test requests slow / only one | 1 / 3 |
+| Rounds where this Mac reached nothing (HTTP 000, Google included) | 11 to 18 per endpoint |
+
+The 4 slow test-only rounds, phase holding the time:
+
+| Time | Test health | Test REST | Prod | Google |
+|---|---|---|---|---|
+| 19:03:09 | 0.25 s | 3.67 s, TCP 3.01 s | 0.17 s | 0.17 s |
+| 19:17:53 | 0.24 s | 8.93 s, TCP 8.69 s | 0.16 s | 0.20 s |
+| 19:19:17 | 8.88 s, TCP 8.68 s | 8.88 s, TCP 8.67 s | 0.14 s | 0.17 s |
+| 19:46:02 | 1.00 s | 2.54 s, TCP 2.29 s | 1.00 s | 0.95 s |
+
+Medians: test health 0.30 s, test REST 0.34 s, prod health 0.27 s, Google 0.23 s.
+
+**Outcome: criterion 1, not reproduced** (4 slow test-only rounds, below 5). What the data does say,
+without deciding anything from it:
+
+- E2E load is not the cause: 111 loaded rounds, none of them slow; criterion 2 had its 30 loaded rounds
+  and still 0 of the slow rounds were loaded.
+- Every slow test-only request spent its time in **TCP connect** (2.3 to 8.7 s), never in TLS or the
+  server. That is the network path from this Mac to the Singapore VM (lost connection attempts being
+  retried), not the server doing work.
+- This Mac's own connection dropped entirely 11 to 18 times in the window (Google itself timed out). Such
+  drops are what P1677's strip reports as "Saved copy · updating…" or "Offline".
 
 ## Time Box
 
