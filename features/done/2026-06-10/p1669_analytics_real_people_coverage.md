@@ -100,11 +100,11 @@ Monthly upper bound added by P1669 = `P x (20 + 4 + 1) = 25P` (every page view o
 
 Founder decision 2026-11-13: these can only be shown on the live site (or need the founder's public board links), so they are checked right after deploy, before the spec counts as verified.
 
-- [ ] Bot filter proven by controls: a headless browser and a known crawler user agent produce events tagged `is_bot: true`, while a real phone visit is counted untagged (Live Events screenshot)
-- [ ] Health and CSP smokes still pass and still prove a real `/record` after the bot filter
-- [ ] A test sign-up through a UTM-tagged link shows that `utm_source` on its `profile_created` event and on its user profile
-- [ ] A scripted 60-second visit shows a session of 50 seconds or more in Mixpanel
-- [ ] Each new event appears in Mixpanel Live Events from a real prod visit, and the Path to value board includes them
+- [x] Bot filter proven by controls: a headless browser and a known crawler user agent produce events tagged `is_bot: true`, while a real phone visit is counted untagged (Live Events screenshot). Confirmed live 2026-11-13: `crawler_ua`, `headless_window` and `webdriver` tagged; the phone visit untagged.
+- [x] Health and CSP smokes still pass and still prove a real `/record` after the bot filter. Confirmed 2026-11-13: health smoke live; CSP smoke run locally against prod after deploy, 8/8 routes passed.
+- [x] A test sign-up through a UTM-tagged link shows that `utm_source` on its `profile_created` event and on its user profile. Confirmed 2026-11-13 (Mixpanel date 2026-11-12, US/Pacific): sign-up via `?utm_source=p1669check&utm_medium=test&utm_campaign=p1669`; the event carries all three UTMs and the user profile has `utm_source=p1669check`. The account is in the founder test namespace and is flagged `is_test_account`.
+- [x] A scripted 60-second visit shows a session of 50 seconds or more in Mixpanel. Confirmed 2026-11-13: 65s.
+- [x] Each new event appears in Mixpanel Live Events from a real prod visit, and the Path to value board includes them. Confirmed 2026-11-13: events seen in Live Events; board 2 gained a row with the groups funnel (`feed_viewed` → `group_viewed` → `group_join_viewed` → `org_joined`) and the event funnel (`event_prepare_viewed` → `event_rsvp_confirm_viewed`), both filtered to `is_bot` not set.
 - [ ] Kanban Analytics tab embeds the five public boards (no passcode; links read from `.env.local` `MIXPANEL_BOARD_*`, never committed); the old insights section is gone and insights appear as `/day` cards. Boards: [Pulse](https://eu.mixpanel.com/project/3968494/app/boards#id=11645736), [Path](https://eu.mixpanel.com/project/3968494/app/boards#id=11645737), [Return](https://eu.mixpanel.com/project/3968494/app/boards#id=11645738), [Friction](https://eu.mixpanel.com/project/3968494/app/boards#id=11645741), [Use](https://eu.mixpanel.com/project/3968494/app/boards#id=11646127)
 
 ## Related
