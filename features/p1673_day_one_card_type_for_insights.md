@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 334
 workstream: tooling
@@ -68,15 +68,15 @@ This partly reverses P1669 Solution 5 ("The cards keep Confirm and Dismiss"). Th
 
 ## Acceptance Criteria
 
-- [ ] The Daily report shows no separate insight block. Each undecided insight appears as a normal finding card with Point A / Obstacle / Point B, More info, and numbered choices
-- [ ] Choosing the "real" option sends a confirm to the insight ledger and choosing the "not a problem" option sends a dismiss (each checked in a test against the decision route); the card then leaves the list
-- [ ] Point B shows the insight's own next step, and More info shows base, comparison, confidence, the repeat pattern and Where to look (when a link exists)
-- [ ] A free-text answer on an insight is saved, survives reload, and leaves the insight card in the list
-- [ ] Insight cards are listed first, tagged "Weekly insight", and not counted in the day's totals
-- [ ] A failed load shows "Insights could not load"; a failed save keeps the card with an error and can be retried; a double press sends one decision
-- [ ] Insight cards work with the same keyboard shortcuts and sidebar list as other findings
-- [ ] When there are no undecided insights, nothing extra is shown
-- [ ] Browser check at desktop and 375px confirms one card style on the page
+- [x] The Daily report shows no separate insight block. Each undecided insight appears as a normal finding card with Point A / Obstacle / Point B, More info, and numbered choices
+- [x] Choosing the "real" option sends a confirm to the insight ledger and choosing the "not a problem" option sends a dismiss (each checked in a test against the decision route); the card then leaves the list
+- [x] Point B shows the insight's own next step, and More info shows base, comparison, confidence, the repeat pattern and Where to look (when a link exists)
+- [x] A free-text answer on an insight is saved, survives reload, and leaves the insight card in the list
+- [x] Insight cards are listed first, tagged "Weekly insight", and not counted in the day's totals
+- [x] A failed load shows "Insights could not load"; a failed save keeps the card with an error and can be retried; a double press sends one decision
+- [x] Insight cards work with the same keyboard shortcuts and sidebar list as other findings
+- [x] When there are no undecided insights, nothing extra is shown
+- [x] Browser check at desktop and 375px confirms one card style on the page
 
 ## Related
 
