@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 338
 workstream: infrastructure
 created_date: '2026-11-13'
 tags: [offline, analytics, mixpanel, observability]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -14,6 +13,7 @@ exec_effort: medium
 driver: anomaly
 spec_review_hash: 04e37eefffb5a7340f277b070952526d7e82a27dedfa1680b1dbb446a152c59f
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-13
 ---
 
 # P1677: Offline strip episodes are recorded in Mixpanel, so we know how often "Saved copy · updating…" shows and whether it clears
