@@ -7,6 +7,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventRoundsState } from '@/app/data/event-rounds-service';
+import { plainCanvasState, tableLinkState } from '@/lib/canvas-hrefs';
 import { compareSetup, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { pageIsBusy, roundChange, tableCounterpart } from '@/app/pages/canvas/table-round-helpers';
 
@@ -117,8 +118,8 @@ describe('the Compare default in the address', () => {
   const roster = [{ id: 'm1', profileId: 'owner', displayName: 'Owner' }, { id: 'm2', profileId: 'me', displayName: 'Me' }] as never;
 
   const setParamsSpy = vi.fn();
-  function Writer({ r, key2 = 'k' }: { r: CanvasReady; key2?: string }) {
-    useTableCanvas({ table: { to: '/events/e/room', eventId: 'ev' }, viewerId: 'me', ready: r, editing: false, params: new URLSearchParams(), setParams: setParamsSpy, canvasKey: key2, state: null });
+  function Writer({ r, key2 = 'k', state = null }: { r: CanvasReady; key2?: string; state?: unknown }) {
+    useTableCanvas({ table: { to: '/events/e/room', eventId: 'ev' }, viewerId: 'me', ready: r, editing: false, params: new URLSearchParams(), setParams: setParamsSpy, canvasKey: key2, state: state as never });
     return null;
   }
   beforeEach(async () => {
@@ -138,6 +139,14 @@ describe('the Compare default in the address', () => {
     view.rerender(<MemoryRouter><Writer r={ready(false)} /></MemoryRouter>);
     await new Promise(r => setTimeout(r, 30));
     expect(setParamsSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('J2: the owner\'s own canvas opened from their card (plainCanvas) writes no ?with=; the table state is kept for the way back', async () => {
+    vi.useRealTimers();
+    render(<MemoryRouter><Writer r={ready(false)} state={plainCanvasState(tableLinkState('/events/e/room', 'ev'))} /></MemoryRouter>);
+    await new Promise(r => setTimeout(r, 50));
+    expect(setParamsSpy).not.toHaveBeenCalled();
+    expect(plainCanvasState(tableLinkState('/r', 'ev'))).toEqual({ backToTable: '/r', tableEvent: 'ev', plainCanvas: true });
   });
 
   it('writes nothing on a draft view', async () => {

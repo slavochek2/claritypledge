@@ -76,17 +76,15 @@ export type TaskFace =
   | 'no_recording' | 'no_canvas' | 'draft_open';
 
 /**
- * Which face (if any) the round card has, from the server's current offer. Pure. `publishFailed`: the one-tap chain's publish was
- * refused, so a finished draft shows "Try again" instead of the creating state.
+ * Which face (if any) the round card has, from the server's current offer. Pure. A finished draft is always `ready` (the owner publishes it in the workspace).
  */
-export function taskFace(offer: NextVersionOffer | null, publishFailed = false): TaskFace | null {
+export function taskFace(offer: NextVersionOffer | null): TaskFace | null {
   switch (offer?.state) {
     case 'offer': return 'make';
     case 'transcript_pending': return 'pending';
     case 'transcript_missing': return 'missing';
     case 'drafting': return 'creating';
-    // A finished draft of a one-tap round is being published by the chain; a "Preview first" draft waits for the owner.
-    case 'ready': return offer.autoPublish && !publishFailed ? 'creating' : 'ready';
+    case 'ready': return 'ready';
     case 'failed': return 'failed';
     case 'published': return 'published';
     case 'no_recording': return 'no_recording';
@@ -102,9 +100,9 @@ export const EVENING_OVER = 'The evening is over';
 /** H3: a next-version card is WAITING for the person (something to make, being made, or to try again): Feedback links to it. A published, missing or empty offer is not waiting. */
 export const nextVersionWaiting = (face: TaskFace | null): boolean => face === 'make' || face === 'pending' || face === 'creating' || face === 'ready' || face === 'failed';
 
-/** True while a read of the offer can still change by itself: the words arriving, a draft being written or published. */
+/** True while a read of the offer can still change by itself: the words arriving, a draft being written. */
 export const offerCanChange = (offer: NextVersionOffer | null): boolean =>
-  !offer || offer.state === 'transcript_pending' || offer.state === 'drafting' || (offer.state === 'ready' && offer.autoPublish);
+  !offer || offer.state === 'transcript_pending' || offer.state === 'drafting';
 
 /**
  * [FOUNDER DECISION: copy, proposed] The card's words. `label` is the round's label (roundLabel, D12 wording); `partner` the peer's first
@@ -117,11 +115,10 @@ export const TASK_FAILED = 'Could not make your next version.';
 const roundWith = (label: string, partner: string | null): string => (partner ? `${label} with ${partner}` : label);
 export const wordsPreparing = (label: string, partner: string | null = null): string => `${roundWith(label, partner)}: the transcript is on its way. Usually 1 to 3 minutes.`;
 export const wordsMissing = (label: string): string => `The words from ${label} did not arrive. Your canvas stays as it is.`;
-export const nothingToAdd = (label: string, partner: string | null): string => `${roundWith(label, partner)}: nothing to add. What was said didn\u2019t change your canvas.`;
 export const publishedLine = (seq: number | null): string => (seq ? `Version ${seq} is published.` : 'Your next version is published.');
 
 /** `face`: the task face that already says this, so the note is not shown twice once the state is re-read. */
-export interface TaskNote { kind: 'info' | 'error' | 'nothing_new'; text: string; face?: TaskFace }
+export interface TaskNote { kind: 'info' | 'error'; text: string; face?: TaskFace }
 
 const REFUSED: Record<string, string> = {
   demo_round: 'A Demo round does not make a next version.',
@@ -150,12 +147,6 @@ export function nextVersionNote(result: NextVersionResult): TaskNote | null {
 }
 
 export const NOTE_FAILED = GENERIC;
-export const PUBLISH_REFUSED: Record<string, string> = {
-  stale_view: 'The draft just changed. Look at it again, then publish.',
-  busy: 'Your mirror is still working on it. Try again in a moment.',
-  draft_empty: 'There is nothing to publish yet.',
-  no_changes: 'Nothing to add. What was said didn\u2019t change your canvas.', // shown as the calm "nothing to add" state, never as an error
-};
 export const RETRY_REFUSED: Record<string, string> = {
   busy: 'Your mirror is busy. Try again in a moment.',
   cap_reached: 'You have used all the mirror runs this Clarity Canvas allows.',

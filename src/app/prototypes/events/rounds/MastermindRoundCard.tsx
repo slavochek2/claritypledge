@@ -71,11 +71,11 @@ export function MastermindRoundCard({
   const started = state.rounds.length > 0;
   useEffect(() => { onRoundsStarted?.(started); }, [onRoundsStarted, started]);
 
-  const owner = useOwnerUpdate(eventId, !!self, roundsKey, live);
+  const owner = useOwnerUpdate(eventId, !!self, roundsKey);
   // G5: the person's own canvas at this event, read once between rounds (a person with no offer still has the way to it).
   const ownCanvas = useOwnCanvasName(eventId, !!self && (betweenRounds || eveningOver || (ended && !live)), roundsKey);
   // H3: a next-version card is waiting in Table; the room's Feedback tab says so with one link.
-  const nextVersionOffered = !live && (owner.readFailed || nextVersionWaiting(taskFace(owner.offer, owner.publishFailed || owner.handEdited)));
+  const nextVersionOffered = !live && (owner.readFailed || nextVersionWaiting(taskFace(owner.offer)));
   useEffect(() => { onMoment?.({ seated, atTable: false, eveningOver, live, waiting, nextVersionOffered }); }, [onMoment, seated, eveningOver, live, waiting, nextVersionOffered]);
   const isOwner = mine?.role === 'first';
   // Whose canvas this is follows the seating (my table and its owner), so a move or a role swap inside a running round reads again.

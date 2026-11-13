@@ -11,6 +11,7 @@ import { tryRoomRoster } from '@/app/data/event-room-service';
 import { isViewingDraft, type CanvasPerson, type CanvasReady } from '@/app/components/canvas/canvas-page-data';
 import { useEventRounds } from '@/app/prototypes/events/rounds/use-event-rounds';
 import type { EventRoomMember } from '@/app/types';
+import { isPlainCanvas } from '@/lib/canvas-hrefs';
 import { pageIsBusy, roundChange, roundChangeLine, roundMarkOf, tableCounterpart, type RoundChange, type RoundMark } from './table-round-helpers';
 
 export const ROUND_RETURN_SECONDS = 5;
@@ -132,7 +133,7 @@ function useCompareDefault(a: { counterpart: CanvasPerson | null; ready: CanvasR
   const applied = useRef<string | null>(null);
   const hasWith = !!params.get('with');
   useEffect(() => {
-    if (!counterpart || !ready || isViewingDraft(ready) || applied.current === canvasKey) return;
+    if (!counterpart || !ready || isViewingDraft(ready) || applied.current === canvasKey || isPlainCanvas(state)) return;
     applied.current = canvasKey;
     if (hasWith) return;
     setParams(prev => { const next = new URLSearchParams(prev); next.set('with', counterpart.id); return next; }, { replace: true, state });

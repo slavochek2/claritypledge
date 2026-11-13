@@ -71,6 +71,15 @@ export function tableLinkState(roomPath: string, eventId: string): { backToTable
   return { backToTable: roomPath, tableEvent: eventId };
 }
 
+/** P1529 J2: the owner's own canvas opened from the event (their next-version card, "Open your canvas") opens plain: the state still carries the way back to the table, but the page never opens it in Compare. */
+export function plainCanvasState(state: unknown): Record<string, unknown> {
+  return { ...(state && typeof state === 'object' ? state as Record<string, unknown> : {}), plainCanvas: true };
+}
+
+export function isPlainCanvas(state: unknown): boolean {
+  return !!state && typeof state === 'object' && (state as Record<string, unknown>).plainCanvas === true;
+}
+
 /** P1529: the room path in the navigation state's `backToTable` when it is a same-origin app path; otherwise null. */
 export function backToTablePath(state: unknown): string | null {
   return appPath((state as { backToTable?: unknown } | null)?.backToTable);

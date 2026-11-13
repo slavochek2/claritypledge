@@ -19,10 +19,9 @@ import { useTabVisible } from './use-round-canvas-reads';
 export { useEventCanvasChoices, useRoundCanvas } from './use-round-canvas-reads';
 import { startVisiblePoll } from '@/lib/visible-poll';
 import type { EventRound } from '@/app/data/event-rounds-service';
-import { discardCanvasDraft, getCanvasDraftState, publishCanvasDraft, retryCanvasRun } from '@/app/data/canvas-draft-service';
+import { getCanvasDraftState, retryCanvasRun } from '@/app/data/canvas-draft-service';
 import {
   NOTE_FAILED,
-  PUBLISH_REFUSED,
   RETRY_REFUSED,
   GAP_POLL_MS,
   eveningEndedAfter,
@@ -33,12 +32,6 @@ import {
 
 const OFFER_POLL_MS = 5000;
 const MAX_READ_FAILS = 3;
-
-/** Drafts being published right now, across mounts of the card: a second publish of the same draft is refused by the server
- * (stale_view), so a remount while one is in flight joins the first instead of starting another. */
-const publishing = new Map<string, ReturnType<typeof publishCanvasDraft>>();
-/** Per draft id: the first revision seen finished ('ready') of a one-tap run. Only that revision is ever auto-published; any later one is the owner's own edit. Module-level so it survives the room remounting after a visit to the workspace. */
-const firstReadyRevision = new Map<string, number>();
 
 /** Runs `read` now, and again every `ms` while `active`; a tab returning to view reads at once. Stops on unmount. */
 function usePoll(read: () => Promise<void>, active: boolean, ms: number) {
@@ -90,7 +83,7 @@ export function useRoundsGap({ eventId, enabled, rounds, round, ended }: {
 
 export interface OwnerUpdate {
   offer: NextVersionOffer | null;
-  /** The address parts of the open draft, for "Preview first". */
+  /** The address parts of the open draft, for the draft link. */
   draft: { canvasId: string; canvasName: string | null; versionName: string | null } | null;
   note: TaskNote | null;
   busy: boolean;
@@ -98,24 +91,14 @@ export interface OwnerUpdate {
   readFailed: boolean;
   /** Reads the offer again (the card's Try again after a failed read). */
   reread: () => Promise<void>;
-  /** The one-tap chain's publish was refused: the finished draft offers Try again. */
-  publishFailed: boolean;
-  /** A ready draft whose revision is not the AI run's (the owner edited it): never auto-published, so the card shows the manual ready face. */
-  handEdited: boolean;
-  /** The version number the last publish from this card made (null until one did). */
-  publishedSeq: number | null;
-  /** The unchanged draft could not be closed: the card offers "Close this". */
-  discardFailed: boolean;
-  /** The round whose unchanged draft was just closed while no other offer has arrived: its "nothing to add" stays. */
-  nothingRound: string | null;
-  closeDraft: () => Promise<void>;
   /** The owner's canvas tag for this event (read once published), for "Open it": it does not depend on an open draft. */
   canvasName: string | null;
-  /** "Create next version": drafts and publishes. */
-  make: () => Promise<void>;
-  /** "Preview first": drafts without publishing, then hands the draft's address to `open`. */
-  preview: (open: (draft: { canvasName: string | null; versionName: string | null } | null) => void) => Promise<void>;
-  publish: () => Promise<void>;
+  /** The draft's address could not be read (after the bounded retries): the card offers Try again. */
+  draftFailed: boolean;
+  /** Reads the draft's address again. */
+  retryDraft: () => void;
+  /** "Create next version": drafts without publishing (Publish happens in the workspace), then hands the draft's address to `open`. */
+  make: (open: (draft: { canvasName: string | null; versionName: string | null } | null) => void) => Promise<void>;
   retry: () => Promise<void>;
 }
 
@@ -141,18 +124,32 @@ function useOfferReads(
   return { readOffer, fails };
 }
 
-/** The open draft's address parts, once it exists (for "Preview first" and the expire read). */
-function useDraftAddress(eventId: string, draftId: string | null): OwnerUpdate['draft'] {
+const DRAFT_ADDRESS_TRIES = 3;
+const DRAFT_ADDRESS_RETRY_MS = 4000;
+
+/**
+ * The open draft's address parts, once it exists (for the draft link). A failed read is tried again while the tab is in view, up to
+ * DRAFT_ADDRESS_TRIES times; after that `failed` is set and the card offers Try again (`retry` starts the bounded tries over).
+ */
+function useDraftAddress(eventId: string, draftId: string | null): { draft: OwnerUpdate['draft']; failed: boolean; retry: () => void } {
   const [draft, setDraft] = useState<OwnerUpdate['draft']>(null);
+  const [fails, setFails] = useState(0);
+  const [round, setRound] = useState(0);
+  const visible = useTabVisible();
+  useEffect(() => { setFails(0); }, [draftId, eventId]);
   useEffect(() => {
     if (!draftId) { setDraft(null); return; }
+    if (!visible || fails >= DRAFT_ADDRESS_TRIES) return;
     let live = true;
-    Promise.all([getMyDraftRef(draftId), getMyEventCanvas(eventId)])
-      .then(([d, c]) => { if (live) setDraft(d ? { ...d, canvasName: c?.name ?? null } : null); })
-      .catch(() => { /* the preview link just stays hidden */ });
-    return () => { live = false; };
-  }, [draftId, eventId]);
-  return draft;
+    // The first try is at once; each later one waits (a failed read is often a moment's network).
+    const timer = setTimeout(() => {
+      Promise.all([getMyDraftRef(draftId), getMyEventCanvas(eventId)])
+        .then(([d, c]) => { if (!live) return; if (d) { setDraft({ ...d, canvasName: c?.name ?? null }); setFails(0); } else setFails(n => n + 1); })
+        .catch(() => { if (live) setFails(n => n + 1); });
+    }, fails === 0 ? 0 : DRAFT_ADDRESS_RETRY_MS);
+    return () => { live = false; clearTimeout(timer); };
+  }, [draftId, eventId, visible, fails, round]);
+  return { draft, failed: !!draftId && !draft && fails >= DRAFT_ADDRESS_TRIES, retry: () => { setFails(0); setRound(n => n + 1); } };
 }
 
 /**
@@ -172,38 +169,26 @@ export function useOwnCanvasName(eventId: string, enabled: boolean, refresh: unk
   return known ? read!.name : null;
 }
 
-/** One tap of "Create next version" (autoPublish) or "Preview first": the sentence to show, and the draft it made. */
-async function startRun(offer: NextVersionOffer | null, autoPublish: boolean): Promise<{ note: TaskNote | null; draftId: string | null }> {
+/** One tap of "Create next version" (never auto-published): the sentence to show, and the draft it made. */
+async function startRun(offer: NextVersionOffer | null): Promise<{ note: TaskNote | null; draftId: string | null }> {
   if (!offer?.roundId) return { note: { kind: 'error', text: NOTE_FAILED }, draftId: null };
-  const result = await makeMyNextVersion(offer.roundId, autoPublish);
+  const result = await makeMyNextVersion(offer.roundId, false);
   return { note: nextVersionNote(result), draftId: result.status === 'started' ? result.draftId : null };
 }
 
 /**
- * The owner's current next version, one owned round at a time (see get_my_next_version_offer). Publishing is chained here, not on the
- * server: publish_canvas_draft acts as the signed-in owner (auth.uid()), so a service-side hook has no caller to act as. The tap stores
- * its intent (`autoPublish`) in the database, so any read that finds a finished draft of a one-tap round publishes it, however slow or
- * closed the phone was meanwhile, and each draft is tried once per mount (a refusal shows Try again). Only the revision the AI run produced is
- * auto-published (a hand-edited one waits for the tap), and never while a round is running (`hold`): next versions happen in the break.
+ * The owner's current next version, one owned round at a time (see get_my_next_version_offer). Nothing is ever published from here: the tap
+ * makes a draft and the owner reviews and publishes it in the canvas workspace (an older tap that stored auto_publish = true is treated the same).
  */
-export function useOwnerUpdate(eventId: string, enabled: boolean, roundsKey: string, hold = false): OwnerUpdate {
+export function useOwnerUpdate(eventId: string, enabled: boolean, roundsKey: string): OwnerUpdate {
   const [offer, setOffer] = useState<NextVersionOffer | null>(null);
   const [note, setNote] = useState<TaskNote | null>(null);
   const [busy, setBusy] = useState(false);
-  const [failedDraft, setFailedDraft] = useState<string | null>(null);
-  const [discardFailed, setDiscardFailed] = useState(false);
-  const [published, setPublished] = useState<{ roundId: string | null; seq: number } | null>(null);
-  // The round whose unchanged draft was closed: its "nothing to add" stays until a different offer arrives.
-  const [settledRound, setSettledRound] = useState<string | null>(null);
   const alive = useRef(true);
-  const attempted = useRef(new Set<string>());
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
 
   const { readOffer, fails } = useOfferReads(eventId, enabled, roundsKey, setOffer, alive);
-  const draft = useDraftAddress(eventId, offer?.draftId ?? null);
-  const draftId = offer?.draftId ?? null;
-  // A refused publish belongs to ONE revision of the draft: a changed draft is ready again (Publish, not Try again or "nothing to add").
-  const draftKey = draftId ? `${draftId}:${offer?.revision ?? ''}` : null;
+  const { draft, failed: draftFailed, retry: retryDraft } = useDraftAddress(eventId, offer?.draftId ?? null);
   const canvasName = useOwnCanvasName(eventId, offer?.state === 'published', offer);
 
   // While a draft is being written: the database fails a run past its lease only when asked (get_canvas_draft_state), so each poll asks.
@@ -234,75 +219,15 @@ export function useOwnerUpdate(eventId: string, enabled: boolean, roundsKey: str
     }
   };
 
-  const closeUnchanged = async (id: string, revision: number, roundId: string | null) => {
-    try { const d = await discardCanvasDraft(id, revision); if (alive.current) { setDiscardFailed(!d.ok); if (d.ok) setSettledRound(roundId); } } catch { if (alive.current) setDiscardFailed(true); }
-  };
-  /** "Close this": the retry of that discard when it failed; the offer is re-read after, and moves on. */
-  const closeDraft = () => guard(async () => {
-    if (offer?.draftId && offer.revision !== null) await closeUnchanged(offer.draftId, offer.revision, offer.roundId);
-    return note;
-  });
-
-  useEffect(() => { if (offer && offer.state !== 'none') setSettledRound(null); }, [offer]);
-  const nothingRound = settledRound && (!offer || offer.state === 'none') ? settledRound : null;
-  // The number belongs to the round that made it; any other published offer reads "Your next version is published."
-  const publishedSeq = published && published.roundId === (offer?.roundId ?? null) ? published.seq : null;
-
-  const doPublish = async (): Promise<TaskNote | null> => {
-    if (!offer?.draftId || offer.revision === null) return null;
-    const key = `${offer.draftId}:${offer.revision}`;
-    // A remounted card awaits the publish already in flight, so it gets that publish's refusal (or success) too.
-    let pending = publishing.get(key);
-    if (!pending) {
-      pending = publishCanvasDraft(offer.draftId, offer.revision);
-      publishing.set(key, pending);
-      const clear = () => { publishing.delete(key); };
-      pending.then(clear, clear);
-    }
-    const r = await pending;
-    if (r.ok) { setFailedDraft(null); setPublished({ roundId: offer.roundId, seq: r.seq }); return null; }
-    // "The draft just changed" because another open room already published it: show the published state, not the error.
-    if (r.refused === 'stale_view') {
-      try {
-        const fresh = await getMyNextVersionOffer(eventId);
-        if (fresh.state === 'published') { setFailedDraft(null); return null; }
-      } catch { /* fall through to the refusal */ }
-    }
-    setFailedDraft(`${offer.draftId}:${offer.revision}`);
-    // A draft that changes nothing is closed through the ordinary discard, or it would block every later round's offer.
-    if (r.refused === 'no_changes') await closeUnchanged(offer.draftId, offer.revision, offer.roundId);
-    // A draft that changes nothing is a normal outcome, not a failure: the card says so calmly (no Try again).
-    return { kind: r.refused === 'no_changes' ? 'nothing_new' : 'error', text: PUBLISH_REFUSED[r.refused] ?? NOTE_FAILED };
-  };
-
-  // The chain: a finished draft of a one-tap round is published once, by whichever screen reads it first.
-  if (offer?.state === 'ready' && offer.autoPublish && offer.draftId && offer.revision !== null && !firstReadyRevision.has(offer.draftId)) firstReadyRevision.set(offer.draftId, offer.revision);
-  const aiRevision = offer?.draftId ? firstReadyRevision.get(offer.draftId) : undefined;
-  // A revision the AI run did not produce (the owner's own edit) is never auto-published: the card shows the manual ready face.
-  const handEdited = offer?.state === 'ready' && offer.autoPublish && offer.revision !== null && aiRevision !== undefined && offer.revision !== aiRevision;
-  const chainKey = !hold && offer?.state === 'ready' && offer.autoPublish && offer.draftId && offer.revision === aiRevision ? `${offer.draftId}:${offer.revision}` : null;
-  useEffect(() => {
-    if (!enabled || !chainKey || attempted.current.has(chainKey)) return;
-    attempted.current.add(chainKey);
-    void guard(async () => {
-      try { return await doPublish(); } catch { setFailedDraft(draftKey); return { kind: 'error', text: NOTE_FAILED }; }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one attempt per finished draft (chainKey), not per render
-  }, [enabled, chainKey]);
-
-  const make = () => guard(async () => (await startRun(offer, true)).note);
-
-  const preview: OwnerUpdate['preview'] = async open => {
+  const make: OwnerUpdate['make'] = async open => {
     let made: string | null = null;
-    await guard(async () => { const r = await startRun(offer, false); made = r.draftId; return r.note; });
+    await guard(async () => { const r = await startRun(offer); made = r.draftId; return r.note; });
     if (!made) return;
     try {
       const [d, c] = await Promise.all([getMyDraftRef(made), getMyEventCanvas(eventId)]);
       open(d ? { canvasName: c?.name ?? null, versionName: d.versionName } : null);
     } catch { open(null); }
   };
-
-  const publish = () => guard(doPublish);
 
   const retry = () => guard(async () => {
     if (!offer?.draftId || offer.revision === null || !offer.runId) return null;
@@ -311,5 +236,5 @@ export function useOwnerUpdate(eventId: string, enabled: boolean, roundsKey: str
     return r.start && !r.start.ok ? { kind: 'error', text: 'Your mirror could not start the draft. Try again in a moment.' } : null;
   });
 
-  return { offer, draft, note, busy, readFailed, reread: readOffer, publishFailed: !!draftKey && failedDraft === draftKey, handEdited, publishedSeq, nothingRound, canvasName, discardFailed, closeDraft, make, preview, publish, retry };
+  return { offer, draft, note, busy, readFailed, reread: readOffer, canvasName, draftFailed, retryDraft, make, retry };
 }

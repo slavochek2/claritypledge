@@ -2,7 +2,7 @@
  * P1529 §5 and §6: the sales mastermind's round screen. The server and the rounds poll are replaced by a fake that the
  * test sets; what is under test is what each person sees and which call each tap makes.
  */
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EventRoomMember } from '@/app/types';
@@ -93,8 +93,9 @@ const offerOf = (state: string, over: Record<string, unknown> = {}) =>
 const OPEN = offerOf('none');
 const DRAFT = { draftId: 'd1', revision: 4, runId: 'run1' };
 
-const Where = () => { const l = useLocation(); return <span data-testid="where" data-state={JSON.stringify(l.state)}>{l.pathname}</span>; };
+const Where = () => { const l = useLocation(); return <span data-testid="where" data-state={JSON.stringify(l.state)} data-search={l.search}>{l.pathname}</span>; };
 const FROM_ROOM = JSON.stringify({ backToTable: '/', tableEvent: 'e1' });
+const PLAIN_FROM_ROOM = JSON.stringify({ backToTable: '/', tableEvent: 'e1', plainCanvas: true });
 
 function renderCard(selfMember: EventRoomMember, props: { view?: 'table' | 'compare' | 'hidden'; onMoment?: (moment: RoundMoment) => void } = {}) {
   return render(
@@ -389,6 +390,9 @@ describe('P1529 waiting state: one focus at a time', () => {
     expect(link.className).toMatch(/border-blue-600/);
     expect(link.className).not.toMatch(/bg-background|border-input/);
     expect(screen.getByTestId('mastermind-between').contains(link)).toBe(true);
+    // J2: the owner's own canvas opens plain (no Compare), keeping the way back to the table
+    fireEvent.click(link);
+    await waitFor(() => expect(JSON.parse(screen.getByTestId('where').getAttribute('data-state')!)).toEqual({ backToTable: '/', tableEvent: 'e1', plainCanvas: true }));
   });
 
   it('G5: with the next-version card offered the way to the canvas is inside that card, full width, and only once', async () => {
@@ -486,7 +490,7 @@ describe('P1529 round screen: whether any round has started (the optional prepar
 describe('P1529 §6 (2026-11-11): a next version after every owned round, between rounds only', () => {
   beforeEach(() => { betweenRounds(); });
 
-  it('the card says "{round} with {partner} is in"; "Create next version" makes and publishes in one tap, for that round', async () => {
+  it('the card says "{round} with {partner} is in"; "Create next version" makes a draft (never publishes), shows the working state at once and opens the draft workspace', async () => {
     h.server.offer = offerOf('offer');
     h.makeMyNextVersion.mockImplementation(async () => {
       h.server.offer = offerOf('drafting', DRAFT);
@@ -496,12 +500,18 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
     expect((await screen.findByTestId('mastermind-task-title')).textContent).toBe('Discussion round 1 with Erin: transcript ready');
     expect(screen.getByTestId('mastermind-task-body').textContent).toBe('Make your next version from what was said.');
     expect(screen.getByTestId('mastermind-make').textContent).toBe('Create next version');
-    expect(screen.getByTestId('mastermind-preview').textContent).toBe('Preview first');
+    expect(screen.queryByTestId('mastermind-preview')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Preview first/);
     fireEvent.click(screen.getByTestId('mastermind-make'));
-    expect((screen.getByTestId('mastermind-make') as HTMLButtonElement).disabled).toBe(true);
-    await waitFor(() => expect(h.makeMyNextVersion).toHaveBeenCalledWith('r1', true));
-    expect(await screen.findByTestId('mastermind-task-creating')).toBeTruthy();
+    // the working state shows from the tap, before the server has answered
+    expect(screen.getByTestId('mastermind-task-creating').textContent).toMatch(/Making your next version/);
     expect(screen.queryByTestId('mastermind-make')).toBeNull();
+    await waitFor(() => expect(h.makeMyNextVersion).toHaveBeenCalledWith('r1', false));
+    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/p/haru/canvas/launch_plan'));
+    expect(screen.getByTestId('where').getAttribute('data-state')).toBe(PLAIN_FROM_ROOM);
+    // the draft's workspace address: the draft's version and the workspace marker, never the published page
+    expect(screen.getByTestId('where').getAttribute('data-search')).toBe('?v=v3-draft&ws=1');
+    expect(h.publishCanvasDraft).not.toHaveBeenCalled();
   });
 
   it('is never shown during a running round, in any role', async () => {
@@ -524,17 +534,6 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
     // one card: "The evening is over" is the card's own heading, not a separate card above it
     expect(task.querySelector('[data-testid="mastermind-over-heading"]')).toBeTruthy();
     expect(screen.queryByTestId('mastermind-over')).toBeNull();
-  });
-
-  it('"Preview first" makes the draft without publishing (auto publish off) and opens it with the back-to-table state', async () => {
-    h.server.offer = offerOf('offer');
-    h.makeMyNextVersion.mockResolvedValue({ status: 'started', draftId: 'd1', runId: 'run1', repeat: false, start: null });
-    renderCard(OWNER);
-    fireEvent.click(await screen.findByTestId('mastermind-preview'));
-    await waitFor(() => expect(h.makeMyNextVersion).toHaveBeenCalledWith('r1', false));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/p/haru/canvas/launch_plan'));
-    expect(screen.getByTestId('where').getAttribute('data-state')).toBe(FROM_ROOM);
-    expect(h.publishCanvasDraft).not.toHaveBeenCalled();
   });
 
   it('with no recording it says so with no button', async () => {
@@ -613,45 +612,24 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
 describe('P1529 §6: the states of one round\'s version', () => {
   beforeEach(() => { betweenRounds(); });
 
-  it('drafting: no button, and the preview link once the draft is known', async () => {
+  it('drafting: the working state, no button, no Preview first', async () => {
     h.server.offer = offerOf('drafting', { ...DRAFT, autoPublish: true });
     renderCard(OWNER);
     expect(await screen.findByTestId('mastermind-task-creating')).toBeTruthy();
     expect(taskButtons()).toHaveLength(0);
-    const tweak = await screen.findByTestId('mastermind-tweak');
-    expect(tweak.textContent).toBe('Preview first');
-    expect(tweak.getAttribute('href')).toBe('/p/haru/canvas/launch_plan?v=v3-draft&ws=1');
+    expect(screen.queryByTestId('mastermind-tweak')).toBeNull();
   });
 
-  it('a finished draft of a one-tap round is published by the chain, once, on its revision', async () => {
-    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-    h.publishCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('published'); return { ok: true }; });
-    renderCard(OWNER);
-    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenCalledWith('d1', 4));
-    expect((await screen.findByTestId('mastermind-task-published')).textContent).toMatch(/published/);
-    expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1);
-  });
-
-  it('a refused chain publish says why and shows Try again, which publishes again', async () => {
-    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-    h.publishCanvasDraft.mockResolvedValueOnce({ ok: false, refused: 'stale_view' });
-    renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-note')).textContent).toMatch(/just changed/);
-    const again = await screen.findByTestId('mastermind-publish');
-    expect(again.textContent).toBe('Try again');
-    h.publishCanvasDraft.mockResolvedValueOnce({ ok: true });
-    fireEvent.click(again);
-    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenCalledTimes(2));
-  });
-
-  it('a "Preview first" draft that finished waits for the owner: Publish, never the chain', async () => {
+  it('a finished draft waits for the owner: "Open your draft" (Publish is in the workspace), never the chain', async () => {
     h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: false });
     renderCard(OWNER);
-    const publish = await screen.findByTestId('mastermind-publish');
-    expect(publish.textContent).toBe('Publish');
+    const open = await screen.findByTestId('mastermind-tweak');
+    expect(open.textContent).toBe('Open your draft');
+    expect(open.getAttribute('href')).toBe('/p/haru/canvas/launch_plan?v=v3-draft&ws=1');
+    expect(screen.queryByTestId('mastermind-publish')).toBeNull();
     await new Promise(r => setTimeout(r, 50));
     expect(h.publishCanvasDraft).not.toHaveBeenCalled();
-    expect(taskButtons()).toHaveLength(1);
+    expect(taskButtons()).toHaveLength(0);
   });
 
   it('failed: Try again retries the failed run on its revision, with a new client id; the canvas stays', async () => {
@@ -664,102 +642,12 @@ describe('P1529 §6: the states of one round\'s version', () => {
     expect(await screen.findByTestId('mastermind-task-creating')).toBeTruthy();
   });
 
-  it('nothing new: a draft that changes nothing says so in calm grey, with no Try again and no button', async () => {
-    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
+  it('the published face keeps one working link when the published-state read gave no canvas name (the person\'s own read supplies it)', async () => {
+    h.server.offer = { ...offerOf('published'), canvasName: null } as never;
     renderCard(OWNER);
-    const card = await screen.findByTestId('mastermind-task-nothing-new');
-    expect(card.textContent).toBe('Discussion round 1 with Erin: nothing to add. What was said didn\u2019t change your canvas.');
-    expect(card.querySelector('.text-destructive')).toBeNull();
-    expect(screen.queryByTestId('mastermind-publish')).toBeNull();
-    expect(screen.queryByTestId('mastermind-task-note')).toBeNull();
-    expect(taskButtons()).toHaveLength(0);
-    expect(document.body.textContent).not.toMatch(/Nothing is different|Try again|words ready/);
-  });
-
-  it('nothing new closes the unchanged draft (so the offer moves on) and reads the offer again', async () => {
-    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
-    h.discardCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('offer'); return { ok: true, discarded: true }; });
-    renderCard(OWNER);
-    await waitFor(() => expect(h.discardCanvasDraft).toHaveBeenCalledWith('d1', 4));
-    expect(await screen.findByTestId('mastermind-make')).toBeTruthy();
-    expect(screen.getByTestId('mastermind-task-note').textContent).toMatch(/Nothing to add/);
-  });
-
-  describe('the settled "nothing to add" card keeps exactly one working canvas link', () => {
-    const settle = () => {
-      h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-      h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
-      h.discardCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('none'); return { ok: true, discarded: true }; });
-    };
-    const oneLink = async () => {
-      const card = await screen.findByTestId('mastermind-task-nothing-new');
-      await waitFor(() => expect(within(card).getAllByRole('link', { name: 'Open your canvas' })).toHaveLength(1));
-      const link = within(card).getByRole('link', { name: 'Open your canvas' });
-      expect(link.getAttribute('href')).toBe("/p/haru/canvas/launch_plan");
-      expect(screen.getAllByRole('link', { name: 'Open your canvas' })).toHaveLength(1);
-      return card;
-    };
-    it('between rounds', async () => {
-      settle();
-      renderCard(OWNER);
-      await oneLink();
-    });
-    it('after the evening ends, with the heading inside the same card', async () => {
-      settle();
-      betweenRounds();
-      h.getEveningEnd.mockResolvedValue(new Date(Date.now() + 1000).toISOString());
-      renderCard(OWNER);
-      const card = await oneLink();
-      expect(within(card).getByTestId('mastermind-over-heading').textContent).toBe('The evening is over');
-      expect(screen.queryByTestId('mastermind-over')).toBeNull();
-    });
-    it('the published face keeps one working link when the published-state read gave no canvas name (the person\'s own read supplies it)', async () => {
-      h.server.offer = { ...offerOf('published'), canvasName: null } as never;
-      renderCard(OWNER);
-      const open = await screen.findByTestId('mastermind-task-open');
-      expect(open.getAttribute('href')).toBe("/p/haru/canvas/launch_plan");
-      expect(screen.queryByTestId('mastermind-task-canvas')).toBeNull();
-    });
-  });
-
-  it('after the discard, an offer of none still shows the round\u2019s "nothing to add" card until another offer arrives', async () => {
-    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
-    h.discardCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('none'); return { ok: true, discarded: true }; });
-    renderCard(OWNER);
-    const card = await screen.findByTestId('mastermind-task-nothing-new');
-    await waitFor(() => expect(h.discardCanvasDraft).toHaveBeenCalled());
-    await waitFor(() => expect(h.getMyNextVersionOffer.mock.calls.length).toBeGreaterThan(1));
-    expect((await screen.findByTestId('mastermind-task-nothing-new')).textContent).toContain('Discussion round 1 with Erin: nothing to add. What was said didn\u2019t change your canvas.');
-    expect(card).toBeTruthy();
-    h.server.offer = offerOf('offer');
-    for (const v of ['hidden', 'visible']) {
-      Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
-      await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
-    }
-    expect(await screen.findByTestId('mastermind-make')).toBeTruthy();
-    expect(screen.queryByTestId('mastermind-task-nothing-new')).toBeNull();
-  });
-
-  it('"Version N is published." only when this card made that round\u2019s publish; a published offer read fresh says no number', async () => {
-    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-    h.publishCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('published'); return { ok: true, seq: 3 }; });
-    const first = renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-published')).textContent).toMatch(/Version 3 is published\./);
-    first.unmount();
-    renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-published')).textContent).toMatch(/Your next version is published\./);
-  });
-
-  it('a failed close keeps the calm note and offers "Close this", which tries the discard again', async () => {
-    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
-    h.discardCanvasDraft.mockRejectedValueOnce(new Error('offline'));
-    renderCard(OWNER);
-    fireEvent.click(await screen.findByTestId('mastermind-task-close'));
-    await waitFor(() => expect(h.discardCanvasDraft).toHaveBeenCalledTimes(2));
+    const open = await screen.findByTestId('mastermind-task-open');
+    expect(open.getAttribute('href')).toBe("/p/haru/canvas/launch_plan");
+    expect(screen.queryByTestId('mastermind-task-canvas')).toBeNull();
   });
 
   it('a settled state whose first refresh fails shows Try again at once (it is not polled)', async () => {
@@ -772,14 +660,6 @@ describe('P1529 §6: the states of one round\'s version', () => {
       await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
     }
     expect(await screen.findByTestId('mastermind-offer-failed')).toBeTruthy();
-  });
-
-  it('a real publish failure says "Could not make your next version." with a secondary Try again', async () => {
-    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'stale_view' });
-    renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-ready')).textContent).toBe('Could not make your next version.');
-    expect(screen.getByTestId('mastermind-publish').textContent).toBe('Try again');
   });
 
   it('H3: the next-version card is Table\'s, never Feedback\'s: with the view hidden it is not drawn, and the moment says a card is waiting', async () => {
@@ -823,46 +703,57 @@ describe('P1529 §6: the states of one round\'s version', () => {
     expect(onMoment).not.toHaveBeenCalledWith(expect.objectContaining({ nextVersionOffered: true }));
   });
 
-  it('nothing new is bound to the draft revision: a hand-edited draft is NOT auto-published again, it waits for the Publish tap', async () => {
-    const D9 = { draftId: 'd9', revision: 4, runId: 'run1' };
-    h.server.offer = offerOf('ready', { ...D9, autoPublish: true });
-    h.publishCanvasDraft.mockResolvedValue({ ok: false, refused: 'no_changes' });
+  it('J1: nothing is ever published from the card, not even a draft an older tap marked auto-publish', async () => {
+    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
     renderCard(OWNER);
-    await screen.findByTestId('mastermind-task-nothing-new');
-    expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1);
-    // the server keeps saying autoPublish: true for every later revision (the owner edited by hand)
-    h.server.offer = offerOf('ready', { ...D9, revision: 5, autoPublish: true });
-    for (const v of ['hidden', 'visible']) {
-      Object.defineProperty(document, 'visibilityState', { value: v, configurable: true });
-      await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
-    }
-    expect((await screen.findByTestId('mastermind-publish')).textContent).toBe('Publish');
-    expect(screen.queryByTestId('mastermind-task-nothing-new')).toBeNull();
-    await new Promise(r => setTimeout(r, 60));
-    expect(h.publishCanvasDraft).not.toHaveBeenCalledWith('d9', 5);
-    expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1);
-  });
-
-  it('auto-publish waits for the break: nothing is published while a round is running, then it publishes', async () => {
-    h.server.offer = offerOf('ready', { draftId: 'd11', revision: 4, runId: 'run1', autoPublish: true });
-    h.publishCanvasDraft.mockResolvedValue({ ok: true, seq: 3 });
-    startedAgo(70);
-    const running = renderCard(OWNER);
-    await screen.findByTestId('round-card-my-role');
+    expect((await screen.findByTestId('mastermind-tweak')).textContent).toBe('Open your draft');
     await new Promise(r => setTimeout(r, 80));
     expect(h.publishCanvasDraft).not.toHaveBeenCalled();
-    running.unmount();
-    betweenRounds();
-    renderCard(OWNER);
-    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenCalledWith('d11', 4));
+    expect(screen.getByTestId('mastermind-task').getAttribute('data-face')).toBe('ready');
+    expect(screen.queryByTestId('mastermind-publish')).toBeNull();
   });
 
-  it('a "draft just changed" refusal while the offer is already published (another open room did it) shows the published state, not the error', async () => {
-    h.server.offer = offerOf('ready', { draftId: 'd12', revision: 4, runId: 'run1', autoPublish: true });
-    h.publishCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('published'); return { ok: false, refused: 'stale_view' }; });
+  it('J1: while the draft is being written the card keeps "Open your draft" (no dead end), and it opens plain with the way back', async () => {
+    h.server.offer = offerOf('drafting', DRAFT);
     renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-task-open'))).toBeTruthy();
-    expect(document.body.textContent).not.toMatch(/draft just changed/i);
+    expect(await screen.findByTestId('mastermind-task-creating')).toBeTruthy();
+    const open = await screen.findByTestId('mastermind-tweak');
+    expect(open.getAttribute('href')).toBe('/p/haru/canvas/launch_plan?v=v3-draft&ws=1');
+    fireEvent.click(open);
+    await waitFor(() => expect(screen.getByTestId('where').getAttribute('data-state')).toBe(PLAIN_FROM_ROOM));
+  });
+
+  it('J1: a draft address that cannot be read is tried again (bounded), then the card offers Try again, which reads once more', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      h.server.offer = offerOf('ready', DRAFT);
+      h.getMyDraftRef.mockRejectedValue(new Error('offline'));
+      renderCard(OWNER);
+      await waitFor(() => expect(h.getMyDraftRef).toHaveBeenCalledTimes(1));
+      for (let i = 0; i < 3; i++) await act(async () => { await vi.advanceTimersByTimeAsync(4500); });
+      expect(h.getMyDraftRef).toHaveBeenCalledTimes(3);
+      await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+      expect(h.getMyDraftRef).toHaveBeenCalledTimes(3);
+      expect(screen.queryByTestId('mastermind-tweak')).toBeNull();
+      expect(screen.getByTestId('mastermind-draft-unreadable')).toBeTruthy();
+      h.getMyDraftRef.mockResolvedValue({ canvasId: 'c1', versionName: 'v3-draft' });
+      fireEvent.click(screen.getByTestId('mastermind-draft-retry'));
+      await act(async () => { await vi.advanceTimersByTimeAsync(10); });
+      expect(screen.getByTestId('mastermind-tweak').textContent).toBe('Open your draft');
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('J2: every own-canvas link of the next-version card opens plain, keeping the way back to the table', async () => {
+    const plainAfterClick = async (testId: string) => {
+      const { unmount } = renderCard(OWNER);
+      fireEvent.click(await screen.findByTestId(testId));
+      await waitFor(() => expect(screen.getByTestId('where').getAttribute('data-state')).toBe(PLAIN_FROM_ROOM));
+      unmount();
+    };
+    h.server.offer = offerOf('offer');
+    await plainAfterClick('mastermind-task-canvas'); // "Open your canvas" under the primary
+    h.server.offer = offerOf('published');
+    await plainAfterClick('mastermind-task-open'); // "Open it"
   });
 
   it('published: "Open it" goes to the published canvas page, with no open draft needed', async () => {
@@ -1041,22 +932,6 @@ describe('P1529 round screen: review fixes (2026-11-11)', () => {
     expect(h.getMyNextVersionOffer, 'one read on return, not two (finding D)').toHaveBeenCalledTimes(1);
   });
 
-  it('a remounted card awaits the publish already in flight and shows its refusal (finding B)', async () => {
-    betweenRounds();
-    h.server.offer = offerOf('ready', { ...DRAFT, draftId: 'd-remount', autoPublish: true });
-    let done: (v: unknown) => void = () => {};
-    h.publishCanvasDraft.mockImplementation(() => new Promise(r => { done = r; }));
-    const first = renderCard(OWNER);
-    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1));
-    first.unmount();
-    renderCard(OWNER);
-    await new Promise(r => setTimeout(r, 60));
-    expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1);
-    done({ ok: false, refused: 'stale_view' });
-    expect((await screen.findByTestId('mastermind-task-note')).textContent).toMatch(/just changed/);
-    expect((await screen.findByTestId('mastermind-publish')).textContent).toBe('Try again');
-  });
-
   it('later offer reads that keep failing back off and stop after three, with Try again (finding C)', async () => {
     betweenRounds();
     h.server.offer = offerOf('drafting', { ...DRAFT, autoPublish: true });
@@ -1097,20 +972,6 @@ describe('P1529 round screen: review fixes (2026-11-11)', () => {
     expect(h.getMyNextVersionOffer).toHaveBeenCalledTimes(1);
   });
 
-  it('a finished one-tap draft is published once even when the card remounts while it publishes (finding 11)', async () => {
-    betweenRounds();
-    h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
-    let done: (v: { ok: true }) => void = () => {};
-    h.publishCanvasDraft.mockImplementation(() => new Promise(r => { done = r as typeof done; }));
-    const first = renderCard(OWNER);
-    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1));
-    first.unmount();
-    renderCard(OWNER);
-    await new Promise(r => setTimeout(r, 80));
-    expect(h.publishCanvasDraft).toHaveBeenCalledTimes(1);
-    h.server.offer = offerOf('published');
-    done({ ok: true });
-  });
 });
 
 describe('P1529 round screen: every step of my role, the current part highlighted', () => {

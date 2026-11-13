@@ -635,6 +635,13 @@ Founder's asks after testing `/events/<slug>/prepare`; built on this branch.
 - **Publish return** checked in a real browser (Continue your draft and Create your canvas, at 1280 and 375): Publish lands on
   `/events/<slug>/prepare` on the canvas step with the step header. The founder's report did not reproduce; `e2e/p1529-publish-return.spec.ts` keeps it checked.
 
+## UAT 2026-11-13 (f): review before publishing, own canvas opens plain
+
+Founder, 2026-11-13 ("yes both"), after testing the one-tap next version: "Didn't we say that before publishing I should be able to review... Preview, which would open the chat with my mirror agent where I can influence it or not. And then publish is just one more click."
+
+**J1. "Create next version" makes a draft, never publishes by itself (supersedes the one-tap publish of UAT 2026-11-11 and its auto-publish).** Tapping it starts the round-update run and opens the draft in the canvas workspace with the mirror agent thread (as "Preview first" does today), where the owner sees the changes and can talk to the mirror; **Publish** there is the one more tap. "Preview first" goes (it is now the only path). The card shows "Making your next version…" with a visible working state from the moment of the tap (no silent greyed button).
+**J2. The owner's own canvas opens plain** from their own next-version card ("Open it" / "Open your canvas"): no `?with=` compare. Compare mode stays for opening a table partner's canvas from the table.
+
 ## UAT 2026-11-13 (e): the next version takes everything said (amends D23)
 
 Founder, 2026-11-13: "Anything can change the canvas, we're just saying everything discussed, what makes most sense, and then he always improves it. He should not be blocked by saying, oh, I cannot or I should not because blah blah blah. He takes around, creates the next version, resolves the conflicts where needed on reasoning on what makes more sense from the point of view of Gemini."

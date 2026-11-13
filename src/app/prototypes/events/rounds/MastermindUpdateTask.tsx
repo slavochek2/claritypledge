@@ -2,19 +2,18 @@
  * @file MastermindUpdateTask.tsx
  * @description P1529 §6 (D6, D23, reversed 2026-11-11; redesigned UAT 2026-11-11): the card the Clarity Canvas owner sees BETWEEN rounds
  * (and on the Feedback tab once the evening ends), one per round they owned. ONE message per state: the transcript is on its way; the round
- * is in (primary "Create next version", centred "Preview first" under it); making it; published (with "Open it"); nothing to add (calm grey
- * text, no Try again: an unchanged canvas is an outcome, never a failure); and, only for a real failure, "Could not make your next version"
- * with a secondary Try again. Never shown during a running round (the card decides that). Stances are never asked for here (D7).
+ * is in (primary "Create next version": makes a draft and opens it in the workspace, where Publish is); making it (from the tap on); ready (Open your draft); published (with "Open it"); and, only for a real failure, "Could not make your next version" with a secondary Try again. Nothing is published from this card: Publish is in the workspace.
+ * Never shown during a running round (the card decides that). Stances are never asked for here (D7).
  */
 import { OpenYourCanvas } from './OpenYourCanvas';
 import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ARTIFACTS_CANVASES_DRAFTS } from '@/lib/canvas-hrefs';
+import { ARTIFACTS_CANVASES_DRAFTS, plainCanvasState } from '@/lib/canvas-hrefs';
 import type { OwnerUpdate } from './use-mastermind-round';
 import {
-  nothingToAdd, publishedLine, taskTitle, TASK_FAILED, TASK_MAKE_BODY, TASK_WORKING, wordsMissing, wordsPreparing, type TaskFace,
+  publishedLine, taskTitle, TASK_FAILED, TASK_MAKE_BODY, TASK_WORKING, wordsMissing, wordsPreparing, type TaskFace,
 } from './mastermind-round-helpers';
 
 const PRIMARY = 'min-h-12 px-8 text-base';
@@ -30,9 +29,8 @@ export function MastermindUpdateTask({
   openHref = null,
   canvasHref = null,
   heading = null,
-  chatHref = null,
   linkState,
-  onPreview,
+  onMake,
 }: {
   face: TaskFace;
   owner: OwnerUpdate;
@@ -48,37 +46,37 @@ export function MastermindUpdateTask({
   canvasHref?: string | null;
   /** After the evening ends the card carries its heading ("The evening is over") itself: one card, not an empty one above it. */
   heading?: string | null;
-  /** The round's chat with the transcript, when one is known: "Open the transcript" under "nothing to add". */
-  chatHref?: string | null;
   /** Router state that makes the canvas page offer "Back to your table". */
   linkState: unknown;
-  /** "Preview first" before a draft exists: makes the draft (no auto publish), then opens it. */
-  onPreview: () => void;
+  /** "Create next version": makes the draft (never published by the tap) and opens it in the workspace, where Publish is. */
+  onMake: () => void;
 }) {
   const { busy, note } = owner;
   // Under the evening's heading the card's own title is subordinate: smaller and a lighter weight, a level lower.
   const Title = heading ? 'h3' : 'h2';
-  // A finished draft that changes nothing: a calm outcome with no button (the draft's publish was refused as "no changes").
-  // (publishFailed is bound to the draft's revision: an edited draft is ready again, so this clears.)
-  const nothingNew = face === 'ready' && owner.publishFailed && note?.kind === 'nothing_new';
-  const preview = tweakHref && (
-    <Link to={tweakHref} state={linkState} className={`${LINK} self-center`} data-testid="mastermind-tweak">Preview first</Link>
+  // From the tap until the draft opens the card already says it is working (no silent greyed button).
+  const working = face === 'creating' || (face === 'make' && busy);
+  const draftState = plainCanvasState(linkState); // the owner's own draft opens plain, never in Compare; the way back to the table stays
+  // The way to the draft is never missing: the link when its address is known, else (after the bounded retries) Try again.
+  const draftLink = tweakHref ? (
+    <Button asChild className={face === 'ready' ? PRIMARY : 'min-h-11 px-6'} variant={face === 'ready' ? 'default' : 'outline'}>
+      <Link to={tweakHref} state={draftState} data-testid="mastermind-tweak">Open your draft</Link>
+    </Button>
+  ) : owner.draftFailed && (
+    <Button type="button" variant="outline" className="min-h-11 px-6" onClick={owner.retryDraft} data-testid="mastermind-draft-retry">Try again</Button>
   );
   return (
-    <section className="rounded-xl border border-blue-200 bg-card p-5 shadow-sm" data-testid="mastermind-task" data-face={nothingNew ? 'nothing_new' : face}>
+    <section className="rounded-xl border border-blue-200 bg-card p-5 shadow-sm" data-testid="mastermind-task" data-face={face}>
       {/* [FOUNDER DECISION: copy] every sentence on this card */}
       {heading && <h2 className="mb-3 text-xl font-semibold" data-testid="mastermind-over-heading">{heading}</h2>}
-      {face === 'make' && (
+      {face === 'make' && !busy && (
         <>
           <Title className={heading ? 'text-base font-medium' : 'text-xl font-semibold'} data-testid="mastermind-task-title">{taskTitle(roundName, partner)}</Title>
           <p className="mt-1 text-sm text-muted-foreground" data-testid="mastermind-task-body">{TASK_MAKE_BODY}</p>
           <div className={CENTRED}>
-            <Button type="button" className={PRIMARY} onClick={() => void owner.make()} disabled={busy} aria-busy={busy} data-testid="mastermind-make">
+            <Button type="button" className={PRIMARY} onClick={onMake} data-testid="mastermind-make">
               Create next version
             </Button>
-            <button type="button" className={`${LINK} mt-1 disabled:opacity-50`} onClick={onPreview} disabled={busy} data-testid="mastermind-preview">
-              Preview first
-            </button>
           </div>
         </>
       )}
@@ -87,40 +85,19 @@ export function MastermindUpdateTask({
 
       {face === 'missing' && <p className="text-sm" data-testid="mastermind-task-missing">{wordsMissing(roundName)}</p>}
 
-      {face === 'creating' && (
+      {working && (
         <div role="status" data-testid="mastermind-task-creating">
           <Skeleton className="h-4 w-2/3" />
           <p className="mt-2 text-sm text-muted-foreground">{TASK_WORKING}</p>
-          <div className="mt-1 flex flex-col">{preview}</div>
+          {face === 'creating' && <div className={CENTRED}>{draftLink}</div>}
         </div>
       )}
 
-      {nothingNew && (
-        <div data-testid="mastermind-task-nothing-new">
-          <p className="text-sm text-muted-foreground">{nothingToAdd(roundName, partner)}</p>
-          {owner.discardFailed && (
-            <button type="button" className={`${LINK} mt-1 block`} onClick={() => void owner.closeDraft()} disabled={busy} data-testid="mastermind-task-close">Close this</button>
-          )}
-          {chatHref && <Link to={chatHref} className={`${LINK} mt-1`} data-testid="mastermind-task-transcript">Open the transcript</Link>}
-        </div>
-      )}
-
-      {face === 'ready' && !nothingNew && (
+      {face === 'ready' && (
         <>
-          <p className="text-sm" data-testid="mastermind-task-ready">{owner.publishFailed ? TASK_FAILED : 'Your next version is ready to publish.'}</p>
-          <div className={CENTRED}>
-            <Button
-              type="button"
-              variant={owner.publishFailed ? 'outline' : 'default'}
-              className={owner.publishFailed ? 'min-h-11 px-6' : PRIMARY}
-              onClick={() => void owner.publish()}
-              disabled={busy}
-              data-testid="mastermind-publish"
-            >
-              {owner.publishFailed ? 'Try again' : 'Publish'}
-            </Button>
-            {preview}
-          </div>
+          <p className="text-sm" data-testid="mastermind-task-ready">Your next version is ready to review.</p>
+          <div className={CENTRED}>{draftLink}</div>
+          {!tweakHref && owner.draftFailed && <p className="mt-2 text-sm text-muted-foreground" data-testid="mastermind-draft-unreadable">Could not open your draft yet.</p>}
         </>
       )}
 
@@ -137,8 +114,8 @@ export function MastermindUpdateTask({
 
       {face === 'published' && (
         <p className="inline-flex flex-wrap items-center gap-x-1.5 text-sm" data-testid="mastermind-task-published">
-          <Check className="h-4 w-4 text-green-600" aria-hidden="true" /> {publishedLine(owner.publishedSeq)}
-          {openHref && <Link to={openHref} state={linkState} className="font-medium text-blue-600" data-testid="mastermind-task-open">Open it</Link>}
+          <Check className="h-4 w-4 text-green-600" aria-hidden="true" /> {publishedLine(null)}
+          {openHref && <Link to={openHref} state={plainCanvasState(linkState)} className="font-medium text-blue-600" data-testid="mastermind-task-open">Open it</Link>}
         </p>
       )}
 
@@ -159,7 +136,7 @@ export function MastermindUpdateTask({
 
       {canvasHref && face !== 'published' && face !== 'no_canvas' && <OpenYourCanvas href={canvasHref} linkState={linkState} testId="mastermind-task-canvas" />}
 
-      {note && !(nothingNew && note.kind === 'nothing_new') && note.face !== face && (
+      {note && note.face !== face && (
         <p
           className={note.kind === 'error' && face !== 'ready' ? 'mt-2 text-sm text-destructive' : 'mt-2 text-sm text-muted-foreground'}
           role="status"

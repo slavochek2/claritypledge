@@ -28,7 +28,7 @@ describe('makeMyNextVersion', () => {
     expect(r).toEqual({ status: 'started', draftId: 'd1', runId: 'run1', repeat: false, start: STARTED });
   });
 
-  it('"Preview first" sends auto publish off', async () => {
+  it('"Create next version" sends auto publish off', async () => {
     h.rpc.mockResolvedValue({ data: { status: 'ok', run_id: 'run1', draft_id: 'd1' }, error: null });
     await makeMyNextVersion('round1', false);
     expect(h.rpc).toHaveBeenCalledWith('make_my_next_version', { p_round: 'round1', p_auto_publish: false });

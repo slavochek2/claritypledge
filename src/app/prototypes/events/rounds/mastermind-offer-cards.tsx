@@ -7,14 +7,13 @@ import type { NavigateFunction } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import type { EventRoundsState } from '@/app/data/event-rounds-service';
 import { canvasPageHref } from '@/app/pages/chat/canvas-links';
-import { workspaceHref } from '@/lib/canvas-hrefs';
+import { plainCanvasState, workspaceHref } from '@/lib/canvas-hrefs';
 import { discussionRoundLabel } from './mastermind-host-helpers';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import { firstName } from './use-event-rounds';
 import type { OwnerUpdate } from './use-mastermind-round';
 import { MastermindUpdateTask } from './MastermindUpdateTask';
-import { OpenYourCanvas } from './OpenYourCanvas';
-import { EVENING_OVER, nothingToAdd, taskFace } from './mastermind-round-helpers';
+import { EVENING_OVER, taskFace } from './mastermind-round-helpers';
 
 export function offerCards({ owner, ownCanvas, state, roster, self, live, over = false, linkState, navigate }: {
   owner: OwnerUpdate;
@@ -31,7 +30,7 @@ export function offerCards({ owner, ownCanvas, state, roster, self, live, over =
   navigate: NavigateFunction;
 }) {
   // The next-version card is shown only between rounds (after the host ends a round, before the next starts, and after the evening ends).
-  const face = live ? null : taskFace(owner.offer, owner.publishFailed || owner.handEdited);
+  const face = live ? null : taskFace(owner.offer);
   const offerRound = state.rounds.find(r => r.id === owner.offer?.roundId);
   const mySlug = roster.find(m => m.id === self.id)?.profileSlug ?? self.profileSlug;
   const draftHref = (d: { canvasName: string | null; versionName: string | null } | null) => (mySlug && d?.canvasName ? workspaceHref(mySlug, d.canvasName, d.versionName) : null);
@@ -43,15 +42,7 @@ export function offerCards({ owner, ownCanvas, state, roster, self, live, over =
   };
   // P1529 G5: a person with a canvas at this event gets the way to it between rounds; one way only, so a card that already links the canvas ("Open it" once published) keeps it alone.
   const myCanvasHref = face === 'published' ? null : canvasPageHref(mySlug, owner.canvasName ?? ownCanvas ?? owner.draft?.canvasName ?? null);
-  const settled = !live && !face && owner.nothingRound ? state.rounds.find(r => r.id === owner.nothingRound) : undefined;
-  const settledCard = settled && (
-    <section className="rounded-xl border border-border bg-card p-5" data-testid="mastermind-task-nothing-new">
-      {over && <h2 className="mb-1 text-xl font-semibold" data-testid="mastermind-over-heading">{EVENING_OVER}</h2>}
-      <p className="text-sm text-muted-foreground">{nothingToAdd(discussionRoundLabel(state.rounds, settled), partnerOf(settled.id))}</p>
-      {myCanvasHref && <OpenYourCanvas href={myCanvasHref} linkState={linkState} testId="mastermind-task-canvas" />}
-    </section>
-  );
-  const taskCard = settledCard || face && offerRound && (
+  const taskCard = face && offerRound && (
     <MastermindUpdateTask
       face={face}
       owner={owner}
@@ -62,7 +53,7 @@ export function offerCards({ owner, ownCanvas, state, roster, self, live, over =
       canvasHref={myCanvasHref}
       heading={over ? EVENING_OVER : null}
       linkState={linkState}
-      onPreview={() => void owner.preview(d => { const to = draftHref(d); if (to) navigate(to, { state: linkState }); })}
+      onMake={() => void owner.make(d => { const to = draftHref(d); if (to) navigate(to, { state: plainCanvasState(linkState) }); })}
     />
   );
   // A failed read of the offer is said, with Try again; what was shown before (if anything) may be out of date.

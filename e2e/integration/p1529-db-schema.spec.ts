@@ -270,7 +270,7 @@ test('round 3 ended: each owned round offers its own next version (oldest first)
   const draft = (await supabaseAdmin.from('canvas_drafts').select('id, revision').eq('owner_id', X.user.user.id).eq('state', 'open').single()).data!;
   expect((await X.client.rpc('canvas_draft_discard', { p_draft: draft.id, p_expected_revision: draft.revision })).error).toBeNull();
   expect((await offer(X)).state).toBe('offer');
-  // "Preview first": the tap stores auto_publish = false, and the draft is drafted from the owner's LATEST published version
+  // "Create next version" (J1, never auto-published): the tap stores auto_publish = false, and the draft is drafted from the owner's LATEST published version
   const preview = await X.client.rpc('make_my_next_version', { p_round: round3, p_auto_publish: false });
   expect(preview.error, `preview tap: ${preview.error?.message}`).toBeNull();
   expect(preview.data).toMatchObject({ status: 'ok' });
