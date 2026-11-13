@@ -12,6 +12,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+spec_review_hash: 0ba63ee546f7a11742243c5ffe52784bc338bec96d763091744c8635784ec5ca
+spec_review_vendors: [codex, gemini]
 ---
 
 # P1674: The remaining use-case pages move to the fable style
@@ -27,7 +29,7 @@ driver: heuristic
 
 ## Appetite
 
-Blast radius: medium. Five live public pages; `/hiring`, `/coach` and `/founder` also handle pledge-invite links; the shared fable components also render `/builders` and `/change-managers`. Reversibility: git revert. Decision density: low; one open founder call (the two hero examples, decided from a visual preview).
+Blast radius: medium. Five live public pages; `/hiring`, `/coach` and `/founder` also handle pledge-invite links; the shared fable components also render `/builders` and `/change-managers`. Reversibility: git revert. Decision density: low; all founder calls made 2026-11-13.
 
 ## Decisions already made
 
@@ -98,7 +100,7 @@ Untracked today, and staying untracked: `/coach`'s discovery-call buttons (`TryL
 2. **The shared fable components gain caller-owned options, each defaulting to today's output:** the hero's picture is optional (text-only, full width, D3); the hero's sub-line is optional and accepts rich content (citations; `/coach`'s two lines); the hero and closing band take the page's own actions (buttons, pledge or manifesto link, `WebinarDateLine`) and `location` values; the closing band takes an optional line under its heading (`/hiring`, `/coach`, `/founder` have one); the hero's scroll cues take the page's label and target; `ReasonsSection`, `NormSection` and the terms section take the page's heading, items and stamp setting; sections take ids where the page needs them.
 3. **Hero picture on `/hospitals` and `/communities`** with a new five-person example each. Five distinct `picture` keys per example, so five distinct shapes; every person `outcome: "diverged"` (as `/builders`: each followed their own reading). New keys extend the `AgreedPicture` union.
 
-   [FOUNDER DECISION: both examples are drafted placeholders, rewritten after review (the first hospital draft read as negligence; the first community draft reused "Maya" from the page's chat with a different story). Names, lines and closing lines need founder approval. The graphic shows none of these words; screen readers get all of them.]
+   Founder, 2026-11-13: the words are screen-reader only, as on `/builders` and `/change-managers` (P1671 verdict), so the visible picture is identical on every page and the wording is not a visible decision. The drafts below ship as the screen-reader text (rewritten after review: the first hospital draft read as negligence; the first community draft reused "Maya" from the page's chat with a different story).
 
    **/hospitals** (a communication gap, no clinical harm implied)
    - when: "Morning hand-over" · said: "Keep the family in the loop." · agreed: "5 of 5 nodded" · later: "By evening · what “in the loop” meant"
@@ -110,7 +112,7 @@ Untracked today, and staying untracked: `/coach`'s discovery-call buttons (`TryL
    - Ravi: came ready for small groups (`groups`) · Jo: prepared a short talk (`talk`) · Ines: expected it to be online (`online`) · Ken: planned for a shorter evening (`short`) · Lea: came for open discussion (`open`)
    - punchline (the closing line): "Five said “sounds good”. Five different meetups."
 
-4. **"How the platform works" on `/hiring`, `/coach`, `/founder` becomes the gap exchange** (founder approved 2026-11-13: "I'm OK with demo"; it is the existing 0-10 exchange, nothing new to develop). These pages render `HowPlatformWorks`, which carries the unbuilt "agents flag" claim (decisions.md 2026-10-28). As on `/builders` (P1671), the section becomes the gap exchange using the existing office cast's intro and close (as `BUILDERS_CAST` does), keeping the section's `id` (`/coach` `#how`). The other person's role label follows each page's story: [FOUNDER DECISION, drafted: "Teammate" on `/hiring` (unchanged), "Co-founder" on `/founder`, "Client" on `/coach`; one word each]. Each gets its own event: `hiring_exchange_viewed`, `coach_exchange_viewed`, `founder_exchange_viewed` (no properties; Sentry surfaces `hiring-exchange`, `coach-exchange`, `founder-exchange`). These three events and this one section swap are the only additions.
+4. **"How the platform works" on `/hiring`, `/coach`, `/founder` becomes the gap exchange** (founder approved 2026-11-13: "I'm OK with demo"; it is the existing 0-10 exchange, nothing new to develop). These pages render `HowPlatformWorks`, which carries the unbuilt "agents flag" claim (decisions.md 2026-10-28). As on `/builders` (P1671), the section becomes the gap exchange using the existing office cast's intro and close (as `BUILDERS_CAST` does), keeping the section's `id` (`/coach` `#how`). The other person's role label follows each page's story: "Teammate" on `/hiring` (unchanged), "Co-founder" on `/founder`, "Client" on `/coach` (one word each; the founder reviews them on the built pages). Each gets its own event: `hiring_exchange_viewed`, `coach_exchange_viewed`, `founder_exchange_viewed` (no properties; Sentry surfaces `hiring-exchange`, `coach-exchange`, `founder-exchange`). These three events and this one section swap are the only additions.
 
 **Build and review:** one Opus builder in a worktree; the main session verifies. Code review by Gemini, Codex and GLM. Visual QA by a separate reviewer that gets only screenshots (each page scrolled to the end and given time for the chats to finish before capture, since sections fade in on scroll) and `.claude/rules/visual-qa.md`. The founder views all five pages locally.
 
@@ -124,7 +126,7 @@ Untracked today, and staying untracked: `/coach`'s discovery-call buttons (`TryL
 | The three text-only heroes look emptier above the fold | ACCEPT | D2/D3: a mismatched picture costs more than a missing one; the hero uses the full width and the page's own sections follow |
 | Large pages (`/coach` 764 lines, `/hiring` 536) trip the quality ratchet | MITIGATE | Split by responsibility per `src/app/pages/CLAUDE.md`, never at an arbitrary line |
 | `/communities` has no page test today | MITIGATE | The build adds one covering its events, actions, copy order and picture |
-| The hero examples are invented copy | ACCEPT | `[FOUNDER DECISION]`, approved before build |
+| The hero examples are invented copy | ACCEPT | Screen-reader only, as on `/builders`; the visible picture is identical |
 
 **Non-Goals**
 - Do NOT change `/builders` or `/change-managers`.
@@ -137,7 +139,7 @@ Untracked today, and staying untracked: `/coach`'s discovery-call buttons (`TryL
 ## Acceptance Criteria
 
 - [ ] All five pages show the fable style (screenshots at 320px, 375px and 1440px, each page scrolled to the end before capture)
-- [ ] `/hospitals` and `/communities` show the five-person picture with the approved examples and five distinct shapes; `/hiring`, `/coach`, `/founder` show a full-width text-only hero followed by their own sections in their existing order
+- [ ] `/hospitals` and `/communities` show the five-person picture with five distinct shapes, their stories screen-reader only; `/hiring`, `/coach`, `/founder` show a full-width text-only hero followed by their own sections in their existing order
 - [ ] Each page's hero and closing actions keep their label, target and event, with the exact `location` values in the table; `/founder` still switches between the next experiment and the discovery call; `/communities` shows no pledge link (test)
 - [ ] On `/hiring`, `/coach` and `/founder`: `?referrer=x` lands on `/sign-pledge`, `?login=1` on `/login`, both together on `/sign-pledge`, empty values stay on the page (test)
 - [ ] Every event in the Analytics table fires with its exact properties from its action, and the untracked actions still fire nothing (test)
