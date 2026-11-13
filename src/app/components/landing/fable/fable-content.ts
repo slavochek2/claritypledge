@@ -63,6 +63,13 @@ export const NORM_PATH: { title: string; text: string; strip: { blue: number[]; 
 export const FABLE_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "tree_landing_fable_exchange_viewed", surface: "tree-landing-fable-exchange" };
 /** /builders: the same office cast, reporting under its own page's name. /change-managers uses TEAM_CAST as before. */
 export const BUILDERS_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "builders_exchange_viewed", surface: "builders-exchange" };
+/**
+ * /hiring, /coach, /founder (P1674): the same office cast where "How the platform works" stood, each
+ * under its own event, with the other person's role from the page's story.
+ */
+export const HIRING_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "hiring_exchange_viewed", surface: "hiring-exchange" };
+export const COACH_CAST: ExchangeCast = { ...TEAM_CAST, otherRole: "Client", viewEvent: "coach_exchange_viewed", surface: "coach-exchange" };
+export const FOUNDER_CAST: ExchangeCast = { ...TEAM_CAST, otherRole: "Co-founder", viewEvent: "founder_exchange_viewed", surface: "founder-exchange" };
 
 /**
  * The hero example: one sentence everyone said yes to, and what each person understood by it.
@@ -118,10 +125,7 @@ export const AGREED_CHANGE: AgreedExample = {
   punchline: "Five said yes. One changed.",
 };
 
-/**
- * Founder-review drafts for /hospitals and /communities, shown only on /tree/landing-fable-examples.
- * [FOUNDER DECISION: drafted placeholders]
- */
+/** The /hospitals and /communities examples (P1674): screen-reader only, as on /builders. */
 export const AGREED_HOSPITALS: AgreedExample = {
   when: "Morning hand-over",
   said: "Keep the family in the loop.",

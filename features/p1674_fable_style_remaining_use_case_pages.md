@@ -140,12 +140,12 @@ Untracked today, and staying untracked: `/coach`'s discovery-call buttons (`TryL
 
 - [ ] All five pages show the fable style (screenshots at 320px, 375px and 1440px, each page scrolled to the end before capture)
 - [ ] `/hospitals` and `/communities` show the five-person picture with five distinct shapes, their stories screen-reader only; `/hiring`, `/coach`, `/founder` show a full-width text-only hero followed by their own sections in their existing order
-- [ ] Each page's hero and closing actions keep their label, target and event, with the exact `location` values in the table; `/founder` still switches between the next experiment and the discovery call; `/communities` shows no pledge link (test)
-- [ ] On `/hiring`, `/coach` and `/founder`: `?referrer=x` lands on `/sign-pledge`, `?login=1` on `/login`, both together on `/sign-pledge`, empty values stay on the page (test)
-- [ ] Every event in the Analytics table fires with its exact properties from its action, and the untracked actions still fire nothing (test)
-- [ ] Copy checks: `/hospitals` keeps "New staff onboard fast, digitally."; `/communities` terms carry no TEMPLATE stamp; `/coach` keeps its hero lines and deleted-message chat (test)
-- [ ] The drawing on both picture pages is static under reduced motion and its full story, closing line included, is screen-reader only (test)
-- [ ] SEO props match the SEO table; routes reachable in a production build; `/tree` stays dev-only (test)
+- [x] Each page's hero and closing actions keep their label, target and event, with the exact `location` values in the table; `/founder` still switches between the next experiment and the discovery call; `/communities` shows no pledge link (test)
+- [x] On `/hiring`, `/coach` and `/founder`: `?referrer=x` lands on `/sign-pledge`, `?login=1` on `/login`, both together on `/sign-pledge`, empty values stay on the page (test)
+- [x] Every event in the Analytics table fires with its exact properties from its action, and the untracked actions still fire nothing (test)
+- [x] Copy checks: `/hospitals` keeps "New staff onboard fast, digitally."; `/communities` terms carry no TEMPLATE stamp; `/coach` keeps its hero lines and deleted-message chat (test)
+- [x] The drawing on both picture pages is static under reduced motion and its full story, closing line included, is screen-reader only (test)
+- [x] SEO props match the SEO table; routes reachable in a production build; `/tree` stays dev-only (test)
 - [ ] The baseline suites pass; `/builders` and `/change-managers` before/after screenshots match; any test edit is listed with its reason; stale e2e results reported beside main's
 - [ ] Independent visual QA (screenshots and checklist only) reports no blocking issue
 - [ ] Founder views all five pages locally and approves

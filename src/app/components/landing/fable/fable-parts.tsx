@@ -3,8 +3,8 @@
  * since P1671). Pure presentation, no data access; CTA analytics come from fable-tracking.ts. The hero example lives in fable-agreed.tsx and the
  * page sections in fable-sections.tsx.
  */
-import type { ReactNode } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { animate, motion, useInView, useReducedMotion } from "framer-motion";
 import { CalendarIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { RISE, VIEWPORT_ONCE } from "./fable-motion";
@@ -43,22 +43,53 @@ export function RefSup({ n, label, tone = "light" }: { n: number; label?: string
   );
 }
 
-/** The page's single primary action. `inverse` is the same action on the blue closing band. */
-export function AuditCTA({ location, tone = "primary" }: { location: CtaLocation; tone?: "primary" | "inverse" }) {
-  const { cta } = useFableTracking();
+/** The fable button: a filled pill. `inverse` is the same button on the blue closing band. A `to` that is not a route opens in a new tab. */
+export function FableButton({ to, onClick, tone = "primary", children }: { to: string; onClick?: () => void; tone?: "primary" | "inverse"; children: ReactNode }) {
   const color =
     tone === "inverse"
       ? "bg-white text-blue-700 hover:bg-blue-50 shadow-xl shadow-blue-950/30 focus-visible:ring-white focus-visible:ring-offset-blue-600"
       : "bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-600/25 focus-visible:ring-blue-600 focus-visible:ring-offset-background";
+  const className = `inline-flex items-center justify-center gap-2.5 max-w-full rounded-full px-5 sm:px-9 py-4 sm:py-5 text-[0.9375rem] sm:text-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${color}`;
+  return to.startsWith("/") ? (
+    <Link to={to} onClick={onClick} className={className}>
+      {children}
+    </Link>
+  ) : (
+    <a href={to} target="_blank" rel="noopener noreferrer" onClick={onClick} className={className}>
+      {children}
+    </a>
+  );
+}
+
+/** The page's single primary action. `inverse` is the same action on the blue closing band. */
+export function AuditCTA({ location, tone = "primary" }: { location: CtaLocation; tone?: "primary" | "inverse" }) {
+  const { cta } = useFableTracking();
   return (
-    <Link
-      to="/intro"
-      onClick={() => cta?.(location)}
-      className={`inline-flex items-center justify-center gap-2.5 max-w-full rounded-full px-5 sm:px-9 py-4 sm:py-5 text-[0.9375rem] sm:text-lg font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${color}`}
-    >
+    <FableButton to="/intro" onClick={() => cta?.(location)} tone={tone}>
       <CalendarIcon className="w-5 h-5 shrink-0" />
       Book a 15-min discovery call
-    </Link>
+    </FableButton>
+  );
+}
+
+/** The quiet second action beside a button: "or <link>". `inverse` sits on the blue closing band. */
+export function OrLink({ to, onClick, tone = "primary", children }: { to: string; onClick?: () => void; tone?: "primary" | "inverse"; children: ReactNode }) {
+  const inverse = tone === "inverse";
+  return (
+    <p className={inverse ? "text-blue-100" : "text-foreground/70"}>
+      or{" "}
+      <Link
+        to={to}
+        onClick={onClick}
+        className={
+          inverse
+            ? "inline-flex min-h-10 items-center text-white underline underline-offset-4 hover:text-blue-50"
+            : "inline-flex min-h-10 items-center text-blue-600 underline underline-offset-4 hover:text-blue-700"
+        }
+      >
+        {children}
+      </Link>
+    </p>
   );
 }
 
@@ -126,5 +157,31 @@ export function DotStat({ value, denom, children }: { value: number; denom: numb
       </div>
       <p className="col-span-2 sm:col-span-5 text-base sm:text-lg leading-snug text-foreground/75 text-balance">{children}</p>
     </motion.li>
+  );
+}
+
+/**
+ * A number that counts up from 0 on scroll-in, once. It starts at the real value, so a page whose
+ * script never animates still shows the right number; under reduced motion it never moves.
+ */
+export function CountUp({ target }: { target: number }) {
+  const reduce = useReducedMotion();
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.2 });
+  const [val, setVal] = useState(target);
+  useEffect(() => {
+    if (reduce || !inView) return;
+    const controls = animate(0, target, { duration: 1.1, ease: "easeOut", onUpdate: (v) => setVal(Math.round(v)) });
+    return () => controls.stop();
+  }, [inView, target, reduce]);
+  return <span ref={ref}>{val}</span>;
+}
+
+/** A stakes-band bar filled to a percentage, as on /change-managers. */
+export function PercentBar({ percent }: { percent: number }) {
+  return (
+    <div className="h-14 overflow-hidden rounded-sm border border-white/25" aria-hidden>
+      <div className="h-full bg-blue-400" style={{ width: `${percent}%` }} />
+    </div>
   );
 }

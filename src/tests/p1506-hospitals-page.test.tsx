@@ -126,13 +126,16 @@ describe('P1506 /hospitals — content', () => {
     const cta = screen.getAllByRole('link', { name: /Book a 15-min discovery call/ });
     expect(cta).toHaveLength(2);
     for (const c of cta) expect(c).toHaveAttribute('href', '/intro');
-    expect(document.querySelectorAll('a.bg-blue-500, button.bg-blue-500')).toHaveLength(2);
+    // P1674: the fable buttons are bg-blue-600 (hero) and white (closing band), so the old colour
+    // class no longer finds them; no other filled button on the page.
+    expect([...document.querySelectorAll('a.rounded-full, button.rounded-full')]).toEqual(cta);
     // One primary; the founder asked for the pledge back as the /builders quiet text link.
     // The only button is the scroll cue: the chat plays by itself.
     // The /builders hero: the pledge as a quiet secondary link, pledgers, and the scroll cue.
     expect(screen.getByRole('link', { name: 'Take the Pledge' })).toHaveAttribute('href', '/sign-pledge');
     expect(screen.getByTestId('pledgers')).toBeInTheDocument();
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Why it matters']);
+    // P1674: the picture hero adds the phone cue to the drawing, as on /builders.
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['See an example', 'Why it matters']);
   });
 
   it('gives the chart a text alternative', () => {
