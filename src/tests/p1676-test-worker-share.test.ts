@@ -4,7 +4,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   computeShare,
+  configShouldSize,
   countOthers,
+  invalidMaxWorkersEnv,
+  scanLooksValid,
   isCoordinator,
   isProbableWatch,
   parsePs,
@@ -48,6 +51,77 @@ describe('computeShare', () => {
         }
       }
     }
+  })
+
+  it('never returns NaN for an invalid budget or ceiling (vitest reads NaN as unset)', () => {
+    for (const bad of [NaN, -1, 0, 2.5, '8', undefined, null]) {
+      const a = computeShare({ others: 0, budget: bad as number, ceiling: 4 })
+      const b = computeShare({ others: 0, budget: 8, ceiling: bad as number })
+      for (const n of [a, b]) expect(Number.isInteger(n) && n >= 1).toBe(true)
+    }
+  })
+})
+
+describe('configShouldSize (the vite.config.ts guards)', () => {
+  const base = { VITEST: 'true' } as Record<string, string>
+  it('sizes a flagless local vitest run', () => {
+    expect(configShouldSize(base, ['node', 'vitest', 'run'])).toBe(true)
+  })
+  it('skips outside vitest (dev server, production build)', () => {
+    expect(configShouldSize({}, ['node', 'vite', 'build'])).toBe(false)
+  })
+  it('skips on CI only when GITHUB_ACTIONS is exactly "true"', () => {
+    expect(configShouldSize({ ...base, GITHUB_ACTIONS: 'true' }, [])).toBe(false)
+    expect(configShouldSize({ ...base, CI: 'true' }, [])).toBe(true) // a bare CI flag is not CI
+  })
+  it('skips inside a fork worker', () => {
+    expect(configShouldSize({ ...base, VITEST_POOL_ID: '1' }, [])).toBe(false)
+  })
+  it('skips when the caller chose a count, in every flag spelling', () => {
+    expect(configShouldSize({ ...base, VITEST_MAX_WORKERS: '2' }, [])).toBe(false)
+    for (const a of [['--maxWorkers', '2'], ['--maxWorkers=2'], ['--max-workers', '2'], ['--max-workers=2']]) {
+      expect(configShouldSize(base, ['node', 'vitest', 'run', ...a]), a.join(' ')).toBe(false)
+    }
+  })
+})
+
+describe('explicit watch mode and invalid overrides', () => {
+  it('an explicit watch session is a watcher even without a terminal', () => {
+    for (const tail of ['watch', 'dev', '--watch', '-w']) {
+      expect(isProbableWatch(parsePs(ps(coord(10, 1, '??', tail)))[0]), tail).toBe(true)
+    }
+    expect(isProbableWatch(parsePs(ps(coord(10, 1, '??', 'run')))[0])).toBe(false)
+  })
+  it('an invalid VITEST_MAX_WORKERS does not make the config step aside', () => {
+    const base = { VITEST: 'true' }
+    for (const v of ['0', 'abc', '-2']) {
+      expect(invalidMaxWorkersEnv({ VITEST_MAX_WORKERS: v }), v).toBe(true)
+      expect(configShouldSize({ ...base, VITEST_MAX_WORKERS: v }, []), v).toBe(true)
+    }
+    expect(invalidMaxWorkersEnv({ VITEST_MAX_WORKERS: '3' })).toBe(false)
+    expect(invalidMaxWorkersEnv({})).toBe(false)
+  })
+})
+
+describe('scan validity', () => {
+  it('a real scan that is empty or lacks the caller row yields 1, not the largest share', () => {
+    for (const psText of ['', 'garbage that parses to nothing\n', ps(coord(500, 1, '??', 'run'))]) {
+      const lines: string[] = []
+      const n = sizeTestWorkers({ psText, pid: 999, cores: 11, env: {}, requireSelfRow: true, write: (s) => lines.push(s) })
+      expect(n).toBe(1)
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toMatch(/sizing failed/)
+    }
+  })
+  it('a real scan that contains the caller row is used', () => {
+    const psText = ps(`999 1 ?? ${NODE} /r/node_modules/.bin/vitest run`, coord(500, 1, '??', 'run'))
+    const n = sizeTestWorkers({ psText, pid: 999, cores: 11, env: {}, requireSelfRow: true, write: () => {} })
+    expect(n).toBe(4) // budget 8, 1 other run: share 4, ceiling 4
+  })
+  it('scanLooksValid needs rows and the caller', () => {
+    expect(scanLooksValid([], 1)).toBe(false)
+    expect(scanLooksValid(parsePs(ps('2 1 ?? node x')), 1)).toBe(false)
+    expect(scanLooksValid(parsePs(ps('1 0 ?? node x')), 1)).toBe(true)
   })
 })
 
@@ -134,7 +208,7 @@ describe('countOthers', () => {
     expect(countOthers(rows, 99999)).toBe(3)
   })
 
-  it('excludes the caller and its ancestors', () => {
+  it('excludes only the caller; an ancestor coordinator still counts (its workers are busy)', () => {
     const rows = parsePs(
       ps(
         coord(200, 1, '??', 'run'), // an ancestor that is itself a coordinator (a test spawned by a run)
@@ -142,7 +216,7 @@ describe('countOthers', () => {
         coord(300, 1, '??', 'run'), // an unrelated run
       ),
     )
-    expect(countOthers(rows, 201)).toBe(1)
+    expect(countOthers(rows, 201)).toBe(2)
     expect(countOthers(rows, 200)).toBe(1)
     expect(countOthers(rows, 300)).toBe(1)
   })

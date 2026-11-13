@@ -219,6 +219,8 @@ cat > "$TMP/bin/npx" <<'STUB'
 #!/bin/bash
 # Records argv, writes a vitest-shaped JSON report with STUB_COUNT files, exits STUB_RC.
 printf '%s\n' "$@" > "$STUB_ARGV"
+# P1676: what vitest would see for the env override, which beats --maxWorkers inside vitest.
+printf 'ENV_VITEST_MAX_WORKERS=%s\n' "${VITEST_MAX_WORKERS-UNSET}" >> "$STUB_ARGV"
 out=""
 for a in "$@"; do case "$a" in --outputFile.json=*) out="${a#--outputFile.json=}" ;; esac; done
 if [ -z "${STUB_NO_REPORT:-}" ] && [ -n "$out" ]; then
@@ -287,6 +289,15 @@ mkdir -p "$TMP/nonode-bin"; printf '#!/bin/bash\nexit 7\n' > "$TMP/nonode-bin/no
 mk_repo s; st_vercel
 STEP_OUT="$( cd "$R" && PATH="$TMP/nonode-bin:$TMP/bin:$PATH" pct_run_tests "$R" "$BUILD_RE" "$DOCS_RE" 2>&1 )"
 grep -qx -- '--maxWorkers=1' "$STUB_ARGV" && ok "a failing node call → 1 worker" || bad "node failure not 1: $(tr '\n' ' ' < "$STUB_ARGV")"
+
+# An inherited VITEST_MAX_WORKERS beats the CLI flag inside vitest, so the plan line would lie. The
+# hook strips it from the vitest process; control first: the stub does see a variable that is set.
+VITEST_MAX_WORKERS=12 "$TMP/bin/npx" probe
+grep -qx -- 'ENV_VITEST_MAX_WORKERS=12' "$STUB_ARGV" && ok "control: the stub records an inherited VITEST_MAX_WORKERS" || bad "control: stub cannot see VITEST_MAX_WORKERS, so the next check proves nothing"
+VITEST_MAX_WORKERS=12 PRECOMMIT_TEST_WORKERS=3 run_step st_vercel
+grep -qx -- 'ENV_VITEST_MAX_WORKERS=UNSET' "$STUB_ARGV" && grep -qx -- '--maxWorkers=3' "$STUB_ARGV" \
+    && ok "an inherited VITEST_MAX_WORKERS=12 never reaches the hook's vitest; --maxWorkers=3 stands" \
+    || bad "inherited VITEST_MAX_WORKERS leaked into the hook's vitest: $(tr '\n' ' ' < "$STUB_ARGV")"
 
 # FAIL CLOSED on the disk-reading seed group: an error, an empty group, or a group without its known
 # member must run the FULL suite, never narrow on a group nobody can vouch for.

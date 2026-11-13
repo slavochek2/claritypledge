@@ -100,16 +100,19 @@ gate). Reversibility: high, git revert. Decision density: none left (option A ch
 - `others` = number of other active vitest runs on the machine, from a **process-table scan** at
   call time (stateless: nothing stored, so a crashed run or a reused PID cannot hold a share).
 - `share = max(1, floor(budget / (others + 1)))`, then `min(share, ceiling)`.
-- `budget` default: logical cores minus 3 (8 on this machine), never below 1. `ceiling` default: 4
-  for flagless runs; the hook passes its own ceiling (3, or `PRECOMMIT_TEST_WORKERS`). Both are
-  tuning knobs that can only change the number, never skip tests; an invalid value (0, negative,
-  non-numeric) falls back to the default with a warning.
+- `budget` default: logical cores minus 3 (8 on this machine), never below 1; tunable with
+  `TEST_WORKER_BUDGET`. `ceiling`: a constant 4 for flagless runs; the hook passes its own ceiling
+  (3, or `PRECOMMIT_TEST_WORKERS`). Knobs can only change the number, never skip tests; an invalid
+  value (0, negative, non-numeric, missing) falls back to the default with a warning.
+- A real scan with no rows, or without the caller's own row, is a failed scan (1 worker): an
+  unreadable table must not read as "0 other runs" and hand out the largest share (code review).
 - It prints one line to stderr: workers chosen, other runs seen, budget, ceiling.
 
 **What counts as an active run** (the scan must match exactly one process per run):
 - The vitest coordinator: a `node` process whose argv runs vitest's entry (`node_modules/.bin/vitest`
   or `vitest/vitest.mjs`), in any checkout on the machine, from any vitest config (an integration
   run uses the CPU too, so it counts).
+- An outer coordinator that is the caller's ANCESTOR still counts: its workers are busy (code review).
 - **Not** counted: fork workers, `npm`/`npx`/`sh -c`/`zsh -c` wrappers, the calling process itself,
   and **probable watch sessions**: a coordinator attached to a terminal (`ps` TTY is not `??`) whose
   argv has neither the `run` subcommand nor `--run`. An idle watcher uses no CPU but would halve
@@ -118,8 +121,11 @@ gate). Reversibility: high, git revert. Decision density: none left (option A ch
   terminal is attached (verified in vitest 4.0.14's CLI: `related` does not set run mode). Agent
   shells have no TTY (a live agent-started run showed `??`), so their flagless runs are one-shot and
   must count.
-- When the config sees `--maxWorkers` in its own argv or `VITEST_MAX_WORKERS` set (as in every hook
-  run), it does nothing: the hook's printed line is the authoritative one.
+- When the config sees `--maxWorkers` / `--max-workers` in its own argv or `VITEST_MAX_WORKERS` set
+  (as in every hook run), it does nothing: the hook's printed line is the authoritative one.
+- The hook strips an inherited `VITEST_MAX_WORKERS` from its vitest process: inside vitest that
+  variable is applied after the CLI flag and would silently beat the computed count (code review,
+  reproduced against vitest's config resolution).
 
 Implementation details (exact regex, module name, how the config imports it) are the implementer's
 call within these rules.
@@ -135,6 +141,21 @@ call within these rules.
 | Fewer workers make a single run slower when many sessions test | ACCEPT | Founder-approved trade (2026-11-13) |
 | Load from non-test work (video renders, e2e, Chrome) is not counted | ACCEPT | Bounds the test share only |
 | Local vitest (4.0.14 installed) differs from the lockfile and CI (4.1.11) | DEFER | Separate drift, filed as a note; this spec's checks run on whatever is installed |
+| A full-suite hook run at 1-2 workers takes much longer while co-tenant runs are busy (about 42 min measured at load 138) | ACCEPT | The founder-approved trade, made explicit; it shrinks once every session runs this code. If commits become the bottleneck, option B or P1635's related-only path is where to look |
+| The real-process scan test (`scripts/test-p1676-scan-real.mjs`) is manual: no gate or CI step runs it, and it was proven on vitest 4.0.14 only | ACCEPT | It starts real coordinators (about 15 s), too heavy for every commit; re-run it after a vitest upgrade |
+
+### Known limitations (probable-watch heuristic and argv parsing)
+
+- An explicit watch session (`watch`, `dev`, `--watch`, `-w`) is a watcher with or without a
+  terminal (code review). A run attached to a terminal that disables watch another way
+  (`--no-watch`, `--watch=false`, `CI=true` in its env) one-shots but is treated as a watcher and
+  not counted (undercount). A positional filter literally named `run` makes a real watcher count.
+- A vitest started from inside a test file has no `--maxWorkers` and no config sizing of its own
+  beyond the normal path; nothing does this today.
+- An invalid `VITEST_MAX_WORKERS` on a flagless run is removed with a warning and the run is sized
+  normally (vitest would otherwise read it as unset and use cores - 1).
+- `ps` args are split on whitespace, so a node binary or checkout path containing a space would not
+  be recognised as a coordinator (undercount). Neither occurs on this machine.
 
 **Non-Goals**
 - Do NOT add a queue, lock, sleep or wait of any kind.
@@ -148,7 +169,9 @@ call within these rules.
 
 - [x] Unit tests of the sizing function: budget/ceiling arithmetic, others = 0/1/5/20, and invalid
       inputs (0, negative, non-numeric, scan failure, exception) all yield an integer ≥ 1 and ≤ the
-      ceiling. `src/tests/p1676-test-worker-share.test.ts`: 19 passed (2026-11-13).
+      ceiling. `src/tests/p1676-test-worker-share.test.ts`: 30 passed after the code-review fixes
+      (2026-11-13), including the config guards (`configShouldSize`), NaN inputs, an unusable
+      scan, explicit watch sessions and an invalid `VITEST_MAX_WORKERS`.
 - [x] A scan test against **real processes**: with real vitest coordinators running (one in run mode
       without a TTY, one flagless without a TTY, one `vitest related` watch session on a
       pseudo-terminal) plus their fork workers and an `npm exec vitest run` wrapper (whose child is

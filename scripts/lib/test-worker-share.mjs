@@ -22,7 +22,7 @@
 
 import os from 'node:os'
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 export const DEFAULT_CEILING = 4
@@ -65,21 +65,31 @@ export function isCoordinator(row) {
 
 /** Attached to a terminal and no one-shot marker: vitest watches there. An idle watcher uses no CPU. */
 export function isProbableWatch(row) {
+  const tokens = row.args.split(/\s+/)
+  // Asked for watch mode explicitly (`vitest watch`, `vitest dev`, `--watch`): a watcher with or
+  // without a terminal (P1676 review: background watchers were counted all day).
+  if (tokens.includes('watch') || tokens.includes('dev') || tokens.includes('--watch') || tokens.includes('-w')) return true
   const hasTty = row.tty !== '??' && row.tty !== '?'
   if (!hasTty) return false
-  const tokens = row.args.split(/\s+/)
   return !tokens.includes('run') && !tokens.includes('--run')
 }
 
-/** Count other active runs. Excludes `selfPid` and every ancestor of it found in the table. */
+/**
+ * Count other active runs: every coordinator except `selfPid`. An ANCESTOR coordinator still
+ * counts: a suite that starts another vitest keeps its own workers busy (P1676 review). Wrappers
+ * above the caller (npm, sh, the hook's bash) are never coordinators, so they need no exclusion.
+ */
 export function countOthers(rows, selfPid) {
-  const byPid = new Map(rows.map((r) => [r.pid, r]))
-  const skip = new Set([selfPid])
-  for (let p = byPid.get(selfPid)?.ppid, guard = 0; p && !skip.has(p) && guard < 64; guard++) {
-    skip.add(p)
-    p = byPid.get(p)?.ppid
-  }
-  return rows.filter((r) => !skip.has(r.pid) && isCoordinator(r) && !isProbableWatch(r)).length
+  return rows.filter((r) => r.pid !== selfPid && isCoordinator(r) && !isProbableWatch(r)).length
+}
+
+/**
+ * A real `ps` table always contains the caller's own row. One without it (empty, truncated, or a
+ * format change that parsePs cannot read) would count as "0 other runs" and hand out the largest
+ * share, so it is treated as a failed scan instead.
+ */
+export function scanLooksValid(rows, selfPid) {
+  return rows.length > 0 && rows.some((r) => r.pid === selfPid)
 }
 
 /** Budget: env TEST_WORKER_BUDGET, else max(1, cores - 3). Invalid env -> default + warning. */
@@ -99,11 +109,38 @@ export function resolveCeiling(value, dflt = DEFAULT_CEILING) {
   return { value: n }
 }
 
-/** The arithmetic. Always an integer >= 1 and <= ceiling. */
+/**
+ * The arithmetic. Always an integer >= 1 and <= ceiling, whatever it is fed: a non-integer, NaN or
+ * non-positive budget or ceiling counts as 1, because NaN would reach vitest as "unset" (cores - 1).
+ */
 export function computeShare({ others, budget, ceiling }) {
   const o = Number.isInteger(others) && others >= 0 ? others : 0
-  const share = Math.max(1, Math.floor(budget / (o + 1)))
-  return Math.max(1, Math.min(share, ceiling))
+  const b = positiveInt(budget) ?? 1
+  const c = positiveInt(ceiling) ?? 1
+  const share = Math.max(1, Math.floor(b / (o + 1)))
+  return Math.max(1, Math.min(share, c))
+}
+
+/**
+ * Should vite.config.ts size this vitest process? Only under vitest, never on CI, never inside a
+ * fork worker, and never when the caller already chose a count (VITEST_MAX_WORKERS, or any spelling
+ * of the --maxWorkers flag: vitest gives both precedence over config, so sizing would only print a
+ * line that contradicts the count vitest uses).
+ */
+export function configShouldSize(env, argv) {
+  if (!env.VITEST || env.GITHUB_ACTIONS === 'true' || env.VITEST_POOL_ID) return false
+  // Only a VALID override makes the config step aside. An invalid one (0, 'abc') parses to a falsy
+  // number inside vitest, which then uses cores - 1; vite.config.ts removes it and sizes instead.
+  if (env.VITEST_MAX_WORKERS && !invalidMaxWorkersEnv(env)) return false
+  return !argv.some(
+    (a) => a === '--maxWorkers' || a.startsWith('--maxWorkers=') || a === '--max-workers' || a.startsWith('--max-workers='),
+  )
+}
+
+/** VITEST_MAX_WORKERS is set but is not a positive integer (vitest would read it as unset). */
+export function invalidMaxWorkersEnv(env) {
+  const v = env.VITEST_MAX_WORKERS
+  return v !== undefined && v !== '' && positiveInt(v) === null
 }
 
 export function readPsText(env = process.env) {
@@ -119,7 +156,7 @@ export function readPsText(env = process.env) {
 /**
  * Choose a worker count and say how on stderr (exactly one line). Never throws, never returns
  * anything but an integer >= 1.
- * @param {{ceiling?: number|string, env?: object, pid?: number, psText?: string, write?: (s:string)=>void, cores?: number}} [opts]
+ * @param {{ceiling?: number|string, env?: object, pid?: number, psText?: string, requireSelfRow?: boolean, write?: (s:string)=>void, cores?: number}} [opts]
  */
 export function sizeTestWorkers(opts = {}) {
   const write = opts.write ?? ((s) => process.stderr.write(s + '\n'))
@@ -128,8 +165,15 @@ export function sizeTestWorkers(opts = {}) {
     const ceil = resolveCeiling(opts.ceiling)
     const budget = resolveBudget(env.TEST_WORKER_BUDGET, opts.cores ?? os.availableParallelism())
     const warnings = [ceil.warning, budget.warning].filter(Boolean)
+    const pid = opts.pid ?? process.pid
+    // The self-row check applies to a REAL scan. Injected text (unit tests, the canary's
+    // TEST_WORKER_SHARE_PS_FILE) is a fixture describing other processes; callers can opt in.
+    const injected = opts.psText !== undefined || Boolean(env.TEST_WORKER_SHARE_PS_FILE)
     const rows = parsePs(opts.psText ?? readPsText(env))
-    const others = countOthers(rows, opts.pid ?? process.pid)
+    if ((opts.requireSelfRow ?? !injected) && !scanLooksValid(rows, pid)) {
+      throw new Error(`process scan unusable (${rows.length} rows, own pid ${pid} missing)`)
+    }
+    const others = countOthers(rows, pid)
     const workers = computeShare({ others, budget: budget.value, ceiling: ceil.value })
     const noun = others === 1 ? 'other run' : 'other runs'
     write(
@@ -146,7 +190,9 @@ export function sizeTestWorkers(opts = {}) {
 function main(argv) {
   let ceiling
   const i = argv.indexOf('--ceiling')
-  if (i !== -1) ceiling = argv[i + 1]
+  // A --ceiling with its value missing is invalid input, not "no ceiling": pass a value
+  // resolveCeiling rejects, so it falls back to the default WITH its warning.
+  if (i !== -1) ceiling = argv[i + 1] ?? '(missing)'
   else {
     const eq = argv.find((a) => a.startsWith('--ceiling='))
     if (eq) ceiling = eq.slice('--ceiling='.length)
@@ -154,4 +200,13 @@ function main(argv) {
   process.stdout.write(`${sizeTestWorkers({ ceiling })}\n`)
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) main(process.argv.slice(2))
+// Compare real paths: import.meta.url is resolved through symlinks, process.argv[1] is not, and a
+// mismatch would make the hook's call print nothing and fall back to 1 worker without a word.
+const isCli = () => {
+  try {
+    return Boolean(process.argv[1]) && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])
+  } catch {
+    return false
+  }
+}
+if (isCli()) main(process.argv.slice(2))

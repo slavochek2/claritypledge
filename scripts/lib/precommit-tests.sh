@@ -68,6 +68,8 @@ pct_workers() {
     case "$w" in
         ''|*[!0-9]*) w="$PCT_WORKERS_DEFAULT" ;;
     esac
+    # More than 4 digits would overflow bash 3.2 arithmetic into a negative count (P1676 review).
+    [ "${#w}" -gt 4 ] && w="$PCT_WORKERS_DEFAULT"
     # 10# so "0000" and "007" are read as decimal numbers: a zero spelled with extra digits is still zero
     # and falls back; vitest is only ever given a clean positive integer.
     if [ "$((10#$w))" -eq 0 ]; then
@@ -87,8 +89,13 @@ pct_worker_share() {
     local ceiling share
     ceiling="$(pct_workers)"
     share="$(node "$(dirname "${BASH_SOURCE[0]}")/test-worker-share.mjs" --ceiling "$ceiling")" || share=""
+    # The module prints the bare integer as its LAST stdout line; anything a loader prints first
+    # is ignored rather than turning a good answer into a fallback.
+    share="$(printf '%s\n' "$share" | tail -n 1)"
     case "$share" in
-        ''|*[!0-9]*) share=1 ;;
+        ''|*[!0-9]*)
+            echo "test workers: 1 (the sizing module gave no usable answer, so 1, never the ceiling)" >&2
+            share=1 ;;
     esac
     if [ "$((10#$share))" -lt 1 ]; then
         share=1
@@ -270,7 +277,10 @@ pct_run_tests() {
 
     if [ -n "$PCT_FULL_REASON" ]; then
         echo -e ">>> Tests plan... ${YELLOW:-}FULL suite${NC:-} (${PCT_FULL_REASON}); capped at ${workers} workers"
-        cmd=(npx vitest run "--maxWorkers=$workers" --reporter=default --reporter=json "--outputFile.json=$json")
+        # env -u: vitest applies an inherited VITEST_MAX_WORKERS AFTER the CLI flag, so it would beat
+        # the computed count and the plan line above would lie (P1676 review). PRECOMMIT_TEST_WORKERS
+        # is the hook's knob.
+        cmd=(env -u VITEST_MAX_WORKERS npx vitest run "--maxWorkers=$workers" --reporter=default --reporter=json "--outputFile.json=$json")
     else
         while IFS= read -r f; do
             [ -n "$f" ] && disk+=("$root/$f")
@@ -281,7 +291,7 @@ pct_run_tests() {
         n_seed=${#seeds[@]}
         n_disk=${#disk[@]}
         echo -e ">>> Tests plan... RELATED: ${n_seed} staged src file(s) + ${n_disk} disk-reading file(s) as import-graph seeds; capped at ${workers} workers"
-        cmd=(npx vitest related --run "--maxWorkers=$workers" --passWithNoTests --reporter=default --reporter=json "--outputFile.json=$json")
+        cmd=(env -u VITEST_MAX_WORKERS npx vitest related --run "--maxWorkers=$workers" --passWithNoTests --reporter=default --reporter=json "--outputFile.json=$json")
         cmd+=(${seeds[@]+"${seeds[@]}"} ${disk[@]+"${disk[@]}"})
     fi
 
