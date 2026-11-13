@@ -365,7 +365,8 @@ function StatusMarks({ marks, lifted }: { marks?: PersonMarks; lifted: boolean }
   const prep = marks?.prep;
   const tone = lifted ? 'text-white' : '';
   return (
-    <span className="mt-0.5 flex h-3.5 items-center justify-center gap-1">
+    <span className="mt-0.5 flex flex-col items-center gap-0.5">
+    <span className="flex h-3.5 items-center justify-center gap-1">
       {prep?.prepared && (
         <Check className={cn('h-3.5 w-3.5', tone || 'text-green-600')} aria-label={PREPARED_HINT}>
           <title>{PREPARED_HINT}</title>
@@ -380,13 +381,15 @@ function StatusMarks({ marks, lifted }: { marks?: PersonMarks; lifted: boolean }
       {marks?.ready && (
         <span className={cn('rounded-full px-1.5 text-[10px] font-semibold leading-4', lifted ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700')} title={READY_HINT} data-testid="mm-ready">{READY_LABEL}</span>
       )}
-      {marks?.optedOut && (
-        <span className={cn('rounded-full px-1.5 text-[10px] font-semibold leading-4', lifted ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')} title="Opted out of the Clarity Meeting Principle" data-testid="mm-opted-out">{OPTED_OUT_MARK}</span>
-      )}
       {marks?.recording && <RecordingMark state={marks.recording} lifted={lifted} />}
       {marks?.transcribing && (
         <span className={cn('h-2 w-2 rounded-full bg-red-500', lifted && 'ring-2 ring-white')} title="Transcribing now" aria-label="Transcribing now" data-testid="mark-transcribing" />
       )}
+    </span>
+    {/* On its own line under the name and marks, so neither clips in the narrow cell (320 px). */}
+    {marks?.optedOut && (
+      <span className={cn('whitespace-nowrap rounded-full px-1.5 text-[9px] font-semibold leading-3.5', lifted ? 'bg-white/20 text-white' : 'bg-muted text-muted-foreground')} title="Opted out of the Clarity Meeting Principle" data-testid="mm-opted-out">{OPTED_OUT_MARK}</span>
+    )}
     </span>
   );
 }
@@ -1480,7 +1483,8 @@ export function EventHostPage() {
               {clock.phase !== 'over' && (
                 <p className="text-sm" data-testid="host-part">
                   <span className="font-medium">{mm.active ? SCREEN_PART_NAME[clock.phase] : clock.phase === 'first' && !timing.split ? 'Talk' : PART_NAME[clock.phase]}</span>
-                  <span className="whitespace-nowrap text-muted-foreground"> · {formatClock(roundLeftMs)} left in round</span>
+                  {/* ONE countdown (the big clock above): the mastermind's status line names the part only. */}
+                  {!mm.active && <span className="whitespace-nowrap text-muted-foreground"> · {formatClock(roundLeftMs)} left in round</span>}
                 </p>
               )}
               <PhaseStrip clock={clock} timing={timing} hasObserver={hasObserver} />
@@ -1550,7 +1554,7 @@ export function EventHostPage() {
           {primary && (!justStarted || busy) && !(round && confirmNext && clock && clock.phase !== 'over') && (
             <Button
               type="button"
-              className="mt-4 min-h-12 w-full text-base"
+              className="mt-4 h-auto min-h-12 w-full whitespace-normal py-2 text-center text-base"
               onClick={round && clock && clock.phase !== 'over' ? () => setConfirmNext(true) : primary.action}
               disabled={!!busy || !loaded || pendingNo !== null}
               data-testid="host-primary"

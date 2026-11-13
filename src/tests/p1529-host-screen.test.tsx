@@ -1122,4 +1122,37 @@ describe('UAT 2026-11-13 (d): the opt-out mark and who sees what, by place (H1, 
     expect(tile).toBeTruthy();
     expect(grid.textContent).toContain('opted out');
   });
+
+  it('visual QA: the "opted out" pill sits on its own line under the marks, never inside their row', async () => {
+    optedOutBen();
+    setRounds([round({ startedAt: ago(2 * MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    renderHost({ flow: MM });
+    const grid = await screen.findByTestId('round-grid');
+    const pill = await within(grid).findByTestId('mm-opted-out');
+    const row = pill.parentElement!.firstElementChild as HTMLElement;
+    expect(row.className).toMatch(/h-3\.5/);
+    expect(row.contains(pill)).toBe(false);
+    expect(pill.parentElement!.className).toMatch(/flex-col/);
+  });
+
+  it('visual QA: a mastermind round has ONE countdown (the clock); its status line names the part only. Clarity Night keeps its line', async () => {
+    setRounds([round({ startedAt: ago(2 * MIN) })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    renderHost({ flow: MM });
+    const part = await screen.findByTestId('host-part');
+    expect(part.textContent).toBe('Discussion');
+    expect(part.textContent).not.toMatch(/left/);
+    cleanup();
+    setRounds([round({ startedAt: ago(30_000), seatingS: 0 })], { r1: [seat('r1', 'm-a', 'first', 1), seat('r1', 'm-b', 'second', 1)] });
+    renderHost();
+    expect((await screen.findByTestId('host-part')).textContent).toMatch(/left in round/);
+  });
+
+  it('visual QA: the host primary wraps instead of clipping at a narrow width', async () => {
+    renderHost({ flow: MM });
+    await roomRead();
+    const primary = await screen.findByTestId('host-primary');
+    expect(primary.className).toMatch(/whitespace-normal/);
+    expect(primary.className).not.toMatch(/whitespace-nowrap/);
+    expect(primary.className).toMatch(/h-auto/);
+  });
 });

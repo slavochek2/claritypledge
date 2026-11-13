@@ -56,6 +56,8 @@ export function MastermindUpdateTask({
   onPreview: () => void;
 }) {
   const { busy, note } = owner;
+  // Under the evening's heading the card's own title is subordinate: smaller and a lighter weight, a level lower.
+  const Title = heading ? 'h3' : 'h2';
   // A finished draft that changes nothing: a calm outcome with no button (the draft's publish was refused as "no changes").
   // (publishFailed is bound to the draft's revision: an edited draft is ready again, so this clears.)
   const nothingNew = face === 'ready' && owner.publishFailed && note?.kind === 'nothing_new';
@@ -68,7 +70,7 @@ export function MastermindUpdateTask({
       {heading && <h2 className="mb-3 text-xl font-semibold" data-testid="mastermind-over-heading">{heading}</h2>}
       {face === 'make' && (
         <>
-          <h2 className="text-xl font-semibold" data-testid="mastermind-task-title">{taskTitle(roundName, partner)}</h2>
+          <Title className={heading ? 'text-base font-medium' : 'text-xl font-semibold'} data-testid="mastermind-task-title">{taskTitle(roundName, partner)}</Title>
           <p className="mt-1 text-sm text-muted-foreground" data-testid="mastermind-task-body">{TASK_MAKE_BODY}</p>
           <div className={CENTRED}>
             <Button type="button" className={PRIMARY} onClick={() => void owner.make()} disabled={busy} aria-busy={busy} data-testid="mastermind-make">

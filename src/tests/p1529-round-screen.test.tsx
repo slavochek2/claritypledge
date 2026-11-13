@@ -800,6 +800,11 @@ describe('P1529 §6: the states of one round\'s version', () => {
     // one card: the heading is inside the next-version card, with no empty-looking card above it
     expect(task.querySelector('[data-testid="mastermind-over-heading"]')!.textContent).toBe('The evening is over');
     expect(screen.queryByTestId('mastermind-over')).toBeNull();
+    // visual QA: under the evening's heading the card's own title is subordinate (smaller, lighter, a level lower)
+    const title = screen.getByTestId('mastermind-task-title');
+    expect(title.tagName).toBe('H3');
+    expect(title.className).toMatch(/text-base font-medium/);
+    expect(title.className).not.toMatch(/text-xl/);
     expect(await screen.findByTestId('mastermind-task-canvas')).toBeTruthy();
   });
 
