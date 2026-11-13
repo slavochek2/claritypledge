@@ -6,8 +6,8 @@ workstream: website
 created_date: '2026-11-12'
 tags: [landing, design, use-cases]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -75,14 +75,14 @@ Blast radius: medium. Two live public pages, including `/builders`, which also h
 
 ## Acceptance Criteria
 
-- [ ] `/builders` and `/change-managers` show the fable style with the wordless drawing of five people (screenshots at 320px, 375px and desktop)
-- [ ] The builders closing line reads "One sentence. Five meanings. All five shipped."
-- [ ] On `/builders`, `?referrer=x` lands on `/sign-pledge` and `?login=1` lands on `/login` (test)
-- [ ] Every event in the Invariants table fires with its properties from its action, and the `/tree` prototypes fire none (test)
-- [ ] `/tree/landing-fable*` stay dev-only; the live routes stay reachable in a production build; SEO props match the Invariants (test)
-- [ ] The decision reversal is recorded in `docs/decisions.md`
-- [ ] Independent visual QA (screenshots and checklist only) reports no blocking issue
-- [ ] Founder views both live pages locally and approves
+- [x] `/builders` and `/change-managers` show the fable style with the wordless drawing of five people (screenshots at 320px, 375px and desktop)
+- [x] The builders closing line reads "One sentence. Five meanings. All five shipped."
+- [x] On `/builders`, `?referrer=x` lands on `/sign-pledge` and `?login=1` lands on `/login` (test)
+- [x] Every event in the Invariants table fires with its properties from its action, and the `/tree` prototypes fire none (test)
+- [x] `/tree/landing-fable*` stay dev-only; the live routes stay reachable in a production build; SEO props match the Invariants (test)
+- [x] The decision reversal is recorded in `docs/decisions.md`
+- [x] Independent visual QA (screenshots and checklist only) reports no blocking issue. It reported 4 major: the /builders eyebrow hidden under the nav (real, fixed in the layout); missing sections and avatars on /change-managers mobile (capture artifacts: all 8 sections and every image render after scrolling).
+- [x] Founder views both live pages locally and approves. **Verdict 2026-11-13:** "That looks good"; closing line stays screen-reader only, picture size unchanged.
 
 ## Related
 
