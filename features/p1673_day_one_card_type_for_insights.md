@@ -12,6 +12,8 @@ drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+spec_review_hash: 114fdf3b16035e41512c86ba6e5e397caa11e0438286337c0c9296c07b141cde
+spec_review_vendors: [gemini, openrouter]
 ---
 
 # P1673: Day page shows weekly insights as normal finding cards (one card type)
@@ -28,7 +30,7 @@ Screenshots: founder's Screenshots folder, 2026-11-13 14:02 (insight cards) and 
 
 ## Appetite
 
-Blast radius: low. One panel of the local kanban Day page, and only the founder uses it. Reversibility: git revert. Decision density: low. The founder already chose one card type; the button wording is the only open call.
+Blast radius: low. One panel of the local kanban Day page, and only the founder uses it. Reversibility: git revert. Decision density: zero. The founder chose one card type and left the wording to the agent.
 
 ## Invariants
 
@@ -47,7 +49,7 @@ Show each undecided insight as a normal finding card in the same list, with the 
 - **Where and when:** insight cards sit at the start of the findings list (where the block is today), carry a "Weekly insight" tag, and do not count toward the day's "today N of M" totals. They show only on the latest Day run, matching today's behaviour; older runs show none.
 - **Failures keep today's behaviour:** a failed load still shows one quiet "Insights could not load" line (never the same as having nothing to decide); a failed save keeps the card, shows the error, and allows a retry; a second press while a save is in flight does nothing.
 
-[FOUNDER DECISION: wording of the two insight choices. Draft: "Real problem" and "Not a problem".]
+Choice wording: "Real problem" and "Not a problem" (founder 2026-11-13: "Just unify it, make it use what we already have", wording left to the agent).
 
 This partly reverses P1669 Solution 5 ("The cards keep Confirm and Dismiss"). The ledger semantics stay; only the controls change, at the founder's request (above).
 
