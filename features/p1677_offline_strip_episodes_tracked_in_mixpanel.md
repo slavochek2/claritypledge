@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-11-13'
 tags: [offline, analytics, mixpanel, observability]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
