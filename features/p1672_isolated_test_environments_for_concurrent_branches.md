@@ -362,8 +362,8 @@ Each check is by effect, and its control must fail first.
 
 Stage 1
 - [x] **Lane 1 serves only on Tailscale.** Lane 1 is `ready`. Over Tailscale with TLS, its gateway serves auth, REST, realtime, storage and functions, and the raw-SQL helper reaches its meta. A machine off Tailscale gets no answer (shown both ways).
-- [ ] **Every consumer of a claimed worktree hits lane 1.** A worktree claiming lane 1 has a plain `npm run dev`, `npx playwright test`, `migrate.sh`, the function deploy, the raw-SQL helper and the DB-latency check all hit lane 1. Shown by lane-1 access and SQL logs, not printed targets. A repo grep finds no consumer still reading the fixed main-lane origin or container names outside the resolver.
-- [ ] **Unclaimed worktrees are unchanged.** An unclaimed worktree runs an unchanged E2E on the main lane.
+- [x] **Every consumer of a claimed worktree hits lane 1.** A worktree claiming lane 1 has a plain `npm run dev`, `npx playwright test`, `migrate.sh`, the function deploy, the raw-SQL helper and the DB-latency check all hit lane 1. Shown by lane-1 access and SQL logs, not printed targets. A repo grep finds no consumer still reading the fixed main-lane origin or container names outside the resolver.
+- [x] **Unclaimed worktrees are unchanged.** An unclaimed worktree runs an unchanged E2E on the main lane.
 - [x] **Bad claims fail closed.** A worktree with a released, revoked or unknown claim refuses to run, deploy and migrate, and the main-lane access log shows nothing from it. A second worktree on a branch holding a lane refuses to deploy or migrate to the main lane. Control: the claimed worktree succeeds.
 - [x] **Old checkouts cannot claim.** A worktree whose branch lacks the resolver commit is refused a claim. After a rebase it claims, and its already-running dev server is restarted onto lane 1.
 - [x] **Lane 1 never calls the main lane.** During a full cycle of lane 1's cron jobs and a trigger-firing fixture, the main lane's gateway log shows zero requests from lane 1. Control: one deliberate request from lane 1 to the main lane appears in that log.
