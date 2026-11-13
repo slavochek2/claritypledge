@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: comment
 rank: 339
 workstream: infrastructure
@@ -7,7 +7,8 @@ created_date: '2026-11-13'
 tags: [selfhosted, test-env, latency, investigation]
 disclosure: public
 delivery_stage: create-spec
-pipeline_ran: [create-spec]
+pipeline_ran: [create-spec, inline]
+flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
