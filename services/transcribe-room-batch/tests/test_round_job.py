@@ -452,3 +452,30 @@ def test_audio_ending_just_before_the_window_is_not_heard_even_inside_the_alignm
         "start": "2026-11-01T10:00:00+00:00", "end": "2026-11-01T10:00:20+00:00", "member_ids": [A], "compare_ids": [A]}])
     run(room, transcribe=lambda wav: "")
     assert not log["finished"][0].get("error")
+
+
+def test_two_pieces_straddling_a_short_window_are_not_heard_inside_it(monkeypatch):
+    # review (Codex round 12): placement fills the gap between them with zeros; that padding is not audio in the window
+    before = (END - 21_000, pcm(1, 6000))        # ends 1 s before the window starts
+    after = (END + 3_000, pcm(2, 6000))          # starts 1 s after the window ends
+    log = wire(monkeypatch, pieces={A: [before, after]})
+    room = job(kind="room", room_id=ROOM, seats=[], segments=[{
+        "start": "2026-11-01T10:00:00+00:00", "end": "2026-11-01T10:00:20+00:00", "member_ids": [A], "compare_ids": [A]}])
+    run(room, transcribe=lambda wav: "")
+    assert not log["finished"][0].get("error")
+
+
+def test_presence_reads_each_mic_on_the_aligned_clock(monkeypatch):
+    # review (Gemini round 13): the cut reads tracks shifted by refine_offsets, so presence must too
+    import round_clean
+    ws, we = END - 20_000, END
+    a = [(END, pcm(20, 6000))]
+    b = [(ws - 2_000, pcm(10, 6000))]            # raw: ends 2 s before the window
+    monkeypatch.setattr(round_clean, "refine_offsets", lambda tracks, max_shift: {
+        "A": round_clean.Offset(0, 1.0, True), "B": round_clean.Offset(3_000, 0.9, True)})
+    shifted = round_clean.clean_round({"A": a, "B": b}, ws, we, lambda wav: "")
+    assert shifted.present_member_ids == ["A", "B"]      # B moved 3 s later: 1 s of it inside
+    monkeypatch.setattr(round_clean, "refine_offsets", lambda tracks, max_shift: {
+        "A": round_clean.Offset(0, 1.0, True), "B": round_clean.Offset(0, 0.9, True)})
+    plain = round_clean.clean_round({"A": a, "B": b}, ws, we, lambda wav: "")
+    assert plain.present_member_ids == ["A"]

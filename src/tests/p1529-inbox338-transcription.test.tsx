@@ -23,6 +23,7 @@ const pumpUploadQueue = (h: UploadQueueHandles, io: object) => pumpTyped(h, io a
 import type { StoredCapture } from '@/app/contexts/room-capture-storage';
 import { useCaptureStatus } from '@/app/components/session/capture-status';
 import { getMyNextVersionOffer, type NextVersionOffer } from '@/app/data/event-mastermind-service';
+import { reserveRoomChunkNumber } from '@/app/data/transcribe-service';
 import { taskFace, nextVersionWaiting, offerCanChange } from '@/app/prototypes/events/rounds/mastermind-round-helpers';
 
 const T0 = 1_000_000;
@@ -167,7 +168,7 @@ describe('INBOX-338 (1): the upload queue recovers by itself and says when audio
 
   it('chunks shed from a full queue leave a hole in the archive numbers, so the whole-recording pass knows audio is missing there', async () => {
     const io = clockedIo(vi.fn().mockResolvedValue(undefined));
-    let n = 0; io.reserve = vi.fn(async () => n++);
+    let n = 0; io.reserve = vi.fn(async (_room: string, skip = 0) => { n += skip; return n++; });   // the server's counter
     const h: UploadQueueHandles = { uploadQueue: [], uploading: true };   // the head is in flight: nothing pumps while we queue
     for (let k = 0; k < 6; k++) queueUpload(h, job(), 4, vi.fn(), io.now);   // 6 chunks into a queue of 4: 2 shed
     expect(h.uploadQueue).toHaveLength(4);
@@ -175,6 +176,8 @@ describe('INBOX-338 (1): the upload queue recovers by itself and says when audio
     await pumpUploadQueue(h, io);
     const numbers = io.upload.mock.calls.map((c) => c[4] as number);
     expect(numbers, 'two numbers skipped where the two shed chunks were').toEqual([0, 3, 4, 5]);
+    expect(io.reserve, 'one reservation per uploaded chunk, the holes included in it (metered-services rule 1)').toHaveBeenCalledTimes(4);
+    expect(io.reserve.mock.calls.map((c) => c[1] ?? 0)).toEqual([0, 2, 0, 0]);
   });
 
   it('a hole is kept only in its own room: a Part 1 chunk shed next to Part 2\'s chunks reserves nothing in Part 2', () => {
@@ -188,7 +191,7 @@ describe('INBOX-338 (1): the upload queue recovers by itself and says when audio
   it('a chunk dropped before it had its number passes its slot and its carried holes on, so the archive still shows the gap', async () => {
     const io = clockedIo(vi.fn().mockResolvedValue(undefined));
     let n = 0; let refuse = true;
-    io.reserve = vi.fn(async () => { if (refuse) throw new Error('member does not belong to this room'); return n++; });
+    io.reserve = vi.fn(async (_room: string, skip = 0) => { if (refuse) throw new Error('member does not belong to this room'); n += skip; return n++; });
     const h: UploadQueueHandles = { uploadQueue: [{ ...job(), holesBefore: 1 }, job()], uploading: false };
     io.upload = vi.fn(async () => undefined);
     const realSleep = io.sleep;
@@ -198,6 +201,31 @@ describe('INBOX-338 (1): the upload queue recovers by itself and says when audio
     await pumpUploadQueue(h, io);
     expect(io.onDropped).toHaveBeenCalledTimes(1);
     expect(io.upload.mock.calls.map((c) => c[4] as number), 'two numbers skipped: the carried hole and the dropped chunk').toEqual([2]);
+  });
+
+  it('a chunk dropped with nothing behind it keeps its slot for its room\'s next chunk (after a pause)', async () => {
+    const io = clockedIo(vi.fn().mockResolvedValue(undefined));
+    let n = 0; let refuse = true;
+    io.reserve = vi.fn(async (_room: string, skip = 0) => { if (refuse) throw new Error('member does not belong to this room'); n += skip; return n++; });
+    const h: UploadQueueHandles = { uploadQueue: [], uploading: false };
+    enqueue(h, io);
+    await pumpUploadQueue(h, io);                         // the lone chunk's reservation is refused for good: dropped
+    expect(io.onDropped).toHaveBeenCalledTimes(1);
+    refuse = false;
+    await io.sleep(5 * 60_000);
+    enqueue(h, io);                                        // resume: the room's next chunk
+    await pumpUploadQueue(h, io);
+    expect(io.upload.mock.calls.map((c) => c[4] as number), 'number 0 left unused for the dropped chunk').toEqual([1]);
+  });
+
+  it('a chunk shed with no chunk of its room behind it keeps its hole for that room\'s next chunk', () => {
+    const h: UploadQueueHandles = { uploadQueue: [job(), job()], uploading: true };   // head + a room-1 chunk
+    queueUpload(h, room2(), 2, vi.fn(), () => T0);                                     // room 2 arrives: the room-1 chunk is shed
+    expect(h.pendingHoles).toEqual({ 'room-1': 1 });
+    h.uploadQueue.length = 0;
+    queueUpload(h, job(), 10, vi.fn(), () => T0);                                      // back in room 1
+    expect(h.uploadQueue[0]!.holesBefore).toBe(1);
+    expect(h.pendingHoles).toEqual({});
   });
 
   it('a chunk shed when it was the last one waiting hands its hole to the next chunk queued', () => {
@@ -458,6 +486,19 @@ describe('INBOX-338 (1): the upload queue recovers by itself and says when audio
     ['signature mismatch', new Error('GCS upload failed: 403 Forbidden — SignatureDoesNotMatch'), true],
   ])('%s: permanent=%s', (_label, err, expected) => {
     expect(isPermanentUploadError(err)).toBe(expected);
+  });
+});
+
+describe('INBOX-338 (1): one reservation call with the holes in it', () => {
+  it('skip > 0 calls reserve_room_chunk_number_after_gap once; skip 0 keeps the plain reservation', async () => {
+    rpc.mockReset();
+    rpc.mockResolvedValueOnce({ data: 7, error: null });
+    expect(await reserveRoomChunkNumber('r1', 2)).toBe(7);
+    expect(rpc).toHaveBeenCalledWith('reserve_room_chunk_number_after_gap', { p_room_id: 'r1', p_skip: 2 });
+    rpc.mockResolvedValueOnce({ data: 8, error: null });
+    expect(await reserveRoomChunkNumber('r1')).toBe(8);
+    expect(rpc).toHaveBeenLastCalledWith('reserve_room_chunk_number', { p_room_id: 'r1' });
+    expect(rpc).toHaveBeenCalledTimes(2);
   });
 });
 

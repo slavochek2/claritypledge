@@ -569,6 +569,7 @@ accident. A client that can set it chooses the merge order.
 | `end_transcribe_room_capture(uuid)` | `authenticated` | P1307: ends the CALLER's own capture (first-wins). Never the room, never another member. |
 | `touch_transcribe_room_capture(uuid)` | `authenticated` | P1307: the paused heartbeat — stamps the caller's `last_seen_at`. No audio. |
 | `reserve_room_chunk_number(uuid)` | `authenticated` | P1307: reserves and returns the caller's next archive chunk number. |
+| `reserve_room_chunk_number_after_gap(uuid, integer)` | `authenticated` | P1529 INBOX-338: leaves `p_skip` numbers unused (chunks lost before upload, so the archive keeps the hole) and reserves the next one, in one call. |
 | `transcribe_room_sweep_tick()` | `service_role` ONLY (pg_cron) | P1307: ends stale/capped members, ends fully-ended rooms, creates their jobs. Idempotent. |
 | `claim_room_transcription_job(uuid)` | `service_role` ONLY | P1307: atomic `pending → processing` for the Cloud Run worker. |
 | `record_transcribe_slice(uuid, uuid, text)` (P1592) | `service_role` ONLY | Same signature and return. Also decides and stores the line's destination and posts it into the event channel / round thread inside a subtransaction with a 2 s `lock_timeout`; a posting failure never loses the row. |

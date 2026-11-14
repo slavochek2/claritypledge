@@ -67,10 +67,13 @@ export interface UploadQueueHandles {
   lastDropAt?: number | null;
   /** What onStuck last reported. */
   stuck?: boolean;
+  /** Holes owed to a room whose next chunk is not queued yet (a lost chunk with nothing behind it); the next chunk takes them. */
+  pendingHoles?: Record<string, number>;
 }
 
 export interface UploadIo {
-  reserve: (roomId: string) => Promise<number>;
+  /** `skip`: numbers to leave unused first (chunks lost before upload), reserved with this one in a single call. */
+  reserve: (roomId: string, skip?: number) => Promise<number>;
   upload: (roomCode: string, displayName: string, memberId: string, blob: Blob, chunkNumber: number, isLast: boolean) => Promise<void>;
   /** The CURRENT capture's room was refused (410/403). A refusal of an earlier room never reaches it. */
   onHardStop: () => void;
@@ -137,10 +140,13 @@ export function queueUpload(h: UploadQueueHandles, job: UploadJob, limit: number
     carry = gone && gone.record.roomId === job.record.roomId ? 1 + (gone.holesBefore ?? 0) : 0;
     const after = h.uploadQueue[shed];
     if (after && gone && after.record.roomId === gone.record.roomId) { after.holesBefore = (after.holesBefore ?? 0) + 1 + (gone.holesBefore ?? 0); carry = 0; }
+    else if (gone && !carry) passHoles(h, { ...gone, chunkNumber: undefined }, shed);   // no same-room chunk next: kept for its room
   }
   const t = now();
   forgetOldLosses(h, t);
-  h.uploadQueue.push({ ...job, generation: genOf(h), queuedAt: t, ...(carry ? { holesBefore: carry } : {}) });
+  const owed = carry + (h.pendingHoles?.[job.record.roomId] ?? 0);
+  if (h.pendingHoles) h.pendingHoles = Object.fromEntries(Object.entries(h.pendingHoles).filter(([room]) => room !== job.record.roomId));
+  h.uploadQueue.push({ ...job, generation: genOf(h), queuedAt: t, ...(owed ? { holesBefore: owed } : {}) });
 }
 
 /** What the pump does after a failed try of the head chunk: go on with the next head, stop the queue, or wait and try again. */
@@ -177,10 +183,13 @@ export function endUploadRun(h: UploadQueueHandles): void {
 }
 
 /** A chunk dropped before it had its number: its own slot and any holes it carried go to the next waiting chunk of its room (review). */
-function passHoles(h: UploadQueueHandles, job: UploadJob): void {
+function passHoles(h: UploadQueueHandles, job: UploadJob, from = 0): void {
   const owed = (job.holesBefore ?? 0) + (job.chunkNumber === undefined ? 1 : 0);
-  const next = h.uploadQueue.find((j) => j.record.roomId === job.record.roomId);
-  if (owed > 0 && next) next.holesBefore = (next.holesBefore ?? 0) + owed;
+  if (owed === 0) return;
+  // Only a chunk AFTER the lost one may take its hole (`from`: where it stood), never the in-flight head before it.
+  const next = h.uploadQueue.find((j, i) => i >= from && j.record.roomId === job.record.roomId);
+  if (next) next.holesBefore = (next.holesBefore ?? 0) + owed;
+  else (h.pendingHoles ??= {})[job.record.roomId] = (h.pendingHoles[job.record.roomId] ?? 0) + owed;   // the room's next chunk takes them
 }
 
 /** A chunk left the queue: uploaded (ok) or dropped. Only the current capture's chunks move the drop count. */
@@ -257,8 +266,10 @@ export async function pumpUploadQueue(h: UploadQueueHandles, io: UploadIo): Prom
       try {
         // Decision 6: the number is issued by the server, so a reload, a pause/resume or a
         // second visit can never overwrite an earlier chunk.
-        while ((job.holesBefore ?? 0) > 0) { await io.reserve(record.roomId); job.holesBefore = (job.holesBefore ?? 1) - 1; }
-        if (job.chunkNumber === undefined) job.chunkNumber = await io.reserve(record.roomId);
+        if (job.chunkNumber === undefined) {
+          job.chunkNumber = await io.reserve(record.roomId, job.holesBefore ?? 0);   // the holes and this number, one call
+          job.holesBefore = 0;
+        }
         await io.upload(record.roomCode, record.displayName, record.memberId, job.blob, job.chunkNumber, job.isLast);
         h.uploadQueue.shift();
         if (job.isLast) io.flushed?.(record.roomId);

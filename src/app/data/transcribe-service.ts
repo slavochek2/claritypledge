@@ -639,9 +639,12 @@ export async function endMyCapture(roomId: string): Promise<void> {
  * P1307 Decision 6: the next archive chunk number for this member, issued by the server.
  * A client-local counter restarted at 0 on every mount and overwrote chunk_000 on a return.
  */
-export async function reserveRoomChunkNumber(roomId: string): Promise<number> {
+/** `skip`: numbers of chunks lost before upload, left unused before this one in the same call (INBOX-338; one RPC, rule 1). */
+export async function reserveRoomChunkNumber(roomId: string, skip = 0): Promise<number> {
   const { data, error } = await withDeadline(
-    Promise.resolve(supabase.rpc('reserve_room_chunk_number', { p_room_id: roomId })),
+    Promise.resolve(skip > 0
+      ? supabase.rpc('reserve_room_chunk_number_after_gap', { p_room_id: roomId, p_skip: skip })
+      : supabase.rpc('reserve_room_chunk_number', { p_room_id: roomId })),
     ROOM_ENTRY_TIMEOUT_MS,
     'reserving a chunk number',
   );

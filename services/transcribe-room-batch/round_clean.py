@@ -266,7 +266,13 @@ def clean_round(members: dict[str, list[tuple[int, bytes]]], window_start_ms: in
     if len(tracks) > 1:
         result.offsets = refine_offsets(tracks, MAX_SHIFT_S)
         tracks = apply_offsets(tracks, result.offsets)
-    result.present_member_ids = sorted(m for m, t in tracks.items() if t.start_ms < window_end_ms and t.end_ms > window_start_ms)
+    # Recorded pieces, not the placed track: placement fills gaps with zeros, so two pieces straddling a short window would
+    # otherwise count as audio inside it (review).
+    # Each mic's pieces on the aligned clock, as the cut below reads them (review).
+    shift = {m: (result.offsets[m].offset_ms if m in result.offsets else 0) for m in tracks}
+    result.present_member_ids = sorted(m for m in tracks if any(
+        end + shift[m] > window_start_ms and end + shift[m] - (len(pcm) // 2) * 1000 // SR < window_end_ms
+        for end, pcm in members[m]))
     cut = {mid: _cut(t, window_start_ms, window_end_ms) for mid, t in tracks.items()}
     if len(cut) > 1:
         result.masked_audible_seconds, result.dominant_member_id = suppression_stats(cut)
