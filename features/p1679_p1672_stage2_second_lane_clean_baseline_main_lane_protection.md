@@ -50,6 +50,8 @@ TEST and needs the founder's OK at the time it runs.
   directions, and the branch-only objects behind removed versions are dropped.
   - It runs only once no active branch depends on the main lane for unlanded schema.
   - It waits for the founder's OK at the time it runs (db-access.md).
+  - Known item: P1672's live landing check left schema `_p1672_land_probe` and ledger version
+    `20261113235950` (no file on main) on the main lane. Both go in this cleanup.
 - **Server-side refusal on the main lane.** The VM refuses a function deploy or migration aimed at the
   main lane unless it comes from main's landing or an explicit main deploy. It holds whichever script
   version a checkout runs.
