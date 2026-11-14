@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 333
 workstream: infrastructure
 created_date: '2026-11-13'
 tags: [test-server, self-hosted, edge-functions, concurrency]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: b8be7cc2f5b08b31c05948a9571f624ed2167be708e78bb7481b12e33126a022
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-14
 ---
 
 # P1672: Concurrent branches get isolated TEST lanes, not one shared server
@@ -389,12 +389,12 @@ main lane alone.
 
 ## Related
 
-- [P1312](done/2026-06-10/p1312_branch_tests_run_against_old_edge_functions_on_test.md): the detect-only branch-function check. This spec acts on its deferred alternative.
+- [P1312](p1312_branch_tests_run_against_old_edge_functions_on_test.md): the detect-only branch-function check. This spec acts on its deferred alternative.
 - P1612: ancestry guard, deploy lock and landing redeploy.
-- [P1557](done/2026-06-10/p1557_self_hosted_supabase_test_database.md): self-hosted TEST, its restore procedure and mail sink.
-- [P1607](done/2026-06-10/p1607_parallel_e2e_on_self_hosted_test.md): E2E admission slots and the CPU measurement.
+- [P1557](p1557_self_hosted_supabase_test_database.md): self-hosted TEST, its restore procedure and mail sink.
+- [P1607](p1607_parallel_e2e_on_self_hosted_test.md): E2E admission slots and the CPU measurement.
 - P1584: TEST server upkeep and health reporting. Lanes join its checks.
 - P1591: the single TEST resolver, changed here to one answer per worktree.
-- P1132 and [P1085](p1085_trusted_e2e_core_in_ci.md): from-empty migration replay, not attempted here.
-- [P1550](p1550_p1532_full_e2e_run_user_count_proof.md): full E2E at one worker while TEST is shared.
+- P1132 and [P1085](../../p1085_trusted_e2e_core_in_ci.md): from-empty migration replay, not attempted here.
+- [P1550](../../p1550_p1532_full_e2e_run_user_count_proof.md): full E2E at one worker while TEST is shared.
 - P1631 and P1529: the colliding branches in the evidence.
