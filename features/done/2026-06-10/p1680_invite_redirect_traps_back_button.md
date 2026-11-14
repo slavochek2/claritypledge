@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 337
 severity: medium
@@ -13,7 +13,6 @@ disclosure: public
 date_resolved: 2026-11-13
 root_cause: "Invite redirect used a push navigation, so the invite URL stayed one entry back and Back re-mounted it, re-firing the redirect (and landing_page_viewed)"
 resolution: "useInviteRedirects navigates with { replace: true }; /builders uses the shared hook instead of its inline copy"
-delivery_stage: fix
 pipeline_ran: [create-bug, reproduce, fix]
 reproduce_artifact:
   test_file: src/tests/p1680-invite-redirect-history.test.tsx
@@ -22,6 +21,7 @@ reproduce_artifact:
   surfaces_in_scope: [hiring, coach, founder, builders]
   surfaces_deferred: [P1681]
   reproduced_at: 2026-11-13
+completed_at: 2026-11-14
 ---
 
 # P1680: Invite links trap the browser Back button on /hiring, /coach, /founder and /builders
