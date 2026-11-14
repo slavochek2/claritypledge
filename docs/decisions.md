@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-13 [technical]: A redirect that bounces a visitor off a page replaces the history entry (P1680)
+
+**Context:** Invite links (`?referrer=`, `?login=`) on /hiring, /coach, /founder and /builders redirected to /sign-pledge or /login with a push. Back returned to the invite URL, the redirect fired again, and the visitor could not leave by Back. Each bounce also tracked another `landing_page_viewed`.
+
+**Decision:** Any redirect that exists only to forward a visitor (the page is never meant to be seen with that URL) uses `navigate(..., { replace: true })` or `<Navigate replace />`. `useInviteRedirects` is the single home of the invite redirect; /builders now uses it instead of an inline copy.
+
+**Alternatives rejected:** Keeping push and guarding the bounce on POP adds a state machine to work around an entry that should not exist.
+
+**Consequences:** Cold arrivals land at `history.state.idx === 0`, so Back leaves the site, as decisions.md 2026-09-11 expects (position, not `location.key`). The DEV-only /tree/old-landing still carries the old copy (P1681). Pinned by `src/tests/p1680-invite-redirect-history.test.tsx`.
+
 ## 2026-11-13 [technical]: "Saved copy · updating…" is measured before anything changes: one Mixpanel event per strip episode, decided by pre-registered criteria (P1677)
 
 **Context:** The founder saw "Saved copy · updating…" on prod while the person had internet and asked "How do we know it works?" The strip is P1337's intended state (a read past 4 s with a saved copy), and its tests pass. A 45-round measurement put prod's slow moments in the same rounds as a slow Google control, so the strip told the truth there. Nothing on prod recorded the strip, so how often it shows, how long it stays and whether it clears were unknown.
