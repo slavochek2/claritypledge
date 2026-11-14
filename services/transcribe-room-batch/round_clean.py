@@ -225,6 +225,8 @@ class CleanResult:
     offsets: dict[str, Offset] = field(default_factory=dict)
     masked_audible_seconds: dict[str, int] = field(default_factory=dict)
     dominant_member_id: str | None = None
+    transcribed_chunks: int = 0   # chunks sent to transcription (INBOX-338: all of them empty is its own outcome)
+    present_member_ids: list[str] = field(default_factory=list)   # mics whose audio overlaps the window itself (not its margin)
 
 
 def _cut(track: Track, a_ms: int, b_ms: int) -> np.ndarray:
@@ -264,6 +266,7 @@ def clean_round(members: dict[str, list[tuple[int, bytes]]], window_start_ms: in
     if len(tracks) > 1:
         result.offsets = refine_offsets(tracks, MAX_SHIFT_S)
         tracks = apply_offsets(tracks, result.offsets)
+    result.present_member_ids = sorted(m for m, t in tracks.items() if t.start_ms < window_end_ms and t.end_ms > window_start_ms)
     cut = {mid: _cut(t, window_start_ms, window_end_ms) for mid, t in tracks.items()}
     if len(cut) > 1:
         result.masked_audible_seconds, result.dominant_member_id = suppression_stats(cut)
@@ -278,6 +281,7 @@ def clean_round(members: dict[str, list[tuple[int, bytes]]], window_start_ms: in
         pending = {mid: [(a, len(x[a:a + step]), pool.submit(transcribe, _wav(x[a:a + step])))
                          for a in range(0, len(x), step) if np.any(x[a:a + step])]
                    for mid, x in cut.items()}
+        result.transcribed_chunks = sum(len(jobs) for jobs in pending.values())
         for mid, jobs in pending.items():
             texts = []
             for a, n, fut in jobs:

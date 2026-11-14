@@ -10,7 +10,7 @@ import { uploadRoomAudioChunk } from '@/app/data/api';
 import type { UploadIo } from './room-capture-uploads';
 
 /** The live capture's upload wiring: server-issued chunk numbers, the upload itself, and the report that the last chunk is done. */
-export function makeUploadIo(handlers: { onHardStop: () => void; onDropped: () => void; currentRoomId: () => string | null }): UploadIo {
+export function makeUploadIo(handlers: Pick<UploadIo, 'onHardStop' | 'onDropped' | 'currentRoomId' | 'onStuck'>): UploadIo {
   return {
     reserve: reserveRoomChunkNumber,
     upload: uploadRoomAudioChunk,

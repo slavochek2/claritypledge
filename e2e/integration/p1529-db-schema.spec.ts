@@ -144,6 +144,13 @@ test('round 2 ends round 1: the offer follows the clean job (transcript_pending,
   expect(pending.data).toMatchObject({ status: 'refused', code: 'round_still_on' });
   await completeJobEmpty(round1, 1);
   expect(await offer(X)).toMatchObject({ state: 'no_recording' });
+  // INBOX-338 (20261114090100): the worker transcribed the table's audio and every chunk came back empty: the card says so, by round
+  await supabaseAdmin.from('transcribe_round_clean_jobs').update({ error: 'transcribed_empty' }).eq('id', job.data!.id);
+  expect(await offer(X)).toMatchObject({ state: 'not_understood', round_id: round1 });
+  // control: another finished outcome with nothing posted is still "no recording"
+  await supabaseAdmin.from('transcribe_round_clean_jobs').update({ error: 'partial_table' }).eq('id', job.data!.id);
+  expect(await offer(X)).toMatchObject({ state: 'no_recording' });
+  await supabaseAdmin.from('transcribe_round_clean_jobs').update({ error: null }).eq('id', job.data!.id);
   const none = await supabaseAdmin.from('event_next_version_taps').select('*', { count: 'exact', head: true }).eq('round_id', round1);
   expect(none.count).toBe(0);
   // lines arrive (the cleaner's post), the job completes
@@ -151,6 +158,15 @@ test('round 2 ends round 1: the offer follows the clean job (transcript_pending,
   const n = await postRoundLines(round1, 1, { owner: X.tmember.get(E.id)!, partner: Y.tmember.get(E.id)! }, fixtureLines(40));
   expect(n).toBeGreaterThan(0);
   expect(await offer(X)).toMatchObject({ state: 'offer', round_id: round1 });
+  // 20261114090000: a Sales Mastermind round thread is "Discussion round N · <owner>'s canvas, with <partner>"
+  const th = await supabaseAdmin.from('chat_round_threads').select('root_message_id').eq('round_id', round1).eq('table_no', 1).single();
+  const rootTitle = await supabaseAdmin.from('chat_messages').select('body').eq('id', th.data!.root_message_id).single();
+  expect(rootTitle.data!.body).toBe("Discussion round 1 · Xan Qadb's canvas, with Yul Qadb");
+  // 20261114090100's guard: posted lines always win. A job marked 'transcribed_empty' after a retry posted lines still offers.
+  const marked = await supabaseAdmin.from('transcribe_round_clean_jobs').update({ error: 'transcribed_empty' }).eq('id', job.data!.id).select('error, status').single();
+  expect(marked.data, 'the setup write landed, so the read below tests the guard').toEqual({ error: 'transcribed_empty', status: 'completed' });
+  expect(await offer(X)).toMatchObject({ state: 'offer', round_id: round1 });
+  await supabaseAdmin.from('transcribe_round_clean_jobs').update({ error: null }).eq('id', job.data!.id);
   // The break: round 2 ends, and the tap now reads the words.
   expect((await host.client.rpc('host_end_round', { p_event: E.id })).data).toBe(true);
   const started = await X.client.rpc('make_my_next_version', { p_round: round1, p_auto_publish: true });
@@ -435,7 +451,8 @@ test('end round: host only, the newest round only, idempotent, Sales Mastermind 
 });
 
 test('canvas setup: host only, refused once a round exists or the canvas is made before, range checked, readable with the rounds only', async () => {
-  const CS = await makeEvent(ledger, host.user, `P1529 QA db canvas setup ${randomUUID().slice(0, 4)}`, { startsInMs: 0 });
+  // the canvas is made AT this event (makeEvent's default became 'before' in a27386d31; the 'before' refusal is BF, below)
+  const CS = await makeEvent(ledger, host.user, `P1529 QA db canvas setup ${randomUUID().slice(0, 4)}`, { startsInMs: 0, canvasTiming: 'at_event' });
   const csRoom = await makeTranscribeRoom(ledger, CS);
   await register(X, CS.slug); await register(Y, CS.slug);
   for (const p of [X, Y]) await joinRoom(ledger, p, CS, { transcribeRoom: csRoom });

@@ -80,6 +80,17 @@ describe('F5: the recording bar says only what someone can act on', () => {
     expect(screen.getByText('Transcribing')).toBeInTheDocument();
     expect(screen.queryByText(/audio gap|could not be saved/i)).toBeNull();
   });
+  it('INBOX-338: uploads failing for a while ARE shown: the short bar says the audio is not reaching us', () => {
+    h.capture = capturing({ audioStuck: true });
+    render(<RoomCaptureBar short />);
+    expect(screen.getByText('Audio not reaching us')).toBeInTheDocument();
+    expect(screen.queryByText('Transcribing')).toBeNull();
+  });
+  it('INBOX-338: the full bar says it in full', () => {
+    h.capture = capturing({ audioStuck: true });
+    render(<RoomCaptureBar />);
+    expect(screen.getByText("Your audio isn't reaching us — still trying")).toBeInTheDocument();
+  });
   it('a lost mic and a pause are still said', () => {
     h.capture = capturing({ micLost: true });
     const { unmount } = render(<RoomCaptureBar short />);

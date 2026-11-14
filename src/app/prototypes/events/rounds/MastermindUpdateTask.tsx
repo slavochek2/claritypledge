@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ARTIFACTS_CANVASES_DRAFTS, plainCanvasState } from '@/lib/canvas-hrefs';
 import type { OwnerUpdate } from './use-mastermind-round';
 import {
-  publishedLine, taskTitle, TASK_FAILED, TASK_MAKE_BODY, TASK_WORKING, wordsMissing, wordsPreparing, type TaskFace,
+  publishedLine, taskTitle, TASK_FAILED, TASK_MAKE_BODY, TASK_WORKING, wordsMissing, wordsPreparing, WORDS_NOT_UNDERSTOOD, type TaskFace,
 } from './mastermind-round-helpers';
 
 const PRIMARY = 'min-h-12 px-8 text-base';
@@ -120,6 +120,7 @@ export function MastermindUpdateTask({
       )}
 
       {face === 'no_recording' && <p className="text-sm" data-testid="mastermind-task-no-recording">No recording from this round</p>}
+      {face === 'not_understood' && <p className="text-sm" data-testid="mastermind-task-not-understood">{WORDS_NOT_UNDERSTOOD}</p>}
 
       {face === 'no_canvas' && (
         <p className="text-sm" data-testid="mastermind-task-no-canvas">

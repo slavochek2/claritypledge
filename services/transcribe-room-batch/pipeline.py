@@ -325,6 +325,8 @@ def process_round_job(job: dict, transcribe=None, now_ms: int | None = None) -> 
             partial = covered < seated
 
         items: list[dict] = []
+        transcribed = 0
+        heard_mics: set[str] = set()   # mics whose audio overlaps a cleaned window itself
         for seg, members in zip(segments, pieces_by_seg):
             if not members:
                 continue
@@ -336,6 +338,8 @@ def process_round_job(job: dict, transcribe=None, now_ms: int | None = None) -> 
             logger.info("round job %s: members=%d missing=%d masked_audible_s=%s dominant=%s", job_id,
                         len(members), len(result.missing_member_ids),
                         sorted(result.masked_audible_seconds.values()), result.dominant_member_id is not None)
+            transcribed += result.transcribed_chunks
+            heard_mics.update(result.present_member_ids)
             for mid, chunks in result.texts.items():
                 items.extend({"member_id": mid, "chunk_ms": c.start_ms, "text": c.text} for c in chunks)
         items.sort(key=lambda i: (i["chunk_ms"], i["member_id"]))
@@ -358,6 +362,15 @@ def process_round_job(job: dict, transcribe=None, now_ms: int | None = None) -> 
         extra = {"incomplete_ids": missing_tail} if missing_tail else {}   # only when there is one: older fakes take no such argument
         # with no text at all the job still records who is incomplete (history and the report read it)
         posted = storage.post_clean_round(job_id, attempts, items, partial=partial, **extra) if (items or missing_tail) else 0
+        heard = len(heard_mics)
+        if not items and (transcribed > 0 or heard > 0):
+            # INBOX-338: audio was there and every part of it came back empty: quiet audio, or all-silent audio that is never
+            # sent (a phone that recorded silence in the background). Its own outcome, so the owner's card can say the words
+            # could not be made out, never "no recording" and never a wait.
+            _finish_round(job_id, attempts, error="transcribed_empty", completed=True)
+            logger.info("round job %s: transcribed %d chunks, all empty (audio from %d mic(s), place=%s, partial=%s)", job_id,
+                        transcribed, heard, job.get("place") or job.get("kind"), partial)
+            return
         if partial:
             _finish_round(job_id, attempts, error="partial_table", completed=True)
         else:

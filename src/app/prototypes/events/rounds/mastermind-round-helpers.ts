@@ -73,7 +73,7 @@ export function waitingWords(args: { runningLabel: string | null; showcase: bool
 /** What the owner's round card shows. `make` has the two taps; the rest are states of one round's offer. */
 export type TaskFace =
   | 'make' | 'pending' | 'missing' | 'creating' | 'ready' | 'failed' | 'published'
-  | 'no_recording' | 'no_canvas' | 'draft_open';
+  | 'no_recording' | 'not_understood' | 'no_canvas' | 'draft_open';
 
 /**
  * Which face (if any) the round card has, from the server's current offer. Pure. A finished draft is always `ready` (the owner publishes it in the workspace).
@@ -88,6 +88,7 @@ export function taskFace(offer: NextVersionOffer | null): TaskFace | null {
     case 'failed': return 'failed';
     case 'published': return 'published';
     case 'no_recording': return 'no_recording';
+    case 'not_understood': return 'not_understood';
     case 'no_canvas': return 'no_canvas';
     case 'draft_open': return 'draft_open';
     default: return null;
@@ -115,6 +116,8 @@ export const TASK_FAILED = 'Could not make your next version.';
 const roundWith = (label: string, partner: string | null): string => (partner ? `${label} with ${partner}` : label);
 export const wordsPreparing = (label: string, partner: string | null = null): string => `${roundWith(label, partner)}: the transcript is on its way. Usually 1 to 3 minutes.`;
 export const wordsMissing = (label: string): string => `The words from ${label} did not arrive. Your canvas stays as it is.`;
+/** INBOX-338: the round's audio was transcribed and every part came back empty (quiet audio). [FOUNDER DECISION: copy, founder's words 2026-11-13] */
+export const WORDS_NOT_UNDERSTOOD = "We couldn't make out what was said in this round";
 export const publishedLine = (seq: number | null): string => (seq ? `Version ${seq} is published.` : 'Your next version is published.');
 
 /** `face`: the task face that already says this, so the note is not shown twice once the state is re-read. */

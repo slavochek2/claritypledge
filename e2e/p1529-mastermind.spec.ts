@@ -1082,7 +1082,7 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     for (const t of th) {
       const root = (await supabaseAdmin.from('chat_messages').select('body').eq('id', t.root_message_id).single()).data!;
       const tt = r1Tables.get(t.table_no)!;
-      const want = `Round 1 · ${byProfile(tt.owner!).user.name}'s canvas, with ${byProfile(tt.partner!).user.name}`;
+      const want = `Discussion round 1 · ${byProfile(tt.owner!).user.name}'s canvas, with ${byProfile(tt.partner!).user.name}`;   // 20261114090000 (founder, G2)
       expect(root.body).toBe(want);
       titles.push(root.body as string);
     }

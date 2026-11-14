@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 
 const auth = vi.hoisted(() => ({ value: { user: { id: 'u1' } as { id: string } | null, sessionChecked: true } }));
 const upload = vi.hoisted(() => vi.fn());
@@ -44,9 +44,11 @@ vi.mock('@/app/contexts/room-capture-core', async (importOriginal) => ({
 }));
 
 import { RoomCaptureProvider, useRoomCapture } from '@/app/contexts/room-capture-context';
+import { createRoom } from '@/app/data/transcribe-service';
 
 let ctx: ReturnType<typeof useRoomCapture>;
-function Harness() { ctx = useRoomCapture(); return null; }
+let nav: ReturnType<typeof useNavigate>;
+function Harness() { ctx = useRoomCapture(); nav = useNavigate(); return null; }
 const tree = () => (
   <MemoryRouter initialEntries={['/events/x/meet']}><RoomCaptureProvider><Harness /></RoomCaptureProvider></MemoryRouter>
 );
@@ -99,8 +101,77 @@ describe('audio that could not be saved is said, once', () => {
     await start();
     expect(ctx.audioLost).toBe(false);
     act(() => { tap.onArchiveChunk?.(new Uint8Array([82, 73, 70, 70]), false); });
+    // INBOX-338: a network failure is retried (it can clear by itself) and dropped only after TRANSIENT_GIVE_UP_MS (10 min)
     await settle(20_000);
+    expect(ctx.audioLost, 'not dropped while it may still clear').toBe(false);
+    await settle(10 * 60_000 + 20_000);   // 640 s in: after the drop (600-630 s), before the minute-long notice expires
     expect(ctx.audioLost).toBe(true);
+  });
+
+  it('INBOX-338: uploads failing past 30 s raise audioStuck in the real provider; ending the capture clears it and a retrying tail cannot raise it again', async () => {
+    upload.mockRejectedValue(new TypeError('Failed to fetch'));
+    render(tree());
+    await start();
+    act(() => { tap.onArchiveChunk?.(new Uint8Array([82, 73, 70, 70]), false); });
+    await settle(5_000);
+    expect(ctx.audioStuck, 'one early failure is not shown').toBe(false);
+    // jittered waits (0.8x-1.2x): the 30 s mark is crossed by the 6th failure at the latest, 60 s in, worst case
+    await settle(75_000);
+    expect(ctx.audioStuck).toBe(true);
+    await act(async () => { await ctx.endMyCapture('r1'); });
+    expect(ctx.audioStuck).toBe(false);
+    await settle(90_000);   // the queue keeps retrying the chunk after the End
+    expect(ctx.audioStuck, 'no capture: the notice stays off').toBe(false);
+  });
+
+  it('INBOX-338: chunks refused for good raise audioStuck; a Resume after a minute\'s pause ends it at once, not at the next chunk', async () => {
+    upload.mockRejectedValue(new Error('GCS upload failed: 400 Bad Request'));
+    render(tree());
+    await start();
+    for (let c = 0; c < 3; c++) {
+      act(() => { tap.onArchiveChunk?.(new Uint8Array([82, 73, 70, 70]), false); });
+      await settle(30_000);
+    }
+    expect(ctx.audioStuck).toBe(true);
+    act(() => { ctx.pauseMine(); });
+    await settle(60_000);
+    act(() => { ctx.resumeMine(); });
+    expect(ctx.audioStuck, 'off at the Resume itself').toBe(false);
+  });
+
+  it('INBOX-338: an automatic resume (back from /live after a minute) ends an old audioStuck at once too', async () => {
+    upload.mockRejectedValue(new Error('GCS upload failed: 400 Bad Request'));
+    render(tree());
+    await start();
+    for (let c = 0; c < 3; c++) {
+      act(() => { tap.onArchiveChunk?.(new Uint8Array([82, 73, 70, 70]), false); });
+      await settle(30_000);
+    }
+    expect(ctx.audioStuck).toBe(true);
+    await act(async () => { nav('/live'); });
+    await settle(60_000);
+    expect(ctx.phase).toBe('paused');
+    await act(async () => { nav('/events/x/meet'); });
+    await settle(100);
+    expect(ctx.phase, 'capture resumed by itself').not.toBe('paused');
+    expect(ctx.audioStuck, 'off at the automatic resume').toBe(false);
+  });
+
+  it('INBOX-338: a new capture started while the ended one\'s tail still fails does not show the old failure', async () => {
+    upload.mockRejectedValue(new TypeError('Failed to fetch'));
+    render(tree());
+    await start();
+    act(() => { tap.onArchiveChunk?.(new Uint8Array([82, 73, 70, 70]), false); });
+    await settle(80_000);
+    expect(ctx.audioStuck).toBe(true);
+    await act(async () => { await ctx.endMyCapture('r1'); });
+    vi.mocked(createRoom).mockResolvedValueOnce({
+      room: { id: 'r2', code: 'DEF456', eventId: 'e1' },
+      member: { id: 'm2', consentGivenAt: new Date().toISOString(), joinedAt: new Date().toISOString(), displayName: 'A' },
+    } as Awaited<ReturnType<typeof createRoom>>);
+    await start();                 // room r2 now; r1's chunk keeps failing in the queue
+    await settle(90_000);
+    expect(ctx.audioStuck, 'the old room\'s tail never raises the new capture\'s notice').toBe(false);
   });
 
   it('a full queue sheds the oldest chunk and sets the notice', async () => {

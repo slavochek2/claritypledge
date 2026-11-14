@@ -363,3 +363,92 @@ def test_a_round_closed_hours_after_its_room_ended_posts_the_words_unmarked(monk
     assert log["posted"] and log["posted"][0][1][0]["text"] == "hello"
     assert log["partial"] == 0                # both mics cover all the audio the table has
     assert log["finished"] == [{"attempts": 1}]
+
+
+# INBOX-338 (2): audio was present and transcribed, and every chunk came back empty (quiet audio). That is neither
+# "nobody recorded" (incomplete_table) nor "some of the table is missing" (partial_table): the job says so, and logs it.
+
+def test_a_partial_table_whose_audio_all_transcribes_empty_is_marked_transcribed_empty(monkeypatch, caplog):
+    log = wire(monkeypatch)
+    caplog.set_level("INFO")
+    run(job(seated_count=3), transcribe=lambda wav: "   ")
+    assert log["posted"] == []
+    assert log["finished"] == [{"attempts": 1, "error": "transcribed_empty", "completed": True}]
+    import re
+    assert any(re.search(r"transcribed [1-9][0-9]* chunks, all empty", r.getMessage()) for r in caplog.records)
+
+
+def test_a_full_table_whose_audio_all_transcribes_empty_is_marked_too(monkeypatch, caplog):
+    log = wire(monkeypatch)
+    caplog.set_level("INFO")
+    run(job(), transcribe=lambda wav: "")
+    assert log["posted"] == []
+    assert log["finished"] == [{"attempts": 1, "error": "transcribed_empty", "completed": True}]
+    assert any("all empty" in r.getMessage() for r in caplog.records)
+
+
+def test_one_word_heard_is_not_transcribed_empty(monkeypatch):
+    # control: the same partial table with one non-empty chunk keeps today's outcome
+    log = wire(monkeypatch)
+    calls = iter(["hello"] + [""] * 50)
+    run(job(seated_count=3), transcribe=lambda wav: next(calls))
+    assert log["posted"] and log["finished"][0]["error"] == "partial_table"
+
+
+def test_no_audio_at_all_is_still_incomplete_not_transcribed_empty(monkeypatch):
+    log = wire(monkeypatch, pieces={A: [], B: []})
+    run(job(), transcribe=lambda wav: "")
+    assert log["finished"][0]["error"] == "incomplete_table"
+
+
+def test_all_empty_with_an_incomplete_speaker_still_posts_the_mark_first_then_says_transcribed_empty(monkeypatch):
+    # review (Gemini DB1, GLM 1, Opus R2/R3): only a ROOM job has a missing tail; its incomplete mark is posted BEFORE the job
+    # finishes as transcribed_empty, and nothing else is written
+    log = wire(monkeypatch)
+    order = []
+
+    def _post(jid, attempt, items, partial=False, incomplete_ids=None):
+        order.append(("post", list(items), list(incomplete_ids or [])))
+        return len(items)
+
+    monkeypatch.setattr(pipeline.storage, "post_clean_round", _post, raising=False)
+    monkeypatch.setattr(pipeline.storage, "finish_round_job", lambda jid, **kw: order.append(("finish", kw)), raising=False)
+    monkeypatch.setattr(pipeline.storage, "load_joined", lambda ids: {}, raising=False)
+    monkeypatch.setattr(pipeline.incomplete, "incomplete_member_ids", lambda *a, **k: [B])
+    room = job(kind="room", room_id=ROOM, seats=[], segments=[{
+        "start": "2026-11-01T10:00:00+00:00", "end": "2026-11-01T10:00:20+00:00",
+        "member_ids": [A, B], "compare_ids": [A, B]}])
+    assert pipeline.incomplete.applies_to(pipeline.job_segments(room), "room")   # the real rule, not a stub
+    run(room, transcribe=lambda wav: "")
+    assert order == [("post", [], [B]), ("finish", {"attempts": 1, "error": "transcribed_empty", "completed": True})]
+
+
+def test_all_silent_audio_that_is_never_sent_is_transcribed_empty_too(monkeypatch, caplog):
+    # review (Codex round 9): all-zero audio (a phone recording silence in the background) sends no transcription call
+    zeros = b"\x00\x00" * (SR * 20)
+    log = wire(monkeypatch, pieces={A: [(END, zeros)], B: [(END, zeros)]})
+    caplog.set_level("INFO")
+    calls = []
+    run(job(), transcribe=lambda wav: calls.append(1) or "")
+    assert calls == []
+    assert log["finished"] == [{"attempts": 1, "error": "transcribed_empty", "completed": True}]
+    assert any("transcribed 0 chunks, all empty (audio from 2 mic(s)" in r.getMessage() for r in caplog.records)
+
+
+def test_audio_lying_outside_the_cleaned_window_is_not_counted_as_heard(monkeypatch):
+    # review (Gemini round 10): only mics whose audio was placed inside the window count, not any mic that returned pieces
+    far = END + 10 * 60_000
+    log = wire(monkeypatch, pieces={A: [(far, pcm(20, 6000))]})
+    room = job(kind="room", room_id=ROOM, seats=[], segments=[{
+        "start": "2026-11-01T10:00:00+00:00", "end": "2026-11-01T10:00:20+00:00", "member_ids": [A], "compare_ids": [A]}])
+    run(room, transcribe=lambda wav: "")
+    assert not log["finished"][0].get("error")
+
+
+def test_audio_ending_just_before_the_window_is_not_heard_even_inside_the_alignment_margin(monkeypatch):
+    # review (Codex round 11): the 5 s alignment margin is not the window
+    log = wire(monkeypatch, pieces={A: [(END - 21_000, pcm(20, 6000))]})   # ends 1 s before the window starts
+    room = job(kind="room", room_id=ROOM, seats=[], segments=[{
+        "start": "2026-11-01T10:00:00+00:00", "end": "2026-11-01T10:00:20+00:00", "member_ids": [A], "compare_ids": [A]}])
+    run(room, transcribe=lambda wav: "")
+    assert not log["finished"][0].get("error")

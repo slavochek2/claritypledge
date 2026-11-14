@@ -146,7 +146,7 @@ export async function getMyRoundCanvas(roundId: string): Promise<RoundCanvas | n
  * publishes when the run is done, "Preview first" does not).
  */
 export type NextVersionOfferState =
-  | 'none' | 'offer' | 'transcript_pending' | 'transcript_missing' | 'no_recording' | 'no_canvas' | 'draft_open'
+  | 'none' | 'offer' | 'transcript_pending' | 'transcript_missing' | 'no_recording' | 'not_understood' | 'no_canvas' | 'draft_open'
   | 'drafting' | 'ready' | 'failed' | 'published';
 export interface NextVersionOffer {
   state: NextVersionOfferState;
@@ -157,7 +157,7 @@ export interface NextVersionOffer {
   autoPublish: boolean;
 }
 const OFFER_STATES: ReadonlySet<string> = new Set([
-  'none', 'offer', 'transcript_pending', 'transcript_missing', 'no_recording', 'no_canvas', 'draft_open', 'drafting', 'ready', 'failed', 'published',
+  'none', 'offer', 'transcript_pending', 'transcript_missing', 'no_recording', 'not_understood', 'no_canvas', 'draft_open', 'drafting', 'ready', 'failed', 'published',
 ]);
 
 export async function getMyNextVersionOffer(eventId: string): Promise<NextVersionOffer> {

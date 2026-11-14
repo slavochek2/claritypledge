@@ -72,7 +72,7 @@ import { openCapturedRoom } from '@/app/data/event-chat-path';
 import { endGraceMs } from '@/lib/audio-upload-budget';
 import { startTapWithRetry, stillResuming } from './room-capture-tap';
 import { useSpeakingCue } from './room-capture-speaking';
-import { pumpUploadQueue, useExpiringFlag, type UploadJob } from './room-capture-uploads';
+import { endUploadRun, pumpUploadQueue, queueUpload, resumeUploads, useUploadNotices, type UploadJob } from './room-capture-uploads';
 import { makeUploadIo } from './room-capture-upload-io';
 import { isImmersiveLetterRoute } from '@/app/layouts/immersive-letter-route';
 import {
@@ -186,6 +186,8 @@ export interface RoomCaptureContextValue {
   tapDown: boolean;
   /** P1596: at least one archive chunk could not be saved (dropped after its retries, or shed from a full queue). */
   audioLost: boolean;
+  /** INBOX-338: archive uploads have been failing for a while with no success: the audio is not reaching us (still retried). */
+  audioStuck: boolean;
   isCapturingForEvent: (eventId: string) => boolean;
   speakingMemberIds: ReadonlySet<string>;
   /** In-flow bar slots (the layout, the room page). With none mounted, App renders a fallback. */
@@ -219,6 +221,7 @@ const RoomCaptureContext = createContext<RoomCaptureContextValue>({
   reconnectMic: () => Promise.resolve(),
   tapDown: false,
   audioLost: false,
+  audioStuck: false,
   pausedByLiveRecord: false,
   isCapturingForEvent: () => false,
   speakingMemberIds: new Set(),
@@ -274,7 +277,7 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const [userResumed, setUserResumed] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [tapDown, setTapDown] = useState(false);
-  const { on: audioLost, mark: markAudioLost, clear: clearAudioLost } = useExpiringFlag(60_000); // a loss is news for a minute
+  const { audioLost, markAudioLost, audioStuck, setAudioStuck, clearUploadNotices } = useUploadNotices();
   const [destination, setDestination] = useState<SliceDestination | null>(null);
   const levelListeners = useRef(new Set<(rms: number) => void>());
   /**
@@ -307,22 +310,16 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
 
   const pumpUploads = useCallback(() => pumpUploadQueue(media.current, makeUploadIo({
     onHardStop: refuse,
-    onDropped: markAudioLost,
+    // INBOX-338: the queue reports only the current capture's audio (endUploadRun at End), so it is passed straight through
+    onDropped: markAudioLost, onStuck: setAudioStuck,
     currentRoomId: () => storedRef.current?.roomId ?? null,
-  })), [markAudioLost, refuse]);
+  })), [markAudioLost, setAudioStuck, refuse]);
 
   /** P1596: one self-contained 16 kHz mono WAV (about 960 KB per 30 s) cut from the live-slice tap. */
   const enqueueChunk = useCallback((wav: Uint8Array, isLast: boolean, record: StoredCapture | null = storedRef.current) => {
     const h = media.current;
     if (!record) return;
-    const blob = new Blob([wav as BlobPart], { type: 'audio/wav' });
-    if (h.uploadQueue.length >= UPLOAD_QUEUE_LIMIT) {
-      // Keep the in-flight head; shed the oldest waiting chunk rather than grow without bound.
-      console.error('[room-capture] archive upload queue full — dropping the oldest pending chunk');
-      markAudioLost();
-      h.uploadQueue.splice(1, 1);
-    }
-    h.uploadQueue.push({ blob, isLast, attempts: 0, record });
+    queueUpload(h, { blob: new Blob([wav as BlobPart], { type: 'audio/wav' }), isLast, attempts: 0, record }, UPLOAD_QUEUE_LIMIT, markAudioLost);
     void pumpUploads();
   }, [pumpUploads, markAudioLost]);
 
@@ -423,9 +420,9 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     h.lock?.release();
     h.lock = null;
     stream?.getTracks().forEach((t) => t.stop());
-    setTapDown(false); clearAudioLost();
+    setTapDown(false); clearUploadNotices(); endUploadRun(h);
     return Promise.resolve();
-  }, [clearAudioLost]);
+  }, [clearUploadNotices]);
 
   /** Resolves when the archive upload queue is empty and nothing is in flight. */
   const uploadsDrained = useCallback(() => new Promise<void>((resolve) => {
@@ -479,13 +476,14 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
   const resumeMedia = useCallback(async (roomId: string) => {
     const h = media.current;
     pausedRef.current = false;
+    resumeUploads(h, setAudioStuck);   // INBOX-338: every resume (a tap, the end of /live) ends an old "not reaching us" at once
     if (!h.stream) {
       // Re-attached paused after a reload: no microphone is open yet. Resume opens it.
       await openMicOnResume(roomId, startMedia, h, pausedRef, () => setMicLost(true));
       return;
     }
     setTapDown(!(await startTapWithRetry(() => startSlices(roomId), stillResuming(genRef, pausedRef))));
-  }, [startSlices, startMedia]);
+  }, [startSlices, startMedia, setAudioStuck]);
 
   /**
    * P1388 unplug recovery. Keeps the archive so far (the chunk up to the unplug is queued, not
@@ -826,13 +824,14 @@ export function RoomCaptureProvider({ children }: { children: ReactNode }) {
     reconnectMic,
     tapDown,
     audioLost,
+    audioStuck,
     pausedByLiveRecord,
     isCapturingForEvent: (eventId: string) => state.eventId === eventId && LIVE_PHASES.has(state.phase),
     speakingMemberIds: new Set(speaking.keys()),
     registerBarSlot,
     barSlotCount,
   }), [state, pauseLocation, startCapture, endMyCapture, open, holdPause, manualPaused, pauseMine, resumeMine,
-    subscribeLevel, inputSilent, micLost, micSwitched, stopping, reconnectMic, tapDown, audioLost, pausedByLiveRecord, speaking, registerBarSlot, barSlotCount, destination]);
+    subscribeLevel, inputSilent, micLost, micSwitched, stopping, reconnectMic, tapDown, audioLost, audioStuck, pausedByLiveRecord, speaking, registerBarSlot, barSlotCount, destination]);
 
   return <RoomCaptureContext.Provider value={value}>{children}</RoomCaptureContext.Provider>;
 }

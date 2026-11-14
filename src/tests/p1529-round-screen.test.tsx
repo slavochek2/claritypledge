@@ -543,6 +543,15 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
     expect(screen.queryByTestId('mastermind-make')).toBeNull();
   });
 
+  it('INBOX-338: audio that all transcribed empty says the words could not be made out, with no button and no wait', async () => {
+    h.server.offer = offerOf('not_understood');
+    renderCard(OWNER);
+    expect((await screen.findByTestId('mastermind-task-not-understood')).textContent).toBe("We couldn't make out what was said in this round");
+    expect(screen.queryByTestId('mastermind-make')).toBeNull();
+    expect(screen.queryByTestId('mastermind-task-pending')).toBeNull();
+    expect(screen.queryByTestId('mastermind-task-no-recording')).toBeNull();
+  });
+
   it('while the words are prepared: the sentence with the usual wait, no button; the button appears when they are ready', async () => {
     h.server.offer = offerOf('transcript_pending');
     renderCard(OWNER);

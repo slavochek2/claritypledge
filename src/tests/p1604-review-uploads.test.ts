@@ -83,7 +83,8 @@ describe('final-look batch: the last chunk reports that the seat has finished up
     const h = { uploadQueue: [last('room-2')], uploading: false };
     const i = io({ upload: vi.fn().mockRejectedValue(new Error('network')), flushed: vi.fn() });
     const run = pumpUploadQueue(h, i);
-    await vi.advanceTimersByTimeAsync(20_000);
+    // INBOX-338: a network failure is retried and dropped only after TRANSIENT_GIVE_UP_MS (10 min)
+    await vi.advanceTimersByTimeAsync(11 * 60_000);
     await run;
     vi.useRealTimers();
     expect(i.onDropped).toHaveBeenCalled();
