@@ -91,7 +91,11 @@ Then three lines:
 2. **Polling, timers and schedulers need a written reason** naming why push, realtime or on-demand
    will not do. A scheduled ping states its interval against the target's idle or scale-to-zero window.
 3. **A hidden tab makes no requests** (`document.visibilityState === 'hidden'`). Visibility checks are
-   local only.
+   local only. **One exception (founder decision 2026-11-15, P1529 INBOX-338):** a recording that keeps
+   capturing in a hidden tab uploads what it records: each audio chunk's first try, with the upload
+   helper's own bounded retries inside it, while no earlier chunk is waiting to retry. Holding them
+   would keep the audio only in the tab, where closing it loses the audio. Once a chunk's try has
+   failed, the archive queue (the chunks behind it included) waits until the tab is shown.
 4. **Retries are bounded, with backoff and jitter.** Retry and reconnect code carries a request-volume
    assertion (decisions.md 2026-10-01 [process]).
 5. **Error-driven control flow is counted:** a design that learns by provoking failures pays a log line,

@@ -89,7 +89,7 @@ describe('F5: the recording bar says only what someone can act on', () => {
   it('INBOX-338: the full bar says it in full', () => {
     h.capture = capturing({ audioStuck: true });
     render(<RoomCaptureBar />);
-    expect(screen.getByText("Your audio isn't reaching us — still trying")).toBeInTheDocument();
+    expect(screen.getByText("Your audio isn't reaching us")).toBeInTheDocument();
   });
   it('a lost mic and a pause are still said', () => {
     h.capture = capturing({ micLost: true });

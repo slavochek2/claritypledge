@@ -546,7 +546,7 @@ describe('INBOX-338 (1): the recording bar line', () => {
     const s = status({ audioStuck: true });
     expect(s.kind).toBe('notReaching');
     expect(s.warn).toBe(true);
-    expect(s.text).toBe("Your audio isn't reaching us — still trying");
+    expect(s.text).toBe("Your audio isn't reaching us");
   });
   it('a dead microphone, a stop and a pause keep their own lines ahead of it', () => {
     expect(status({ audioStuck: true, micLost: true }).kind).toBe('micLost');

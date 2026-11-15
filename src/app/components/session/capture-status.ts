@@ -18,12 +18,12 @@ export const STATUS = {
   micSwitched: 'Microphone changed — still recording',
   stopping: 'Stopped — saving the last few seconds…',
   notRecording: 'Not recording — the recorder could not start. Tap Reconnect to try again',
-  notReaching: "Your audio isn't reaching us — still trying",
+  notReaching: "Your audio isn't reaching us",
 } as const;
 
 /** A failed upload of a few seconds is not a state a person can act on, so it is not shown (the context still tracks it).
- *  Uploads failing for longer (audioStuck, INBOX-338) are shown: the audio is not reaching us, and the queue keeps trying.
- *  [FOUNDER DECISION: copy, proposed] notReaching.
+ *  Uploads failing for longer (audioStuck, INBOX-338) are shown: the audio is not reaching us. notReaching makes no
+ *  "still trying" promise, because chunks refused for good are not retried (founder decision on the copy).
  *  Short words for the short bar — each state named, never a vague "check mic" for a state
  *  that is not about the mic (adversarial review 2). */
 export const SHORT = {
