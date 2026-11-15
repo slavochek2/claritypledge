@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 338
 workstream: content
 created_date: '2026-11-14'
 tags: [manifesto, video, youtube]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
