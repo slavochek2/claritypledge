@@ -1,5 +1,7 @@
 node_modules/
 dist/
+# P1685: media not yet uploaded to the public bucket, served by the dev server only
+public/local-media/
 logs
 *.log
 npm-debug.log*
