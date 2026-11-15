@@ -62,6 +62,8 @@ export interface SeriesRecipe {
   smartOffers: boolean;
   prepare: {
     steps: PlanStep[];
+    /** P1685: the principle step ends on the Listening Game screen (when its pass showed the intro clip). */
+    listeningGame: boolean;
     /** Offered from the event room, never required: no room gate, no `preparation_enabled` needed. */
     optional: boolean;
     /** P1549: this series' own why above the steps. Absent = the shared community text (prep-why.ts). */
@@ -128,7 +130,7 @@ export const CLARITY_NIGHT_RECIPE: SeriesRecipe = {
   joinOffer: { named: false },
   afterChatCaption: null,
   smartOffers: false,
-  prepare: { steps: ALL_STEPS, optional: false, offer: null, words: null },
+  prepare: { steps: ALL_STEPS, listeningGame: true, optional: false, offer: null, words: null },
   timeLine: 'start-sharp',
   room: {
     readiness: true,
@@ -176,6 +178,7 @@ export const SOCIAL_HIKE_RECIPE: SeriesRecipe = {
   // UAT 2026-10-23: for a hike it is not preparation, it is learning what this community is: one quiet link.
   prepare: {
     steps: ALL_STEPS.filter((s) => s !== 'welcome' && s !== 'research'),
+    listeningGame: true,
     optional: true,
     keepFinished: true,
     offer: {

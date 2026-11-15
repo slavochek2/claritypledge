@@ -43,6 +43,8 @@ import { getMyPrepParts, markPrepPart, type PrepPart, type PrepPartRow } from '@
 import type { PointWithUserPosition, Profile } from '@/app/types';
 import { CMP7_TAG, isPartDone, PART_VERSIONS, PRINCIPLE_LEVEL, SECONDS_PER_DECISION, STEP_LABELS, stepMinutes } from './prep-plan';
 import { localPartRows, markLocalPart, readLocalParts, syncLocalPrepParts } from './prep-local-parts';
+import { ListeningGameScreen } from './ListeningGameScreen';
+import { STANDALONE_LISTENING_GAME } from './listening-game';
 import { ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight, type StatementsCount } from './prep-ui';
 import { useClipState, VideoActions } from './prep-video-actions';
 import { GutFeelNudge } from './GutFeelNudge';
@@ -245,6 +247,11 @@ function PrepareFlow({
   const [answer, setAnswer] = useState<PrincipleAnswer>(null);
   const [tryAsked, setTryAsked] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
+  // P1685: the Listening Game screen ends a principle pass that showed the intro clip. The pass is always snapshotted
+  // when the step opens (go / resetPrinciple), never read back from the recorded principle_intro part.
+  // Joining can open straight on the principle (the story already done): that pass shows the intro, so the game too.
+  const [gameShown, setGameShown] = useState(() => STANDALONE_LISTENING_GAME && !!join && screen === 'principle');
+  const [gameOpen, setGameOpen] = useState(false);
   // Which cards each statements step showed on first entry this visit, so answering one never
   // moves the list under the finger and Back shows the same cards.
   const [shownIds, setShownIds] = useState<Partial<Record<StatementsStep, string[]>>>({});
@@ -281,6 +288,9 @@ function PrepareFlow({
     setAnswer(null);
     setTryAsked(false);
     setRating(null);
+    setGameOpen(false);
+    // Only a pass that opens on the intro clip shows the game (go() resets to false, then the step shows the clip).
+    setGameShown(STANDALONE_LISTENING_GAME && !introDone);
   };
 
   const go = (next: Screen) => {
@@ -299,7 +309,18 @@ function PrepareFlow({
     return (join ? rest.find((n) => !isStepDone(n) && !(n === 'principle' && answeredPrinciple)) : rest[0]) ?? 'end';
   };
   const firstOpen = steps.find((s) => !isStepDone(s));
-  const finishPrinciple = () => { setPrincipleAnswered(true); go(after('principle', true)); };
+  const finishPrinciple = () => {
+    // P1685: the step's own finish goes through the game screen first.
+    if (gameShown && !gameOpen) {
+      // Joining has no decision screens: the intro counts as passed while the game shows, and Back reopens it.
+      if (join) setPrincipleIntroDone(true);
+      setGameOpen(true);
+      window.scrollTo(0, 0);
+      return;
+    }
+    setPrincipleAnswered(true);
+    go(after('principle', true));
+  };
 
   const leaveStep = () => {
     if (!join) return go('list');
@@ -311,6 +332,12 @@ function PrepareFlow({
   const back = () => {
     if (screen === 'list') return onLeave();
     if (screen === 'principle') {
+      if (gameOpen) {
+        setGameOpen(false);
+        if (join) setPrincipleIntroDone(false);
+        window.scrollTo(0, 0);
+        return;
+      }
       // The event preparation's order: rating → follow-up → decision → intro clip → list.
       if (answer !== null && tryAsked) { setTryAsked(false); setRating(null); }
       else if (answer !== null) { setAnswer(null); setRating(null); }
@@ -352,7 +379,7 @@ function PrepareFlow({
   };
 
   // P1549: joining shows the principle without asking: the one decision is the group terms at the end.
-  const showPrincipleView = !join && screen === 'principle' && principleIntroDone && !(answer !== null && !tryAsked);
+  const showPrincipleView = !join && screen === 'principle' && principleIntroDone && !gameOpen && !(answer !== null && !tryAsked);
 
   return (
     <div className="min-h-[100dvh] bg-background" data-testid="p1402-prepare">
@@ -375,7 +402,7 @@ function PrepareFlow({
           {join ? (
             <div className="min-w-0 flex-1" data-testid="learn-join-context">
               <p className="text-sm font-semibold text-foreground" data-testid="learn-join-title">Joining {join.groupName}</p>
-              <LetterProgressBar currentChapter={stepIndex} totalChapters={4} stepCount={1} committedSteps={0} label={`Step ${stepIndex + 1} of 4`} />
+              <LetterProgressBar currentChapter={stepIndex} totalChapters={4} stepCount={screen === 'principle' && gameShown ? 2 : 1} committedSteps={screen === 'principle' && gameOpen ? 1 : 0} label={`Step ${stepIndex + 1} of 4`} />
             </div>
           ) : stepIndex >= 0 ? (
             // The event preparation's header: the step name over LetterProgressBar.
@@ -386,8 +413,8 @@ function PrepareFlow({
               <LetterProgressBar
                 currentChapter={stepIndex}
                 totalChapters={steps.length}
-                stepCount={screen === 'principle' ? 3 : 1}
-                committedSteps={screen === 'principle' ? (principleIntroDone ? 1 : 0) + (answer !== null ? 1 : 0) : 0}
+                stepCount={screen === 'principle' ? 3 + (gameShown ? 1 : 0) : 1}
+                committedSteps={screen === 'principle' ? (principleIntroDone ? 1 : 0) + (answer !== null ? 1 : 0) + (gameOpen ? 1 : 0) : 0}
                 label={`Step ${stepIndex + 1} of ${steps.length}`}
               />
             </div>
@@ -446,7 +473,7 @@ function PrepareFlow({
                   const cards = { cmp7: points.cmp7?.length ?? 0, stake: 0 };
                   const minutes = s === 'misunderstanding'
                     ? Math.max(1, Math.round(((points.misunderstanding?.length ?? 0) * SECONDS_PER_DECISION) / 60))
-                    : stepMinutes(s, cards, true);
+                    : stepMinutes(s, cards, true, STANDALONE_LISTENING_GAME);
                   return (
                     <li key={s} className="flex gap-3" data-testid={`agenda-step-${s}`} data-done={done ? 'true' : 'false'}>
                       <div className="flex flex-col items-center">
@@ -499,7 +526,7 @@ function PrepareFlow({
             </section>
           )}
 
-          {screen === 'principle' && !principleIntroDone && (
+          {screen === 'principle' && !principleIntroDone && !gameOpen && (
             <section className="space-y-5">
               <div className="space-y-2">
                 <Title>Introducing the Clarity Meeting Principle</Title>
@@ -526,7 +553,7 @@ function PrepareFlow({
             </section>
           )}
 
-          {!join && screen === 'principle' && principleIntroDone && answer !== null && !tryAsked && (
+          {!join && screen === 'principle' && principleIntroDone && !gameOpen && answer !== null && !tryAsked && (
             <section className="flex flex-col items-center space-y-4 pt-8 text-center" data-testid={answer === 'in' ? 'try-it-now' : 'opt-out-ask'}>
               <div className="flex flex-col items-center gap-1">
                 {askerAvatar('xl')}
@@ -542,6 +569,10 @@ function PrepareFlow({
                 />
               </StepActions>
             </section>
+          )}
+
+          {screen === 'principle' && gameOpen && (
+            <ListeningGameScreen ref={barRef} onContinue={() => { setGameOpen(false); setPrincipleAnswered(true); go(after('principle', true)); }} />
           )}
 
           {isStatementsStep(screen) && (

@@ -125,15 +125,18 @@ export type ClipKey = 'welcome' | 'story' | 'principle' | 'research';
 /** Each clip's own length (ffprobe of the served files), played at 1.15x. Never read from the
  * loaded media — the minutes must be right before anything loads. */
 export const PLAYBACK_RATE = 1.15;
-export const CLIP_SECONDS: Record<ClipKey, number> = {
+/** P1685: the Listening Game video is a clip for the minutes but not a ClipKey (no transcript, poster or tracked part). */
+export type TimedClipKey = ClipKey | 'listeningGame';
+export const CLIP_SECONDS: Record<TimedClipKey, number> = {
   welcome: 139.4,
   story: 84.4,
   principle: 50.03,
   research: 60.13,
+  listeningGame: 89.7,
 };
 
 /** Real watching time at 1.15x — the poster badge and the minutes both use it. */
-export const watchSeconds = (clip: ClipKey) => Math.round(CLIP_SECONDS[clip] / PLAYBACK_RATE);
+export const watchSeconds = (clip: TimedClipKey) => Math.round(CLIP_SECONDS[clip] / PLAYBACK_RATE);
 
 // ─── minutes ───────────────────────────────────────────────────────────────────────────
 
@@ -153,7 +156,7 @@ export interface CardCounts {
   stake: number;
 }
 
-export function stepSeconds(step: PlanStep, cards: CardCounts, withPrincipleIntro: boolean): number {
+export function stepSeconds(step: PlanStep, cards: CardCounts, withPrincipleIntro: boolean, withListeningGame = false): number {
   switch (step) {
     case 'welcome':
       return watchSeconds('welcome');
@@ -162,6 +165,8 @@ export function stepSeconds(step: PlanStep, cards: CardCounts, withPrincipleIntr
     case 'principle':
       return (
         (withPrincipleIntro ? watchSeconds('principle') : 0) +
+        // P1685: the game screen ends the pass that showed the intro, so it counts only with it.
+        (withPrincipleIntro && withListeningGame ? watchSeconds('listeningGame') : 0) +
         Math.round((PRINCIPLE_WORDS / READING_WORDS_PER_MINUTE) * 60) +
         2 * SECONDS_PER_DECISION
       );
@@ -177,12 +182,12 @@ export function stepSeconds(step: PlanStep, cards: CardCounts, withPrincipleIntr
 }
 
 /** One plan row's minutes: whole minutes, never below 1. */
-export const stepMinutes = (step: PlanStep, cards: CardCounts, withPrincipleIntro: boolean) =>
-  Math.max(1, Math.round(stepSeconds(step, cards, withPrincipleIntro) / 60));
+export const stepMinutes = (step: PlanStep, cards: CardCounts, withPrincipleIntro: boolean, withListeningGame = false) =>
+  Math.max(1, Math.round(stepSeconds(step, cards, withPrincipleIntro, withListeningGame) / 60));
 
 /** The question's N: the sum of the rows the person still has, so the two always agree. */
-export function minutesFor(steps: PlanStep[], cards: CardCounts, withPrincipleIntro: boolean): number {
-  return steps.reduce((sum, s) => sum + stepMinutes(s, cards, withPrincipleIntro), 0);
+export function minutesFor(steps: PlanStep[], cards: CardCounts, withPrincipleIntro: boolean, withListeningGame = false): number {
+  return steps.reduce((sum, s) => sum + stepMinutes(s, cards, withPrincipleIntro, withListeningGame), 0);
 }
 
 // ─── progress ──────────────────────────────────────────────────────────────────────────

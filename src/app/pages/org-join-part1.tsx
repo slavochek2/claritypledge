@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
 import type { PrepPartRow } from '@/app/data/event-prep-service';
+import { STANDALONE_LISTENING_GAME } from '@/app/prototypes/events/prep/listening-game';
 import { CMP7_TAG, isPartDone, minutesFor, STEP_LABELS, stepMinutes, type PlanStep } from '@/app/prototypes/events/prep/prep-plan';
 import { PrepWhy } from '@/app/prototypes/events/prep/PrepWhy';
 import { WHY_COMMUNITY } from '@/app/prototypes/events/prep/prep-why';
@@ -68,7 +69,7 @@ export function JoinPart1({ groupName, parts, allLearned, viewerId, onStart, fal
   // The principle's decision is not stored, so it never shows as done here (spec: the tick and the gate agree).
   const isDone = (s: PlanStep) => allLearned || (s === 'story' && isPartDone(parts, 'cognitive_video')) || (s === 'cmp7' && isPartDone(parts, 'cmp7'));
   const started = JOIN_STEPS.some(isDone);
-  const minutes = minutesFor(JOIN_STEPS.filter((s) => !isDone(s)), counts, true) + TERMS_MINUTES;
+  const minutes = minutesFor(JOIN_STEPS.filter((s) => !isDone(s)), counts, true, STANDALONE_LISTENING_GAME) + TERMS_MINUTES;
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-16" data-testid="join-part-1">
@@ -95,7 +96,7 @@ export function JoinPart1({ groupName, parts, allLearned, viewerId, onStart, fal
                 </div>
                 <div className={'flex min-w-0 flex-1 items-start justify-between gap-3 pb-6 pt-1'}>
                   <p className={cn('min-w-0 text-base font-medium leading-snug text-foreground', done && 'text-muted-foreground')}>{JOIN_LABELS[s] ?? STEP_LABELS[s]}</p>
-                  <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground">{stepMinutes(s, counts, true)} min</span>
+                  <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground">{stepMinutes(s, counts, true, STANDALONE_LISTENING_GAME)} min</span>
                 </div>
               </li>
             );

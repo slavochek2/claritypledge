@@ -92,6 +92,18 @@ Blast radius: medium. It changes the principle step of every preparation flow (s
 - [ ] Founder approved the wording, the voice decision and the hike-room scope above.
 - [ ] `listening-game-v4.mp4` and its poster uploaded to the public media bucket under `event-prep/`, on the founder's go.
 
+## Cost Budget
+
+Google Cloud Storage egress, registry price about $0.12 per GB (provenance caveat in `docs/technical/metered-services.md`). The facade loads only the poster until someone presses play.
+
+| Measure | Per user | Per 100 first-time preparations | At 10x (1,000) |
+|---|---|---|---|
+| Requests | 1 poster + 1 video (only if played) = 2 | 200 | 2,000 (Class B reads: 2,000 / 10,000 x $0.004 = $0.0008) |
+| Egress (bytes) | 0.11 MB poster + 27.7 MB video if played = 27.8 MB | 100 x 27.8 MB = 2.78 GB, so 2.78 x $0.12 = $0.33 (upper bound: everyone plays it to the end) | 27.8 GB, so 27.8 x $0.12 = $3.34 |
+| Log lines | 0 new | 0 | 0 |
+
+Repeat views: shown once per person in event preparation and on each standalone or join pass, so one person's re-watching adds at most 27.8 MB each time. Fits today and at 10x with no upgrade.
+
 ## Related
 
 - P1402 (standalone /prepare), P1336 (prep plan), P1682 (manifesto film placement ruling), P1592 (not waited for, per the founder).

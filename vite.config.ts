@@ -6,7 +6,7 @@ import { sentryVitePlugin } from '@sentry/vite-plugin'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { existsSync } from 'node:fs'
+import { createReadStream, existsSync, statSync } from 'node:fs'
 import { runtimeCaching, createShellPrecache } from './src/pwa/workbox-config'
 import { appBuildFingerprintPlugin } from './src/pwa/app-build-fingerprint'
 import { worktreeSlot, portForSlot } from './scripts/lib/worktree-port.mjs'
@@ -139,6 +139,35 @@ export default defineConfig({
         const isPreview = (config as { isPreview?: boolean }).isPreview || process.argv[2] === 'preview'
         if (config.command !== 'serve' || isPreview) return
         refuseHostedTestRun({ url: config.env.VITE_SUPABASE_URL, surface: 'dev-server' })
+      },
+    },
+    // P1685: media not yet uploaded to the public bucket sits in a gitignored folder OUTSIDE public/, so a build never
+    // packages it. The dev server alone serves it at /local-media/* (with Range, so a video can seek).
+    {
+      name: 'p1685-local-media',
+      apply: 'serve',
+      configureServer(server) {
+        const root = path.resolve(__dirname, '.local-media')
+        server.middlewares.use('/local-media', (req, res, next) => {
+          const rel = decodeURIComponent((req.url ?? '').split('?')[0] ?? '')
+          const file = path.resolve(root, `.${rel}`)
+          if (!file.startsWith(root + path.sep) || !existsSync(file) || !statSync(file).isFile()) return next()
+          const size = statSync(file).size
+          const type = file.endsWith('.mp4') ? 'video/mp4' : file.endsWith('.jpg') ? 'image/jpeg' : 'application/octet-stream'
+          const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '')
+          const start = range?.[1] ? Number(range[1]) : 0
+          const end = range?.[2] ? Math.min(Number(range[2]), size - 1) : size - 1
+          res.setHeader('Content-Type', type)
+          res.setHeader('Accept-Ranges', 'bytes')
+          if (range && start <= end) {
+            res.statusCode = 206
+            res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`)
+            res.setHeader('Content-Length', end - start + 1)
+          } else {
+            res.setHeader('Content-Length', size)
+          }
+          createReadStream(file, range && start <= end ? { start, end } : undefined).pipe(res)
+        })
       },
     },
     // P1416: <meta name="app-build"> — a fingerprint of the app's own inputs, so the update prompt

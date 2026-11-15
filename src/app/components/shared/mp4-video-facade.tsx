@@ -13,7 +13,7 @@
  *
  * `pulse` and `durationSeconds` are opt-in; without them either look renders what it did before.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PlayIcon } from 'lucide-react';
 import { formatTimecode } from '@/lib/video';
 import { PosterPlayButton } from './story-video-player';
@@ -38,6 +38,8 @@ export interface Mp4VideoFacadeProps {
   durationSeconds?: number;
   /** P1336: playback speed once playing (e.g. 1.3). Default: the browser's 1. */
   playbackRate?: number;
+  /** P1685: true pauses a playing video (the learning drawn inside the room, hidden). Default false. */
+  paused?: boolean;
 }
 
 const FRAME = {
@@ -57,9 +59,15 @@ export function Mp4VideoFacade({
   pulse = false,
   durationSeconds,
   playbackRate,
+  paused = false,
 }: Mp4VideoFacadeProps) {
   const [playing, setPlaying] = useState(false);
   const firedRef = useRef(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  useEffect(() => {
+    // The element stays mounted at its paused frame with its native controls, so the person resumes where they were.
+    if (paused) videoRef.current?.pause();
+  }, [paused]);
 
   const handlePlay = () => {
     if (!firedRef.current) {
@@ -79,6 +87,7 @@ export function Mp4VideoFacade({
           src={src}
           poster={poster}
           ref={(el) => {
+            videoRef.current = el;
             if (el && playbackRate) {
               el.defaultPlaybackRate = playbackRate;
               el.playbackRate = playbackRate;
