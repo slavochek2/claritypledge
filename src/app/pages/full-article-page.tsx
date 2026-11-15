@@ -16,6 +16,7 @@ import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 import { useAuth } from "@/auth";
 import { renderArticle } from "@/lib/markdown";
+import { ManifestoHeader } from "@/app/components/manifesto/manifesto-header";
 
 // Pre-render at module load — content is a committed .md file, trusted, no XSS risk
 const articleSegments = renderArticle(articleContent);
@@ -330,17 +331,7 @@ export function FullArticlePage() {
           <main className="flex-1 min-w-0">
             {/* Executive Summary / TL;DR */}
             <div className="mb-12 pb-12 border-b border-border">
-              <div className="mb-6">
-                <span className="inline-block px-3 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full mb-4">
-                  TL;DR — 3 min read
-                </span>
-                <h1 className="text-4xl sm:text-5xl font-bold mb-6">
-                  The Clarity Pledge
-                </h1>
-                <p className="text-xl sm:text-2xl text-muted-foreground mb-6">
-                  Stop paying the hidden cost of miscommunication
-                </p>
-              </div>
+              <ManifestoHeader />
 
               <div className="prose prose-lg dark:prose-invert max-w-none text-justify">
                 <p className="text-lg leading-relaxed">
