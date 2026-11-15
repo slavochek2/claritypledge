@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 338
 workstream: content
 created_date: '2026-11-14'
 tags: [manifesto, video, youtube]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-11-15
 ---
 
 # P1682: Manifesto film "The Clarity Tax" on /manifesto + YouTube
