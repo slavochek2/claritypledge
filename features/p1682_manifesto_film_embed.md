@@ -48,9 +48,22 @@ Blast radius: one page (/manifesto). Reversibility: git revert. Decision density
 - Do NOT embed on /prepare end, event-prep end, community join or landing pages; their existing "Read the manifesto" links stay unchanged.
 - Do NOT change any CTA text. [FOUNDER DECISION: optionally rename /prepare end CTA to "Watch the manifesto (2 min)" — not in scope unless asked.]
 
+## Cost Budget
+
+Metered service: Google Cloud Storage internet egress (registry row, about $0.12 per GB, provenance flagged there). No Supabase, Gemini or scheduler calls. Nothing runs on a timer: the poster loads once per page view and the mp4 only after a click.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | 1 poster GET per /manifesto view + 1 ranged mp4 stream per play = 2 | not timer-driven; scales with visits only | 0 (unit test mocks nothing over the network; no e2e loads the mp4) |
+| Egress (bytes) | poster 0.09 MB + full play 22.2 MB = 22.3 MB worst case (a partial watch streams less) | 0 when idle | 0 |
+| Log lines | 0 (no server code) | 0 | 0 |
+| Service unit x price | 22.3 MB = 0.0223 GB x $0.12 = $0.0027 per full play | 1,000 full plays/month = 22.3 GB x $0.12 = $2.68/month; at 10x = 223 GB = $26.76/month | $0 |
+
+Fits today. At 10x it is still under the first-TiB egress tier, so no upgrade needed; if plays exceed about 40,000/month (~0.9 TB), revisit with a CDN.
+
 ## Acceptance Criteria
 
 - [x] /manifesto shows the film poster above the article; click plays inline at desktop, 375px and 320px (no caption track: narration is burned into the picture). Verified in Chrome, playback t≈4.5s at all three widths, no horizontal scroll
 - [x] Media served from the public bucket (passes p1385 test)
 - [x] Gemini visual critique of the page in context run and its verified findings addressed: poster moved off centred text (1:18 frame), width capped max-w-2xl so the first paragraph shows above the fold at 1440px
-- [ ] YouTube upload done only after founder approved title + description
+- [x] YouTube upload done only after founder approved title + description: https://youtu.be/EqPzPCmmayI (public, thumbnail = 0:27 title frame)
