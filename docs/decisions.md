@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-15 [product]: The manifesto film lives on /manifesto only; every other surface links there (P1682)
+
+**Context:** A 1:54 narrated film of the manifesto ("The Clarity Tax") was ready, and the founder asked where to put it: /manifesto, landing pages, the /prepare success screen, community-join and event-prep success screens.
+**Decision:** Embed it once, at the top of /manifesto, with the self-hosted click-to-play `Mp4VideoFacade` (bucket via `publicMediaUrl()`). The /prepare, community-join, letters and blog-subscribed screens keep their existing "Read the manifesto" link and get no embed. A second video on a "done" screen competes with what the person does next, and event-prep success is about getting into the room. Landings keep the founder clip. The film is also on YouTube (https://youtu.be/EqPzPCmmayI), for discovery and sharing only; our pages never load a YouTube player.
+**Alternatives rejected:** (a) Embed it on every success screen: two videos back to back in onboarding, plus a competing primary action. (b) A YouTube embed: rejected by the earlier ruling that a YouTube player at rest pulls people off the site. (c) Put it on the landing pages now: deferred until /manifesto shows people actually play it (`manifesto_film_play`).
+**Consequences:** The narration is burned into the picture as on-screen text, so no caption track is attached. Attaching one would show every line twice, because the facade shows captions by default. A poster for a centred play button must not have text in its centre. The 0:24 title frame put the button over "Clarity", so the poster is the 1:18 two-figures frame, and YouTube uses the title frame, where nothing covers it. The embed is capped at `max-w-2xl` so the first paragraph shows above the fold at 1440px. Falsifier: if `manifesto_film_play` stays near zero relative to `article_page_viewed` over a month, the film is not earning its position.
+**References:** [p1682 spec](../features/done/2026-06-10/p1682_manifesto_film_embed.md) · [manifesto-film.tsx](../src/app/components/manifesto/manifesto-film.tsx)
+
+---
+
 ## 2026-11-13 [technical]: A redirect that bounces a visitor off a page replaces the history entry (P1680)
 
 **Context:** Invite links (`?referrer=`, `?login=`) on /hiring, /coach, /founder and /builders redirected to /sign-pledge or /login with a push. Back returned to the invite URL, the redirect fired again, and the visitor could not leave by Back. Each bounce also tracked another `landing_page_viewed`.

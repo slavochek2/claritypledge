@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-13
+Last updated: 2026-11-15
 
 ---
 
@@ -277,6 +277,8 @@ Last updated: 2026-11-13
 - **P602** (Mar 29) Feed Multi-Tag + Version Filter — fetch all then filter client-side (not server) when dataset is small; `isInternalTag()` must cover both `st\d+` and `v\d+`; tag cloud from ALL content not filtered subset (otherwise multi-select breaks); `searchParams.getAll()` for repeated URL params alongside comma-separated
 
 ## UI / Design System
+
+- **P1682** (Nov 26) Manifesto film on /manifesto + YouTube — one embed, links elsewhere; poster text must not sit under a centred play button
 - **P1674** (Nov 13) /hiring, /coach, /founder, /hospitals, /communities in the fable style — five-person picture where the story is a group, two-person pair where it is two people; each page keeps its own actions, exact event values, redirects, SEO and copy; shared fable components take caller-owned options that default to /builders' output
 - **P1673** (Nov 26) Weekly insights became ordinary finding cards — the ledger refuses a second decision; analytics text never reaches the agent.
 - **P1618** (Nov 26) Canvas upload icon reads as attach — one icon, one meaning; users missed upload behind the attach paperclip.
