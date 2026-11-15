@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-15 [technical]: TEST lanes ship (P1672 stage 1); a live probe must use a version no branch has applied
+
+**Context:** P1672 stage 1 gives a claimed worktree its own isolated TEST lane, reversing the 2026-11-05 "detect, do not prevent" deferral for one lane. Stage 2 (second lane, main-lane baseline cleanup, VM-side refusal) moved to P1679.
+**Decision:** Ship stage 1 with two recorded deviations: the "failure recorded even when the function deploy succeeds" half of the landing check rests on the hermetic test, because the main lane was serving P1529/P1631 branch functions a live landing deploy would overwrite; and lane mail isolation is shown for the shared mail helper live plus structurally for the other senders (all read the same three settings, which a lane holds only as a Mailgun sandbox that delivers to confirmed recipients alone).
+**Alternatives rejected:** (a) A live landing deploy to finish the check: it causes the exact collision P1672 removes. (b) Exercising every mail sender: the provider restriction covers them whatever their code does.
+**Consequences:** A probe migration version first chosen for the live landing check was already applied on the main lane by an unlanded P1631 migration, so the check would have passed blind; probes must be checked against the ledger and every branch first. The probe left a schema and one ledger version on the main lane, listed in P1679's cleanup. In the sandbox, the DELETE path the shipped cancel helper uses returned 405; P1529 was asked to check it. Falsifier: a lane-run test that reaches the main lane, a real inbox, or main's scheduled mail.
+**References:** [p1672 spec](../features/done/2026-06-10/p1672_isolated_test_environments_for_concurrent_branches.md) · [p1679 spec](../features/p1679_p1672_stage2_second_lane_clean_baseline_main_lane_protection.md)
+
+---
+
 ## 2026-11-15 [product]: The manifesto film lives on /manifesto only; every other surface links there (P1682)
 
 **Context:** A 1:54 narrated film of the manifesto ("The Clarity Tax") was ready, and the founder asked where to put it: /manifesto, landing pages, the /prepare success screen, community-join and event-prep success screens.
