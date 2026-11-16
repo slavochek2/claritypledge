@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 
 const auth = vi.hoisted(() => ({ value: { user: null, isLoading: false, sessionChecked: true } }));
 vi.mock('@/auth', () => ({ useAuth: () => auth.value }));
@@ -26,7 +26,8 @@ import { PreparePage } from '@/app/prototypes/events/prep/PreparePage';
 import { markLocalPart, readLocalParts } from '@/app/prototypes/events/prep/prep-local-parts';
 import { stepMinutes } from '@/app/prototypes/events/prep/prep-plan';
 
-const page = () => render(<MemoryRouter initialEntries={['/prepare']}><PreparePage /></MemoryRouter>);
+function Location() { return <div data-testid="location">{useLocation().pathname}</div>; }
+const page = () => render(<MemoryRouter initialEntries={['/prepare']}><PreparePage /><Location /></MemoryRouter>);
 const click = (name: string | RegExp) => fireEvent.click(screen.getByRole('button', { name }));
 const joinGate = (onFinish = vi.fn()) => { gate.value = { kind: 'join', join: { groupName: 'G', onFinish, onExit: vi.fn() }, rows: [] }; return onFinish; };
 
@@ -63,12 +64,12 @@ describe('P1685 standalone', () => {
     expect(screen.getByTestId('agenda-step-game')).toHaveTextContent(/^2/);
   });
 
-  it('after the story: "Step 2 of 5", title and intro above the video, "How it works" below it, then the principle', async () => {
+  it('after the story: "Step 2 of 5", title and subtitle above the video, "The roles" below it, then the principle', async () => {
     page();
     await toGameStandalone();
     expect(screen.getByText('Step 2 of 5')).toBeInTheDocument();
     expect(screen.getByText('The Listening Game')).toBeInTheDocument();
-    expect(screen.getByText('How it works')).toBeInTheDocument();
+    expect(screen.getByText('The roles')).toBeInTheDocument();
     // D3: only Play until it has played; no skip link.
     expect(screen.getByRole('button', { name: 'Play the video' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
@@ -204,19 +205,25 @@ describe('P1685 D4: the success screen', () => {
     return screen;
   }
 
-  it('shows the manifesto film with "Read the manifesto" below it as the one primary action', async () => {
+  it('shows the manifesto film, "See upcoming events" as the one primary action and a plain "Read the manifesto" link under it', async () => {
     await toEnd();
     // No statements are loaded in this harness, so the step has nothing to answer: its Skip goes to the end.
     const skip = await screen.findByText(/skip/i).catch(() => null);
     if (skip) fireEvent.click(skip);
     const end = await screen.findByTestId('prepare-end');
     expect(within(end).getByText('Introduction complete')).toBeInTheDocument();
-    expect(within(end).getByText('You know how to listen for understanding and how to check it. Next, try it with other people at an event. The manifesto explains why it matters.')).toBeInTheDocument();
+    expect(within(end).getByText('You know how to listen for understanding and how to check it.')).toBeInTheDocument();
     const film = screen.getByRole('button', { name: /play the manifesto film/i });
-    const cta = screen.getByRole('button', { name: 'Read the manifesto' });
-    expect(end.contains(film) && end.contains(cta)).toBe(true);
+    const cta = screen.getByRole('button', { name: 'See upcoming events' });
+    const link = screen.getByRole('link', { name: 'Read the manifesto' });
+    expect(end.contains(film) && end.contains(cta) && end.contains(link)).toBe(true);
+    expect(link).toHaveAttribute('href', '/manifesto');
+    expect(cta.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(film.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // One primary action: the film's play button is the poster's, the page has one LetterPrimaryCta.
-    expect(screen.getAllByRole('button').filter((b) => /read the manifesto/i.test(b.textContent ?? ''))).toHaveLength(1);
+    expect(screen.getAllByRole('button').filter((b) => /see upcoming events|read the manifesto/i.test(b.textContent ?? ''))).toHaveLength(1);
+    // The primary action really goes to the events list.
+    fireEvent.click(cta);
+    expect(await screen.findByTestId('location')).toHaveTextContent('/events');
   });
 });

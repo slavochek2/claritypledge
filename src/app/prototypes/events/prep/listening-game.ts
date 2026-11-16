@@ -5,19 +5,19 @@
  */
 import { publicMediaPosterFor, publicMediaUrl } from '@/lib/public-media';
 
-/** Founder-approved wording (D2; the rules come from the video script). One place to change the words. */
+/** Founder-approved wording (D2). One place to change the words. */
 export const LISTENING_GAME_COPY = {
   heading: 'The Listening Game',
-  intro: 'What you mean and what the other person hears are often two different things. With one number, this game shows the gap in 3 seconds. And because everyone learns the same game, checking for understanding becomes normal.',
-  rulesHeading: 'How it works',
-  rules: [
-    'Each of you holds a role card with a sliding band. Say "Now I want to be the speaker." Both slide your bands up: game on.',
-    'The speaker says one thing. You both rate how well the listener understood, from 0 to 10. The lower number counts.',
-    'The listener explains back what they heard, and never argues. To disagree, swap roles first.',
-    'When the number is good enough, swap roles, or slide the bands down and talk normally.',
+  subtitle: 'What you mean (intended meaning) and what the other person understands (interpreted meaning) often differ, and the gap stays hidden. The Listening Game gives you roles that reveal it in 3 seconds.',
+  rolesHeading: 'The roles',
+  roles: [
+    { name: 'Speaker', text: 'says one thing, then decides how well they feel understood, from 0 to 10.' },
+    { name: 'Listener', text: 'explains back what they heard, without arguing. Their own view waits until they switch roles.' },
+    { name: 'Observer', text: 'rings the bell when someone steps out of their role, so everyone learns the roles quickly.' },
   ],
+  closing: 'When everyone knows the roles, asking "did I get you?" stops being awkward. It\'s just the game.',
   playLabel: 'Play the Listening Game video',
-  posterAlt: 'The Listening Game role cards with the pause band',
+  posterAlt: 'The Listening Game: a speaker, a listener and an observer with a bell at one table',
 } as const;
 
 /** The switch for standalone and join /prepare (false removes the step). Event preparations read `recipe.prepare.listeningGame`. */

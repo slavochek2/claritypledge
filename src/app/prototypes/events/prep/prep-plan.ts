@@ -155,8 +155,8 @@ export const PRINCIPLE_WORDS = sectionsForLevel(PRINCIPLE_LEVEL)
   .split(/\s+/)
   .filter(Boolean).length;
 
-/** P1685: the words of the Listening Game's written rules (heading, intro, rules). */
-export const LISTENING_GAME_WORDS = [LISTENING_GAME_COPY.heading, LISTENING_GAME_COPY.intro, LISTENING_GAME_COPY.rulesHeading, ...LISTENING_GAME_COPY.rules]
+/** P1685: the words of the Listening Game's written text (heading, subtitle, roles, closing line). */
+export const LISTENING_GAME_WORDS = [LISTENING_GAME_COPY.heading, LISTENING_GAME_COPY.subtitle, LISTENING_GAME_COPY.rolesHeading, ...LISTENING_GAME_COPY.roles.flatMap((r) => [r.name, r.text]), LISTENING_GAME_COPY.closing]
   .join(' ')
   .split(/\s+/)
   .filter(Boolean).length;

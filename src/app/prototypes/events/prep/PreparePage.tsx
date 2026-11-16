@@ -21,7 +21,7 @@
  * part done here is skipped in any event's preparation later — one direction only.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { withDeadline } from '@/lib/with-deadline';
@@ -104,8 +104,9 @@ const COPY = {
     "Thank you. It's completely okay to opt out. It usually means something is unclear, or you disagree. Before you continue, can I ask you one question?",
   misunderstandingTitle: "Let's find out how you think understanding works between people",
   endTitle: 'Introduction complete',
-  endLine: 'You know how to listen for understanding and how to check it. Next, try it with other people at an event. The manifesto explains why it matters.',
-  endPrimary: 'Read the manifesto',
+  endLine: 'You know how to listen for understanding and how to check it.',
+  endPrimary: 'See upcoming events',
+  endSecondary: 'Read the manifesto',
 };
 
 /** P1549: three shapes of one page: plain, joining a group (?then=join&group=) and reviewing (?review=). */
@@ -596,19 +597,22 @@ function PrepareFlow({
             // Founder UAT round 4 (2026-10-04): a thank-you page — the thank-you and one way on.
             // The button sits in the page, not pinned: the menus are back here and a pinned bar
             // would sit on the BottomNav (P1387).
-            <section className="mx-auto flex max-w-md flex-col items-center space-y-4 pt-16 text-center lg:pt-24" data-testid="prepare-end">
+            <section className="mx-auto flex w-full max-w-md flex-col items-center space-y-4 pt-16 text-center lg:pt-24" data-testid="prepare-end">
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300" aria-hidden>
                 <Check className="h-7 w-7" />
               </span>
               <Title>{COPY.endTitle}</Title>
               <p className="text-base leading-relaxed text-muted-foreground">{COPY.endLine}</p>
-              {/* D4 (founder, 2026-11-16): the manifesto film here, with "Read the manifesto" below it as the one primary action. */}
+              {/* D4 (founder, 2026-11-16): the manifesto film here; "See upcoming events" is the one primary action, "Read the manifesto" a plain link under it. */}
               <div className="w-full pt-2 text-left" data-testid="prepare-end-film">
                 <ManifestoFilm location="prepare_end" />
               </div>
               <div className="w-full max-w-sm pt-4">
-                <LetterPrimaryCta label={COPY.endPrimary} onClick={() => navigate('/manifesto')} />
+                <LetterPrimaryCta label={COPY.endPrimary} onClick={() => navigate('/events')} />
               </div>
+              <Link to="/manifesto" className="inline-flex min-h-11 items-center rounded text-blue-600 underline underline-offset-4 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-blue-400 dark:hover:text-blue-300">
+                {COPY.endSecondary}
+              </Link>
             </section>
           )}
         </main>

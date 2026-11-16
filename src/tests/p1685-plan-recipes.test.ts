@@ -93,7 +93,7 @@ describe('P1685 minutes come from the step itself', () => {
     expect(watchSeconds('listeningGame')).toBe(Math.round(89.7 / PLAYBACK_RATE));
   });
   it('stepSeconds(game) is the reading time of the written rules plus the watch time; the principle step no longer carries it', () => {
-    const words = [LISTENING_GAME_COPY.heading, LISTENING_GAME_COPY.intro, LISTENING_GAME_COPY.rulesHeading, ...LISTENING_GAME_COPY.rules].join(' ').split(/\s+/).filter(Boolean).length;
+    const words = [LISTENING_GAME_COPY.heading, LISTENING_GAME_COPY.subtitle, LISTENING_GAME_COPY.rolesHeading, ...LISTENING_GAME_COPY.roles.flatMap((r) => [r.name, r.text]), LISTENING_GAME_COPY.closing].join(' ').split(/\s+/).filter(Boolean).length;
     const expected = Math.round((words / 200) * 60) + watchSeconds('listeningGame');
     expect(stepSeconds('game', cards, true)).toBe(expected);
     expect(stepSeconds('game', cards, false)).toBe(expected);
@@ -110,14 +110,14 @@ describe('P1685 minutes come from the step itself', () => {
 describe('P1685 the written rules (D2) are founder-approved text in one constant', () => {
   it('reads verbatim', () => {
     expect(LISTENING_GAME_COPY.heading).toBe('The Listening Game');
-    expect(LISTENING_GAME_COPY.intro).toBe('What you mean and what the other person hears are often two different things. With one number, this game shows the gap in 3 seconds. And because everyone learns the same game, checking for understanding becomes normal.');
-    expect(LISTENING_GAME_COPY.rulesHeading).toBe('How it works');
-    expect(LISTENING_GAME_COPY.rules).toEqual([
-      'Each of you holds a role card with a sliding band. Say "Now I want to be the speaker." Both slide your bands up: game on.',
-      'The speaker says one thing. You both rate how well the listener understood, from 0 to 10. The lower number counts.',
-      'The listener explains back what they heard, and never argues. To disagree, swap roles first.',
-      'When the number is good enough, swap roles, or slide the bands down and talk normally.',
+    expect(LISTENING_GAME_COPY.subtitle).toBe('What you mean (intended meaning) and what the other person understands (interpreted meaning) often differ, and the gap stays hidden. The Listening Game gives you roles that reveal it in 3 seconds.');
+    expect(LISTENING_GAME_COPY.rolesHeading).toBe('The roles');
+    expect(LISTENING_GAME_COPY.roles).toEqual([
+      { name: 'Speaker', text: 'says one thing, then decides how well they feel understood, from 0 to 10.' },
+      { name: 'Listener', text: 'explains back what they heard, without arguing. Their own view waits until they switch roles.' },
+      { name: 'Observer', text: 'rings the bell when someone steps out of their role, so everyone learns the roles quickly.' },
     ]);
+    expect(LISTENING_GAME_COPY.closing).toBe('When everyone knows the roles, asking "did I get you?" stops being awkward. It\'s just the game.');
     expect(STEP_LABELS.game).toBe('The Listening Game: how to reveal the gap in 3 seconds');
   });
 });

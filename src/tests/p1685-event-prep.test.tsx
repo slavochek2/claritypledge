@@ -101,12 +101,12 @@ beforeEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
 afterEach(cleanup);
 
 describe.each<Kind>(['night', 'hike', 'mastermind'])('P1685 event preparation: %s', (kind) => {
-  it('the game comes before the principle: "Step 1 of 3", intro above a required video, rules below, then the principle', async () => {
+  it('the game comes before the principle: "Step 1 of 3", subtitle above a required video, roles below, then the principle', async () => {
     setup(kind);
     expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
     expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
     expect(screen.getByText('The Listening Game')).toBeInTheDocument();
-    expect(screen.getByText('How it works')).toBeInTheDocument();
+    expect(screen.getByText('The roles')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Play the video' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
     expect(screen.queryByText(/without video/i)).toBeNull();

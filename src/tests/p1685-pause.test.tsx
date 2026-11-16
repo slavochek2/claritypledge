@@ -10,14 +10,15 @@ import { LISTENING_GAME_COPY } from '@/app/prototypes/events/prep/listening-game
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('P1685 screen', () => {
-  it('shows title and intro above the video and "How it works" with the rules below it', () => {
+  it('shows title and subtitle above the video and "The roles" list and closing line below it', () => {
     render(<ListeningGameScreen onContinue={() => {}} />);
     expect(screen.getByText(LISTENING_GAME_COPY.heading)).toBeInTheDocument();
     const intro = screen.getByTestId('listening-game-intro');
-    expect(intro).toHaveTextContent(LISTENING_GAME_COPY.intro);
+    expect(intro).toHaveTextContent(LISTENING_GAME_COPY.subtitle);
     const items = screen.getAllByRole('listitem').map((li) => li.textContent);
-    expect(items).toEqual([...LISTENING_GAME_COPY.rules]);
-    const rulesHeading = screen.getByText(LISTENING_GAME_COPY.rulesHeading);
+    expect(items).toEqual(LISTENING_GAME_COPY.roles.map((r) => `${r.name} ${r.text}`));
+    expect(screen.getByTestId('listening-game-closing')).toHaveTextContent(LISTENING_GAME_COPY.closing);
+    const rulesHeading = screen.getByText(LISTENING_GAME_COPY.rolesHeading);
     const rules = screen.getByTestId('listening-game-rules');
     const clip = screen.getByTestId('clip-listening-game');
     expect(intro.compareDocumentPosition(clip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
