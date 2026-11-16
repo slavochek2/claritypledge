@@ -177,6 +177,11 @@
       "source": "/ai-run",
       "destination": "/api/series-redirect?series=ai-run",
       "permanent": false
+    },
+    {
+      "source": "/lamphun",
+      "destination": "/api/series-redirect?series=lamphun",
+      "permanent": false
     }
   ],
   "rewrites": [
