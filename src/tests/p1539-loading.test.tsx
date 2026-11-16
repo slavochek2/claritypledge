@@ -3,10 +3,17 @@
  * @description P1539 — signed-in loading: no legal footer on /chats* or while auth is pending, collapsed rail
  * shows nav icons plus avatar, the in-shell loader is not min-h-screen, the offline strip spans the sidebar.
  */
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+// The layout settles with a state update after its first render. Without flushing it inside act, React logs an
+// act() warning that can still be in flight when the file ends, and vitest reports that as an unhandled
+// teardown error ("Closing rpc while onUserConsoleLog was pending") although every test passed.
+afterEach(async () => {
+  await act(async () => {});
+});
 
 const mockUseAuth = vi.fn();
 vi.mock('@/auth', () => ({ useAuth: () => mockUseAuth() }));
