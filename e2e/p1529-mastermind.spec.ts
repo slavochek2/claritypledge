@@ -34,6 +34,17 @@ test.describe.configure({ mode: 'serial', timeout: 900_000, retries: 0 });
 test.use({ actionTimeout: 30_000, navigationTimeout: 90_000 });
 
 // repo-relative by default (test-results/ is gitignored); pass an absolute P1529_OUT to keep a run's shots elsewhere
+
+// P1686: the event room's address exactly (an optional query, nothing after the path).
+const roomUrl = (slug: string) => new RegExp(`/events/${slug}/meet(\\?.*)?$`);
+/** P1686: after "Create next version" the page stays in the room. Checked only once the tap's request has answered and the page had time to move. */
+async function stayedInRoomAt(pg: Page, slug: string, answered: Promise<unknown>) {
+  await answered;
+  await pg.waitForTimeout(3000);
+  await expect(pg).toHaveURL(roomUrl(slug));
+}
+const tapAnswer = (pg: Page) => pg.waitForResponse((r) => /rpc\/make_my_next_version/.test(r.url()) && r.request().method() === 'POST', { timeout: 60_000 });
+
 const OUT = process.env.P1529_OUT ?? 'test-results/p1529';
 const SHOTS = `${OUT}/shots`;
 mkdirSync(SHOTS, { recursive: true });
@@ -1127,6 +1138,8 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
 
   // P1686: two ways to publish, both after the owner has seen the changes. From the room: the card lists the changes, then Publish (one tap); the
   // page never leaves the room. From the workspace: "Open full draft", the bar's Publish, and the page returns to the room by itself.
+  const ROOM_URL = () => roomUrl(E1.slug);
+  const stayedInRoom = (pg: Page, answered: Promise<unknown>) => stayedInRoomAt(pg, E1.slug, answered);
   const publishRequest = (pg: Page) => pg.waitForResponse((r) => /rpc\/canvas_draft_publish/.test(r.url()) && r.request().method() === 'POST', { timeout: 60_000 });
   const publishInRoom = async (pg: Page, who: Person, expectSeq: number) => {
     try {
@@ -1139,17 +1152,18 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     await pg.getByTestId('next-version-publish').click();
     expect((await publishing).ok(), 'canvas_draft_publish answered').toBe(true);
     await expect.poll(async () => (await latestPublished(who)).seq, { timeout: 60_000 }).toBe(expectSeq);
-    await expect(pg).toHaveURL(new RegExp(`/events/${E1.slug}/meet`));
+    await expect(pg).toHaveURL(ROOM_URL());
   };
   const publishInWorkspace = async (pg: Page, who: Person, expectSeq: number) => {
     await pg.getByTestId('next-version-open-full').click();
     await expect(pg).toHaveURL(/\/p\/[^/]+\/canvas\/[^/?]+\?.*v=/, { timeout: 60_000 });
+    await expect(pg.getByTestId('canvas-grid')).toHaveAttribute('aria-busy', 'false', { timeout: 90_000 }); // the page has drawn: the banner check means something
     await expect(pg.getByTestId('preparation-banner')).toHaveCount(0);
     const publishing = publishRequest(pg);
     await pg.getByTestId('canvas-draft-publish').click();
     expect((await publishing).ok(), 'canvas_draft_publish answered').toBe(true);
     await expect.poll(async () => (await latestPublished(who)).seq, { timeout: 60_000 }).toBe(expectSeq);
-    await expect(pg, 'Publish in the workspace returns to the event room').toHaveURL(new RegExp(`/events/${E1.slug}/meet`), { timeout: 30_000 });
+    await expect(pg, 'Publish in the workspace returns to the event room').toHaveURL(ROOM_URL(), { timeout: 30_000 });
   };
 
   // ── owner A: tap with the drafting call held (drafting shot), forced failure (failed shot), Try again on the real model ───
@@ -1160,10 +1174,11 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     await expect(pg.getByTestId('mastermind-make')).toBeVisible({ timeout: 120_000 });
     await expect(pg.getByTestId('mastermind-make')).toHaveText('Create next version');
     await shots(pg, 'update-task', 'make-offer');
+    const answered = tapAnswer(pg);
     await pg.getByTestId('mastermind-make').click();
-    // J1: the working state shows from the tap; P1686: the owner stays in the room
+    // J1: the working state shows from the tap; P1686: the owner stays in the room (checked after the tap answered)
     await expect(pg.getByTestId('mastermind-task-creating')).toBeVisible();
-    await expect(pg).toHaveURL(new RegExp(`/events/${E1.slug}/meet`));
+    await stayedInRoom(pg, answered);
     await shots(pg, 'update-task', 'drafting');
     const runs = await runsOf(walk.ownerA!);
     expect(runs).toHaveLength(1);
@@ -1213,6 +1228,7 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     const t0 = Date.now();
     await expect(pg.getByTestId('next-version-changes')).toBeVisible({ timeout: 300_000 });
     expect((await latestPublished(walk.ownerA!)).seq, 'the tap publishes nothing').toBe(1);
+    await expect(pg.getByTestId('next-version-list')).toBeVisible({ timeout: 60_000 });
     await shots(pg, 'update-task', 'ready-changes');
     await publishInRoom(pg, walk.ownerA!, 2);
     await expect(pg.getByTestId('mastermind-task-published')).toBeVisible({ timeout: 90_000 });
@@ -1237,7 +1253,7 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
       await pg.getByTestId('mastermind-make').click();
       await started;
     });
-    await expect(pg).toHaveURL(new RegExp(`/events/${E1.slug}/meet`));
+    await stayedInRoom(pg, Promise.resolve()); // the tap's run request has answered (started above)
     expect((await latestPublished(walk.ownerB!)).seq, 'Create next version publishes nothing').toBe(1);
     const t0 = Date.now();
     try {
@@ -1265,6 +1281,7 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     expect(guessed, 'no "best guess" line in a round draft').toEqual([]);
     const cost = await costOf([runs.at(-1)!.id as string]);
     expect(cost).toBeLessThan(0.5);
+    await expect(pg.getByTestId('next-version-list'), 'the card lists the changes').toBeVisible({ timeout: 60_000 });
     await shots(pg, 'update-task', 'ready');
     await publishInWorkspace(pg, walk.ownerB!, 2);
     await expect(pg.getByTestId('mastermind-task-published')).toBeVisible({ timeout: 90_000 });
@@ -1373,9 +1390,10 @@ test('WALK3: round 2 ends (no host update step), the break, rounds 3 and 4, the 
     await holdPg.route('**/functions/v1/canvas-draft**', (route) => route.fulfill({ status: 202, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ run_id: 'qa-held', kind: 'message' }) }));
     await asUser(holdPg, ownerP, `/events/${E1.slug}/meet`);
     await expect(holdPg.getByTestId('mastermind-make')).toBeVisible({ timeout: 120_000 });
+    const answered = tapAnswer(holdPg);
     await holdPg.getByTestId('mastermind-make').click();
     // P1686: the owner stays in the room, where the card says the draft is being made.
-    await expect(holdPg).toHaveURL(new RegExp(`/events/${E1.slug}/meet`));
+    await stayedInRoomAt(holdPg, E1.slug, answered);
     await expect(holdPg.getByTestId('mastermind-task-creating')).toBeVisible({ timeout: 90_000 });
     await shots(holdPg, 'update-task', 'drafting-at-step');
     await page.reload();
