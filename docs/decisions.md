@@ -8,6 +8,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-16 [product]: The Listening Game is a required preparation step, before the principle (P1685)
+
+**Context:** The preparation taught the Clarity Meeting Principle and asked people to opt in, but never showed how to use it in a live conversation. A 90-second Listening Game video (speaker, listener, observer; 0 to 10, the lower number counts) now exists. Founder: "the game is how we all personalize using the Clarity practice."
+**Decision:** (1) The game is its own numbered, tracked step (`game`, part `listening_game`) in every preparation: standalone /prepare, member join, and event preparation for every series, including hikes and the sales mastermind. (2) It comes BEFORE the principle: people experience the game first, then the principle formalises it ("the Clarity Meeting Principle is a formalization of this game"). (3) The video is required like every other preparation video since P1529 (play, then Continue). (4) The screen follows the step pattern: title, two-sentence subtitle, video, then the roles (what each does and why), not a written rules summary; "reading the roles is much worse than just watching the video". (5) The framing: the game does not show the gap by itself; its roles make revealing a gap between intended and interpreted meaning take about 3 seconds and make that check a shared norm. (6) Standalone /prepare ends "Introduction complete", the manifesto film, "Read the manifesto" as the primary action and "See upcoming events" as a link.
+**Alternatives rejected:** The game as the last screen inside the principle step (no step count, no per-person record, "why is it not a separate step?"); written rules above the video (broke the video-first pattern and explained before experiencing); an optional video with a skip link; members who learned before the game exist are NOT sent back through it (kept as "learned").
+**Consequences:** One additive migration widens the step and part checks; on prod it must run before the client, and the v4 video and poster were uploaded on the founder's go on 2026-11-16, before the ship. A v5 video adding the intended/interpreted-meaning gap scene (reusing the third-condition film's model scene) is in progress; its length feeds the time estimate.
+**References:** [p1685](../features/p1685_listening_game_in_every_preparation.md)
+
+---
 ## 2026-11-16 [product]: A canvas owner reviews and publishes the next version in the event room; the change list is the review (P1686)
 
 **Context:** The 2026-11-13 ruling made "Create next version" open the draft in the canvas workspace, where Publish was, and nothing brought the owner back to the room. On 2026-11-15 the founder picked option A: *"They stay in the Event Room, then they can preview, which would open the canvas and the chat... Or they just can publish from there, just one click away... at the moment of publishing I guess they need to be returned to event room automatically."*
@@ -23,6 +32,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Alternatives rejected:** Trusting the green unit suite for a new read path; guessing fixes without the failure's reason.
 **Consequences:** P1686's fixtures and code now use `statement`. **Falsifier:** another mocked read passes its unit tests and fails its first real run on a field name.
 **References:** `src/app/data/points-service-real.ts` (`mapPointFromDb`), `src/tests/p1686-next-version-changes.test.tsx`
+
 
 ## 2026-11-16 [product]: A recording whose audio is not reaching us says so; recovered audio is kept even if it lands late (P1529 INBOX-338)
 
@@ -59,6 +69,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 ## 2026-11-15 [product]: The manifesto film lives on /manifesto only; every other surface links there (P1682)
+
+**Reversed in part 2026-11-16, see "The Listening Game is a required preparation step, before the principle (P1685)".** Still in force: every surface other than the standalone /prepare end screen links to /manifesto and does not embed the film.
 
 **Context:** A 1:54 narrated film of the manifesto ("The Clarity Tax") was ready, and the founder asked where to put it: /manifesto, landing pages, the /prepare success screen, community-join and event-prep success screens.
 **Decision:** Embed it once, at the top of /manifesto, with the self-hosted click-to-play `Mp4VideoFacade` (bucket via `publicMediaUrl()`). The /prepare, community-join, letters and blog-subscribed screens keep their existing "Read the manifesto" link and get no embed. A second video on a "done" screen competes with what the person does next, and event-prep success is about getting into the room. Landings keep the founder clip. The film is also on YouTube (https://youtu.be/EqPzPCmmayI), for discovery and sharing only; our pages never load a YouTube player.
