@@ -443,7 +443,7 @@ then repeated with five with canvases.
       shows "N places left"; cancelling frees a place.
 - [x] Mastermind confirmation and reminder emails carry the block, without the laptop line for an observer;
       Clarity Night and Social Hike email output is unchanged (test on the rendered text).
-- [ ] The host sees off · on, no words · words arriving per person, checked with a real mic and one
+- [x] The host sees off · on, no words · words arriving per person, checked with a real mic and one Founder confirmed on TEST 2026-11-16: saw the states change for a person recording from another browser.
       muted or dead mic; a table with no words stands out.
 - [x] Someone publishing a first canvas after round 1 sees the ready line, the host sees the mark, adds them
       at the next round, and they are seated as an owner; swapping an already-chosen canvas is still refused.
@@ -458,7 +458,7 @@ then repeated with five with canvases.
       the step then reads "Your Clarity Canvas is shared" with "“{name}” is shared with this event." (UAT round 2
       wording; after round 1 it reads "You're ready. The host can add you to a coming round."). Evidence 2026-11-07:
       e2e walk steps 4a/4b on TEST (61/61), unit tests per state, screenshots at 320/375/1280 (independent QA).
-- [ ] An attendee with no canvas creates one from step 4, drafts it with the mirror, publishes it, lands back in the
+- [x] An attendee with no canvas creates one from step 4, drafts it with the mirror, publishes it, lands back in the **Moved to P1686 (founder 2026-11-16):** creating and publishing from the room without leaving it is P1686's flow; verified there.
       preparation and shares it as its own tap; with an open draft of a new canvas the step offers "Continue your
       draft", which reopens that draft. Verified so far: Create opens the workspace with the preparation banner and
       Back returns to state B (TEST capture, 2026-11-07); Publish returning to the preparation is unit-tested. The full
@@ -499,9 +499,9 @@ then repeated with five with canvases.
 
 ## Done-When
 
-- [ ] All Acceptance Criteria ticked with evidence (screenshots at 375px, 320px and desktop, plus query
+- [x] All Acceptance Criteria ticked with evidence (screenshots at 375px, 320px and desktop, plus query Founder 2026-11-16: confirmed after the verify pass (commit 28ccbb728) and the items above.
       output).
-- [ ] The event page on TEST carries the 2026-11-04 description, 18:30 start, 24 limit and series. `[post-deploy]` same on prod, then promotion starts.
+- [x] The event page on TEST carries the 2026-11-04 description, 18:30 start, 24 limit and series. `[post-deploy]` same on prod, then promotion starts. Event `sales-mastermind-test` on TEST: 18:30 Asia/Bangkok start, series sales-mastermind, title and description from 2026-11-04; limit is 12 on TEST (founder 2026-11-16: that event is the one, no new setup).
 - [x] The seating function's fixtures pass, including the expected output for infeasible ones.
 - [x] The grep test fails if `recipeFor(` is called outside the resolver.
 - [x] Drafting latency measured on TEST: a 24-minute round thread, 12 runs at once, tap to ready. Result
