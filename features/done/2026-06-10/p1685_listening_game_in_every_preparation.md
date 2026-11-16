@@ -1,18 +1,18 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 339
 workstream: events
 created_date: '2026-11-15'
 tags: [prepare, listening-game, video, onboarding]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
 spec_review_hash: 15546fcf02d705ed83837ec3217aa1175225595971593f1c0847c644b013e333
 spec_review_vendors: [codex, gemini]
+completed_at: 2026-11-16
 ---
 
 # P1685: The Listening Game in every preparation
