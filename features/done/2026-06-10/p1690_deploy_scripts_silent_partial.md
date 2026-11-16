@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 342
 workstream: infrastructure
@@ -7,12 +7,12 @@ created_date: '2026-11-16'
 tags: [deploy, edge-functions, self-hosted, tooling]
 disclosure: public
 intent: cold-start
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: fable
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-16
 ---
 
 # P1690: Two deploy scripts report success, or fail, for the wrong reason
