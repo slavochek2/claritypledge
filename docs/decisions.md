@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-16 [product]: A canvas owner reviews and publishes the next version in the event room; the change list is the review (P1686)
+
+**Context:** The 2026-11-13 ruling made "Create next version" open the draft in the canvas workspace, where Publish was, and nothing brought the owner back to the room. On 2026-11-15 the founder picked option A: *"They stay in the Event Room, then they can preview, which would open the canvas and the chat... Or they just can publish from there, just one click away... at the moment of publishing I guess they need to be returned to event room automatically."*
+**Decision:** (1) The tap no longer leaves the room. (2) Once the draft is ready, the room card lists what it changes, box by box in the canvas's reading order, as point text added and removed. A box the server counts as changed with the same words is listed too. Publish (one tap) sits under that list and nowhere else: not while reading, after a failed read, with no changes, after a successful publish, or under a list of a draft that has since moved on. Publish sends the draft revision of the read on screen; a refusal re-reads before Publish returns. (3) "Open full draft" opens the workspace (canvas and mirror chat); its Publish returns to the room, through a separate mark in the navigation state, so the preparation banner does not appear.
+**Alternatives rejected:** Publish from the room with no change view (publishes blind, against the 2026-11-13 safeguard). Reusing the preparation's `afterPublish` return (draws "Publish, then share" and hides "Back to your table").
+**Consequences:** "Never publish blind" still holds; the room list is the review. A rewording reads as one point removed and one added. Changes outside point text (title, order) are not listed; Open full draft shows them. Verified on TEST by the P1529 walk (16/16): a room Publish made v2, and a workspace Publish made v2 and returned to the room. Amends in part the 2026-11-13 [product] entry below. **Falsifier:** owners publish from the room and then say a change surprised them.
+**References:** `src/app/prototypes/events/rounds/NextVersionChanges.tsx`, `use-next-version-changes.ts`, `next-version-changes.ts`, `src/app/pages/canvas/use-workspace-publish.ts`, P1686 spec
+
+## 2026-11-16 [technical]: A fixture for a read built on a service mapper uses the mapper's real output shape (P1686)
+
+**Context:** The P1686 change list read point text as `content`. `get_canvas` points come through `mapPointFromDb`, whose text field is `statement`, so every real read threw and the card showed "Could not read your changes" on TEST. All unit tests passed, because their fixtures carried `content` too: the test and the code shared the same wrong assumption. A walk on TEST found it; recording the failure's reason on the card (`data-reason`) named it in one run.
+**Decision:** A fixture that stands in for a service's mapped rows takes the field names from the mapper (or its type), never from the consumer under test. A read that can fail on the card records why (data-reason, console), instead of a silent catch.
+**Alternatives rejected:** Trusting the green unit suite for a new read path; guessing fixes without the failure's reason.
+**Consequences:** P1686's fixtures and code now use `statement`. **Falsifier:** another mocked read passes its unit tests and fails its first real run on a field name.
+**References:** `src/app/data/points-service-real.ts` (`mapPointFromDb`), `src/tests/p1686-next-version-changes.test.tsx`
+
 ## 2026-11-16 [product]: A recording whose audio is not reaching us says so; recovered audio is kept even if it lands late (P1529 INBOX-338)
 
 **Context:** In the 2026-11-13 TEST event a recorder's first audio chunks were refused by the archive (bucket CORS) and dropped after about 6 s each, and the person saw nothing. A round whose audio all transcribed empty showed "No recording from this round".
@@ -171,6 +187,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **References:** `src/components/ui/button.tsx`, `docs/design-system.md` (Button Decision Rules), P1529 spec UAT 2026-11-13 (c) G1
 
 ## 2026-11-13 [product]: A canvas owner's next version reasons from everything said at the table, and is reviewed before it is published
+
+**Reversed in part 2026-11-16, see "A canvas owner reviews and publishes the next version in the event room; the change list is the review (P1686)". Still in force: round rules (1), nothing publishes by itself, and the owner sees the changes before any publish.**
 
 **Context:** In a Sales Mastermind test the peer talked specifically about the owner's canvas, and the owner's next version came back "nothing changed": the mirror's base rules said only the owner's words make a point and that numbers need the owner's words (D23, P1529), and these rules override the round-update instruction. The one-tap next version also published itself without the owner seeing it.
 **Decision:** (1) In round-update mode the AI runs on a separate rule set (`ROUND_RULES`): ideas, challenges, numbers and prices said by anyone at the table count; the model resolves conflicts itself and makes the change (no "choice" question); numbers must appear in the round's material, never invented; a canvas still never names or quotes a person; what a peer says about their own business is advice, not a fact about the owner's. (2) "Create next version" makes a draft and opens it with the mirror agent; Publish is one more tap; nothing publishes by itself (the client auto-publish chain is removed).
