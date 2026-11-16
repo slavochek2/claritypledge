@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 342
 workstream: infrastructure
@@ -7,12 +7,12 @@ created_date: '2026-11-16'
 tags: [testing, edge-functions, typecheck]
 disclosure: public
 intent: cold-start
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: fable
 exec_model: sonnet
 exec_effort: medium
 driver: anomaly
+completed_at: 2026-11-16
 ---
 
 # P1693: Function test and type repairs: a stale test stub, missing vitest imports, three broken type imports
