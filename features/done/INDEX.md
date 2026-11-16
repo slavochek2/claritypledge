@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-15
+Last updated: 2026-11-16
 
 ---
 
@@ -89,6 +89,7 @@ Last updated: 2026-11-15
 - **P590** (Mar 26) Clarity Docs Design Fixes — change-request for P551; 5 raw-Tailwind button violations from subagent ignoring shadcn theme; visual QA skipped = design violations ship to UAT; creation popover replaces useless mutable dropdown
 
 ## Points & Stories
+- **P1631** (Nov 26) Clarify drafts a private point from a chat and publishes it as a card — readers of the card are exactly the chat's readers; erasure keeps points others hold; shipped as terms v1.9
 - **P1621** (Nov 10) Canvas draft shows content first, actions on a selected box — the first hand save on a clone creates the draft; navigate on the live URL, React Router's setSearchParams reads stale render params.
 - **P1625** (Nov 26) Canvas drops short true points — the model's real output differed from the spec; check real-model runs, not only tests.
 - **P1639** (Nov 26) Canvas refuses owner negatives and typos — compare negation between point and sentence; a branch TEST deploy can remove others' shared files.
