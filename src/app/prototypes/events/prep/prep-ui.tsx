@@ -151,29 +151,38 @@ export function Transcript({ clip }: { clip: ClipKey }) {
   );
 }
 
-export function Clip({ clip, pulse = false, onPlay, onError, playRequest = 0 }: { clip: ClipKey; pulse?: boolean; onPlay?: () => void; onError?: () => void; playRequest?: number }) {
+/** P1685: a clip that is not a ClipKey (no transcript): its own address, words and length. */
+export interface ClipMedia { id: string; src: string; poster: string; posterAlt: string; playLabel: string; seconds: number }
+
+export function Clip({ clip, media, pulse = false, onPlay, onError, playRequest = 0, paused = false }: { clip?: ClipKey; media?: ClipMedia; pulse?: boolean; onPlay?: () => void; onError?: () => void; playRequest?: number; paused?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   // The bar's "Play the video" bumps playRequest; the poster's own button starts it.
   useEffect(() => {
     if (playRequest > 0) ref.current?.querySelector<HTMLButtonElement>('button')?.click();
   }, [playRequest]);
+  const m: ClipMedia | undefined = media ?? (clip ? {
+    id: clip, src: clipUrl(clip, 'video'), poster: clipUrl(clip, 'poster'), posterAlt: CLIP_POSTER_ALT[clip],
+    playLabel: CLIP_PLAY_LABELS[clip], seconds: watchSeconds(clip),
+  } : undefined);
+  if (!m) return null;
   return (
     <div>
-      <div ref={ref} data-testid={`clip-${clip}`}>
+      <div ref={ref} data-testid={`clip-${m.id}`}>
         <Mp4VideoFacade
           look="story"
-          src={clipUrl(clip, 'video')}
-          poster={clipUrl(clip, 'poster')}
-          posterAlt={CLIP_POSTER_ALT[clip]}
-          playLabel={CLIP_PLAY_LABELS[clip]}
-          durationSeconds={watchSeconds(clip)}
+          src={m.src}
+          poster={m.poster}
+          posterAlt={m.posterAlt}
+          playLabel={m.playLabel}
+          durationSeconds={m.seconds}
           pulse={pulse}
           onPlay={onPlay}
           onError={onError}
           playbackRate={PLAYBACK_RATE}
+          paused={paused}
         />
       </div>
-      <Transcript clip={clip} />
+      {clip && !media && <Transcript clip={clip} />}
     </div>
   );
 }

@@ -289,11 +289,6 @@ export function PrepFlow({
   const [answer, setAnswer] = useState<PrincipleAnswer>(null);
   const [tryAsked, setTryAsked] = useState(false);
   const [principleRating, setPrincipleRating] = useState<number | null>(null);
-  // P1685: the Listening Game screen ends a principle pass that showed the intro clip. Snapshotted when the step opens
-  // (here, go, reviewStep, back) from state.withPrincipleIntro, never re-read: the intro part is recorded before the game.
-  const listeningGameOn = recipeFor(event.seriesSlug).prepare.listeningGame;
-  const [gameShown, setGameShown] = useState(listeningGameOn && state.withPrincipleIntro);
-  const [gameOpen, setGameOpen] = useState(false);
   const [researchInfoOpen, setResearchInfoOpen] = useState(false);
   // Round 8c: hidden inside the room (another step shown), no dialog of the learning stays open over the room.
   const roomActive = room?.active ?? true;
@@ -421,14 +416,12 @@ export function PrepFlow({
     setAnswer(null);
     setPrincipleRating(null);
     setPrincipleIntroDone(next === 'principle' ? !state.withPrincipleIntro : true);
-    setGameShown(next === 'principle' && listeningGameOn && state.withPrincipleIntro);
-    setGameOpen(false);
     if (next !== 'end' && next !== 'plan') {
       // 'canvas' is not a value the table's current_step accepts: resuming falls to the first unfinished plan step.
       void save({ ...extra, stepsDone: done, currentStep: next === 'canvas' ? null : next });
     }
     window.scrollTo(0, 0);
-  }, [save, state.withPrincipleIntro, listeningGameOn, thenJoin, room?.thenJoin, finishInRoom]);
+  }, [save, state.withPrincipleIntro, thenJoin, room?.thenJoin, finishInRoom]);
   // Founder UAT round: every step already finished elsewhere → record it and show the end, not an all-ticked list.
   const autoFinishing = useAutoFinish(event, prep, screen, plan, stepsDone, go, room);
 
@@ -452,8 +445,6 @@ export function PrepFlow({
     setAnswer(null);
     setPrincipleRating(null);
     setPrincipleIntroDone(s === 'principle' ? !state.withPrincipleIntro : true);
-    setGameShown(s === 'principle' && listeningGameOn && state.withPrincipleIntro);
-    setGameOpen(false);
     window.scrollTo(0, 0);
   };
 
@@ -490,8 +481,6 @@ export function PrepFlow({
     setPrincipleRating(null);
     // Back into the principle lands on its decision screen.
     setPrincipleIntroDone(true);
-    setGameShown(false); // Back lands on the decision: this pass did not show the intro clip
-    setGameOpen(false);
     window.scrollTo(0, 0);
   };
 
@@ -505,9 +494,7 @@ export function PrepFlow({
   };
 
   const principleBack = () => {
-    if (gameOpen) {
-      setGameOpen(false);
-    } else if (answer !== null && tryAsked) {
+    if (answer !== null && tryAsked) {
       setTryAsked(false);
       setPrincipleRating(null);
     } else if (answer !== null) {
@@ -532,15 +519,9 @@ export function PrepFlow({
     if (!(await save({ optedIn: a === 'in', principleRating: null }))) setAnswer(null);
   };
 
-  /** The principle step's own finish: through the game screen first, where this pass shows it. */
-  const finishPrinciple = () => {
-    if (gameShown && !gameOpen) { setGameOpen(true); window.scrollTo(0, 0); return; }
-    next();
-  };
-
   const confirmRating = async () => {
     if (principleRating === null) return;
-    if (await save({ principleRating })) finishPrinciple();
+    if (await save({ principleRating })) next();
   };
 
   const researchYes = async () => {
@@ -652,7 +633,7 @@ export function PrepFlow({
 
   const hostAvatar = (size: 'sm' | 'md' | 'xl') => <HostAvatar event={event} size={size} />;
 
-  const showPrincipleView = screen === 'principle' && principleIntroDone && !gameOpen && !(answer !== null && !tryAsked);
+  const showPrincipleView = screen === 'principle' && principleIntroDone && !(answer !== null && !tryAsked);
   const optedInLine = proof ? socialProofLine('opted in at', proof.optedInPrevious, proof.optedInThis, label) : null;
   const eventAnswered = (state.eventPoints ?? []).some(isAnswered);
 
@@ -731,8 +712,8 @@ export function PrepFlow({
               <LetterProgressBar
                 currentChapter={stepIndex}
                 totalChapters={plan.length}
-                stepCount={screen === 'principle' ? 3 + (gameShown ? 1 : 0) : 1}
-                committedSteps={screen === 'principle' ? (principleIntroDone ? 1 : 0) + (answer !== null ? 1 : 0) + (gameOpen ? 1 : 0) : 0}
+                stepCount={screen === 'principle' ? 3 : 1}
+                committedSteps={screen === 'principle' ? (principleIntroDone ? 1 : 0) + (answer !== null ? 1 : 0) : 0}
                 label={`Step ${stepIndex + 1} of ${plan.length}`}
               />
             </div>
@@ -828,7 +809,7 @@ export function PrepFlow({
                             row read "1 min" while the total was still missing. Rows and total now appear together. */}
                         {state.minutes !== null && !state.totalOnly && (
                           <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground" data-testid={`agenda-minutes-${i + 1}`}>
-                            {stepMinutes(s, state.cards, state.withPrincipleIntro, listeningGameOn)} min
+                            {stepMinutes(s, state.cards, state.withPrincipleIntro)} min
                           </span>
                         )}
                       </div>
@@ -875,7 +856,7 @@ export function PrepFlow({
             </section>
           )}
 
-          {screen === 'principle' && !principleIntroDone && !gameOpen && (
+          {screen === 'principle' && !principleIntroDone && (
             <section className="space-y-5">
               <div className="space-y-2">
                 <Title>Introducing the Clarity Meeting Principle</Title>
@@ -894,7 +875,7 @@ export function PrepFlow({
             </section>
           )}
 
-          {screen === 'principle' && principleIntroDone && !gameOpen && answer !== null && !tryAsked && (
+          {screen === 'principle' && principleIntroDone && answer !== null && !tryAsked && (
             <section className="flex flex-col items-center space-y-4 pt-8 text-center" data-testid={answer === 'in' ? 'try-it-now' : 'opt-out-ask'}>
               <div className="flex flex-col items-center gap-1">
                 {hostAvatar('xl')}
@@ -910,14 +891,15 @@ export function PrepFlow({
               <StepActions ref={barRef}>
                 <ActionRow
                   primary={<LetterPrimaryCta label={answer === 'in' ? 'Try it now' : 'Yes'} onClick={() => { setTryAsked(true); window.scrollTo(0, 0); }} />}
-                  secondary={answer === 'out' ? <LetterPrimaryCta label="No, continue" onClick={finishPrinciple} variant="secondary" /> : undefined}
+                  secondary={answer === 'out' ? <LetterPrimaryCta label="No, continue" onClick={() => next()} variant="secondary" /> : undefined}
                 />
               </StepActions>
             </section>
           )}
 
-          {screen === 'principle' && gameOpen && (
-            <ListeningGameScreen ref={barRef} active={roomActive} onContinue={() => { setGameOpen(false); next(); }} />
+          {screen === 'game' && (
+            // D3: required like every preparation video (Play, then Continue). A clip that cannot load is skipped, not completed.
+            <ListeningGameScreen ref={barRef} active={roomActive} onContinue={(watched) => next(watched ? 'completed' : 'skipped')} />
           )}
 
           {screen === 'cmp7' && (

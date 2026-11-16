@@ -193,7 +193,7 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
   const { arrival, failed: arrivalError, retry: retryArrival } = useMyRegistrationArrivalRead(event, viewerId, !idle);
   const derived = useMemo(() => {
     const startedAt = prep?.startedAt ?? null;
-    const { keepFinished, listeningGame } = recipeForEvent(event).prepare;
+    const { keepFinished } = recipeForEvent(event).prepare;
     const steps = prepareStepsFor(event);
     const mastermind = !!recipeForEvent(event).mastermind;
     // A failed arrival read leaves the owner's canvas step unknown: no plan is derived from it (the page shows Retry).
@@ -214,7 +214,7 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     const cards: CardCounts = { cmp7: count(cmp7Points), stake: count(eventPoints) };
     const pointsReady = cmp7Points !== null && eventPoints !== null;
     const computed = pointsReady
-      ? minutesFor(remainingSteps(plan, stepsDone), cards, withPrincipleIntro, listeningGame)
+      ? minutesFor(remainingSteps(plan, stepsDone), cards, withPrincipleIntro)
       : null;
     // The mastermind says the real time by role before anything is done (founder, 2026-11-06); the role is unknown until read.
     const untouched = !startedAt && stepsDone.length === 0;

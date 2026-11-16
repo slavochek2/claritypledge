@@ -33,6 +33,16 @@ The places named ("everywhere slash prepare is there") are: (1) `/prepare` stand
 
 Blast radius: medium. It changes the principle step of every preparation flow (standalone, join, event, and the learning drawn inside the event room). Preparation gates the room only for series that require it (`gatesRoomOnPreparation`, `series-recipes.ts:254`); hike preparation is optional. Reversibility: high (git revert; no migration). Decision density: a few founder calls (wording, publishing the video, hike room scope).
 
+## Founder decisions, 2026-11-16 (supersede Solution items 2-5 and 7 below where they conflict)
+
+> Founder, verbatim: "don't you think we need a proper description so somebody who doesn't look at the video should make sense how the game works", "why is it not a separate step?", "we made always other videos mandatory, why would we make an exception here? ... we need to make it mandatory to play it and then we can go forward", and on the manifesto film on the success screen: approved ("yes to all but 3").
+
+- **D1. Its own numbered step**, `game`, right after `principle` and before the next step (statements / "share expected benefits"), in standalone, join and event preparation, every series. It is a tracked part (`listening_game`) with a content version, so it is shown once per person, resumes, and counts in "Step X of N". This needs a migration widening the `person_prep_parts.part` and `event_preparations.current_step` CHECK constraints (additive; applied on TEST only until ship). Supersedes the "no part, no migration, no step-count change" Non-Goals and Invariant.
+- **D2. Written rules stand on their own**, above the video. Founder-approved text (step 3 to be confirmed against the game by the founder):
+  Heading: "How the Listening Game works". Intro: "Each of you holds a card with a sliding band." 1. "Most of the time your band is down. Just talk as you normally would." 2. "When something matters to you and you want to be fully understood, say "Now I want to be the speaker" and slide your band up." 3. "The other person slides theirs up too. Now you're playing: they listen and say back what they understood, until you say "yes, that's it."" 4. "Then you both slide your bands down and talk normally again."
+- **D3. The video is required, everywhere** (as every other preparation video since P1529 UAT round 3): "Play the video" only; after it plays, "Continue". No skip link.
+- **D4. Success screen of standalone `/prepare`** embeds the manifesto film (the existing component) with "Read the manifesto" below it as the one primary action. Reverses the 2026-11-15 P1682 placement ruling for this one screen, by founder decision.
+
 ## Solution
 
 1. **One shared Listening Game screen**: the video plus the rules in at most four short lines. One component, used by `PreparePage` (standalone and join modes) and `EventPrepPage` (event pages and the in-room learning), so a change is made once.
@@ -63,7 +73,7 @@ Blast radius: medium. It changes the principle step of every preparation flow (s
 | P1592 later reshapes the preparation | ACCEPT | Self-contained screen that moves with the principle step |
 
 **Non-Goals**
-- Do NOT add a `PrepPart`, a migration, a numbered step or a step-count change.
+- (Superseded by D1: the game is a numbered step with a tracked part and one additive migration.)
 - Do NOT put a video on any success/done screen or move the manifesto film.
 - Do NOT change the opt-in wording, its follow-up screens or the room flow.
 - Do NOT add series recipes or an admin UI for the switch.
@@ -72,24 +82,37 @@ Blast radius: medium. It changes the principle step of every preparation flow (s
 ## Invariants
 
 - The success screen keeps exactly one primary action (P955; the 2026-11-12 /prepare ruling: its one button is "Read the manifesto").
-- `ALL_STEPS`, `STANDALONE_STEPS`, `JOIN_LEARNING_STEPS` and `PART_VERSIONS` are unchanged.
+- (Superseded by D1.) The step lists change only by inserting `game` after `principle`; no existing step, part or stored value is removed or renamed.
 
 ## Acceptance Criteria
 
-- [ ] Standalone `/prepare` (signed out, first time): after the opt-in answer and its follow-up, the Listening Game screen appears before the next step, with "Play the video" and a "Continue without video" link.
-- [ ] Join mode (`/prepare?then=join&group=…`): the screen appears after the principle intro, before the statements step.
-- [ ] Event preparation, on a Clarity Night event and on a hike event that opens its optional preparation: the screen appears at the same point, and on the in-room learning too.
-- [ ] An event preparation pass that skips the principle intro (returning attendee) does not show the screen, and a pass that shows the intro does, even after the intro is recorded mid-step (tests).
-- [ ] With the flag off (test, standalone constant and recipe), the principle step behaves exactly as before: same screens, same sub-progress.
-- [ ] The rendered header shows the same "Step X of N" in standalone, join and event modes, flag on and off (render tests, not only `prep-plan` tests).
-- [ ] The principle step's minute estimate includes the clip when it is shown (unit test).
+- [ ] Standalone `/prepare`: a numbered "Listening Game" step follows the principle step; the header counts it ("Step X of N").
+- [ ] Join mode (`/prepare?then=join&group=…`): the same step follows the principle step, before the statements step.
+- [ ] Event preparation, on a Clarity Night, a hike that opens its optional preparation, and a sales mastermind: the step follows the principle step, and on the in-room learning too.
+- [ ] The written rules (D2) appear above the video and read on their own.
+- [ ] The video is required: only "Play the video" until it has played, then "Continue"; no skip link (D3).
+- [ ] The step is a tracked part: done once per person in event preparation, resumes after leaving, and a returning attendee who finished it does not see it again (tests).
+- [ ] With the flag off (standalone constant and recipe), the step is absent and the step count is as before (tests).
+- [ ] The minute estimate includes the game step (unit test).
 - [ ] Hiding the in-room learning pauses the video (test).
-- [ ] The screen works at 320 px, 375 px and desktop, with no rule text under the action bar (screenshots, visual-qa checklist).
+- [ ] The migration widens the part and step constraints only, applied on TEST; pre-commit's migration check passes.
+- [ ] Standalone `/prepare` success screen shows the manifesto film with "Read the manifesto" below it as the one primary action (D4, test).
+- [ ] Works at 320 px, 375 px and desktop, with no rule text under the action bar (screenshots, visual-qa checklist).
 - [ ] Existing preparation tests pass.
+
+## Open founder decisions (from review, 2026-11-16)
+
+- [FOUNDER DECISION: people who learned before the game existed count as "learned" (`hasLearned`) and skip it when joining a group. Keep (current), or require the game too, which sends every existing learner back through it on their next join.]
+- [FOUNDER DECISION: step label; draft "Learn how to use it: the Listening Game".]
+- [FOUNDER DECISION: the sales mastermind's preset role times (25 / 10 / 15 min) do not include the game step.]
+
+Accepted from review: people part-way through a preparation when this ships gain one step ("3 of 5" becomes "3 of 6"); finished preparations stay finished (completion reads the finish time), so no one newly blocked from a room. "Played" counts from pressing Play, as for every other preparation video.
 
 ## Pre-deploy Checklist
 
 - [ ] Founder approved the wording, the voice decision and the hike-room scope above.
+- [ ] Deploy order: the migration is applied on prod BEFORE the new client is live (new code writing `game` / `listening_game` against the old prod constraints would fail).
+- [ ] Video and poster uploaded BEFORE the client is live: in production the URL 404s today, and the required step would fall back to Continue for everyone.
 - [ ] `listening-game-v4.mp4` and its poster uploaded to the public media bucket under `event-prep/`, on the founder's go.
 
 ## Cost Budget
@@ -101,6 +124,8 @@ Google Cloud Storage egress, registry price about $0.12 per GB (provenance cavea
 | Requests | 1 poster + 1 video (only if played) = 2 | 200 | 2,000 (Class B reads: 2,000 / 10,000 x $0.004 = $0.0008) |
 | Egress (bytes) | 0.11 MB poster + 27.7 MB video if played = 27.8 MB | 100 x 27.8 MB = 2.78 GB, so 2.78 x $0.12 = $0.33 (upper bound: everyone plays it to the end) | 27.8 GB, so 27.8 x $0.12 = $3.34 |
 | Log lines | 0 new | 0 | 0 |
+
+**D4, manifesto film on the standalone `/prepare` success screen** (sizes measured from the bucket, 2026-11-16): poster 0.09 MB per finish; film 22.2 MB only if played. Per 100 finishes: 100 x 0.09 MB = 9 MB poster + at most 100 x 22.2 MB = 2.22 GB film, so 2.23 x $0.12 = $0.27 (upper bound: everyone plays it to the end); at 10x, 22.3 GB, so $2.68. Requests: 2 per finish (poster + film if played), 200 per 100, 2,000 at 10x (Class B reads: $0.0008). Combined upper bound with the game: $0.60 per 100, $6.02 at 10x. Database: one `person_prep_parts` row write and one progress refresh per first-time game completion, both inside existing calls' volume; 0 new log lines.
 
 Repeat views: shown once per person in event preparation and on each standalone or join pass, so one person's re-watching adds at most 27.8 MB each time. Fits today and at 10x with no upgrade.
 

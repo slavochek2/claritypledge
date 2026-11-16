@@ -13,8 +13,8 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Button } from '@/components/ui/button';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { LetterPrimaryCta } from '@/app/components/letters/letter-primary-cta';
+import { JOIN_STEPS } from '@/app/prototypes/events/prep/listening-game';
 import type { PrepPartRow } from '@/app/data/event-prep-service';
-import { STANDALONE_LISTENING_GAME } from '@/app/prototypes/events/prep/listening-game';
 import { CMP7_TAG, isPartDone, minutesFor, STEP_LABELS, stepMinutes, type PlanStep } from '@/app/prototypes/events/prep/prep-plan';
 import { PrepWhy } from '@/app/prototypes/events/prep/PrepWhy';
 import { WHY_COMMUNITY } from '@/app/prototypes/events/prep/prep-why';
@@ -24,7 +24,6 @@ const READ_DEADLINE_MS = 6000;
 const TERMS_MINUTES = 1;
 /** Joining asks no opt-in, so the step reads differently from the event learning's. */
 const JOIN_LABELS: Partial<Record<PlanStep, string>> = { principle: 'See the Clarity Meeting Principle' };
-const JOIN_STEPS: PlanStep[] = ['story', 'principle', 'cmp7'];
 
 /** A failed read is never treated as "not a member" or "no progress". */
 export function JoinReadError({ onRetry, fallback }: { onRetry: () => void; fallback: string }) {
@@ -67,9 +66,9 @@ export function JoinPart1({ groupName, parts, allLearned, viewerId, onStart, fal
 
   const counts = { cmp7: cards, stake: 0 };
   // The principle's decision is not stored, so it never shows as done here (spec: the tick and the gate agree).
-  const isDone = (s: PlanStep) => allLearned || (s === 'story' && isPartDone(parts, 'cognitive_video')) || (s === 'cmp7' && isPartDone(parts, 'cmp7'));
+  const isDone = (s: PlanStep) => allLearned || (s === 'story' && isPartDone(parts, 'cognitive_video')) || (s === 'game' && isPartDone(parts, 'listening_game')) || (s === 'cmp7' && isPartDone(parts, 'cmp7'));
   const started = JOIN_STEPS.some(isDone);
-  const minutes = minutesFor(JOIN_STEPS.filter((s) => !isDone(s)), counts, true, STANDALONE_LISTENING_GAME) + TERMS_MINUTES;
+  const minutes = minutesFor(JOIN_STEPS.filter((s) => !isDone(s)), counts, true) + TERMS_MINUTES;
 
   return (
     <div className="min-h-screen px-4 pt-6 pb-16" data-testid="join-part-1">
@@ -96,13 +95,13 @@ export function JoinPart1({ groupName, parts, allLearned, viewerId, onStart, fal
                 </div>
                 <div className={'flex min-w-0 flex-1 items-start justify-between gap-3 pb-6 pt-1'}>
                   <p className={cn('min-w-0 text-base font-medium leading-snug text-foreground', done && 'text-muted-foreground')}>{JOIN_LABELS[s] ?? STEP_LABELS[s]}</p>
-                  <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground">{stepMinutes(s, counts, true, STANDALONE_LISTENING_GAME)} min</span>
+                  <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground">{stepMinutes(s, counts, true)} min</span>
                 </div>
               </li>
             );
           })}
           <li className="flex gap-3" data-testid="join-step-terms">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground/70">4</span>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground/70">{JOIN_STEPS.length + 1}</span>
             <div className="flex min-w-0 flex-1 items-start justify-between gap-3 pt-1">
               <p className="min-w-0 text-base font-medium leading-snug text-foreground">Read the group terms and decide</p>
               <span className="shrink-0 pt-0.5 text-sm tabular-nums text-muted-foreground">{TERMS_MINUTES} min</span>

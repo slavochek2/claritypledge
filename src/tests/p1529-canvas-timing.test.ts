@@ -38,10 +38,10 @@ describe('E1 the setting', () => {
 describe('E2 the preparation plan', () => {
   it('at the event (default): the communication part only, the misunderstanding points, no canvas step', () => {
     const steps = prepareStepsFor(mm);
-    expect(steps).toEqual(['story', 'principle', 'cmp7', 'stake']);
+    expect(steps).toEqual(['story', 'principle', 'game', 'cmp7', 'stake']);
     expect(prepStatementTag(mm)).toBe(MISUNDERSTANDING_TAG);
     const plan = buildPlan({ parts: [], startedAt: null, hasStatementTag: true, eventPointCount: 5, steps, keepFinished: true, canvas: true });
-    expect(plan).toEqual(['story', 'principle', 'cmp7', 'stake']);
+    expect(plan).toEqual(['story', 'principle', 'game', 'cmp7', 'stake']);
   });
   it('an explicit at_event reads the same', () => {
     expect(canvasAtEvent({ ...mm, canvasTiming: 'at_event' } as never)).toBe(true);

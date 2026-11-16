@@ -28,12 +28,12 @@ const done = (part: PrepPartRow['part'], at = T0, version = PART_VERSIONS[part])
   completedAt: at,
   skippedAt: null,
 });
-const ALL_DONE: PrepPartRow[] = [done('intro_video'), done('cognitive_video'), done('principle_intro'), done('cmp7')];
+const ALL_DONE: PrepPartRow[] = [done('intro_video'), done('cognitive_video'), done('principle_intro'), done('cmp7'), done('listening_game')];
 
 describe('buildPlan', () => {
-  it('a new registrant has all six steps', () => {
+  it('a new registrant has all seven steps', () => {
     expect(buildPlan({ parts: [], startedAt: null, hasStatementTag: true, eventPointCount: 6 })).toEqual([
-      'welcome', 'story', 'principle', 'cmp7', 'stake', 'research',
+      'welcome', 'story', 'principle', 'game', 'cmp7', 'stake', 'research',
     ]);
   });
 
@@ -44,7 +44,7 @@ describe('buildPlan', () => {
   });
 
   it('bumping one part version re-shows only that part', () => {
-    const stale = [done('intro_video', T0, PART_VERSIONS.intro_video - 1 || 0), done('cognitive_video'), done('principle_intro'), done('cmp7')];
+    const stale = [done('intro_video', T0, PART_VERSIONS.intro_video - 1 || 0), done('cognitive_video'), done('principle_intro'), done('cmp7'), done('listening_game')];
     // version 0 < current 1 → not done
     expect(buildPlan({ parts: stale, startedAt: T1, hasStatementTag: true, eventPointCount: 3 })).toEqual([
       'welcome', 'principle', 'stake', 'research',

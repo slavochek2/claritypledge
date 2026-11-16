@@ -36,16 +36,16 @@ const event = (seriesSlug: string | null) => ({
 } as unknown as EventWithHost);
 
 describe('founder decision (A): finished learning steps stay in a hike\'s plan', () => {
-  it('a hike: every step stays, the finished ones count as done, and the next unfinished one is "Step 2 of 3"', async () => {
+  it('a hike: every step stays, the finished ones count as done, and the next unfinished one is "Step 2 of 4"', async () => {
     const { result } = renderHook(() => usePrepState(event('social-hike'), 'u1'));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    // The recipe's learning: story, principle, cmp7 (no statement tag, so no positions step).
-    expect(result.current.plan).toEqual(['story', 'principle', 'cmp7']);
+    // The recipe's learning: story, principle, game, cmp7 (no statement tag, so no positions step).
+    expect(result.current.plan).toEqual(['story', 'principle', 'game', 'cmp7']);
     expect(result.current.stepsDone).toEqual(['story', 'cmp7']);
-    expect(result.current.progress).toMatchObject({ done: 2, total: 3, complete: false });
+    expect(result.current.progress).toMatchObject({ done: 2, total: 4, complete: false });
     const next = result.current.plan.find((s) => !result.current.stepsDone.includes(s));
     expect(next).toBe('principle');
-    expect(`Step ${result.current.plan.indexOf(next!) + 1} of ${result.current.plan.length}`).toBe('Step 2 of 3');
+    expect(`Step ${result.current.plan.indexOf(next!) + 1} of ${result.current.plan.length}`).toBe('Step 2 of 4');
   });
 
   it('review round 2 (3): the principle intro seen at another event is not shown again — the principle opens on its decision', async () => {

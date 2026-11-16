@@ -13,7 +13,8 @@ const MANIFESTO_FILM = {
   durationSeconds: 114,
 } as const;
 
-export function ManifestoFilm() {
+/** `location` says which page showed the film (analytics): the manifesto page, or the /prepare success screen (P1685). */
+export function ManifestoFilm({ location = "manifesto" }: { location?: "manifesto" | "prepare_end" }) {
   return (
     <Mp4VideoFacade
       src={MANIFESTO_FILM.src}
@@ -21,7 +22,7 @@ export function ManifestoFilm() {
       posterAlt="Two figures joined by a line of light: understanding wins over comfort, fear and ego"
       playLabel="Play the manifesto film, The Clarity Tax"
       durationSeconds={MANIFESTO_FILM.durationSeconds}
-      onPlay={() => analytics.track("manifesto_film_play", { location: "manifesto" })}
+      onPlay={() => analytics.track("manifesto_film_play", { location })}
     />
   );
 }

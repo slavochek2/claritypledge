@@ -64,6 +64,8 @@ export function Mp4VideoFacade({
   const [playing, setPlaying] = useState(false);
   const firedRef = useRef(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
   useEffect(() => {
     // The element stays mounted at its paused frame with its native controls, so the person resumes where they were.
     if (paused) videoRef.current?.pause();
@@ -88,6 +90,8 @@ export function Mp4VideoFacade({
           poster={poster}
           ref={(el) => {
             videoRef.current = el;
+            // Mounted while hidden (a retry, a delayed play): never start audio behind the room.
+            if (el && pausedRef.current) el.pause();
             if (el && playbackRate) {
               el.defaultPlaybackRate = playbackRate;
               el.playbackRate = playbackRate;
@@ -95,7 +99,7 @@ export function Mp4VideoFacade({
           }}
           controls
           onError={onError}
-          autoPlay
+          autoPlay={!paused}
           playsInline
           className="absolute inset-0 h-full w-full object-cover"
         >

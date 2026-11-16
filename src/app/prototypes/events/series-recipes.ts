@@ -62,7 +62,7 @@ export interface SeriesRecipe {
   smartOffers: boolean;
   prepare: {
     steps: PlanStep[];
-    /** P1685: the principle step ends on the Listening Game screen (when its pass showed the intro clip). */
+    /** P1685: the series has the `game` step. Off removes it from the plan (prepareStepsFor). */
     listeningGame: boolean;
     /** Offered from the event room, never required: no room gate, no `preparation_enabled` needed. */
     optional: boolean;
@@ -235,7 +235,7 @@ export const SALES_MASTERMIND_RECIPE: SeriesRecipe = {
   roomClose: { title: null, body: 'Takes 2 minutes', heading: 'How was the evening?', cta: 'Start now', finished: 'Thanks, your feedback is in.' },
   // The thank-you's next-event invitation is Clarity Night's ("Join the next Clarity Night"): not offered here.
   next: null,
-  prepare: { ...CLARITY_NIGHT_RECIPE.prepare, steps: ['story', 'principle', 'cmp7', 'canvas'], optional: true, keepFinished: true },
+  prepare: { ...CLARITY_NIGHT_RECIPE.prepare, steps: ['story', 'principle', 'game', 'cmp7', 'canvas'], optional: true, keepFinished: true },
   // Founder UAT round 1: "Learn and prepare" stays in the room's step bar for everyone, done or not, as on the hikes (their pattern).
   room: { ...CLARITY_NIGHT_RECIPE.room, readiness: false, feedbackAnytime: true, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Feedback' } },
   registrationQuestions: true,

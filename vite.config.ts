@@ -149,24 +149,44 @@ export default defineConfig({
       configureServer(server) {
         const root = path.resolve(__dirname, '.local-media')
         server.middlewares.use('/local-media', (req, res, next) => {
-          const rel = decodeURIComponent((req.url ?? '').split('?')[0] ?? '')
+          let rel: string
+          try {
+            rel = decodeURIComponent((req.url ?? '').split('?')[0] ?? '')
+          } catch {
+            return next() // malformed %-escape
+          }
           const file = path.resolve(root, `.${rel}`)
           if (!file.startsWith(root + path.sep) || !existsSync(file) || !statSync(file).isFile()) return next()
           const size = statSync(file).size
           const type = file.endsWith('.mp4') ? 'video/mp4' : file.endsWith('.jpg') ? 'image/jpeg' : 'application/octet-stream'
-          const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '')
-          const start = range?.[1] ? Number(range[1]) : 0
-          const end = range?.[2] ? Math.min(Number(range[2]), size - 1) : size - 1
           res.setHeader('Content-Type', type)
           res.setHeader('Accept-Ranges', 'bytes')
-          if (range && start <= end) {
+          const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range ?? '')
+          let span: { start: number; end: number } | undefined
+          if (range && (range[1] || range[2])) {
+            if (!range[1]) {
+              // bytes=-N is the last N bytes
+              span = { start: Math.max(0, size - Number(range[2])), end: size - 1 }
+            } else {
+              span = { start: Number(range[1]), end: range[2] ? Math.min(Number(range[2]), size - 1) : size - 1 }
+            }
+            if (span.start >= size || span.start > span.end) {
+              res.statusCode = 416
+              res.setHeader('Content-Range', `bytes */${size}`)
+              res.end()
+              return
+            }
+          }
+          if (span) {
             res.statusCode = 206
-            res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`)
-            res.setHeader('Content-Length', end - start + 1)
+            res.setHeader('Content-Range', `bytes ${span.start}-${span.end}/${size}`)
+            res.setHeader('Content-Length', span.end - span.start + 1)
           } else {
             res.setHeader('Content-Length', size)
           }
-          createReadStream(file, range && start <= end ? { start, end } : undefined).pipe(res)
+          const stream = createReadStream(file, span)
+          stream.on('error', () => { if (!res.headersSent) res.statusCode = 500; res.end() })
+          stream.pipe(res)
         })
       },
     },

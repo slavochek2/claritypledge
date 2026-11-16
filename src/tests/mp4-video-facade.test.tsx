@@ -51,6 +51,24 @@ describe('Mp4VideoFacade', () => {
     expect(onPlay).toHaveBeenCalledTimes(1);
   });
 
+  it('mounted while paused (a retry hidden in the room): no autoplay and the element is paused', async () => {
+    const user = userEvent.setup();
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    render(<Mp4VideoFacade {...BASE} paused />);
+    await user.click(screen.getByRole('button', { name: 'Play the example video' }));
+    const video = document.querySelector('video')!;
+    expect(video).not.toHaveAttribute('autoplay');
+    expect(pause).toHaveBeenCalled();
+    pause.mockRestore();
+  });
+
+  it('mounted while not paused: autoplays as before', async () => {
+    const user = userEvent.setup();
+    render(<Mp4VideoFacade {...BASE} />);
+    await user.click(screen.getByRole('button', { name: 'Play the example video' }));
+    expect(document.querySelector('video')?.autoplay).toBe(true);
+  });
+
   it('renders no <track> when there are no captions', async () => {
     const user = userEvent.setup();
     render(<Mp4VideoFacade {...BASE} />);

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /**
- * P1685 — event preparation: the Listening Game ends the principle step of a pass that showed the intro clip.
+ * P1685 — event preparation: the Listening Game is its own numbered step after the principle (every series), required,
+ * recorded as the listening_game part, resumable.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -45,7 +46,10 @@ vi.mock('@/app/prototypes/events/prep/use-prep-state', async (importOriginal) =>
 }));
 
 import { EventPrepPage } from '@/app/prototypes/events/prep/EventPrepPage';
-import { CLARITY_NIGHT_RECIPE } from '@/app/prototypes/events/series-recipes';
+import { markPrepPart } from '@/app/data/event-prep-service';
+import { buildPlan, type PlanStep } from '@/app/prototypes/events/prep/prep-plan';
+import { prepareStepsFor } from '@/app/prototypes/events/prep/prep-timing';
+import { recipeForEvent } from '@/app/prototypes/events/series-recipes';
 
 const cards = [{ id: 'c1', statement: 'c1', userPosition: null }];
 
@@ -55,18 +59,32 @@ const page = () => (
   </MemoryRouter>
 );
 
-function setup(seriesSlug: string | null, withPrincipleIntro: boolean) {
+type Kind = 'night' | 'hike' | 'mastermind';
+const SHAPE: Record<Kind, Record<string, unknown>> = {
+  night: { seriesSlug: 'clarity-night', flow: null },
+  hike: { seriesSlug: null, flow: 'social-hike' },
+  mastermind: { seriesSlug: null, flow: 'sales-mastermind', canvasTiming: 'before' },
+};
+
+function setup(kind: Kind, over: { currentStep?: string; stepsDone?: string[]; plan?: PlanStep[] } = {}) {
   ev.value = {
     id: 'ev-1', slug: 'walk', title: 'Event', datetime: '2099-01-01T08:00:00Z', timezone: 'UTC', durationMinutes: 120,
-    location: 'Trailhead', hostId: 'h', hostName: 'H', seriesSlug, statementTag: 'walktag', preparationEnabled: true,
-    hasGroupChat: false, attendees: [], orgId: null,
+    location: 'Trailhead', hostId: 'h', hostName: 'H', statementTag: 'walktag', preparationEnabled: true,
+    hasGroupChat: false, attendees: [], orgId: null, ...SHAPE[kind],
   };
-  prep.value = { eventId: 'ev-1', profileId: 'u1', prepChoice: 'now', currentStep: 'principle', stepsDone: [], startedAt: '2026-10-28T08:00:00Z', completedAt: null,
+  // The plan the real hook derives: the recipe's steps through buildPlan (no parts done, started now), welcome/story/research
+  // dropped from this harness so the principle is the first screen.
+  const plan = over.plan ?? buildPlan({
+    parts: [], startedAt: '2026-10-28T08:00:00Z', hasStatementTag: true, eventPointCount: 3, steps: prepareStepsFor(ev.value as never),
+    keepFinished: !!recipeForEvent(ev.value as never).prepare.keepFinished, canvas: kind === 'mastermind',
+  }).filter((s) => !['welcome', 'story', 'research', 'stake', 'canvas'].includes(s));
+  const stepsDone = over.stepsDone ?? [];
+  prep.value = { eventId: 'ev-1', profileId: 'u1', prepChoice: 'now', currentStep: over.currentStep ?? 'principle', stepsDone, startedAt: '2026-10-28T08:00:00Z', completedAt: null,
     optedIn: null, principleRating: null, researchState: null, micSetup: null, researchConsentedAt: null, researchPolicyVersion: null };
   stateRef.value = {
     loading: false, error: false, prep: prep.value, parts: [], proof: null, cmp7Points: cards, eventPoints: [],
-    plan: ['principle', 'cmp7'], stepsDone: [], progress: { done: 0, total: 2, complete: false },
-    withPrincipleIntro, cards: { cmp7: 1, stake: 0 }, minutes: 3, learned: false,
+    plan, stepsDone, progress: { done: stepsDone.length, total: plan.length, complete: false },
+    withPrincipleIntro: false, cards: { cmp7: 1, stake: 0 }, minutes: 3, learned: false,
     reload: vi.fn(), setPrep: vi.fn(), setParts: vi.fn(), reloadPoints: vi.fn(),
   };
   return render(page());
@@ -80,63 +98,81 @@ async function optOutAndContinue() {
 }
 
 beforeEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
-afterEach(() => { cleanup(); CLARITY_NIGHT_RECIPE.prepare.listeningGame = true; });
+afterEach(cleanup);
 
-describe('P1685 event preparation', () => {
-  it('a pass that shows the intro ends with the game, even after the intro is recorded mid-step', async () => {
-    const view = setup(null, true);
-    expect(await screen.findByText('Step 1 of 2')).toBeInTheDocument();
-    click('Play the video');
-    await screen.findByRole('button', { name: 'Continue' });
-    click('Continue');
-    // The intro part is now recorded: the derived flag flips off, the snapshot must not.
-    stateRef.value = { ...stateRef.value, withPrincipleIntro: false };
-    view.rerender(page());
+describe.each<Kind>(['night', 'hike', 'mastermind'])('P1685 event preparation: %s', (kind) => {
+  it('the step after the principle is the game: "Step 2 of 3", rules above a required video, then the statements', async () => {
+    setup(kind);
+    expect(await screen.findByText('Step 1 of 3')).toBeInTheDocument();
     await optOutAndContinue();
     expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
-    expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
-    click('Back');
-    expect(await screen.findByTestId('opt-out-ask')).toBeInTheDocument();
-    click('No, continue');
-    fireEvent.click(await screen.findByText('Continue without video'));
+    expect(screen.getByText('Step 2 of 3')).toBeInTheDocument();
+    expect(screen.getByText('How the Listening Game works')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Play the video' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
+    expect(screen.queryByText(/without video/i)).toBeNull();
+    click('Play the video');
+    click('Continue');
     expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();
+    // The part is recorded once, as completed.
+    await waitFor(() => expect(markPrepPart).toHaveBeenCalledWith('u1', 'listening_game', 1, 'completed'));
   });
 
-  it('the opt-in path: try it now, rating, Confirm, then the game, and Back returns to the rating', async () => {
-    setup(null, true);
-    fireEvent.click(await screen.findByText('Continue without video'));
+  it('a video that cannot load: Try again remounts it; Continue moves on, recording the part as skipped, never completed', async () => {
+    setup(kind);
+    await optOutAndContinue();
+    const game = await screen.findByTestId('listening-game');
+    click('Play the video');
+    fireEvent.error(game.querySelector('video')!);
+    expect(await screen.findByTestId('video-load-error')).toBeInTheDocument();
+    click('Try the video again');
+    await waitFor(() => expect(screen.queryByTestId('video-load-error')).toBeNull());
+    fireEvent.error(screen.getByTestId('listening-game').querySelector('video')!);
+    click('Continue');
+    expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
+    expect(markPrepPart).toHaveBeenCalledWith('u1', 'listening_game', 1, 'skipped');
+    expect(markPrepPart).not.toHaveBeenCalledWith('u1', 'listening_game', 1, 'completed');
+  });
+
+  it('resumes on the game when the person left on it', async () => {
+    setup(kind, { currentStep: 'game', stepsDone: ['principle'] });
+    expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
+    expect(screen.getByText('Step 2 of 3')).toBeInTheDocument();
+  });
+});
+
+describe('P1685 event preparation, other cases', () => {
+  it('opt in, try it now, rating, Confirm: the next screen is the game; Back from it leaves the step, not a blank', async () => {
+    setup('night');
     fireEvent.click(await screen.findByText('Opt in'));
     click('Try it now');
     fireEvent.click(await screen.findByRole('button', { name: 'Rate 8' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
     expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
-    expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
     click('Back');
-    expect(await screen.findByRole('button', { name: 'Confirm' })).toBeInTheDocument();
+    expect(await screen.findByText('Step 1 of 3')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();
   });
 
-  it('a pass that skipped the intro (returning attendee) does not show it', async () => {
-    setup(null, false);
+  it('once per person: a plan without the game (part already done) goes from the principle to the statements', async () => {
+    setup('night', { plan: ['principle', 'cmp7'] });
     await optOutAndContinue();
-    await waitFor(() => expect(screen.getByText('Step 2 of 2')).toBeInTheDocument());
+    expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();
+    expect(screen.getByText('Step 2 of 2')).toBeInTheDocument();
   });
 
-  it('a hike shows it too', async () => {
-    setup('social-hike', true);
-    fireEvent.click(await screen.findByText('Continue without video'));
-    await optOutAndContinue();
-    expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
-  });
-
-  it('flag off: the principle step is exactly as before, same header', async () => {
-    CLARITY_NIGHT_RECIPE.prepare.listeningGame = false;
-    setup(null, true);
-    fireEvent.click(await screen.findByText('Continue without video'));
-    await optOutAndContinue();
-    await waitFor(() => expect(screen.getByText('Step 2 of 2')).toBeInTheDocument());
-    expect(screen.queryByTestId('listening-game')).toBeNull();
+  it('the recipe switch off: the plan has no game and the numbering is as before', async () => {
+    const recipe = recipeForEvent({ seriesSlug: 'clarity-night', flow: null } as never);
+    recipe.prepare.listeningGame = false;
+    try {
+      const steps = prepareStepsFor({ seriesSlug: 'clarity-night', flow: null } as never);
+      expect(steps).not.toContain('game');
+      setup('night', { plan: steps.filter((s) => s === 'principle' || s === 'cmp7') });
+      await optOutAndContinue();
+      expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
+      expect(screen.getByText('Step 2 of 2')).toBeInTheDocument();
+    } finally { recipe.prepare.listeningGame = true; }
   });
 });

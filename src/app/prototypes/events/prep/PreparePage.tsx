@@ -44,7 +44,8 @@ import type { PointWithUserPosition, Profile } from '@/app/types';
 import { CMP7_TAG, isPartDone, PART_VERSIONS, PRINCIPLE_LEVEL, SECONDS_PER_DECISION, STEP_LABELS, stepMinutes } from './prep-plan';
 import { localPartRows, markLocalPart, readLocalParts, syncLocalPrepParts } from './prep-local-parts';
 import { ListeningGameScreen } from './ListeningGameScreen';
-import { STANDALONE_LISTENING_GAME } from './listening-game';
+import { ManifestoFilm } from '@/app/components/manifesto/manifesto-film';
+import { JOIN_STEPS, STANDALONE_LISTENING_GAME } from './listening-game';
 import { ActionRow, Clip, StatementsActions, StepActions, Title, useMeasuredHeight, type StatementsCount } from './prep-ui';
 import { useClipState, VideoActions } from './prep-video-actions';
 import { GutFeelNudge } from './GutFeelNudge';
@@ -59,11 +60,14 @@ const PROGRESS_READ_TIMEOUT_MS = 6000;
 const MISUNDERSTANDING_TAG = 'misunderstanding';
 const FINISH_DEADLINE_MS = 6000;
 
+const STANDALONE_STEP_KEYS = ['story', 'principle', 'game', 'cmp7', 'misunderstanding'] as const;
+export type StandaloneStep = (typeof STANDALONE_STEP_KEYS)[number];
+/** P1685: the Listening Game is its own step after the principle; STANDALONE_LISTENING_GAME = false removes it from every list. */
+const withGameSwitch = (steps: readonly StandaloneStep[]): readonly StandaloneStep[] => steps.filter((s) => s !== 'game' || STANDALONE_LISTENING_GAME);
 /** The standalone steps, in order. */
-export const STANDALONE_STEPS = ['story', 'principle', 'cmp7', 'misunderstanding'] as const;
-export type StandaloneStep = (typeof STANDALONE_STEPS)[number];
-/** P1549: joining and reviewing use the same three steps as the event learning, not the diagnosis. */
-const JOIN_LEARNING_STEPS: readonly StandaloneStep[] = ['story', 'principle', 'cmp7'];
+export const STANDALONE_STEPS = withGameSwitch(STANDALONE_STEP_KEYS);
+/** P1549: joining and reviewing use the same steps as the event learning, not the diagnosis. */
+export const JOIN_LEARNING_STEPS: readonly StandaloneStep[] = JOIN_STEPS;
 type Screen = 'list' | StandaloneStep | 'end';
 type StatementsStep = 'cmp7' | 'misunderstanding';
 const STATEMENT_TAG: Record<StatementsStep, string> = { cmp7: CMP7_TAG, misunderstanding: MISUNDERSTANDING_TAG };
@@ -74,6 +78,7 @@ const isStatementsStep = (s: Screen): s is StatementsStep => s === 'cmp7' || s =
 const STEP_DONE_PART: Partial<Record<StandaloneStep, PrepPart>> = {
   story: 'cognitive_video',
   principle: 'principle_intro',
+  game: 'listening_game',
 };
 
 /** A point counts as answered by the account's position or, signed out, this browser's. */
@@ -87,6 +92,7 @@ const COPY = {
   labels: {
     story: STEP_LABELS.story,
     principle: 'Learn about the Clarity Meeting Principle',
+    game: STEP_LABELS.game,
     cmp7: STEP_LABELS.cmp7,
     misunderstanding: 'Share how you think understanding works between people',
   } satisfies Record<StandaloneStep, string>,
@@ -184,7 +190,7 @@ function PrepareCore({ join, review, initialRows, viewerRowsKnown }: { join?: Jo
 
   const isStepDone = (s: StandaloneStep): boolean => {
     // P1549: joining, each tick is the gate's own signal. The principle's decision is not stored: PrepareFlow tracks it.
-    if (join) return (s === 'story' && isPartDone(rows, 'cognitive_video')) || (s === 'cmp7' && isPartDone(rows, 'cmp7'));
+    if (join) return (s === 'story' && isPartDone(rows, 'cognitive_video')) || (s === 'game' && isPartDone(rows, 'listening_game')) || (s === 'cmp7' && isPartDone(rows, 'cmp7'));
     const part = STEP_DONE_PART[s];
     if (part) return isPartDone(rows, part);
     const pts = points[s as StatementsStep];
@@ -236,6 +242,7 @@ function PrepareFlow({
   const { inShell } = useShellBarSlot('left');
   const steps: readonly StandaloneStep[] = join || review ? JOIN_LEARNING_STEPS : STANDALONE_STEPS;
   const [principleAnswered, setPrincipleAnswered] = useState(false);
+  const [gameFromPrinciple, setGameFromPrinciple] = useState(false);
   const [screen, setScreen] = useState<Screen>(() => (join ? steps.find((s) => !isStepDone(s)) ?? 'story' : 'list'));
   // Joining has no list to go back to: step Back retraces the steps taken this visit.
   const [trail, setTrail] = useState<StandaloneStep[]>([]);
@@ -247,11 +254,6 @@ function PrepareFlow({
   const [answer, setAnswer] = useState<PrincipleAnswer>(null);
   const [tryAsked, setTryAsked] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
-  // P1685: the Listening Game screen ends a principle pass that showed the intro clip. The pass is always snapshotted
-  // when the step opens (go / resetPrinciple), never read back from the recorded principle_intro part.
-  // Joining can open straight on the principle (the story already done): that pass shows the intro, so the game too.
-  const [gameShown, setGameShown] = useState(() => STANDALONE_LISTENING_GAME && !!join && screen === 'principle');
-  const [gameOpen, setGameOpen] = useState(false);
   // Which cards each statements step showed on first entry this visit, so answering one never
   // moves the list under the finger and Back shows the same cards.
   const [shownIds, setShownIds] = useState<Partial<Record<StatementsStep, string[]>>>({});
@@ -288,9 +290,6 @@ function PrepareFlow({
     setAnswer(null);
     setTryAsked(false);
     setRating(null);
-    setGameOpen(false);
-    // Only a pass that opens on the intro clip shows the game (go() resets to false, then the step shows the clip).
-    setGameShown(STANDALONE_LISTENING_GAME && !introDone);
   };
 
   const go = (next: Screen) => {
@@ -298,6 +297,8 @@ function PrepareFlow({
     if (next === 'end' && review) return review.onReturn();
     if (join && screen !== 'list' && screen !== 'end' && steps.indexOf(next as StandaloneStep) > steps.indexOf(screen)) setTrail((t) => [...t, screen]);
     setScreen(next);
+    // Standalone Back from the game returns to the principle only when the game was reached from it.
+    setGameFromPrinciple(next === 'game' && screen === 'principle');
     setPlayRequest(0);
     resetPrinciple(false);
     if (next === 'list') reloadPoints();
@@ -310,14 +311,6 @@ function PrepareFlow({
   };
   const firstOpen = steps.find((s) => !isStepDone(s));
   const finishPrinciple = () => {
-    // P1685: the step's own finish goes through the game screen first.
-    if (gameShown && !gameOpen) {
-      // Joining has no decision screens: the intro counts as passed while the game shows, and Back reopens it.
-      if (join) setPrincipleIntroDone(true);
-      setGameOpen(true);
-      window.scrollTo(0, 0);
-      return;
-    }
     setPrincipleAnswered(true);
     go(after('principle', true));
   };
@@ -332,12 +325,6 @@ function PrepareFlow({
   const back = () => {
     if (screen === 'list') return onLeave();
     if (screen === 'principle') {
-      if (gameOpen) {
-        setGameOpen(false);
-        if (join) setPrincipleIntroDone(false);
-        window.scrollTo(0, 0);
-        return;
-      }
       // The event preparation's order: rating → follow-up → decision → intro clip → list.
       if (answer !== null && tryAsked) { setTryAsked(false); setRating(null); }
       else if (answer !== null) { setAnswer(null); setRating(null); }
@@ -346,10 +333,17 @@ function PrepareFlow({
       window.scrollTo(0, 0);
       return;
     }
+    if (screen === 'game' && !join && gameFromPrinciple) {
+      // Standalone, arrived from the principle: back to its decision, as the event preparation does.
+      // Opened straight from the agenda, Back returns to the agenda (leaveStep).
+      go('principle');
+      setPrincipleIntroDone(true);
+      return;
+    }
     leaveStep();
   };
 
-  const stepIndex = screen === 'list' || screen === 'end' ? -1 : STANDALONE_STEPS.indexOf(screen);
+  const stepIndex = screen === 'list' || screen === 'end' ? -1 : steps.indexOf(screen);
   // Every step pins its bar at every width (founder UAT 2026-10-05): the actions stay in one place.
   const contentPadding = { paddingBottom: barHeight > 0 ? barHeight + 24 : 'max(1.5rem, env(safe-area-inset-bottom))' };
 
@@ -379,7 +373,7 @@ function PrepareFlow({
   };
 
   // P1549: joining shows the principle without asking: the one decision is the group terms at the end.
-  const showPrincipleView = !join && screen === 'principle' && principleIntroDone && !gameOpen && !(answer !== null && !tryAsked);
+  const showPrincipleView = !join && screen === 'principle' && principleIntroDone && !(answer !== null && !tryAsked);
 
   return (
     <div className="min-h-[100dvh] bg-background" data-testid="p1402-prepare">
@@ -402,7 +396,7 @@ function PrepareFlow({
           {join ? (
             <div className="min-w-0 flex-1" data-testid="learn-join-context">
               <p className="text-sm font-semibold text-foreground" data-testid="learn-join-title">Joining {join.groupName}</p>
-              <LetterProgressBar currentChapter={stepIndex} totalChapters={4} stepCount={screen === 'principle' && gameShown ? 2 : 1} committedSteps={screen === 'principle' && gameOpen ? 1 : 0} label={`Step ${stepIndex + 1} of 4`} />
+              <LetterProgressBar currentChapter={stepIndex} totalChapters={steps.length + 1} stepCount={1} committedSteps={0} label={`Step ${stepIndex + 1} of ${steps.length + 1}`} />
             </div>
           ) : stepIndex >= 0 ? (
             // The event preparation's header: the step name over LetterProgressBar.
@@ -413,8 +407,8 @@ function PrepareFlow({
               <LetterProgressBar
                 currentChapter={stepIndex}
                 totalChapters={steps.length}
-                stepCount={screen === 'principle' ? 3 + (gameShown ? 1 : 0) : 1}
-                committedSteps={screen === 'principle' ? (principleIntroDone ? 1 : 0) + (answer !== null ? 1 : 0) + (gameOpen ? 1 : 0) : 0}
+                stepCount={screen === 'principle' ? 3 : 1}
+                committedSteps={screen === 'principle' ? (principleIntroDone ? 1 : 0) + (answer !== null ? 1 : 0) : 0}
                 label={`Step ${stepIndex + 1} of ${steps.length}`}
               />
             </div>
@@ -473,7 +467,7 @@ function PrepareFlow({
                   const cards = { cmp7: points.cmp7?.length ?? 0, stake: 0 };
                   const minutes = s === 'misunderstanding'
                     ? Math.max(1, Math.round(((points.misunderstanding?.length ?? 0) * SECONDS_PER_DECISION) / 60))
-                    : stepMinutes(s, cards, true, STANDALONE_LISTENING_GAME);
+                    : stepMinutes(s, cards, true);
                   return (
                     <li key={s} className="flex gap-3" data-testid={`agenda-step-${s}`} data-done={done ? 'true' : 'false'}>
                       <div className="flex flex-col items-center">
@@ -526,7 +520,7 @@ function PrepareFlow({
             </section>
           )}
 
-          {screen === 'principle' && !principleIntroDone && !gameOpen && (
+          {screen === 'principle' && !principleIntroDone && (
             <section className="space-y-5">
               <div className="space-y-2">
                 <Title>Introducing the Clarity Meeting Principle</Title>
@@ -553,7 +547,7 @@ function PrepareFlow({
             </section>
           )}
 
-          {!join && screen === 'principle' && principleIntroDone && !gameOpen && answer !== null && !tryAsked && (
+          {!join && screen === 'principle' && principleIntroDone && answer !== null && !tryAsked && (
             <section className="flex flex-col items-center space-y-4 pt-8 text-center" data-testid={answer === 'in' ? 'try-it-now' : 'opt-out-ask'}>
               <div className="flex flex-col items-center gap-1">
                 {askerAvatar('xl')}
@@ -571,8 +565,9 @@ function PrepareFlow({
             </section>
           )}
 
-          {screen === 'principle' && gameOpen && (
-            <ListeningGameScreen ref={barRef} onContinue={() => { setGameOpen(false); setPrincipleAnswered(true); go(after('principle', true)); }} />
+          {screen === 'game' && (
+            // D3: the video is required, as every other preparation video: Play, then Continue. Recorded once per person.
+            <ListeningGameScreen ref={barRef} onContinue={(watched) => { if (watched) complete('listening_game'); go(after('game')); }} />
           )}
 
           {isStatementsStep(screen) && (
@@ -616,6 +611,10 @@ function PrepareFlow({
               </span>
               <Title>{COPY.endTitle}</Title>
               <p className="text-base leading-relaxed text-muted-foreground">{COPY.endLine}</p>
+              {/* D4 (founder, 2026-11-16): the manifesto film here, with "Read the manifesto" below it as the one primary action. */}
+              <div className="w-full pt-2 text-left" data-testid="prepare-end-film">
+                <ManifestoFilm location="prepare_end" />
+              </div>
               <div className="w-full max-w-sm pt-4">
                 <LetterPrimaryCta label={COPY.endPrimary} onClick={() => navigate('/manifesto')} />
               </div>
