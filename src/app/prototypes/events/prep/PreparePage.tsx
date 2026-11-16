@@ -105,8 +105,8 @@ const COPY = {
   misunderstandingTitle: "Let's find out how you think understanding works between people",
   endTitle: 'Introduction complete',
   endLine: 'You know how to listen for understanding and how to check it.',
-  endPrimary: 'See upcoming events',
-  endSecondary: 'Read the manifesto',
+  endPrimary: 'Read the manifesto',
+  endSecondary: 'See upcoming events',
 };
 
 /** P1549: three shapes of one page: plain, joining a group (?then=join&group=) and reviewing (?review=). */
@@ -603,14 +603,14 @@ function PrepareFlow({
               </span>
               <Title>{COPY.endTitle}</Title>
               <p className="text-base leading-relaxed text-muted-foreground">{COPY.endLine}</p>
-              {/* D4 (founder, 2026-11-16): the manifesto film here; "See upcoming events" is the one primary action, "Read the manifesto" a plain link under it. */}
+              {/* D4 (founder, 2026-11-16): the manifesto film here; "Read the manifesto" is the one primary action, "See upcoming events" a plain link under it (founder, round 4). */}
               <div className="w-full pt-2 text-left" data-testid="prepare-end-film">
                 <ManifestoFilm location="prepare_end" />
               </div>
               <div className="w-full max-w-sm pt-4">
-                <LetterPrimaryCta label={COPY.endPrimary} onClick={() => navigate('/events')} />
+                <LetterPrimaryCta label={COPY.endPrimary} onClick={() => navigate('/manifesto')} />
               </div>
-              <Link to="/manifesto" className="inline-flex min-h-11 items-center rounded text-blue-600 underline underline-offset-4 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-blue-400 dark:hover:text-blue-300">
+              <Link to="/events" className="inline-flex min-h-11 items-center rounded text-blue-600 underline underline-offset-4 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 dark:text-blue-400 dark:hover:text-blue-300">
                 {COPY.endSecondary}
               </Link>
             </section>

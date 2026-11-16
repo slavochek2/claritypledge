@@ -205,7 +205,7 @@ describe('P1685 D4: the success screen', () => {
     return screen;
   }
 
-  it('shows the manifesto film, "See upcoming events" as the one primary action and a plain "Read the manifesto" link under it', async () => {
+  it('shows the manifesto film, "Read the manifesto" as the one primary action and a plain "See upcoming events" link under it', async () => {
     await toEnd();
     // No statements are loaded in this harness, so the step has nothing to answer: its Skip goes to the end.
     const skip = await screen.findByText(/skip/i).catch(() => null);
@@ -214,16 +214,16 @@ describe('P1685 D4: the success screen', () => {
     expect(within(end).getByText('Introduction complete')).toBeInTheDocument();
     expect(within(end).getByText('You know how to listen for understanding and how to check it.')).toBeInTheDocument();
     const film = screen.getByRole('button', { name: /play the manifesto film/i });
-    const cta = screen.getByRole('button', { name: 'See upcoming events' });
-    const link = screen.getByRole('link', { name: 'Read the manifesto' });
+    const cta = screen.getByRole('button', { name: 'Read the manifesto' });
+    const link = screen.getByRole('link', { name: 'See upcoming events' });
     expect(end.contains(film) && end.contains(cta) && end.contains(link)).toBe(true);
-    expect(link).toHaveAttribute('href', '/manifesto');
+    expect(link).toHaveAttribute('href', '/events');
     expect(cta.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(film.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     // One primary action: the film's play button is the poster's, the page has one LetterPrimaryCta.
     expect(screen.getAllByRole('button').filter((b) => /see upcoming events|read the manifesto/i.test(b.textContent ?? ''))).toHaveLength(1);
-    // The primary action really goes to the events list.
+    // The primary action really goes to the manifesto.
     fireEvent.click(cta);
-    expect(await screen.findByTestId('location')).toHaveTextContent('/events');
+    expect(await screen.findByTestId('location')).toHaveTextContent('/manifesto');
   });
 });

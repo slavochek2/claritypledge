@@ -11,9 +11,9 @@ export const LISTENING_GAME_COPY = {
   subtitle: 'What you mean (intended meaning) and what the other person understands (interpreted meaning) often differ, and the gap stays hidden. The Listening Game gives you roles that reveal it in 3 seconds.',
   rolesHeading: 'The roles',
   roles: [
-    { name: 'Speaker', text: 'says one thing, then decides how well they feel understood, from 0 to 10.' },
+    { name: 'Speaker', text: 'shares anything they like, then asks: "How well do you think you understand me, from 0 to 10?"' },
     { name: 'Listener', text: 'explains back what they heard, without arguing. Their own view waits until they switch roles.' },
-    { name: 'Observer', text: 'rings the bell when someone steps out of their role, so everyone learns the roles quickly.' },
+    { name: 'Observer', text: 'rings the bell when the listener steps out of their role, or when one person takes most of the speaking time.' },
   ],
   closing: 'When everyone knows the roles, asking "did I get you?" stops being awkward. It\'s just the game.',
   playLabel: 'Play the Listening Game video',
