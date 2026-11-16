@@ -6,8 +6,10 @@
 # the target is the one self-hosted VM below, or the script refuses and exits non-zero.
 #
 # Usage:
-#   scripts/selfhosted/deploy-functions.sh [fn]        deploy all functions (or one) + router, restart functions
-#   scripts/selfhosted/deploy-functions.sh --from-commit <sha> [fn]   deploy exactly that commit (must be on main)
+#   scripts/selfhosted/deploy-functions.sh [fn ...]    deploy all functions (or the named ones) + router, restart functions
+#                                       (several names are one deploy: one upload, one restart, one probe.
+#                                        Only a deploy with no name prunes functions this checkout lacks.)
+#   scripts/selfhosted/deploy-functions.sh --from-commit <sha> [fn ...]   deploy exactly that commit (must be on main)
 #   scripts/selfhosted/deploy-functions.sh --from-main-tip [--lock-wait S]   what a landing runs: wait for the
 #                                       TEST deploy lock, then deploy main's tip read under it
 #                                       (--clear-dead-lock also clears a lock whose owner is provably dead; landings pass it)
@@ -57,7 +59,7 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 source "$SCRIPT_DIR/lib/deploy-guard.sh"
 
 MODE="deploy"
-FUNCTION_NAME=""
+FUNCTION_NAMES=()   # P1690: every positional argument, in order, each kept once
 FROM_COMMIT=""; FROM_MAIN_TIP=0; LOCK_WAIT=0; CLEAR_DEAD_LOCK=0; RECORD_LANDING=""
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -70,11 +72,16 @@ while [ $# -gt 0 ]; do
     --setup) MODE="setup" ;;
     --secrets) MODE="secrets" ;;
     --check-secrets) MODE="check-secrets" ;;
-    -h|--help) sed -n '2,28p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     --env|--env=*|--project-ref|--project-ref=*)
       die "$1 is a hosted-target flag. This script only deploys to $EXPECTED_URL; use scripts/deploy-functions.sh for hosted." ;;
     -*) die "unknown flag: $1" ;;
-    *) FUNCTION_NAME="$1" ;;
+    # P1690: every positional argument is a function name. They used to share one variable, so
+    # `a b c` deployed only `c` and printed success. A repeated name is kept once: staging the
+    # same directory twice would nest a copy inside the first.
+    *) fn_seen=0
+       for fn_prev in ${FUNCTION_NAMES[@]+"${FUNCTION_NAMES[@]}"}; do [ "$fn_prev" != "$1" ] || fn_seen=1; done
+       [ "$fn_seen" = 1 ] || FUNCTION_NAMES+=("$1") ;;
   esac
   shift
 done
@@ -162,13 +169,14 @@ dg_deadline "${DG_GCLOUD_DEADLINE:-30}" gcloud auth print-access-token >/dev/nul
 [ -f "$ROUTER_SRC" ] || die "router source not found: $ROUTER_SRC"
 [ -f "$OPEN_LIST" ] || die "JWT policy list not found: $OPEN_LIST"
 [ -d "$FUNCTIONS_DIR" ] || die "functions dir not found: $FUNCTIONS_DIR"
-# A bare function name only: "../x" would copy a directory from outside supabase/functions.
-if [ -n "$FUNCTION_NAME" ] && ! [[ "$FUNCTION_NAME" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
-  die "not a function name: $FUNCTION_NAME"
-fi
-if [ -n "$FUNCTION_NAME" ] && [ ! -d "$FUNCTIONS_DIR/$FUNCTION_NAME" ]; then
-  die "function directory not found: $FUNCTIONS_DIR/$FUNCTION_NAME"
-fi
+# Bare function names only: "../x" would copy a directory from outside supabase/functions, and an
+# empty name (an unset variable in quotes) used to count as "no name" and run the full, pruning
+# deploy. P1690: every name is checked here, before anything is staged or uploaded, so one bad
+# name refuses the whole call instead of deploying the rest.
+for fn in ${FUNCTION_NAMES[@]+"${FUNCTION_NAMES[@]}"}; do
+  [[ "$fn" =~ ^[a-z0-9][a-z0-9-]*$ ]] || die "not a function name: '$fn'. Nothing was deployed."
+  [ -d "$FUNCTIONS_DIR/$fn" ] || die "function directory not found: $FUNCTIONS_DIR/$fn. Nothing was deployed."
+done
 
 GCLOUD_COMMON=(--project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet)
 # gcloud's stderr is noisy (numpy, TCP-window and WARNING lines). It is filtered through a temp file,
@@ -386,8 +394,8 @@ if [ -n "$FROM_COMMIT" ]; then SRC_BRANCH="main"; else SRC_BRANCH="$(git -C "$SR
 SRC_DIRTY=0
 if [ -z "$FROM_COMMIT" ] && [ -n "$(git -C "$SRC_REPO" status --porcelain -- "${DG_INPUT_PATHS[@]}")" ]; then SRC_DIRTY=1; fi
 mkdir -p "$STAGE/functions"
-if [ -n "$FUNCTION_NAME" ]; then
-  copy_set=("$FUNCTION_NAME" _shared)
+if [ "${#FUNCTION_NAMES[@]}" -gt 0 ]; then
+  copy_set=("${FUNCTION_NAMES[@]}" _shared)
 else
   copy_set=()
   for dir in "$FUNCTIONS_DIR"/*/; do copy_set+=("$(basename "$dir")"); done
@@ -410,12 +418,16 @@ mkdir -p "$STAGE/functions/main"
 cp "$ROUTER_SRC" "$STAGE/functions/main/index.ts"
 cp "$OPEN_LIST" "$STAGE/functions/main/no-verify-jwt-functions.txt"
 # A full deploy marks itself so the VM prunes functions deleted or renamed in git (they stay routable otherwise).
-[ -n "$FUNCTION_NAME" ] || : > "$STAGE/functions/.full-deploy"
+[ "${#FUNCTION_NAMES[@]}" -gt 0 ] || : > "$STAGE/functions/.full-deploy"
 
 dg_manifest_fragment "$STAGE" "$SRC_COMMIT" "$SRC_BRANCH" "$SRC_DIRTY"
 
 TARBALL="$STAGE/functions.tgz"
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE/functions" -czf "$TARBALL" .
+# P1690: say which names this run deploys, so the output can be checked against the command.
+if [ "${#FUNCTION_NAMES[@]}" -gt 0 ]; then
+  echo "Named functions (${#FUNCTION_NAMES[@]}): ${FUNCTION_NAMES[*]}"
+fi
 echo "Deploying ${#copy_set[@]} function dir(s) + router to $VM ($EXPECTED_URL)..."
 vm_scp "$TARBALL" "$REMOTE_TGZ"
 
@@ -423,7 +435,7 @@ if [ "$IS_LANE" = 1 ]; then
   # Lane: lanectl extracts into the lane volume, merges the manifest, recreates the lane's functions
   # container (unless quarantined) and probes every function itself. The caller does not probe.
   (cd "$PROJECT_DIR" && python3 "$SCRIPT_DIR/lane.py" heartbeat) || die "lane heartbeat failed. Nothing was deployed."
-  full_flag=""; [ -n "$FUNCTION_NAME" ] || full_flag=" --full"
+  full_flag=""; [ "${#FUNCTION_NAMES[@]}" -gt 0 ] || full_flag=" --full"
   lane_rc=0
   vm_ssh "sudo $CP_TEST_LANECTL deploy $LANE_ARGS --tarball $(printf '%q' "$REMOTE_TGZ")$full_flag; rc=\$?; rm -f $(printf '%q' "$REMOTE_TGZ"); exit \$rc" || lane_rc=$?
   [ "$lane_rc" -eq 0 ] || die "lanectl deploy failed on $CP_TEST_LANE (exit $lane_rc). The files may be on the lane; the deploy is not verified."
