@@ -2,7 +2,7 @@
  * @file MastermindUpdateTask.tsx
  * @description P1529 §6 (D6, D23, reversed 2026-11-11; redesigned UAT 2026-11-11): the card the Clarity Canvas owner sees BETWEEN rounds
  * (and on the Feedback tab once the evening ends), one per round they owned. ONE message per state: the transcript is on its way; the round
- * is in (primary "Create next version": makes a draft and opens it in the workspace, where Publish is); making it (from the tap on); ready (Open your draft); published (with "Open it"); and, only for a real failure, "Could not make your next version" with a secondary Try again. Nothing is published from this card: Publish is in the workspace.
+ * is in (primary "Create next version": makes a draft; the owner stays in the room); making it (from the tap on); ready (P1686: the draft's changes, then Publish and Open full draft, NextVersionChanges); published (with "Open it"); and, only for a real failure, "Could not make your next version" with a secondary Try again. Publish on this card appears only under the draft's changes (never blind, decisions.md 2026-11-13 [product]); the workspace's Publish returns to the room.
  * Never shown during a running round (the card decides that). Stances are never asked for here (D7).
  */
 import { OpenYourCanvas } from './OpenYourCanvas';
@@ -10,7 +10,9 @@ import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ARTIFACTS_CANVASES_DRAFTS, plainCanvasState } from '@/lib/canvas-hrefs';
+import { ARTIFACTS_CANVASES_DRAFTS, plainCanvasState, tablePublishReturnState } from '@/lib/canvas-hrefs';
+import { NextVersionChanges } from './NextVersionChanges';
+import { useNextVersionChanges } from './use-next-version-changes';
 import type { OwnerUpdate } from './use-mastermind-round';
 import {
   publishedLine, taskTitle, TASK_FAILED, TASK_MAKE_BODY, TASK_WORKING, wordsMissing, wordsPreparing, WORDS_NOT_UNDERSTOOD, type TaskFace,
@@ -30,6 +32,7 @@ export function MastermindUpdateTask({
   canvasHref = null,
   heading = null,
   linkState,
+  ownerId = null,
   onMake,
 }: {
   face: TaskFace;
@@ -48,7 +51,9 @@ export function MastermindUpdateTask({
   heading?: string | null;
   /** Router state that makes the canvas page offer "Back to your table". */
   linkState: unknown;
-  /** "Create next version": makes the draft (never published by the tap) and opens it in the workspace, where Publish is. */
+  /** P1686: the signed-in owner's id, for reading the draft's changes on the ready face. */
+  ownerId?: string | null;
+  /** "Create next version": makes the draft (never published by the tap); the owner stays in the room. */
   onMake: () => void;
 }) {
   const { busy, note } = owner;
@@ -56,7 +61,10 @@ export function MastermindUpdateTask({
   const Title = heading ? 'h3' : 'h2';
   // From the tap until the draft opens the card already says it is working (no silent greyed button).
   const working = face === 'creating' || (face === 'make' && busy);
-  const draftState = plainCanvasState(linkState); // the owner's own draft opens plain, never in Compare; the way back to the table stays
+  // The owner's own draft opens plain, never in Compare; the way back to the table stays, and (P1686) its Publish returns to the table.
+  const draftState = tablePublishReturnState(linkState);
+  const ready = face === 'ready';
+  const changes = useNextVersionChanges({ ownerId: ready ? ownerId : null, canvasName: ready ? owner.draft?.canvasName ?? null : null, versionName: ready ? owner.draft?.versionName ?? null : null, onSettled: () => void owner.reread() });
   // The way to the draft is never missing: the link when its address is known, else (after the bounded retries) Try again.
   const draftLink = tweakHref ? (
     <Button asChild className={face === 'ready' ? PRIMARY : 'min-h-11 px-6'} variant={face === 'ready' ? 'default' : 'outline'}>
@@ -95,9 +103,14 @@ export function MastermindUpdateTask({
 
       {face === 'ready' && (
         <>
-          <p className="text-sm" data-testid="mastermind-task-ready">Your next version is ready to review.</p>
-          <div className={CENTRED}>{draftLink}</div>
-          {!tweakHref && owner.draftFailed && <p className="mt-2 text-sm text-muted-foreground" data-testid="mastermind-draft-unreadable">Could not open your draft yet.</p>}
+          {/* With the draft's address unreadable there is nothing to read the changes from: only the card's Try again below (never a spinner beside it). */}
+          {!(!owner.draft && owner.draftFailed) && <NextVersionChanges changes={changes} fullHref={tweakHref} fullState={draftState} />}
+          {!tweakHref && owner.draftFailed && (
+            <div className={CENTRED}>
+              {draftLink}
+              <p className="mt-2 text-sm text-muted-foreground" data-testid="mastermind-draft-unreadable">Could not open your draft yet.</p>
+            </div>
+          )}
         </>
       )}
 

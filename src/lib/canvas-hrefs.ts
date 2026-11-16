@@ -80,6 +80,18 @@ export function isPlainCanvas(state: unknown): boolean {
   return !!state && typeof state === 'object' && (state as Record<string, unknown>).plainCanvas === true;
 }
 
+/**
+ * P1686: the owner's next-version draft opened from the room card ("Open full draft"): Publish in the workspace returns to the table (`backToTable`).
+ * A separate mark from `afterPublish`, which is the PREPARATION's return and brings the preparation banner with it.
+ */
+export function tablePublishReturnState(state: unknown): Record<string, unknown> {
+  return { ...plainCanvasState(state), publishReturnsToTable: true };
+}
+
+export function publishReturnsToTable(state: unknown): boolean {
+  return !!state && typeof state === 'object' && (state as Record<string, unknown>).publishReturnsToTable === true;
+}
+
 /** P1529: the room path in the navigation state's `backToTable` when it is a same-origin app path; otherwise null. */
 export function backToTablePath(state: unknown): string | null {
   return appPath((state as { backToTable?: unknown } | null)?.backToTable);

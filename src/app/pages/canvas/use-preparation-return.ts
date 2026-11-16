@@ -5,7 +5,7 @@
  * the mark mid-edit, but another canvas (a different `canvasKey`, the route's handle + projectTag) forgets it, so its banner and Publish never jump to preparation.
  */
 import { useState } from 'react';
-import { afterPublishEventOf, afterPublishPath, backToTablePath, prepStepOf, tableEventOf, type PrepStep } from '@/lib/canvas-hrefs';
+import { afterPublishEventOf, afterPublishPath, backToTablePath, prepStepOf, publishReturnsToTable, tableEventOf, type PrepStep } from '@/lib/canvas-hrefs';
 
 function useRemembered<T>(now: T | null, canvasKey: string, same: (a: T, b: T) => boolean): T | null {
   const [seen, setSeen] = useState(() => ({ key: canvasKey, path: now }));
@@ -29,8 +29,9 @@ export function useEventReturn(state: unknown, canvasKey = ''): string | null {
 }
 
 /** P1529: the event room's path (and the event) a canvas was opened from, remembered like the preparation return, for ITS canvas only; null when the state carries none. */
-export function useTableReturn(state: unknown, canvasKey = ''): { to: string; eventId: string | null } | null {
+export function useTableReturn(state: unknown, canvasKey = ''): { to: string; eventId: string | null; afterPublish: boolean } | null {
   const path = backToTablePath(state);
-  const now = path ? { to: path, eventId: tableEventOf(state) } : null;
-  return useRemembered(now, canvasKey, (a, b) => a.to === b.to && a.eventId === b.eventId);
+  // P1686: `afterPublish` — this canvas was opened from the room's next-version card, so Publish returns to the table.
+  const now = path ? { to: path, eventId: tableEventOf(state), afterPublish: publishReturnsToTable(state) } : null;
+  return useRemembered(now, canvasKey, (a, b) => a.to === b.to && a.eventId === b.eventId && a.afterPublish === b.afterPublish);
 }

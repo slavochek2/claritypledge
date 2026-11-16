@@ -57,7 +57,9 @@ export function useWorkspacePublish(args: {
   const rememberedEvent = useEventReturn(state, `${handle}/${projectTag}`); // the event it was started or opened from, kept for this canvas
   const eventId = args.owner === false ? null : rememberedEvent;
   // After the person answers the share question (or when none is asked), Publish goes where it was going.
-  const leave = useCallback(() => { if (returnTo) navigate(returnTo, { replace: true }); }, [navigate, returnTo]);
+  // P1686: a next-version draft opened from the room card returns to the table after Publish. Kept apart from `returnTo`, which also draws the preparation banner.
+  const leaveTo = returnTo ?? (args.owner !== false && table?.afterPublish ? table.to : null);
+  const leave = useCallback(() => { if (leaveTo) navigate(leaveTo, { replace: true }); }, [navigate, leaveTo]);
   const shareOffer = useEventShareOffer(leave, args.onShared);
   const { ask: askShare } = shareOffer;
   const [closedDraftId, setClosedDraftId] = useState<string | null>(null);

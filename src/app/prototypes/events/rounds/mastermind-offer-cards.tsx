@@ -3,11 +3,10 @@
  * @description P1529: the owner's next-version card (and the "could not read it" card) that the round card shows between rounds, built
  * from the round state apart from the round poll. The card lives in the Table tab, before and after the evening ends (UAT 2026-11-13 (d), H3); Feedback only links to it. Wording is a draft: [FOUNDER DECISION: copy].
  */
-import type { NavigateFunction } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import type { EventRoundsState } from '@/app/data/event-rounds-service';
 import { canvasPageHref } from '@/app/pages/chat/canvas-links';
-import { plainCanvasState, workspaceHref } from '@/lib/canvas-hrefs';
+import { workspaceHref } from '@/lib/canvas-hrefs';
 import { discussionRoundLabel } from './mastermind-host-helpers';
 import type { EventRoomMember, EventRoomSelf } from '@/app/types';
 import { firstName } from './use-event-rounds';
@@ -15,7 +14,7 @@ import type { OwnerUpdate } from './use-mastermind-round';
 import { MastermindUpdateTask } from './MastermindUpdateTask';
 import { EVENING_OVER, taskFace } from './mastermind-round-helpers';
 
-export function offerCards({ owner, ownCanvas, state, roster, self, live, over = false, linkState, navigate }: {
+export function offerCards({ owner, ownCanvas, state, roster, self, live, over = false, linkState }: {
   owner: OwnerUpdate;
   /** The person's own canvas tag at this event (null: none known). */
   ownCanvas: string | null;
@@ -27,7 +26,6 @@ export function offerCards({ owner, ownCanvas, state, roster, self, live, over =
   /** The evening is over: the cards carry the heading "The evening is over" themselves (H3). */
   over?: boolean;
   linkState: unknown;
-  navigate: NavigateFunction;
 }) {
   // The next-version card is shown only between rounds (after the host ends a round, before the next starts, and after the evening ends).
   const face = live ? null : taskFace(owner.offer);
@@ -53,7 +51,9 @@ export function offerCards({ owner, ownCanvas, state, roster, self, live, over =
       canvasHref={myCanvasHref}
       heading={over ? EVENING_OVER : null}
       linkState={linkState}
-      onMake={() => void owner.make(d => { const to = draftHref(d); if (to) navigate(to, { state: plainCanvasState(linkState) }); })}
+      ownerId={self.profileId}
+      // P1686: the owner stays in the room; the card shows the draft's changes and Publish once it is ready.
+      onMake={() => void owner.make(() => undefined)}
     />
   );
   // A failed read of the offer is said, with Try again; what was shown before (if anything) may be out of date.

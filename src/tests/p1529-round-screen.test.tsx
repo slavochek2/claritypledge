@@ -96,6 +96,16 @@ const DRAFT = { draftId: 'd1', revision: 4, runId: 'run1' };
 const Where = () => { const l = useLocation(); return <span data-testid="where" data-state={JSON.stringify(l.state)} data-search={l.search}>{l.pathname}</span>; };
 const FROM_ROOM = JSON.stringify({ backToTable: '/', tableEvent: 'e1' });
 const PLAIN_FROM_ROOM = JSON.stringify({ backToTable: '/', tableEvent: 'e1', plainCanvas: true });
+/** P1686: the owner's draft opened from the next-version card: plain, with the way back, and its Publish returns to the table. */
+const DRAFT_FROM_ROOM = JSON.stringify({ backToTable: '/', tableEvent: 'e1', plainCanvas: true, publishReturnsToTable: true });
+/** P1686: `get_canvas` answers for the draft (v3-draft, revision 7, started from v2) and for v2. */
+const pt = (statement: string, box: string) => ({ statement, systemTags: [`canvas:${box}`] });
+const VERSIONS = [{ name: 'v3-draft', seq: null, draft: true }, { name: 'v2', seq: 2, draft: false }];
+function canvasReads(draftPoints = [pt('Teams of 100 to 1,000', 'segments'), pt('Same problem', 'problem')], basePoints = [pt('Small teams', 'segments'), pt('Same problem', 'problem')], revision = 7) {
+  h.getCanvas.mockImplementation(async (_o: string, _n: string, _v: string, _k: unknown, version?: string) => (version === 'v3-draft'
+    ? { points: draftPoints, versions: VERSIONS, draft: { id: 'd1', version: 'v3-draft', baseSeq: 2, revision } }
+    : { points: basePoints, versions: VERSIONS, draft: null }));
+}
 
 function renderCard(selfMember: EventRoomMember, props: { view?: 'table' | 'compare' | 'hidden'; onMoment?: (moment: RoundMoment) => void } = {}) {
   return render(
@@ -490,7 +500,7 @@ describe('P1529 round screen: whether any round has started (the optional prepar
 describe('P1529 §6 (2026-11-11): a next version after every owned round, between rounds only', () => {
   beforeEach(() => { betweenRounds(); });
 
-  it('the card says "{round} with {partner} is in"; "Create next version" makes a draft (never publishes), shows the working state at once and opens the draft workspace', async () => {
+  it('the card says "{round} with {partner} is in"; "Create next version" makes a draft (never publishes), shows the working state at once and stays in the room (P1686)', async () => {
     h.server.offer = offerOf('offer');
     h.makeMyNextVersion.mockImplementation(async () => {
       h.server.offer = offerOf('drafting', DRAFT);
@@ -507,10 +517,10 @@ describe('P1529 §6 (2026-11-11): a next version after every owned round, betwee
     expect(screen.getByTestId('mastermind-task-creating').textContent).toMatch(/Making your next version/);
     expect(screen.queryByTestId('mastermind-make')).toBeNull();
     await waitFor(() => expect(h.makeMyNextVersion).toHaveBeenCalledWith('r1', false));
-    await waitFor(() => expect(screen.getByTestId('where').textContent).toBe('/p/haru/canvas/launch_plan'));
-    expect(screen.getByTestId('where').getAttribute('data-state')).toBe(PLAIN_FROM_ROOM);
-    // the draft's workspace address: the draft's version and the workspace marker, never the published page
-    expect(screen.getByTestId('where').getAttribute('data-search')).toBe('?v=v3-draft&ws=1');
+    // P1686: the owner stays in the room; the draft link is on the working face
+    expect(await screen.findByTestId('mastermind-tweak')).toBeTruthy();
+    await new Promise(res => setTimeout(res, 50));
+    expect(screen.getByTestId('where').textContent).toBe('/');
     expect(h.publishCanvasDraft).not.toHaveBeenCalled();
   });
 
@@ -629,16 +639,84 @@ describe('P1529 §6: the states of one round\'s version', () => {
     expect(screen.queryByTestId('mastermind-tweak')).toBeNull();
   });
 
-  it('a finished draft waits for the owner: "Open your draft" (Publish is in the workspace), never the chain', async () => {
+  it('P1686: a finished draft shows its changes box by box, then Publish and Open full draft; nothing publishes until the tap', async () => {
     h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: false });
+    canvasReads();
     renderCard(OWNER);
-    const open = await screen.findByTestId('mastermind-tweak');
-    expect(open.textContent).toBe('Open your draft');
-    expect(open.getAttribute('href')).toBe('/p/haru/canvas/launch_plan?v=v3-draft&ws=1');
-    expect(screen.queryByTestId('mastermind-publish')).toBeNull();
-    await new Promise(r => setTimeout(r, 50));
+    const list = await screen.findByTestId('next-version-list');
+    expect([...list.querySelectorAll('[data-testid="next-version-box"]')].map(b => b.getAttribute('data-box'))).toEqual(['canvas:segments']);
+    expect(screen.getByTestId('next-version-added').textContent).toBe('AddedTeams of 100 to 1,000');
+    expect(screen.getByTestId('next-version-removed').textContent).toBe('RemovedSmall teams');
+    expect(h.getCanvas).toHaveBeenCalledWith('p-owner', 'launch_plan', 'p-owner', undefined, 'v3-draft');
+    expect(h.getCanvas).toHaveBeenCalledWith('p-owner', 'launch_plan', 'p-owner', undefined, 'v2');
+    const full = screen.getByTestId('next-version-open-full');
+    expect(full.textContent).toBe('Open full draft');
+    expect(full.getAttribute('href')).toBe('/p/haru/canvas/launch_plan?v=v3-draft&ws=1');
+    await new Promise(res => setTimeout(res, 50));
     expect(h.publishCanvasDraft).not.toHaveBeenCalled();
-    expect(taskButtons()).toHaveLength(0);
+    expect(screen.getByTestId('where').textContent).toBe('/');
+  });
+
+  it('P1686: Publish sends the draft and revision from the read on screen, then the card shows the published face', async () => {
+    h.server.offer = offerOf('ready', DRAFT);
+    canvasReads();
+    h.publishCanvasDraft.mockImplementation(async () => { h.server.offer = offerOf('published'); return { ok: true, seq: 3, skippedLinks: 0, replyMessageId: null, openOffers: 0 }; });
+    renderCard(OWNER);
+    fireEvent.click(await screen.findByTestId('next-version-publish'));
+    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenCalledWith('d1', 7));
+    expect(await screen.findByTestId('mastermind-task-published')).toBeTruthy();
+    expect(screen.getByTestId('where').textContent).toBe('/');
+  });
+
+  it('P1686: Publish is absent while the changes are read, after a failed read, and with no changes', async () => {
+    h.server.offer = offerOf('ready', DRAFT);
+    let release: (v: unknown) => void = () => undefined;
+    h.getCanvas.mockImplementation(() => new Promise(res => { release = res; }));
+    const first = renderCard(OWNER);
+    expect(await screen.findByTestId('next-version-loading')).toBeTruthy();
+    expect(screen.queryByTestId('next-version-publish')).toBeNull();
+    release({ points: [], versions: VERSIONS, draft: null });
+    first.unmount();
+
+    h.getCanvas.mockRejectedValue(new Error('offline'));
+    const second = renderCard(OWNER);
+    expect(await screen.findByTestId('next-version-unreadable')).toBeTruthy();
+    expect(screen.queryByTestId('next-version-publish')).toBeNull();
+    expect(screen.getByTestId('next-version-retry')).toBeTruthy();
+    expect(screen.getByTestId('next-version-open-full')).toBeTruthy();
+    second.unmount();
+
+    canvasReads([pt('Same', 'problem')], [pt('Same', 'problem')]);
+    renderCard(OWNER);
+    expect(await screen.findByTestId('next-version-none')).toBeTruthy();
+    expect(screen.queryByTestId('next-version-publish')).toBeNull();
+    expect(screen.getByTestId('next-version-open-full')).toBeTruthy();
+  });
+
+  it('P1686: a draft that moved on (stale_view) publishes nothing; Publish returns only with the re-read list and sends the new revision', async () => {
+    h.server.offer = offerOf('ready', DRAFT);
+    canvasReads();
+    let release: () => void = () => undefined;
+    h.publishCanvasDraft.mockImplementationOnce(async () => {
+      // the re-read is held so the in-between state can be seen: the new read has revision 8 and a new point
+      h.getCanvas.mockImplementation((_o: string, _n: string, _v: string, _k: unknown, version?: string) => new Promise(res => { release = () => res(version === 'v3-draft'
+        ? { points: [pt('Teams of 100 to 1,000', 'segments'), pt('Price 49', 'revenue')], versions: VERSIONS, draft: { id: 'd1', version: 'v3-draft', baseSeq: 2, revision: 8 } }
+        : { points: [pt('Small teams', 'segments')], versions: VERSIONS, draft: null }); }));
+      return { ok: false, refused: 'stale_view', revision: 8 };
+    });
+    renderCard(OWNER);
+    fireEvent.click(await screen.findByTestId('next-version-publish'));
+    expect(await screen.findByTestId('next-version-loading')).toBeTruthy();
+    expect(screen.queryByTestId('next-version-publish')).toBeNull();
+    expect(screen.queryByTestId('next-version-note')).toBeNull(); // the line introduces a list: none while re-reading
+    await act(async () => { release(); await Promise.resolve(); });
+    await act(async () => { release(); await Promise.resolve(); });
+    const boxes = await screen.findAllByTestId('next-version-box');
+    expect(boxes.map(b => b.getAttribute('data-box'))).toEqual(['canvas:segments', 'canvas:revenue']);
+    expect(screen.getByTestId('next-version-note').textContent).toBe('Your draft changed. Here are the new changes.');
+    h.publishCanvasDraft.mockResolvedValueOnce({ ok: true, seq: 3, skippedLinks: 0, replyMessageId: null, openOffers: 0 });
+    fireEvent.click(screen.getByTestId('next-version-publish'));
+    await waitFor(() => expect(h.publishCanvasDraft).toHaveBeenLastCalledWith('d1', 8));
   });
 
   it('failed: Try again retries the failed run on its revision, with a new client id; the canvas stays', async () => {
@@ -715,11 +793,11 @@ describe('P1529 §6: the states of one round\'s version', () => {
   it('J1: nothing is ever published from the card, not even a draft an older tap marked auto-publish', async () => {
     h.server.offer = offerOf('ready', { ...DRAFT, autoPublish: true });
     renderCard(OWNER);
-    expect((await screen.findByTestId('mastermind-tweak')).textContent).toBe('Open your draft');
+    canvasReads();
+    expect(await screen.findByTestId('next-version-publish')).toBeTruthy(); // P1686: only the owner's tap publishes
     await new Promise(r => setTimeout(r, 80));
     expect(h.publishCanvasDraft).not.toHaveBeenCalled();
     expect(screen.getByTestId('mastermind-task').getAttribute('data-face')).toBe('ready');
-    expect(screen.queryByTestId('mastermind-publish')).toBeNull();
   });
 
   it('J1: while the draft is being written the card keeps "Open your draft" (no dead end), and it opens plain with the way back', async () => {
@@ -729,7 +807,7 @@ describe('P1529 §6: the states of one round\'s version', () => {
     const open = await screen.findByTestId('mastermind-tweak');
     expect(open.getAttribute('href')).toBe('/p/haru/canvas/launch_plan?v=v3-draft&ws=1');
     fireEvent.click(open);
-    await waitFor(() => expect(screen.getByTestId('where').getAttribute('data-state')).toBe(PLAIN_FROM_ROOM));
+    await waitFor(() => expect(screen.getByTestId('where').getAttribute('data-state')).toBe(DRAFT_FROM_ROOM));
   });
 
   it('J1: a draft address that cannot be read is tried again (bounded), then the card offers Try again, which reads once more', async () => {
@@ -745,10 +823,14 @@ describe('P1529 §6: the states of one round\'s version', () => {
       expect(h.getMyDraftRef).toHaveBeenCalledTimes(3);
       expect(screen.queryByTestId('mastermind-tweak')).toBeNull();
       expect(screen.getByTestId('mastermind-draft-unreadable')).toBeTruthy();
+      expect(screen.queryByTestId('next-version-changes')).toBeNull(); // P1686: no endless "Reading your changes" beside the error
       h.getMyDraftRef.mockResolvedValue({ canvasId: 'c1', versionName: 'v3-draft' });
       fireEvent.click(screen.getByTestId('mastermind-draft-retry'));
+      canvasReads();
       await act(async () => { await vi.advanceTimersByTimeAsync(10); });
-      expect(screen.getByTestId('mastermind-tweak').textContent).toBe('Open your draft');
+      // P1686: on the ready face the way to the draft is "Open full draft", under the changes
+      expect((await screen.findByTestId('next-version-open-full')).textContent).toBe('Open full draft');
+      expect(screen.queryByTestId('mastermind-draft-unreadable')).toBeNull();
     } finally { vi.useRealTimers(); }
   });
 

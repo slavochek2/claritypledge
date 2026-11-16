@@ -10,7 +10,7 @@
  * chosen by FlowRoundCard.tsx. Wording is a draft: [FOUNDER DECISION: copy].
  */
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { currentRound, EMPTY_ROUNDS_STATE, type EventRoundsState } from '@/app/data/event-rounds-service';
 import { recordCanvasOpen } from '@/app/data/event-mastermind-service';
@@ -82,7 +82,6 @@ export function MastermindRoundCard({
   const seatKey = mine && round ? `${mine.table}|${(state.seatsByRound.get(round.id) ?? []).find(s => s.table === mine.table && s.role === 'first')?.id ?? ''}` : '';
   const { canvas, loaded, failed: canvasFailed, retry: retryCanvas } = useRoundCanvas(seated ? round?.id ?? null : null, seatKey);
   const choices = useEventCanvasChoices(eventId, seated, round?.id ?? null);
-  const navigate = useNavigate();
 
   // The part of the round now, from the round's own clock (the same one the host and the projector read).
   const tableHasObserver = !!round && !!mine && (state.seatsByRound.get(round.id) ?? []).some(s => s.table === mine.table && s.role === 'observer');
@@ -93,7 +92,7 @@ export function MastermindRoundCard({
   if (!self) return null;
 
   const name = (id: string | undefined) => shortName(roster.find(m => m.id === id)?.displayName ?? '') || MISSING_NAME;
-  const { task, readFailedCard, myCanvasHref } = offerCards({ owner, ownCanvas, state, roster, self, live, over: eveningOver || (ended && !live), linkState: fromRoom, navigate });
+  const { task, readFailedCard, myCanvasHref } = offerCards({ owner, ownCanvas, state, roster, self, live, over: eveningOver || (ended && !live), linkState: fromRoom });
 
   if (!seated || !mine) {
     return (

@@ -1125,15 +1125,31 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     return `get_my_next_version_offer -> ${JSON.stringify(offer.data)}; card reads "No recording from this round", 0 Make buttons`;
   });
 
-  // Publish happens in the workspace: the card's "Open your draft", then the bar's Publish. The publish request is awaited and its result read from the
-  // database before the page leaves (navigating away mid-request can abort it), then the room is reopened for the card's state.
-  const publishFromCard = async (pg: Page, who: Person, expectSeq: number) => {
-    await pg.getByTestId('mastermind-tweak').click();
-    const publishing = pg.waitForResponse((r) => /rpc\/canvas_draft_publish/.test(r.url()) && r.request().method() === 'POST', { timeout: 60_000 });
+  // P1686: two ways to publish, both after the owner has seen the changes. From the room: the card lists the changes, then Publish (one tap); the
+  // page never leaves the room. From the workspace: "Open full draft", the bar's Publish, and the page returns to the room by itself.
+  const publishRequest = (pg: Page) => pg.waitForResponse((r) => /rpc\/canvas_draft_publish/.test(r.url()) && r.request().method() === 'POST', { timeout: 60_000 });
+  const publishInRoom = async (pg: Page, who: Person, expectSeq: number) => {
+    try {
+      await expect(pg.getByTestId('next-version-list')).toBeVisible({ timeout: 60_000 });
+    } catch (e) {
+      note(`P1686 change read: phase=${await pg.getByTestId('next-version-changes').getAttribute('data-phase')} reason=${await pg.getByTestId('next-version-changes').getAttribute('data-reason')}`);
+      throw e;
+    }
+    const publishing = publishRequest(pg);
+    await pg.getByTestId('next-version-publish').click();
+    expect((await publishing).ok(), 'canvas_draft_publish answered').toBe(true);
+    await expect.poll(async () => (await latestPublished(who)).seq, { timeout: 60_000 }).toBe(expectSeq);
+    await expect(pg).toHaveURL(new RegExp(`/events/${E1.slug}/meet`));
+  };
+  const publishInWorkspace = async (pg: Page, who: Person, expectSeq: number) => {
+    await pg.getByTestId('next-version-open-full').click();
+    await expect(pg).toHaveURL(/\/p\/[^/]+\/canvas\/[^/?]+\?.*v=/, { timeout: 60_000 });
+    await expect(pg.getByTestId('preparation-banner')).toHaveCount(0);
+    const publishing = publishRequest(pg);
     await pg.getByTestId('canvas-draft-publish').click();
     expect((await publishing).ok(), 'canvas_draft_publish answered').toBe(true);
     await expect.poll(async () => (await latestPublished(who)).seq, { timeout: 60_000 }).toBe(expectSeq);
-    await pg.goto(`/events/${E1.slug}/meet`);
+    await expect(pg, 'Publish in the workspace returns to the event room').toHaveURL(new RegExp(`/events/${E1.slug}/meet`), { timeout: 30_000 });
   };
 
   // ── owner A: tap with the drafting call held (drafting shot), forced failure (failed shot), Try again on the real model ───
@@ -1145,14 +1161,9 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     await expect(pg.getByTestId('mastermind-make')).toHaveText('Create next version');
     await shots(pg, 'update-task', 'make-offer');
     await pg.getByTestId('mastermind-make').click();
-    // J1: the working state shows from the tap, then the draft workspace opens (Publish lives there)
+    // J1: the working state shows from the tap; P1686: the owner stays in the room
     await expect(pg.getByTestId('mastermind-task-creating')).toBeVisible();
-    // The tap opens the canvas page on the DRAFT's version (the workspace address). `ws=1` is not asserted: the page itself drops that marker when it
-    // does not count the viewer as eligible; the draft's version name in the address is the evidence, checked against the database below.
-    await expect(pg).toHaveURL(/\/p\/[^/]+\/canvas\/[^/?]+\?.*v=/, { timeout: 90_000 });
-    const openedUrl = pg.url();
-    await pg.goto(`/events/${E1.slug}/meet`);
-    await expect(pg.getByTestId('mastermind-task-creating')).toBeVisible({ timeout: 90_000 });
+    await expect(pg).toHaveURL(new RegExp(`/events/${E1.slug}/meet`));
     await shots(pg, 'update-task', 'drafting');
     const runs = await runsOf(walk.ownerA!);
     expect(runs).toHaveLength(1);
@@ -1161,7 +1172,7 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     const tap = (await supabaseAdmin.from('event_next_version_taps').select('draft_id').eq('round_id', round1).eq('profile_id', walk.ownerA!.user.user.id).single()).data!;
     await supabaseAdmin.from('chat_messages').select('*', { count: 'exact', head: true }).eq('kind', 'forward').eq('author_id', walk.ownerA!.user.user.id).not('forwarded_from_message_id', 'is', null);
     const draft = (await supabaseAdmin.from('canvas_drafts').select('conversation_id, thread_root_id, version_name, state').eq('id', tap.draft_id).single()).data!;
-    expect(new URL(openedUrl).searchParams.get('v'), 'the tap opened the draft\'s version, not a published one').toBe(draft.version_name);
+    expect(draft.version_name, 'the tap made a draft version').toBeTruthy();
     expect(draft.state).toBe('open');
     expect((await latestPublished(walk.ownerA!)).seq, 'the tap publishes nothing').toBe(1);
     const { count: inDraft } = await supabaseAdmin.from('chat_messages').select('*', { count: 'exact', head: true }).eq('conversation_id', draft.conversation_id).eq('thread_root_id', draft.thread_root_id).eq('kind', 'forward');
@@ -1197,12 +1208,13 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     return `forced run ${runTap.slice(0, 8)} failed (error_code QA_FORCED); retry run ${runRetry.slice(0, 8)} created by the UI's Try again; _canvas_run_is_round_update(retry) = ${retryMode}`;
   });
 
-  await ac('8e', 'the retried run finishes on the real model; nothing is published by itself: the card offers "Open your draft" and Publish in the workspace publishes it', async () => {
+  await ac('8e', 'the retried run finishes on the real model; nothing is published by itself: the room card lists the changes and its Publish publishes them (P1686)', async () => {
     const pg = (walk as Record<string, unknown>).holdPage as Page;
     const t0 = Date.now();
-    await expect(pg.getByTestId('mastermind-task-ready')).toBeVisible({ timeout: 300_000 });
+    await expect(pg.getByTestId('next-version-changes')).toBeVisible({ timeout: 300_000 });
     expect((await latestPublished(walk.ownerA!)).seq, 'the tap publishes nothing').toBe(1);
-    await publishFromCard(pg, walk.ownerA!, 2);
+    await shots(pg, 'update-task', 'ready-changes');
+    await publishInRoom(pg, walk.ownerA!, 2);
     await expect(pg.getByTestId('mastermind-task-published')).toBeVisible({ timeout: 90_000 });
     const secs = Math.round((Date.now() - t0) / 1000);
     const runs = await runsOf(walk.ownerA!);
@@ -1217,7 +1229,7 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
   });
 
   // ── owner B: a plain tap on the real model ─────────────────────────────────────────────────────────────────────────
-  await ac('8f', 'owner B taps "Create next version": the draft workspace opens; the real model drafts; the room shows it ready (not published); "Open your draft" then Publish in the workspace publishes it', async () => {
+  await ac('8f', 'owner B taps "Create next version" and stays in the room; the real model drafts; the card shows the changes (not published); "Open full draft" then Publish in the workspace publishes it and returns to the room (P1686)', async () => {
     const { ctx, pg } = await roomPage(walk.ownerB!);
     await expect(pg.getByTestId('mastermind-make')).toBeVisible({ timeout: 120_000 });
     await withModelTerms(walk.ownerB!, async () => {
@@ -1225,15 +1237,11 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
       await pg.getByTestId('mastermind-make').click();
       await started;
     });
-    await expect(pg).toHaveURL(/\/p\/[^/]+\/canvas\/[^/?]+\?.*v=/, { timeout: 90_000 });
-    await expect(pg.getByTestId('canvas-grid')).toHaveAttribute('aria-busy', 'false', { timeout: 90_000 });
-    await expect(pg.getByText('Back to your table')).toHaveCount(0);
-    await shots(pg, 'update-task', 'preview-first-draft');
+    await expect(pg).toHaveURL(new RegExp(`/events/${E1.slug}/meet`));
     expect((await latestPublished(walk.ownerB!)).seq, 'Create next version publishes nothing').toBe(1);
-    await pg.goto(`/events/${E1.slug}/meet`);
     const t0 = Date.now();
     try {
-      await expect(pg.getByTestId('mastermind-task-ready')).toBeVisible({ timeout: 300_000 });
+      await expect(pg.getByTestId('next-version-changes')).toBeVisible({ timeout: 300_000 });
     } catch (e) {
       note(`8f runs: ${JSON.stringify(await runsOf(walk.ownerB!))} note=${await pg.getByTestId('mastermind-task-note').allInnerTexts()}`);
       throw e;
@@ -1258,7 +1266,7 @@ test('WALK2: after round 1 (flow and canvas fixed), the break after round 1: rou
     const cost = await costOf([runs.at(-1)!.id as string]);
     expect(cost).toBeLessThan(0.5);
     await shots(pg, 'update-task', 'ready');
-    await publishFromCard(pg, walk.ownerB!, 2);
+    await publishInWorkspace(pg, walk.ownerB!, 2);
     await expect(pg.getByTestId('mastermind-task-published')).toBeVisible({ timeout: 90_000 });
     const v = await latestPublished(walk.ownerB!);
     expect(v.seq, 'Publish makes the second version').toBe(2);
@@ -1366,9 +1374,8 @@ test('WALK3: round 2 ends (no host update step), the break, rounds 3 and 4, the 
     await asUser(holdPg, ownerP, `/events/${E1.slug}/meet`);
     await expect(holdPg.getByTestId('mastermind-make')).toBeVisible({ timeout: 120_000 });
     await holdPg.getByTestId('mastermind-make').click();
-    // The tap opens the draft's canvas page; this owner then goes back to the room, where the card says the draft is being made.
-    await expect(holdPg).toHaveURL(/\/p\/[^/]+\/canvas\/[^/?]+\?.*v=/, { timeout: 90_000 });
-    await holdPg.goto(`/events/${E1.slug}/meet`);
+    // P1686: the owner stays in the room, where the card says the draft is being made.
+    await expect(holdPg).toHaveURL(new RegExp(`/events/${E1.slug}/meet`));
     await expect(holdPg.getByTestId('mastermind-task-creating')).toBeVisible({ timeout: 90_000 });
     await shots(holdPg, 'update-task', 'drafting-at-step');
     await page.reload();
