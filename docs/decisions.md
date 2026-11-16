@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-16 [product]: A recording whose audio is not reaching us says so; recovered audio is kept even if it lands late (P1529 INBOX-338)
+
+**Context:** In the 2026-11-13 TEST event a recorder's first audio chunks were refused by the archive (bucket CORS) and dropped after about 6 s each, and the person saw nothing. A round whose audio all transcribed empty showed "No recording from this round".
+**Decision:** (1) A failed upload that can clear by itself is kept and retried (2 s doubling to 30 s, jittered, 10 minutes at most); the bar says "Your audio isn't reaching us" once this capture's oldest unsent audio is over 45 s old, and clears when caught up. The founder dropped "— still trying": chunks refused for good are not retried. (2) A round whose present audio all came back empty is marked `transcribed_empty`, and the owner's card says "We couldn't make out what was said in this round". (3) Recording uploads in a hidden tab are an exception to metered-services rule 3 (first tries and the upload helper's bounded retries; the queue's own retries wait for the tab). (4) Recovered audio can be placed late (up to the outage's length when nothing on time follows it): shipped anyway, because before this it was lost; P1684 carries the recording time with each chunk.
+**Alternatives rejected:** Keeping the 6 s drop (silent loss). Holding hidden-tab uploads (audio lives only in the tab, closing it loses it). Holding the ship until P1684 (lost audio stays lost meanwhile).
+**Consequences:** The round worker change needs a Cloud Run deploy, which is a prod change and runs only on the founder's "deploy it". Verified in a real browser with the archive blocked (`e2e/p1529-inbox338-not-reaching.spec.ts`, opt-in `P1529_BROWSER_CHECK=1`); a control with the bar's wiring cut fails at "the line appears". Falsifier: a recorder whose uploads fail for over a minute and sees no line.
+**References:** `features/done/2026-06-10/p1529_canvas_event_host_coordination.md` (INBOX-338 section) · `src/app/contexts/room-capture-uploads.ts` · `services/transcribe-room-batch/pipeline.py` · `docs/technical/metered-services.md` rule 3 · P1684
+
+## 2026-11-16 [process]: A long ship on the shared checkout can be pushed, staged into and stalled mid-flight (P1529)
+
+**Context:** `/ship p1529` cherry-picked 78 commits onto main over several hours. Midway: a `/push` from another session applied 19 P1529 migrations to prod for the half-shipped main (its push did not reach GitHub); a co-tenant staged its own files into main's index; git rerere replayed an old manifest resolution as invalid JSON; two "merge main into feature" commits stopped the pick ("is a merge but no -m option"). Each conflicted commit re-ran the full test suite.
+**Decision:** (Status: proposed) (1) `/push` refuses while a ship journal (`.claude/worktrees/.ship-journal/*.json`) is open. (2) `git-ops.sh ship` handles a merge-from-main commit itself: apply it with `-m 2` (against main's side), so already-landed changes are no-ops and only the merge's own resolutions remain. (3) The manifest conflict resolver unions both sides and validates the JSON before staging.
+**Alternatives rejected:** Rebasing the branch onto main before shipping (loses the founder-visible history of the branch's own merges; still worth doing for a 70+ commit branch as a pre-ship step).
+**Consequences:** This ship was recovered by hand: prod stamp verified with `check-deploy-manifest.sh` and committed, co-tenant files unstaged, merges applied with `-m 2` and recorded with `--mark-landed`. Falsifier: the next long ship runs with no hand recovery.
+**References:** `scripts/git-ops.sh` (ship, --mark-landed) · `.git/cp-recovery-log` · P1279 (the index window)
+
 ## 2026-11-15 [technical]: TEST lanes ship (P1672 stage 1); a live probe must use a version no branch has applied
 
 **Context:** P1672 stage 1 gives a claimed worktree its own isolated TEST lane, reversing the 2026-11-05 "detect, do not prevent" deferral for one lane. Stage 2 (second lane, main-lane baseline cleanup, VM-side refusal) moved to P1679.
