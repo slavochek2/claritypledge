@@ -21,7 +21,7 @@ describe('P1549 Part 1', () => {
   it('N in the title is minutesFor over the four steps', async () => {
     load.mockResolvedValue(Array.from({ length: 8 }, (_, i) => ({ id: String(i) })));
     part1();
-    const n = minutesFor(['story', 'principle', 'game', 'cmp7'], { cmp7: 8, stake: 0 }, true) + 1; // + the terms
+    const n = minutesFor(['story', 'game', 'principle', 'cmp7'], { cmp7: 8, stake: 0 }, true) + 1; // + the terms
     await waitFor(() => expect(screen.getByTestId('join-minutes')).toHaveTextContent(`${n} min`));
   });
   it('P1685: the terms row is numbered after the learning steps (5 with the game)', async () => {

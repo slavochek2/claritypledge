@@ -55,14 +55,14 @@ describe('the person\'s own arrival', () => {
   });
 });
 
-describe('preparation: the canvas is step 4, for owners only', () => {
+describe('preparation: the canvas is the last step (5 with the Listening Game), for owners only', () => {
   const base = { parts: [], startedAt: null, hasStatementTag: true, eventPointCount: 5, steps: SALES_MASTERMIND_RECIPE.prepare.steps, keepFinished: true };
-  it('an owner has learning, principle, survey, then the canvas', () => {
-    expect(buildPlan({ ...base, canvas: true })).toEqual(['story', 'principle', 'game', 'cmp7', 'canvas']);
+  it('an owner has learning, the game, principle, survey, then the canvas', () => {
+    expect(buildPlan({ ...base, canvas: true })).toEqual(['story', 'game', 'principle', 'cmp7', 'canvas']);
   });
   it('an observer does not see the canvas step', () => {
-    expect(buildPlan({ ...base, canvas: false })).toEqual(['story', 'principle', 'game', 'cmp7']);
-    expect(buildPlan(base)).toEqual(['story', 'principle', 'game', 'cmp7']);
+    expect(buildPlan({ ...base, canvas: false })).toEqual(['story', 'game', 'principle', 'cmp7']);
+    expect(buildPlan(base)).toEqual(['story', 'game', 'principle', 'cmp7']);
   });
   it('the step is named and has minutes; Clarity Night and the hike never get it', () => {
     expect(STEP_LABELS.canvas).toBe('Your Clarity Canvas');

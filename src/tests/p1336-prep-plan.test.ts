@@ -33,7 +33,7 @@ const ALL_DONE: PrepPartRow[] = [done('intro_video'), done('cognitive_video'), d
 describe('buildPlan', () => {
   it('a new registrant has all seven steps', () => {
     expect(buildPlan({ parts: [], startedAt: null, hasStatementTag: true, eventPointCount: 6 })).toEqual([
-      'welcome', 'story', 'principle', 'game', 'cmp7', 'stake', 'research',
+      'welcome', 'story', 'game', 'principle', 'cmp7', 'stake', 'research',
     ]);
   });
 

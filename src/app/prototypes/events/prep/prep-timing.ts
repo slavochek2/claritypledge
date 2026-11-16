@@ -26,7 +26,7 @@ export function canvasAtEvent(event: FlowEvent): boolean {
 /** The plan's step list for this event. */
 export function prepareStepsFor(event: FlowEvent): PlanStep[] {
   const { steps, listeningGame } = recipeForEvent(event).prepare;
-  const list: PlanStep[] = canvasAtEvent(event) ? ['story', 'principle', 'game', 'cmp7', 'stake'] : steps;
+  const list: PlanStep[] = canvasAtEvent(event) ? ['story', 'game', 'principle', 'cmp7', 'stake'] : steps;
   // P1685: the recipe's switch removes the game step from the plan.
   return listeningGame ? list : list.filter((s) => s !== 'game');
 }

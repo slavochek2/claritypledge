@@ -60,9 +60,9 @@ const PROGRESS_READ_TIMEOUT_MS = 6000;
 const MISUNDERSTANDING_TAG = 'misunderstanding';
 const FINISH_DEADLINE_MS = 6000;
 
-const STANDALONE_STEP_KEYS = ['story', 'principle', 'game', 'cmp7', 'misunderstanding'] as const;
+const STANDALONE_STEP_KEYS = ['story', 'game', 'principle', 'cmp7', 'misunderstanding'] as const;
 export type StandaloneStep = (typeof STANDALONE_STEP_KEYS)[number];
-/** P1685: the Listening Game is its own step after the principle; STANDALONE_LISTENING_GAME = false removes it from every list. */
+/** P1685: the Listening Game is its own step before the principle; STANDALONE_LISTENING_GAME = false removes it from every list. */
 const withGameSwitch = (steps: readonly StandaloneStep[]): readonly StandaloneStep[] => steps.filter((s) => s !== 'game' || STANDALONE_LISTENING_GAME);
 /** The standalone steps, in order. */
 export const STANDALONE_STEPS = withGameSwitch(STANDALONE_STEP_KEYS);
@@ -103,8 +103,8 @@ const COPY = {
   optedOut:
     "Thank you. It's completely okay to opt out. It usually means something is unclear, or you disagree. Before you continue, can I ask you one question?",
   misunderstandingTitle: "Let's find out how you think understanding works between people",
-  endTitle: 'Thank you',
-  endLine: 'You know what cognitive understanding is and how to check it. The manifesto explains why it matters.',
+  endTitle: 'Introduction complete',
+  endLine: 'You know how to listen for understanding and how to check it. Next, try it with other people at an event. The manifesto explains why it matters.',
   endPrimary: 'Read the manifesto',
 };
 
@@ -242,7 +242,6 @@ function PrepareFlow({
   const { inShell } = useShellBarSlot('left');
   const steps: readonly StandaloneStep[] = join || review ? JOIN_LEARNING_STEPS : STANDALONE_STEPS;
   const [principleAnswered, setPrincipleAnswered] = useState(false);
-  const [gameFromPrinciple, setGameFromPrinciple] = useState(false);
   const [screen, setScreen] = useState<Screen>(() => (join ? steps.find((s) => !isStepDone(s)) ?? 'story' : 'list'));
   // Joining has no list to go back to: step Back retraces the steps taken this visit.
   const [trail, setTrail] = useState<StandaloneStep[]>([]);
@@ -297,8 +296,6 @@ function PrepareFlow({
     if (next === 'end' && review) return review.onReturn();
     if (join && screen !== 'list' && screen !== 'end' && steps.indexOf(next as StandaloneStep) > steps.indexOf(screen)) setTrail((t) => [...t, screen]);
     setScreen(next);
-    // Standalone Back from the game returns to the principle only when the game was reached from it.
-    setGameFromPrinciple(next === 'game' && screen === 'principle');
     setPlayRequest(0);
     resetPrinciple(false);
     if (next === 'list') reloadPoints();
@@ -333,13 +330,7 @@ function PrepareFlow({
       window.scrollTo(0, 0);
       return;
     }
-    if (screen === 'game' && !join && gameFromPrinciple) {
-      // Standalone, arrived from the principle: back to its decision, as the event preparation does.
-      // Opened straight from the agenda, Back returns to the agenda (leaveStep).
-      go('principle');
-      setPrincipleIntroDone(true);
-      return;
-    }
+    // Opened straight from the agenda, Back returns to the agenda; joining retraces the trail (leaveStep).
     leaveStep();
   };
 

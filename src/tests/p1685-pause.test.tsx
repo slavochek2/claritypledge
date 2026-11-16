@@ -10,14 +10,19 @@ import { LISTENING_GAME_COPY } from '@/app/prototypes/events/prep/listening-game
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('P1685 screen', () => {
-  it('shows the written rules above the video, reading on their own', () => {
+  it('shows title and intro above the video and "How it works" with the rules below it', () => {
     render(<ListeningGameScreen onContinue={() => {}} />);
     expect(screen.getByText(LISTENING_GAME_COPY.heading)).toBeInTheDocument();
+    const intro = screen.getByTestId('listening-game-intro');
+    expect(intro).toHaveTextContent(LISTENING_GAME_COPY.intro);
     const items = screen.getAllByRole('listitem').map((li) => li.textContent);
     expect(items).toEqual([...LISTENING_GAME_COPY.rules]);
+    const rulesHeading = screen.getByText(LISTENING_GAME_COPY.rulesHeading);
     const rules = screen.getByTestId('listening-game-rules');
     const clip = screen.getByTestId('clip-listening-game');
-    expect(rules.compareDocumentPosition(clip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(intro.compareDocumentPosition(clip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(clip.compareDocumentPosition(rulesHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(rulesHeading.compareDocumentPosition(rules) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('is required: only "Play the video" until played, no skip link; then Continue', () => {

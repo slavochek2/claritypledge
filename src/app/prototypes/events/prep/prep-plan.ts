@@ -24,7 +24,7 @@ export const PART_VERSIONS: Record<PrepPart, number> = {
 
 /** The steps after the plan screen, in order. */
 export type PlanStep = Exclude<PrepStepKey, 'plan'>;
-export const ALL_STEPS: PlanStep[] = ['welcome', 'story', 'principle', 'game', 'cmp7', 'stake', 'research'];
+export const ALL_STEPS: PlanStep[] = ['welcome', 'story', 'game', 'principle', 'cmp7', 'stake', 'research'];
 
 /** The once-per-person part each whole step stands for. The principle step is every-event;
  * only its first screen (the intro clip) is the `principle_intro` part. */
@@ -44,7 +44,7 @@ export const STEP_LABELS: Record<PlanStep, string> = {
   welcome: 'See how this event is different',
   story: 'Learn the definition of cognitive understanding',
   principle: 'Decide about your participation in a new social norm',
-  game: 'Learn how to use it: the Listening Game', // [FOUNDER DECISION: label, proposed]
+  game: 'The Listening Game: how to reveal the gap in 3 seconds',
   cmp7: 'Share your view on the expected benefits',
   stake: 'Set your positions on the points we discuss',
   research: "Decide if you'd like to volunteer in R&D",
@@ -156,7 +156,7 @@ export const PRINCIPLE_WORDS = sectionsForLevel(PRINCIPLE_LEVEL)
   .filter(Boolean).length;
 
 /** P1685: the words of the Listening Game's written rules (heading, intro, rules). */
-export const LISTENING_GAME_WORDS = [LISTENING_GAME_COPY.heading, LISTENING_GAME_COPY.intro, ...LISTENING_GAME_COPY.rules]
+export const LISTENING_GAME_WORDS = [LISTENING_GAME_COPY.heading, LISTENING_GAME_COPY.intro, LISTENING_GAME_COPY.rulesHeading, ...LISTENING_GAME_COPY.rules]
   .join(' ')
   .split(/\s+/)
   .filter(Boolean).length;

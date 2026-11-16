@@ -145,11 +145,11 @@ describe('P1542 recipes: the hike room, the shorter preparation, the registratio
   });
 
   it('the hike preparation drops the welcome clip and the R&D volunteering, keeps the rest', () => {
-    expect(hike.prepare.steps).toEqual(['story', 'principle', 'game', 'cmp7', 'stake']);
+    expect(hike.prepare.steps).toEqual(['story', 'game', 'principle', 'cmp7', 'stake']);
     expect(CLARITY_NIGHT_RECIPE.prepare.steps).toEqual(ALL_STEPS);
     // The stake step still drops by itself when the event has no topic.
     expect(buildPlan({ parts: [], startedAt: null, hasStatementTag: false, eventPointCount: null, steps: hike.prepare.steps }))
-      .toEqual(['story', 'principle', 'game', 'cmp7']);
+      .toEqual(['story', 'game', 'principle', 'cmp7']);
   });
 
   it('the principle question is recipe copy: hike words for hikes, today\'s words for Clarity Night', () => {

@@ -73,13 +73,13 @@ function setup(kind: Kind, over: { currentStep?: string; stepsDone?: string[]; p
     hasGroupChat: false, attendees: [], orgId: null, ...SHAPE[kind],
   };
   // The plan the real hook derives: the recipe's steps through buildPlan (no parts done, started now), welcome/story/research
-  // dropped from this harness so the principle is the first screen.
+  // dropped from this harness so the game is the first screen.
   const plan = over.plan ?? buildPlan({
     parts: [], startedAt: '2026-10-28T08:00:00Z', hasStatementTag: true, eventPointCount: 3, steps: prepareStepsFor(ev.value as never),
     keepFinished: !!recipeForEvent(ev.value as never).prepare.keepFinished, canvas: kind === 'mastermind',
   }).filter((s) => !['welcome', 'story', 'research', 'stake', 'canvas'].includes(s));
   const stepsDone = over.stepsDone ?? [];
-  prep.value = { eventId: 'ev-1', profileId: 'u1', prepChoice: 'now', currentStep: over.currentStep ?? 'principle', stepsDone, startedAt: '2026-10-28T08:00:00Z', completedAt: null,
+  prep.value = { eventId: 'ev-1', profileId: 'u1', prepChoice: 'now', currentStep: over.currentStep ?? 'game', stepsDone, startedAt: '2026-10-28T08:00:00Z', completedAt: null,
     optedIn: null, principleRating: null, researchState: null, micSetup: null, researchConsentedAt: null, researchPolicyVersion: null };
   stateRef.value = {
     loading: false, error: false, prep: prep.value, parts: [], proof: null, cmp7Points: cards, eventPoints: [],
@@ -101,27 +101,28 @@ beforeEach(() => { sessionStorage.clear(); vi.clearAllMocks(); });
 afterEach(cleanup);
 
 describe.each<Kind>(['night', 'hike', 'mastermind'])('P1685 event preparation: %s', (kind) => {
-  it('the step after the principle is the game: "Step 2 of 3", rules above a required video, then the statements', async () => {
+  it('the game comes before the principle: "Step 1 of 3", intro above a required video, rules below, then the principle', async () => {
     setup(kind);
-    expect(await screen.findByText('Step 1 of 3')).toBeInTheDocument();
-    await optOutAndContinue();
     expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
-    expect(screen.getByText('Step 2 of 3')).toBeInTheDocument();
-    expect(screen.getByText('How the Listening Game works')).toBeInTheDocument();
+    expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
+    expect(screen.getByText('The Listening Game')).toBeInTheDocument();
+    expect(screen.getByText('How it works')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Play the video' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
     expect(screen.queryByText(/without video/i)).toBeNull();
     click('Play the video');
     click('Continue');
-    expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
+    expect(await screen.findByText('Opt out')).toBeInTheDocument();
+    expect(screen.getByText('Step 2 of 3')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();
+    await optOutAndContinue();
+    expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
     // The part is recorded once, as completed.
     await waitFor(() => expect(markPrepPart).toHaveBeenCalledWith('u1', 'listening_game', 1, 'completed'));
   });
 
   it('a video that cannot load: Try again remounts it; Continue moves on, recording the part as skipped, never completed', async () => {
     setup(kind);
-    await optOutAndContinue();
     const game = await screen.findByTestId('listening-game');
     click('Play the video');
     fireEvent.error(game.querySelector('video')!);
@@ -130,33 +131,39 @@ describe.each<Kind>(['night', 'hike', 'mastermind'])('P1685 event preparation: %
     await waitFor(() => expect(screen.queryByTestId('video-load-error')).toBeNull());
     fireEvent.error(screen.getByTestId('listening-game').querySelector('video')!);
     click('Continue');
-    expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
+    expect(await screen.findByText('Opt out')).toBeInTheDocument();
     expect(markPrepPart).toHaveBeenCalledWith('u1', 'listening_game', 1, 'skipped');
     expect(markPrepPart).not.toHaveBeenCalledWith('u1', 'listening_game', 1, 'completed');
   });
 
   it('resumes on the game when the person left on it', async () => {
-    setup(kind, { currentStep: 'game', stepsDone: ['principle'] });
+    setup(kind, { currentStep: 'game', stepsDone: [] });
     expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
-    expect(screen.getByText('Step 2 of 3')).toBeInTheDocument();
+    expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
   });
 });
 
 describe('P1685 event preparation, other cases', () => {
-  it('opt in, try it now, rating, Confirm: the next screen is the game; Back from it leaves the step, not a blank', async () => {
+  it('opt in, try it now, rating, Confirm: the next screen is the statements; Back from the principle returns to the game, not a blank', async () => {
     setup('night');
+    await screen.findByTestId('listening-game');
+    click('Play the video');
+    click('Continue');
+    click('Back');
+    expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
+    expect(screen.getByText('Step 1 of 3')).toBeInTheDocument();
+    click('Play the video');
+    click('Continue');
     fireEvent.click(await screen.findByText('Opt in'));
     click('Try it now');
     fireEvent.click(await screen.findByRole('button', { name: 'Rate 8' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
-    expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
-    click('Back');
-    expect(await screen.findByText('Step 1 of 3')).toBeInTheDocument();
+    expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();
   });
 
-  it('once per person: a plan without the game (part already done) goes from the principle to the statements', async () => {
-    setup('night', { plan: ['principle', 'cmp7'] });
+  it('once per person: a plan without the game (part already done) opens on the principle and goes on to the statements', async () => {
+    setup('night', { plan: ['principle', 'cmp7'], currentStep: 'principle' });
     await optOutAndContinue();
     expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();

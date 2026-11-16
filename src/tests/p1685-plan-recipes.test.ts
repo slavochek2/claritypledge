@@ -27,18 +27,18 @@ const mastermindAtEvent = { flow: 'sales-mastermind', seriesSlug: null, canvasTi
 const planOf = (event: never, over: Partial<Parameters<typeof buildPlan>[0]> = {}) =>
   buildPlan({ parts: [], startedAt: null, hasStatementTag: true, eventPointCount: 5, steps: prepareStepsFor(event), keepFinished: false, ...over });
 
-describe('P1685 step order (AC: the step follows the principle step everywhere)', () => {
-  it('standalone, join and the base list all put the game right after the principle', () => {
-    expect([...STANDALONE_STEPS]).toEqual(['story', 'principle', 'game', 'cmp7', 'misunderstanding']);
-    expect([...JOIN_LEARNING_STEPS]).toEqual(['story', 'principle', 'game', 'cmp7']);
-    expect([...ALL_STEPS]).toEqual(['welcome', 'story', 'principle', 'game', 'cmp7', 'stake', 'research']);
+describe('P1685 step order (founder 2026-11-16: the game comes before the principle everywhere)', () => {
+  it('standalone, join and the base list all put the game right before the principle', () => {
+    expect([...STANDALONE_STEPS]).toEqual(['story', 'game', 'principle', 'cmp7', 'misunderstanding']);
+    expect([...JOIN_LEARNING_STEPS]).toEqual(['story', 'game', 'principle', 'cmp7']);
+    expect([...ALL_STEPS]).toEqual(['welcome', 'story', 'game', 'principle', 'cmp7', 'stake', 'research']);
   });
-  it('Clarity Night, a hike and the sales mastermind (both timings) have it after the principle', () => {
-    expect(planOf(night)).toEqual(['welcome', 'story', 'principle', 'game', 'cmp7', 'stake', 'research']);
-    expect(planOf(hike, { keepFinished: true })).toEqual(['story', 'principle', 'game', 'cmp7', 'stake']);
-    expect(planOf(mastermindBefore, { keepFinished: true, canvas: true })).toEqual(['story', 'principle', 'game', 'cmp7', 'canvas']);
-    expect(planOf(mastermindAtEvent, { keepFinished: true })).toEqual(['story', 'principle', 'game', 'cmp7', 'stake']);
-    expect(SALES_MASTERMIND_RECIPE.prepare.steps).toEqual(['story', 'principle', 'game', 'cmp7', 'canvas']);
+  it('Clarity Night, a hike and the sales mastermind (both timings) have it before the principle', () => {
+    expect(planOf(night)).toEqual(['welcome', 'story', 'game', 'principle', 'cmp7', 'stake', 'research']);
+    expect(planOf(hike, { keepFinished: true })).toEqual(['story', 'game', 'principle', 'cmp7', 'stake']);
+    expect(planOf(mastermindBefore, { keepFinished: true, canvas: true })).toEqual(['story', 'game', 'principle', 'cmp7', 'canvas']);
+    expect(planOf(mastermindAtEvent, { keepFinished: true })).toEqual(['story', 'game', 'principle', 'cmp7', 'stake']);
+    expect(SALES_MASTERMIND_RECIPE.prepare.steps).toEqual(['story', 'game', 'principle', 'cmp7', 'canvas']);
   });
   it('the step has a label and is the listening_game part', () => {
     expect(STEP_LABELS.game).toMatch(/Listening Game/);
@@ -64,8 +64,8 @@ describe('P1685 a tracked part: once per person, resumes', () => {
   });
   it('resumes on the game when it is the stored current step and not yet done', () => {
     const plan = planOf(night);
-    expect(resumeScreenOf({ startedAt: T1, currentStep: 'game', plan, stepsDone: ['welcome', 'story', 'principle'], keepFinished: false })).toBe('game');
-    expect(resumeScreenOf({ startedAt: T1, currentStep: null, plan, stepsDone: ['welcome', 'story', 'principle'], keepFinished: false })).toBe('game');
+    expect(resumeScreenOf({ startedAt: T1, currentStep: 'game', plan, stepsDone: ['welcome', 'story'], keepFinished: false })).toBe('game');
+    expect(resumeScreenOf({ startedAt: T1, currentStep: null, plan, stepsDone: ['welcome', 'story'], keepFinished: false })).toBe('game');
   });
 });
 
@@ -93,7 +93,7 @@ describe('P1685 minutes come from the step itself', () => {
     expect(watchSeconds('listeningGame')).toBe(Math.round(89.7 / PLAYBACK_RATE));
   });
   it('stepSeconds(game) is the reading time of the written rules plus the watch time; the principle step no longer carries it', () => {
-    const words = [LISTENING_GAME_COPY.heading, LISTENING_GAME_COPY.intro, ...LISTENING_GAME_COPY.rules].join(' ').split(/\s+/).filter(Boolean).length;
+    const words = [LISTENING_GAME_COPY.heading, LISTENING_GAME_COPY.intro, LISTENING_GAME_COPY.rulesHeading, ...LISTENING_GAME_COPY.rules].join(' ').split(/\s+/).filter(Boolean).length;
     const expected = Math.round((words / 200) * 60) + watchSeconds('listeningGame');
     expect(stepSeconds('game', cards, true)).toBe(expected);
     expect(stepSeconds('game', cards, false)).toBe(expected);
@@ -109,14 +109,16 @@ describe('P1685 minutes come from the step itself', () => {
 
 describe('P1685 the written rules (D2) are founder-approved text in one constant', () => {
   it('reads verbatim', () => {
-    expect(LISTENING_GAME_COPY.heading).toBe('How the Listening Game works');
-    expect(LISTENING_GAME_COPY.intro).toBe('Each of you holds a card with a sliding band.');
+    expect(LISTENING_GAME_COPY.heading).toBe('The Listening Game');
+    expect(LISTENING_GAME_COPY.intro).toBe('What you mean and what the other person hears are often two different things. With one number, this game shows the gap in 3 seconds. And because everyone learns the same game, checking for understanding becomes normal.');
+    expect(LISTENING_GAME_COPY.rulesHeading).toBe('How it works');
     expect(LISTENING_GAME_COPY.rules).toEqual([
-      'Most of the time your band is down. Just talk as you normally would.',
-      'When something matters to you and you want to be fully understood, say "Now I want to be the speaker" and slide your band up.',
-      'The other person slides theirs up too. Now you\'re playing: they listen and say back what they understood, until you say "yes, that\'s it."',
-      'Then you both slide your bands down and talk normally again.',
+      'Each of you holds a role card with a sliding band. Say "Now I want to be the speaker." Both slide your bands up: game on.',
+      'The speaker says one thing. You both rate how well the listener understood, from 0 to 10. The lower number counts.',
+      'The listener explains back what they heard, and never argues. To disagree, swap roles first.',
+      'When the number is good enough, swap roles, or slide the bands down and talk normally.',
     ]);
+    expect(STEP_LABELS.game).toBe('The Listening Game: how to reveal the gap in 3 seconds');
   });
 });
 

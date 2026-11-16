@@ -40,50 +40,55 @@ async function watchAndContinue() {
   click('Continue');
 }
 
-/** Standalone: from the list, through the principle (opt out), to the game screen. */
+/** Standalone: from the list, through the story, to the game screen. */
 async function toGameStandalone() {
-  fireEvent.click(await screen.findByText('Learn about the Clarity Meeting Principle'));
+  fireEvent.click(within(await screen.findByTestId('agenda-step-story')).getByRole('button'));
   await watchAndContinue();
-  fireEvent.click(await screen.findByText('Opt out'));
-  await screen.findByTestId('opt-out-ask');
-  click('No, continue');
   return screen.findByTestId('listening-game');
 }
 
+/** Standalone: on through the game (played) to the principle's intro clip. */
+async function gameToPrincipleStandalone() {
+  await toGameStandalone();
+  await watchAndContinue();
+  return screen.findByTestId('principle-intro');
+}
+
 describe('P1685 standalone', () => {
-  it('the list has the game as its own numbered step after the principle, with its own minutes', async () => {
+  it('the list has the game as its own numbered step before the principle, with its own minutes', async () => {
     page();
     const rows = (await screen.findAllByTestId(/^agenda-step-/)).map((r) => r.getAttribute('data-testid'));
-    expect(rows).toEqual(['agenda-step-story', 'agenda-step-principle', 'agenda-step-game', 'agenda-step-cmp7', 'agenda-step-misunderstanding']);
+    expect(rows).toEqual(['agenda-step-story', 'agenda-step-game', 'agenda-step-principle', 'agenda-step-cmp7', 'agenda-step-misunderstanding']);
     expect(screen.getByTestId('agenda-step-game')).toHaveTextContent(`${stepMinutes('game', { cmp7: 0, stake: 0 }, true)} min`);
-    expect(screen.getByTestId('agenda-step-game')).toHaveTextContent(/^3/);
+    expect(screen.getByTestId('agenda-step-game')).toHaveTextContent(/^2/);
   });
 
-  it('after the principle: "Step 3 of 5" with the rules above a required video, then the statements', async () => {
+  it('after the story: "Step 2 of 5", title and intro above the video, "How it works" below it, then the principle', async () => {
     page();
     await toGameStandalone();
-    expect(screen.getByText('Step 3 of 5')).toBeInTheDocument();
-    expect(screen.getByText('How the Listening Game works')).toBeInTheDocument();
+    expect(screen.getByText('Step 2 of 5')).toBeInTheDocument();
+    expect(screen.getByText('The Listening Game')).toBeInTheDocument();
+    expect(screen.getByText('How it works')).toBeInTheDocument();
     // D3: only Play until it has played; no skip link.
     expect(screen.getByRole('button', { name: 'Play the video' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
     expect(screen.queryByText(/without video/i)).toBeNull();
     click('Play the video');
     click('Continue');
-    expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
+    expect(await screen.findByTestId('principle-intro')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();
   });
 
-  it('the opt-in path (try it now, rating, Confirm) ends the principle and the NEXT screen is the game', async () => {
+  it('the opt-in path (try it now, rating, Confirm) ends the principle and the NEXT screen is the statements', async () => {
     page();
-    fireEvent.click(await screen.findByText('Learn about the Clarity Meeting Principle'));
+    await gameToPrincipleStandalone();
     await watchAndContinue();
     fireEvent.click(await screen.findByText('Opt in'));
     click('Try it now');
     fireEvent.click(await screen.findByRole('button', { name: 'Rate 8' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm' }));
-    expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
-    expect(screen.getByText('Step 3 of 5')).toBeInTheDocument();
+    expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
+    expect(screen.queryByTestId('listening-game')).toBeNull();
   });
 
   it('playing it records the listening_game part once (this browser, signed out): the list then shows it done', async () => {
@@ -92,34 +97,30 @@ describe('P1685 standalone', () => {
     expect(readLocalParts().listening_game).toBeUndefined();
     click('Play the video');
     click('Continue');
-    await screen.findByTestId('stake-cmp7');
+    await screen.findByTestId('principle-intro');
     expect(readLocalParts().listening_game).toBeDefined();
     cleanup();
     page();
     expect((await screen.findByTestId('agenda-step-game')).getAttribute('data-done')).toBe('true');
   });
 
-  it('Back from the game returns to the principle (where the person came from), not the agenda', async () => {
+  it('standalone: Back from the principle\'s first screen returns to the agenda, like every other step', async () => {
     page();
-    await toGameStandalone();
+    await gameToPrincipleStandalone();
     click('Back');
-    expect(await screen.findByText('Opt out')).toBeInTheDocument(); // the principle's decision, intro clip not replayed
-    expect(screen.queryByTestId('agenda')).toBeNull();
+    expect(await screen.findByTestId('agenda')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();
   });
 
-  it('Back from the game opened straight from the agenda returns to the agenda', async () => {
+  it('Back from the game (reached from the story) returns to the agenda', async () => {
     page();
-    fireEvent.click(within(await screen.findByTestId('agenda-step-game')).getByRole('button'));
-    expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
+    await toGameStandalone();
     click('Back');
     expect(await screen.findByTestId('agenda')).toBeInTheDocument();
   });
 
-  it('after a pass through the principle, reopening the game from the agenda: Back returns to the agenda', async () => {
+  it('Back from the game opened straight from the agenda returns to the agenda', async () => {
     page();
-    await toGameStandalone();
-    for (let i = 0; i < 5 && !screen.queryByTestId('agenda'); i++) { click('Back'); await new Promise((r) => setTimeout(r, 0)); }
     fireEvent.click(within(await screen.findByTestId('agenda-step-game')).getByRole('button'));
     expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
     click('Back');
@@ -137,58 +138,57 @@ describe('P1685 standalone', () => {
     expect(screen.getByTestId('listening-game').querySelector('video')).not.toBeNull(); // retry pressed Play on the fresh poster
     fireEvent.error(screen.getByTestId('listening-game').querySelector('video')!);
     click('Continue');
-    // The pass moves on to the next step (the statements); the part is not recorded, so the step stays open on the list.
-    expect(await screen.findByText('What is your value perception of the Clarity Meeting Principle?')).toBeInTheDocument();
+    // The pass moves on to the next step (the principle); the part is not recorded, so the step stays open on the list.
+    expect(await screen.findByTestId('principle-intro')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();
     expect(readLocalParts().listening_game).toBeUndefined();
   });
 });
 
 describe('P1685 join', () => {
-  it('the game follows the principle, before the statements; the header counts it (Step 3 of 5)', async () => {
+  it('the game follows the story, before the principle; the header counts it (Step 2 of 5)', async () => {
     joinGate();
     page();
     await screen.findByTestId('learn-join-context');
     await watchAndContinue(); // story
-    expect(await screen.findByTestId('join-principle-text')).toBeInTheDocument();
-    await watchAndContinue(); // principle intro
     expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
-    expect(screen.getByText('Step 3 of 5')).toBeInTheDocument();
+    expect(screen.getByText('Step 2 of 5')).toBeInTheDocument();
     expect(screen.queryByText(/without video/i)).toBeNull();
     click('Play the video');
     click('Continue');
+    expect(await screen.findByTestId('join-principle-text')).toBeInTheDocument();
+    await watchAndContinue(); // principle intro
     await waitFor(() => expect(screen.getByTestId('stake-cmp7')).toBeInTheDocument());
   });
 
-  it('resumes: with the story already done it opens on the principle, and still goes on to the game', async () => {
+  it('resumes: with the story already done it opens on the game, and still goes on to the principle', async () => {
     markLocalPart('cognitive_video');
     joinGate();
     page();
-    expect(await screen.findByTestId('principle-intro')).toBeInTheDocument();
-    await watchAndContinue();
     expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
+    await watchAndContinue();
+    expect(await screen.findByTestId('principle-intro')).toBeInTheDocument();
   });
 
-  it('once per person: a member who already did the game goes from the principle straight to the statements', async () => {
-    markLocalPart('cognitive_video');
+  it('once per person: a member who already did the game goes from the story straight to the principle', async () => {
     markLocalPart('listening_game');
     joinGate();
     page();
-    await screen.findByTestId('principle-intro');
-    await watchAndContinue();
-    expect(await screen.findByTestId('stake-cmp7')).toBeInTheDocument();
+    await screen.findByTestId('learn-join-context');
+    await watchAndContinue(); // story
+    expect(await screen.findByTestId('principle-intro')).toBeInTheDocument();
     expect(screen.queryByTestId('listening-game')).toBeNull();
   });
 
-  it('Back from the game returns to the principle, never a blank screen', async () => {
+  it('Back from the principle returns to the game, never a blank screen', async () => {
     markLocalPart('cognitive_video');
     joinGate();
     page();
-    await screen.findByTestId('principle-intro');
-    await watchAndContinue();
     await screen.findByTestId('listening-game');
+    await watchAndContinue();
+    await screen.findByTestId('principle-intro');
     click('Back');
-    expect(await screen.findByTestId('principle-intro')).toBeInTheDocument();
+    expect(await screen.findByTestId('listening-game')).toBeInTheDocument();
   });
 });
 
@@ -210,6 +210,8 @@ describe('P1685 D4: the success screen', () => {
     const skip = await screen.findByText(/skip/i).catch(() => null);
     if (skip) fireEvent.click(skip);
     const end = await screen.findByTestId('prepare-end');
+    expect(within(end).getByText('Introduction complete')).toBeInTheDocument();
+    expect(within(end).getByText('You know how to listen for understanding and how to check it. Next, try it with other people at an event. The manifesto explains why it matters.')).toBeInTheDocument();
     const film = screen.getByRole('button', { name: /play the manifesto film/i });
     const cta = screen.getByRole('button', { name: 'Read the manifesto' });
     expect(end.contains(film) && end.contains(cta)).toBe(true);

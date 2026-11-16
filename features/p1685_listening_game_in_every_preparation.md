@@ -37,7 +37,7 @@ Blast radius: medium. It changes the principle step of every preparation flow (s
 
 > Founder, verbatim: "don't you think we need a proper description so somebody who doesn't look at the video should make sense how the game works", "why is it not a separate step?", "we made always other videos mandatory, why would we make an exception here? ... we need to make it mandatory to play it and then we can go forward", and on the manifesto film on the success screen: approved ("yes to all but 3").
 
-- **D1. Its own numbered step**, `game`, right after `principle` and before the next step (statements / "share expected benefits"), in standalone, join and event preparation, every series. It is a tracked part (`listening_game`) with a content version, so it is shown once per person, resumes, and counts in "Step X of N". This needs a migration widening the `person_prep_parts.part` and `event_preparations.current_step` CHECK constraints (additive; applied on TEST only until ship). Supersedes the "no part, no migration, no step-count change" Non-Goals and Invariant.
+- **D1. Its own numbered step**, `game`, BEFORE `principle` (founder, 2026-11-16 later: "yes swap them"; the game is experienced first, the principle then formalises it), in standalone, join and event preparation, every series. It is a tracked part (`listening_game`) with a content version, so it is shown once per person, resumes, and counts in "Step X of N". This needs a migration widening the `person_prep_parts.part` and `event_preparations.current_step` CHECK constraints (additive; applied on TEST only until ship). Supersedes the "no part, no migration, no step-count change" Non-Goals and Invariant.
 - **D2. Written rules stand on their own**, above the video. Founder-approved text (step 3 to be confirmed against the game by the founder):
   Heading: "How the Listening Game works". Intro: "Each of you holds a card with a sliding band." 1. "Most of the time your band is down. Just talk as you normally would." 2. "When something matters to you and you want to be fully understood, say "Now I want to be the speaker" and slide your band up." 3. "The other person slides theirs up too. Now you're playing: they listen and say back what they understood, until you say "yes, that's it."" 4. "Then you both slide your bands down and talk normally again."
 - **D3. The video is required, everywhere** (as every other preparation video since P1529 UAT round 3): "Play the video" only; after it plays, "Continue". No skip link.
@@ -99,6 +99,15 @@ Blast radius: medium. It changes the principle step of every preparation flow (s
 - [ ] Standalone `/prepare` success screen shows the manifesto film with "Read the manifesto" below it as the one primary action (D4, test).
 - [ ] Works at 320 px, 375 px and desktop, with no rule text under the action bar (screenshots, visual-qa checklist).
 - [ ] Existing preparation tests pass.
+
+## Founder decisions, 2026-11-16 (second round, supersede D2 copy and the end-screen words)
+
+- Layout like every other video step: title, one intro line, video, then "How it works" rules below (founder: "everywhere we have the video first").
+- Rules text taken from the video script (speaker, listener, observer; 0 to 10, the lower number counts; the listener never argues).
+- Step title: "The Listening Game: how to reveal the gap in 3 seconds" (founder wording).
+- Intro line: the value is revealing a gap in understanding in seconds and making the check a shared norm, by teaching it fast (founder).
+- Standalone /prepare end screen: "Introduction complete" + "You know how to listen for understanding and how to check it. Next, try it with other people at an event. The manifesto explains why it matters." Film kept as is.
+- Sales mastermind role times left unchanged (founder: they already allow for it).
 
 ## Open founder decisions (from review, 2026-11-16)
 
