@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 313
+**Next ID:** 340
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -2085,6 +2085,8 @@ Reviewed 2026-11-04 (weekly): keep, not re-measured this run
 
 Found 2026-10-09 redoing a run's reflection: the card showed the founder's story and a Done chip from a different statement that had held the same r-id. Normal runs never re-record, so this bites only on a redo or regeneration. Fix: key answers by the statement hash as well as the id. Droppable if reflections are never regenerated.
 
+Reviewed 2026-11-12 (weekly): keep — unverified: no statement-hash keying found by grep in tools/kanban; fix not located
+
 ---
 
 ## publish-spec leaves the embargo stub in place, so the duplicate-spec check blocks it
@@ -2096,6 +2098,8 @@ Found 2026-10-09 redoing a run's reflection: the card showed the founder's story
 
 2026-10-09 (P1448): git-ops publish-spec staged the published spec into done/ but did not remove features/pN_security-review-pending.md, so pre-commit refused the commit; also it could not find migrations named after the spec when the files carry the parent spec's name. Fix: publish-spec removes the stub in the same commit and accepts --migrations naming the files. Droppable if no embargo spec is filed again.
 
+Reviewed 2026-11-12 (weekly): keep — unverified: no stub-removal in git-ops publish-spec found by grep
+
 ---
 
 ## Screenshot re-edit hook treats tool output as founder text
@@ -2106,6 +2110,8 @@ Found 2026-10-09 redoing a run's reflection: the card showed the founder's story
 **due:** week
 
 The hook that blocks UI edits after the founder says a change is not visible scans every transcript entry of type user, and tool results are of that type. So a command that prints its trigger phrases, or a test log, blocks every .tsx edit until a later browser call. Fix: match only entries that are plain user text, with no tool_result blocks. Droppable if the hook is retired. Hit 2026-10-09 by the P1437 v3 builder subagent.
+
+Reviewed 2026-11-12 (weekly): keep — unverified: hook not located by grep for tool_result+screenshot
 
 ---
 
@@ -2146,6 +2152,8 @@ Deferred from the P1463 copy and visual review (2026-10-12): (1) an answered car
 
 Prepare the in-person sales-practice event (goals.md 3a) in its own session. Founder confirmed in-person first (2026-10-13). Founder's addition to the format: an attendee brings either one stuck customer conversation OR the conversations they are not having (why they can't reach out), and works on that under the explain-back rule.
 
+Reviewed 2026-11-12 (weekly): keep — event not yet prepared; no artifact found
+
 ---
 
 ## Day page feedback (tools/kanban)
@@ -2156,6 +2164,8 @@ Prepare the in-person sales-practice event (goals.md 3a) in its own session. Fou
 **due:** week
 
 Day page feedback from the founder (2026-10-13, screenshots in ~/Screenshots 14-23 and 14-26), to spec before building (tools/kanban): (1) one left list that stays the same when moving between cards and stories, instead of two layouts; (2) the agent's reading of a story ("AGENT on Slava · Agrees") moves down into the "Their story" block; (3) "Add your story" uses the app's existing components: a button that expands the input, open by default only when it already has text; (4) "Agent: N tasks" appears twice (panel and footer): keep one, and label it as what was sent to the fixing agent; (5) Stats "From this run": drop "shipped since last run" and the cloud spend estimate (Monitoring has it); chat help requests become reply cards, not a reading tile; replace the section with goals and what's next in plain words. Founder rule: no custom components; reuse cards, points and buttons.
+Reviewed 2026-11-12 (weekly): keep — unverified: Day page feedback items not checked against tools/kanban UI
+
 
 ## Prod health smoke times out on /cm every run (networkidle never reached)
 
@@ -2165,6 +2175,8 @@ Day page feedback from the founder (2026-10-13, screenshots in ~/Screenshots 14-
 **due:** week
 
 The post-deploy smoke fails on /cm on every run: page.goto waits for networkidle and hits the 45s timeout although the page renders (HTTP 200 in under a second, snapshot shows content). Seen 2026-10-12 before the P1453 push and again after it, so it is not a deploy regression. Likely a persistent request on /cm (P1447 surface) keeps the network busy; fix either that request or the smoke's wait condition for the route. Done when smoke:prod passes 8/8; droppable if /cm leaves the smoke route list. It matters because a permanently red step 6 teaches every /ship to wave real failures through.
+
+Reviewed 2026-11-12 (weekly): keep — e2e/app-boot-smoke.spec.ts still waits for networkidle (lines 24/43/55)
 
 ---
 
@@ -2178,6 +2190,8 @@ The post-deploy smoke fails on /cm on every run: page.goto waits for networkidle
 src/tests/p1364-list-return-cache.test.tsx ('POP serves the cached list on the same tab with no refetch') failed once inside the pre-commit full suite on 2026-10-13 (P1468 build), then passed 5 of 5 run alone in both a worktree and main. Load-dependent timing. Make it deterministic (fake timers or await the cache read) rather than retrying.
 
 2026-10-13: a second load-flaky test: tools/kanban/e2e-day/day-page.spec.ts:1219 'paging past an issue answered with your own text' failed once in 2 full Day e2e runs ([data-chosen] not found at :1230), passed 8/8 with --repeat-each=8.
+
+Reviewed 2026-11-12 (weekly): keep — p1364 half likely fixed by b7527b375 (P1394 deterministic tests); day-page.spec.ts:1219 half unverified
 
 ---
 
@@ -2202,6 +2216,8 @@ P1468 removed the only reader of day-cp Wave 1's spend estimate (the dropped spe
 **due:** week
 
 P1468 Post-ship verification (spec section of the same name). After the first real /day run following the P1468 ship: PS-1, the report has goals with the goal line and none of the four dropped notes, and both pipeline findings are exercised (really or via a fixture). PS-2, a founder-addressed chat item becomes a reply card keyed reply:<chat>:<message key>, and a group ask does not. Tick the boxes in the shipped spec with the run's evidence.
+
+Reviewed 2026-11-12 (weekly): keep — unverified: PS-1/PS-2 boxes not checked
 
 ---
 
@@ -2234,6 +2250,8 @@ If either fails, reopen via `/change-request` on P907. Delete this note once bot
 
 /prioritize 2026-10-16: check 1 passes on prod (curl -sI shows x-frame-options: SAMEORIGIN). Check 2 (letter live overlay iframe renders) not yet observed.
 
+Reviewed 2026-11-12 (weekly): keep — prod sends x-frame-options SAMEORIGIN (curl -I 2026-11-12, verified); /live letter overlay half unverified
+
 ---
 
 ## point_config writes are read-modify-write from the client: P1427 residual race and doc-detail-page.tsx
@@ -2255,6 +2273,8 @@ left open:
    Sibling of P1426 (`/demo` jsonb lost update) and P1427.
 
 Likely one spec: a `patch_point_config(doc_id, story_id, patch jsonb)` RPC used by every writer.
+
+Reviewed 2026-11-12 (weekly): keep — doc-detail-page.tsx still read-modify-writes point_config from client state (line 99-115)
 
 ---
 
@@ -2279,6 +2299,8 @@ fixed. Counts are failed runs out of 20 (after-fix run / final run):
 Apply P1394's method (measure loaded runtime, then a named per-test bound or wait on the real
 condition; never retries/skips). Tonight these blocked several commits when ~10 agents ran suites.
 
+Reviewed 2026-11-12 (weekly): keep — unverified: remaining load flakes not re-measured
+
 ---
 
 ## Post-ship checks: the new pre-commit gates from the 2026-10-13 overnight batch fire on a real commit
@@ -2301,6 +2323,8 @@ worktree, stage a must-fail input and confirm a real `git commit` is refused (th
 
 Observed 2026-10-14: a probe commit staging a kanban type error on P1474's own branch was accepted,
 exactly as the doc predicts. Delete each line once its real-commit refusal is observed.
+
+Reviewed 2026-11-12 (weekly): keep — unverified: real-commit refusal of the new gates not exercised
 
 ---
 
@@ -3307,16 +3331,8 @@ From P1606's reviews. test-p1584's "a run older than 3 h is unknown" also fails 
 
 ---
 
-## Before P1604 ships: rebuild its _mirror_limits() on the P1536 body, and fix the policy's 100-reply line
+<!-- Resolved 2026-11-05: INBOX-274 "Before P1604 ships: rebuild its _mirror_limits()" closed: limits kept in 20261105100000; privacy line live on the prod bundle (P1619). Tombstoned 2026-11-12 by /day triage. -->
 
-**ID:** INBOX-274
-**Date:** 2026-11-04
-**Status:** closed — limits kept in 20261105100000; privacy line live, checked on the prod bundle 2026-11-05 (P1619)
-**due:** week
-
-The P1604 draft migration for Clarified session threads, as read on 2026-11-04 before its rebase, redefines _mirror_limits() from the P1547 body: no canvas_max_usd, extract_max_usd or canvas caps, and global_total_daily_usd 10.00 where main has 50.00. Sorted after P1536 it would replace them, and canvas reads those keys. Its drift test checks only the two reply reservations. privacy.md also says a Clarify copy holds "up to 100 replies", and the draft stores 720 lines. Done when the shipped migration keeps every P1536 key and the policy matches. Drop if the rebase already fixed both. Related: P1615.
-
----
 
 ## Add a promote-only path to push-docs for an already-green staging branch
 
@@ -3715,5 +3731,317 @@ Public-letter readers rank in the on-focus Share People list and can push out re
 **due:** month
 
 P1652 deferred new-message alerts and mute to a later founder decision. Decide whether and when to build them. Drop this if people do not miss alerts once chat has regular use.
+
+---
+
+## Main's send-event-emails fails its boot probe on self-hosted TEST
+
+**ID:** INBOX-313
+**Date:** 2026-11-10
+**Status:** proposed
+**due:** week
+
+Deploying main's tip plus P1653 to self-hosted TEST on 2026-11-10, send-event-emails answered 500 to the OPTIONS boot probe, while the P1529 branch's version answered 200 right after. Find whether main's version or its shared imports break on self-hosted. Droppable if a later deploy of main's tip probes 200.
+
+---
+
+## p1607 slot-lock race test flakes under machine load
+
+**ID:** INBOX-314
+**Date:** 2026-11-10
+**Status:** proposed
+**due:** week
+
+On 2026-11-10 src/tests/p1607-e2e-slot-lock.test.ts ("two racing runs never exceed the limit") failed once in a pre-commit run at load average above 10 (expected 1 to be 2), then passed 40 of 40 alone and on the next commit. Make the race test robust to slow process start, or mark the timing assumption. Droppable if it does not recur in a month of commits.
+
+---
+
+## Before mastermind session 1 (2026-11-16): answer "Mastermind isn't a real test" with L5
+
+**ID:** INBOX-315
+**Date:** 2026-11-10
+**Status:** proposed
+**due:** week
+
+If someone says the mastermind is not a real test, it is: it has a pre-registered prediction, ledger row L5 in docs/research-programme.md (founder-confirmed 2026-10-21, before the run). Falsifier: attendees sent by someone else ask to come back at the same rate as self-motivated ones, or motivated attendees report no change in their view of the other person. Session signals are in docs/goals.md 3a (owners return to session 2 unchased, canvas changed between sessions, fewer explain-back tries in session 2). Keep it honest: session 1 tests whether the features work, not willingness to pay. Droppable once session 1 has run and L5 is read against its outcome.
+
+---
+
+## Canvas agent adds an unstated status word (live) to points
+
+**ID:** INBOX-316
+**Date:** 2026-11-10
+**Status:** proposed
+**due:** week
+
+Seen in the P1653 replay on 2026-11-10: points such as "I sell juice to office workers; live." and a price "...; live offer." The box guide's shape line says "Status: planned / piloted / live", so the model tags a status the owner never stated. It predates P1653 (the control fixture shows it too) and breaks the rule that nothing is added that the owner did not say. Decide whether the status suffix is dropped from the guide or only written when the owner states it. Droppable if the founder decides an inferred status is acceptable.
+
+---
+
+## Shrink or justify the main.lock span in git-ops push-docs and ship-to-prod
+
+**ID:** INBOX-317
+**Date:** 2026-11-10
+**Status:** proposed
+**due:** week
+
+Both commands hold main.lock through the staging push, the CI poll (up to 2400s), the unit-report wait and the y/N prompt, which stalled every commit-to-main on the shared checkout for 20-25 minutes twice (the p1209 incident and the 2026-11-10/11 overnight batch). The P1290 decision already calls releasing the lock across the CI poll the obvious next change, and nothing tracks it. Done when a spec either releases the lock across the poll with proof that commits made meanwhile cannot change the pinned SHA that gets promoted, or records why the hold must stay; recording phase and command in the lockfile for waiters is the small independent half. Droppable if push-docs and ship-to-prod stop being run by hand on the shared checkout.
+
+---
+
+## Spec: inline hashtags keep their word when the tag is stripped
+
+**ID:** INBOX-318
+**Date:** 2026-11-11
+**Status:** proposed
+**due:** week
+
+Founder call 2026-11-11 (decisions.md, "Founder calls on the P1659/P1660 follow-ups"): "We need #climate action now" should display "We need climate action now"; trailing tag lists are still removed and system tags always removed. Change src/tests/stripHashtags.test.ts deliberately in the same spec. Droppable if the founder reverses the call.
+
+---
+
+## P1653 follow-up: readable link gets an assumption with options, plus two live checks
+
+**ID:** INBOX-319
+**Date:** 2026-11-11
+**Status:** proposed
+**due:** week
+
+Moved out of P1653 by the founder on 2026-11-11 to ship the proven part. (1) F2 for a READABLE page: state an assumption sourced from the page's own words with options A (recommended), B, C before drafting from it; today a readable link is drafted from directly. The founder has seen owners paste sites that are not theirs, so this matters. (2) Retry control proven on TEST for a stubbed timeout, a refusal and the daily limit (today proven in unit tests only). (3) No-reply paths proven through the real posting path (today proven by shape tests only). Spec it with /create-spec; done when all three are proven on TEST.
+
+---
+
+## Stop-hook review gate misses shell-edited files
+
+**ID:** INBOX-320
+**Date:** 2026-11-11
+**Status:** proposed
+**due:** week
+
+Implement the proposed 2026-11-11 [process] decision: the Stop hook also counts files whose content changed since a session-start baseline (not plain git diff, which flags co-tenant work on main). Add legitimate-flow cases to scripts/test-p1505-review-gate.sh first. Droppable if subagent shell edits stop recurring for a month.
+
+---
+
+## Make a production build refuse to ship a mock data service
+
+**ID:** INBOX-321
+**Date:** 2026-11-11
+**Status:** proposed
+**due:** month
+
+The VITE_USE_REAL_* switches (agreements-service.ts and siblings) only log console.error when a production build would select the non-persisting mock. Consider failing the build instead, so a missing flag can never ship a mock. Deferred from P1666 review (GLM) as an app-behaviour change outside that spec. Droppable if the prod deploy path is shown to always set the flags (e.g. a deploy check already fails on a missing flag).
+
+---
+
+## After the P1666 push, report the CI unit-test green streak and the required-check recommendation
+
+**ID:** INBOX-322
+**Date:** 2026-11-11
+**Status:** proposed
+**due:** week
+
+Once P1666 is pushed, count consecutive green unit-test runs (CI workflow, test job) on main and on the staging hop, and report them to the founder with the recommendation to make the unit-test job a required check, per the P1635 founder decision of 2026-11-05. Done when the founder has the count and has decided on the ruleset flip; droppable if the job is made required anyway.
+
+---
+
+## A public inbox entry cannot be read by the inbox tool [day:f46d7542]
+
+**ID:** INBOX-323
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** month
+
+Found by /day on 2026-11-12 (check: cp.weekly, severity: low).
+
+inbox.sh check: docs/process-learnings.md line 3310 status-not-proposed
+
+---
+
+## CM Events: retry a third-party source outage later in the day instead of handing it to an agent
+
+**ID:** INBOX-324
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** month
+
+From /day 2026-11-12 triage. Sola returned 502 (site-wide, also off-VPN; control site 200), so the strict run wrote nothing and the Day page routed it "With the agent", where nothing could be fixed. Proposal: when the only failure is an upstream 5xx, the pipeline schedules its own retry (e.g. +3h) and the row reads Waiting, not With the agent. Done when an upstream 5xx lands in Waiting with a retry time, or dropped with a reason.
+
+---
+
+## Privacy policy: align erasure audit-row and consent-record wording with erase_my_account()
+
+**ID:** INBOX-325
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** month
+
+Policy says the erasure audit row holds only the account id; it also holds erased_at and same_name_sessions (erased_subjects). Policy also says consent records are both kept for claims and deleted with the account. Correct both sentences in src/app/content/privacy.md. Also consider whether a casual event participant meets the voice/biometric/AI wording up front before using those features (a requester cited it). Source: P1668.
+
+---
+
+## Fix three visual defects in the shared landing components (found by the P1667 screenshot review)
+
+**ID:** INBOX-326
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** week
+
+All three are in components shared by the live use-case pages, so they were out of scope for P1667. (1) PledgerAvatarStack: the overlapping avatars cut off the initials ("KT" reads as "K") at every width, on /builders and /change-managers. (2) MisunderstandingVenn on /builders: a purple dot sits on the word "understand" at desktop (purple is banned by the design system), the labels "they think it's here" and "it's actually here" are about 10px and pale, and the caption under the diagram is near-invisible in some animation states. (3) HardTruthChat on /change-managers: the contact "Marco" is drawn with the portrait used for "Maya" on /builders. Also check: the site menu carries a link with the same label as each page's call button, a second primary action on desktop. Done when (1) and (2) have a bug spec filed or are fixed; droppable if the redesign in /tree/landing-fable is adopted and replaces these sections.
+
+---
+
+## P1529: host 'Preview round 3 tables' sometimes does not appear
+
+**ID:** INBOX-327
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** week
+
+Walk e2e/p1529-mastermind.spec.ts AC6 step 9c (openHostPreview, e2e/helpers/test-event-room.ts:167): host-preview not visible after the host presses the primary for round 3. Failed 2 of 4 runs on 2026-11-12, passed on the final code. Cause unknown (timing while an owner drafts, or fixes landing mid-run). Reproduce by rerunning the walk 3x; if it recurs, capture the host screen state.
+
+---
+
+## P1529: one-tap publish trusts the first ready revision after a reload
+
+**ID:** INBOX-328
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** month
+
+Limitation recorded in the P1529 spec: the AI run's output revision is not stored server-side (canvas_draft_runs.created_revision is the revision at run START). After a full reload, a hand edit made before the room first reads the offer can be auto-published once. Fix: add canvas_draft_runs.finished_revision written where the run completes, and compare it in get_my_next_version_offer.
+
+---
+
+## P1529: 'nothing to add' next-version card has no transcript link
+
+**ID:** INBOX-329
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** month
+
+MastermindUpdateTask supports chatHref ('Open the transcript') but the offer data carries no chat link, so it never renders. Add the round's transcript/chat link to the offer.
+
+---
+
+## Idea: first Clarity Canvas drafted from a round transcript
+
+**ID:** INBOX-330
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** month
+
+An owner who arrives without a canvas gets no next version (server answers no_canvas). Idea from the 2026-11-12 UAT: let round 1's transcript create their first canvas draft. New feature, needs a spec.
+
+---
+
+## Idea: reading part shows one point at a time
+
+**ID:** INBOX-331
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** month
+
+Visual review (Codex, 2026-11-12) suggested 'Point 1 of 6' with one point at a time during the silent reading part instead of the long list. Deferred; needs founder decision.
+
+---
+
+## main red: p1667-landing-fable test drift fixed only on feature/p1529
+
+**ID:** INBOX-332
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** week
+
+src/tests/p1667-landing-fable.test.tsx fails on main (3 tests) because shared landing components changed copy (gap-exchange heading, why-nobody-verifies hierarchyTitle). Fixed on feature/p1529-sales-mastermind-room (merge commit 2bd019129). Main stays red until P1529 ships, or cherry-pick that test change to main.
+
+---
+
+## Dead taps on /cm and hike pages: what people expected to be tappable (P1669)
+
+**ID:** INBOX-333
+**Date:** 2026-11-12
+**Status:** proposed
+**due:** week
+
+Source: P1669 replay and dead-click review, Mixpanel `$mp_dead_click`, 2026-10-14 to 2026-11-12. Counts are small; treat as directional. Replay links (they carry device ids) stay in Mixpanel, not here.
+
+**/cm (82 dead taps, 49 people):**
+1. "Subscribe to calendar" link: 47 dead taps, often repeated (3 taps in 2 minutes). The link works but gives no visible response, so people tap again. Fix idea: show a confirmation or a "Opening Google Calendar" state on tap. Confidence high.
+2. Blank page and the "Loading the events calendar" overlay: 19 taps on the empty body, 9 on the overlay and spinner; one visitor tapped 17 times over 6 minutes. The calendar may be slow or stuck to load for some people. Check load time on a phone. Confidence high.
+3. Header bar: 4 taps, probably wanting a menu or Back. Confidence low.
+
+**Hike event pages (about 130 dead taps):**
+4. AllTrails and Google Maps links (about 50 taps) and the WhatsApp group button on /confirm (11 taps, 12 people): links that open another app give no feedback first. Confidence medium.
+5. Opened gallery photo (22 taps): people expect zoom, swipe or close on tap. Confidence medium.
+6. Full-bleed video on /prepare and /meet (10 taps): people expect it to play or show controls. Confidence medium.
+7. Event hero image and text blocks (about 15 taps): expected to open or expand. Confidence low.
+
+Element text is not captured (no `$el_text` in this project), so items are identified by tag, classes and link target.
+
+---
+
+## deploy-functions.sh silently deploys only the LAST function name when given several
+
+**ID:** INBOX-334
+**Date:** 2026-11-13
+**Status:** proposed
+**due:** week
+
+scripts/selfhosted/deploy-functions.sh takes one optional [fn]; each extra positional arg overwrites FUNCTION_NAME, so `deploy-functions.sh a b c` deploys only c (+ _shared) and prints success. Hit 2026-11-13 on P1529: TEST kept serving main's send-event-emails/canvas-draft after "redeploys", costing founder UAT time ("updating forever" again). Fix: accept several names (loop) or die on a second positional arg. Gate 7: show it failing on two names first.
+
+---
+
+## Full vitest run deletes test-results/ under a running Playwright walk
+
+**ID:** INBOX-335
+**Date:** 2026-11-13
+**Status:** proposed
+**due:** week
+
+Twice on 2026-11-13 (P1529 worktree w13) a running `npx playwright test e2e/p1529-mastermind.spec.ts` failed with ENOENT on test-results/p1529/notes.log / results.jsonl while a full `npx vitest run` ran in the same worktree. Suspect: a vitest test (candidate src/tests/p1607-e2e-loadtest-switch.test.ts, or anything spawning playwright, which clears outputDir) wipes test-results/. Fix: tests must use a temp outputDir, never the shared test-results/; or the walk writes outside test-results. Verify by running both concurrently before and after.
+
+---
+
+## Audio archive bucket CORS is not in the repo and misses worktree ports 6xxx
+
+**ID:** INBOX-336
+**Date:** 2026-11-13
+**Status:** proposed
+**due:** week
+
+2026-11-13 (P1529, founder approved): added http://localhost:6300 to the CORS list of the audio-archive bucket (claritypledge-ml-training) by hand, keeping all existing origins, because worktree w13 runs on hash-assigned port 6300 and every browser audio-chunk PUT from it was refused, so the clean round transcripts never reached the event chat (worker error 'incomplete_table'). That bucket's CORS is not checked in anywhere (scripts/gcs-cors.json covers the story-images bucket only). Fix: check the ml-training CORS into the repo with an apply script, and cover every port setup-worktree can assign (or derive the list from the port map), so a new worktree port never silently breaks transcripts again.
+
+---
+
+## Repair erase_my_account drift on self-hosted TEST, then check prod's live body
+
+**ID:** INBOX-337
+**Date:** 2026-11-13
+**Status:** proposed
+**due:** week
+
+The live erase_my_account on self-hosted TEST is not the repo's newest definition (20261030090000): it has neither the p1536 nor the p1592 erasure marker and never calls _erase_lock_canvas_owners, although the ledger records that migration as applied and no unknown migration is applied (found 2026-11-13 during P1631, see the 20261113230000 header). Erasure tests on TEST therefore run an older body. Done when the drift's cause is known, TEST runs the newest body, and prod's live body is confirmed to match; droppable if prod already matches and TEST is rebuilt from the ledger.
+
+---
+
+## Transcription: surface failed chunk uploads, log all-empty transcriptions, check unposted channel lines
+
+**ID:** INBOX-338
+**Date:** 2026-11-13
+**Status:** proposed
+**due:** week
+
+From the P1529 test on 2026-11-13 (event sales-mastermind-test-1113-1828, TEST): (1) a member's first audio chunks (000-006) were numbered but never uploaded, with nothing shown to the person; surface a failed upload in the recording bar. (2) the round worker marked the job 'partial_table' with 0 texts when transcription of present audio came back empty (quiet audio); log/mark "transcribed N chunks, all empty" distinctly. (3) 8 outside-round live lines (dest_kind channel) stayed unposted (posted_at null) with channel posting enabled; find out why. Diagnosis notes were in the session; re-derive from transcribe_round_clean_jobs and the worker log.
+
+---
+
+## GLM reviewer returns nothing on large review prompts (reasoning cap)
+
+**ID:** INBOX-339
+**Date:** 2026-11-13
+**Status:** proposed
+**due:** week
+
+In the P1674 session, ask-model openrouter (GLM) failed 5 of 5 review runs with verified=failed exit=5 and reasoning_tokens at the 16000 cap, empty output, on prompts from 20 KB to 260 KB (spec review round 2, code review, /finish). Gemini and Codex succeeded on the same prompts, so every review ran one lens short. Next step: read ask-model's openrouter path and model-defaults.env OPENROUTER_MODEL settings (reasoning budget / max tokens), reproduce with one 20 KB prompt, and either raise the output budget or lower the reasoning effort so GLM returns a review. Done when one /finish run shows GLM ok.
 
 ---
