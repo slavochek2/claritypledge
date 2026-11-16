@@ -15,6 +15,7 @@ import { getInboxItems, markDeliveryRead, getUnreadExplainBackCountsByDelivery }
 import { formatTimeAgo } from '@/app/utils/format-time';
 import type { InboxItem } from '@/app/types';
 import type { OpenLiveInvite } from '@/app/hooks/useOpenLiveInvite';
+import { profilePath } from '@/lib/profile-path';
 
 // P1011: one string for one condition. The toast and the persistent banner fire
 // from the same failure, so two near-identical wordings read as two problems.
@@ -322,7 +323,7 @@ function ActorName({ name, slug }: { name: string; slug?: string | null }) {
   }
   return (
     <Link
-      to={`/p/${slug}`}
+      to={profilePath(slug)}
       onClick={(e) => e.stopPropagation()}
       title={name}
       className="font-medium hover:underline inline-flex items-center min-h-10 max-w-[24ch] sm:max-w-[40ch] truncate"

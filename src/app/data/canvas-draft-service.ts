@@ -15,6 +15,7 @@ import { canvasDisplayTitle } from '@/lib/canvas-boxes';
 import { ARTIFACTS_CANVASES_MINE, newestPublishedHref, publishedViewHref, workspaceHref } from '@/lib/canvas-hrefs';
 import { throwDbError } from './db-error-logger';
 import { listMyCanvases } from './canvas-artifacts';
+import { profilePath } from '@/lib/profile-path';
 export * from './canvas-draft-calls';
 export * from './canvas-draft-edit-call';
 export * from './canvas-draft-add-call';
@@ -142,7 +143,7 @@ export async function getProfileSlug(profileId: string, context: string): Promis
 export async function getCanvasDraftViewPath(draft: Pick<CanvasDraft, 'canvasName' | 'versionName'>, viewerId: string): Promise<string | null> {
   if (!draft.canvasName || !draft.versionName) return null;
   const slug = await getProfileSlug(viewerId, 'getCanvasDraftViewPath');
-  return slug ? `/p/${slug}/canvas/${encodeURIComponent(draft.canvasName)}?v=${encodeURIComponent(draft.versionName)}` : null;
+  return slug ? `${profilePath(slug)}/canvas/${encodeURIComponent(draft.canvasName)}?v=${encodeURIComponent(draft.versionName)}` : null;
 }
 
 /** The run kinds that draft points: v6's message, focus and fork_first, and the earlier 'draft' (a legacy draft keeps working). */

@@ -18,6 +18,7 @@
 
 import { Link } from 'react-router-dom';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { profilePath } from '@/lib/profile-path';
 
 interface LetterParticipantRowProps {
   name: string | null | undefined;
@@ -64,7 +65,7 @@ export function LetterParticipantRow({
       />
       {slug ? (
         <Link
-          to={`/p/${slug}`}
+          to={profilePath(slug)}
           onClick={(e) => e.stopPropagation()}
           className={`${nameClass} min-h-10 inline-flex items-center hover:underline`}
           title={displayName}

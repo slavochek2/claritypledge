@@ -18,6 +18,7 @@ import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { Button } from "@/components/ui/button";
 import { SEO } from "@/app/components/seo";
 import { supabase } from "@/lib/supabase";
+import { profilePath } from "@/lib/profile-path";
 
 export function MePage() {
   const navigate = useNavigate();
@@ -66,7 +67,7 @@ export function MePage() {
 
     // User has slug → redirect to their profile page
     if (user.slug) {
-      navigate(`/p/${user.slug}`, { replace: true });
+      navigate(profilePath(user.slug), { replace: true });
       return;
     }
 

@@ -27,6 +27,7 @@ import { useHideTodaysStrip } from '@/app/components/layout/app-menu-override';
 import { EVENTS_LIST_TO, EVENTS_NAV_TO, PRICING_PATHS, PUBLIC_NAV_GROUPS } from '@/app/components/layout/nav-links';
 import { useChatUnreadCount } from '@/app/pages/chat/chat-state';
 import { isCanvasPathname } from '@/lib/canvas-boxes';
+import { profilePath } from '@/lib/profile-path';
 
 /** Where the signed-in home lives: the feed (P1545). `/` forwards here once the session has restored. */
 export const HOME_PATH = '/feed';
@@ -77,7 +78,7 @@ export function isShellEntryActive(id: ShellEntryId, pathname: string, slug: str
     case 'events':
       return isUnder(pathname, '/events');
     case 'partners':
-      return !!slug && pathname === `/p/${slug}/partners`;
+      return !!slug && pathname === `${profilePath(slug)}/partners`;
     case 'profile':
       // /p/:slug/partners belongs to the Partners entry and a canvas page to Artifacts; every other /p/ page is a profile.
       return (pathname.startsWith('/p/') && !pathname.endsWith('/partners') && !isCanvasPathname(pathname)) || pathname === '/me';
@@ -128,14 +129,14 @@ export function useShellEntries(): ShellEntry[] {
       make(
         'partners',
         'Partners',
-        `/p/${slug}/partners`,
+        `${profilePath(slug)}/partners`,
         UsersIcon,
         partnerInviteCount,
         partnerInviteCount === 1 ? 'pending invitation' : 'pending invitations',
       ),
     );
   }
-  entries.push(make('profile', 'My Profile', isProfilePending ? null : slug ? `/p/${slug}` : '/me', UserIcon));
+  entries.push(make('profile', 'My Profile', isProfilePending ? null : slug ? profilePath(slug) : '/me', UserIcon));
   return entries;
 }
 

@@ -19,6 +19,7 @@ import { NotFoundPage } from '@/app/pages/not-found-page';
 import { analytics } from '@/lib/mixpanel';
 import { safeLinkHref } from '@/app/prototypes/events/location-utils';
 import { getThumbnailUrl } from '@/lib/video';
+import { profilePath } from '@/lib/profile-path';
 import {
   getAdminTopics,
   getAdminTopicSuggestions,
@@ -174,7 +175,7 @@ export function AdminTopicsPage() {
               <p className="text-xs text-muted-foreground">
                 {s.topicTitle ? `On “${s.topicTitle}”` : 'New topic or thinker'} ·{' '}
                 {s.authorSlug ? (
-                  <Link to={`/p/${s.authorSlug}`} className="underline underline-offset-2">
+                  <Link to={profilePath(s.authorSlug)} className="underline underline-offset-2">
                     {s.authorName ?? s.authorSlug}
                   </Link>
                 ) : (

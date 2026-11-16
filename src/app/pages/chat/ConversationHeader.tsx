@@ -19,6 +19,7 @@ import { EventRoomLink } from './EventRoomLink';
 import { MirrorMenuItems } from './MirrorMenuItems';
 import { viewerTime } from '@/lib/viewer-time';
 import { TranscribeMenuItem } from './ChatTranscribe';
+import { profilePath } from '@/lib/profile-path';
 
 export interface HeaderActions {
   onBack: () => void;
@@ -56,7 +57,7 @@ function Title({ chat, onMirrorInfo }: { chat: ChatSummary; onMirrorInfo?: () =>
         </>
       );
       return other?.slug ? (
-        <Link to={`/p/${other.slug}`} className={cn(TITLE_BOX, FOCUS_RING)}>
+        <Link to={profilePath(other.slug)} className={cn(TITLE_BOX, FOCUS_RING)}>
           {body}
         </Link>
       ) : (
@@ -170,7 +171,7 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
           <TranscribeMenuItem chat={chat} onTranscribe={onTranscribe} />
           {chat.kind === 'dm' && other?.slug && (
             <DropdownMenuItem asChild className="min-h-10">
-              <Link to={`/p/${other.slug}`}>
+              <Link to={profilePath(other.slug)}>
                 <UserRound className="mr-2 h-4 w-4" aria-hidden="true" />
                 View profile
               </Link>

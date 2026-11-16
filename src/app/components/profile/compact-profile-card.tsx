@@ -13,6 +13,7 @@ import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { toast } from "sonner";
 import type { Profile } from "@/app/types";
 import { linkifyText } from "@/app/utils/linkify";
+import { profilePath } from "@/lib/profile-path";
 
 const LinkedInBrandIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -29,7 +30,7 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
   const hasPledged = profile.hasPledged;
 
   const handleShare = async () => {
-    const profileUrl = `${window.location.origin}/p/${profile.slug}`;
+    const profileUrl = `${window.location.origin}${profilePath(profile.slug)}`;
     try {
       await navigator.clipboard.writeText(profileUrl);
       toast.success("Profile URL copied to clipboard");
@@ -105,7 +106,7 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
         {isOwner ? (
           // Owner viewing their own profile
           hasPledged ? (
-            <Link to={`/p/${profile.slug}/pledge`}>
+            <Link to={`${profilePath(profile.slug)}/pledge`}>
               <Button className="w-full">
                 View My Pledge
               </Button>
@@ -121,7 +122,7 @@ export function CompactProfileCard({ profile, isOwner }: CompactProfileCardProps
           // Visitor viewing someone else's profile
           hasPledged && (
             <Link
-              to={`/p/${profile.slug}/pledge`}
+              to={`${profilePath(profile.slug)}/pledge`}
               className="text-blue-500 hover:text-blue-600 font-medium inline-flex items-center gap-1"
             >
               See my Clarity Pledge →

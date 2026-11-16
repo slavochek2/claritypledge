@@ -6,6 +6,7 @@ import { usePledgeForm } from "@/hooks/use-pledge-form";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useMemo, useEffect } from "react";
 import { useAuth } from "@/auth";
+import { profilePath } from "@/lib/profile-path";
 import {
   PLEDGE_TEXT,
   YourRightTextTailwind,
@@ -42,7 +43,7 @@ export function SignPledgeForm({
   const handleFormSuccess = () => {
     if (isUpgrading && currentUser) {
       // Upgrade success - redirect to certificate
-      navigate(`/p/${currentUser.slug}/pledge`, { replace: true });
+      navigate(`${profilePath(currentUser.slug)}/pledge`, { replace: true });
     } else {
       // Standard flow - use parent's onSuccess (redirect to confirmation)
       onSuccess();

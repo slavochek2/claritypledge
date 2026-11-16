@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { PLEDGE_TEXT, YourRightText, MyPromiseText, ExceptionText } from "@/app/content/pledge-text";
+import { profilePath } from "@/lib/profile-path";
 
 interface ExportCertificateProps {
   name: string;
@@ -20,7 +21,7 @@ interface ExportCertificateProps {
 export const ExportCertificate = forwardRef<HTMLDivElement, ExportCertificateProps>(
   ({ name, role, signedAt, slug, acceptanceCount, avatarColor }, ref) => {
     // Use production domain for QR code (export is for sharing externally)
-    const profileUrl = `https://claritypledge.com/p/${slug}`;
+    const profileUrl = `https://claritypledge.com${profilePath(slug)}`;
 
     // Truncate long names/roles
     const displayName = name.length > 30 ? name.slice(0, 27) + "..." : name;

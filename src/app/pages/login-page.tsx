@@ -12,6 +12,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { LoginForm } from "@/app/components/pledge/login-form";
 import { analytics } from "@/lib/mixpanel";
 import { useAuth } from "@/auth/AuthContext";
+import { isSafeReturnPath } from "@/auth/redirect-allowlist";
+import { profilePath } from "@/lib/profile-path";
 import { toast } from "sonner";
 import { takeSignInAgainNotice } from "@/lib/session-guard";
 
@@ -25,10 +27,10 @@ export function LoginPage() {
     if (!sessionChecked || isLoading) return;
     if (user) {
       const redirectParam = new URLSearchParams(location.search).get('redirect');
-      const safeRedirect =
-        redirectParam && !redirectParam.startsWith('/login') && !redirectParam.startsWith('/signup')
-          ? redirectParam
-          : (user.slug ? `/p/${user.slug}` : '/');
+      // P1692: only a target the shared check accepts; anything else falls back to the person's own page.
+      const safeRedirect = isSafeReturnPath(redirectParam)
+        ? redirectParam
+        : (user.slug ? profilePath(user.slug) : '/');
       navigate(safeRedirect, { replace: true });
     }
   }, [user, sessionChecked, isLoading, navigate, location.search]);

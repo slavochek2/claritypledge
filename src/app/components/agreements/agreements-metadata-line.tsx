@@ -11,6 +11,7 @@ import { Link } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { filterAgreementsForViewer } from './filter-agreements';
+import { profilePath } from '@/lib/profile-path';
 
 interface AgreementsMetadataLineProps {
   profileId: string;
@@ -49,7 +50,7 @@ export function AgreementsMetadataLine({
 
   return (
     <Link
-      to={`/p/${slug}/partners`}
+      to={`${profilePath(slug)}/partners`}
       className="flex items-center gap-1 text-sm font-semibold text-blue-500 hover:text-blue-600 hover:underline transition-colors min-h-11"
     >
       <Users className="h-4 w-4" aria-hidden="true" />

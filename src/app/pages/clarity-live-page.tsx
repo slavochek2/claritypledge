@@ -93,6 +93,7 @@ import { MicrophonePermissionDialog } from '@/app/components/live-meeting/microp
 import { SessionEventsCollector } from '@/lib/session-events-collector';
 import { GuestOrAccountJoin } from '@/app/components/auth/guest-or-account-join';
 import { toast } from 'sonner';
+import { safeRedirectOrNull } from '@/auth/redirect-allowlist';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { useLiveSession, getActiveSessionFromStorage, clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
 import { useSessionHeartbeat } from '@/hooks/use-session-heartbeat';
@@ -364,11 +365,11 @@ export function ClarityLivePage() {
   const terminate = useTerminateSession();
 
   // P124: Get event context from URL params
-  const returnTo = searchParams.get('returnTo');
+  // P779 → P1692: `returnTo` is checked where it is read (the shared redirect check), so every exit
+  // below navigates only to a target that check accepts; a refused target behaves like a missing one.
+  const returnTo = safeRedirectOrNull(searchParams.get('returnTo'));
   const partnerNameFromUrl = searchParams.get('partner');
   const isFromEvent = returnTo?.startsWith('/events/');
-  // P779: same-origin relative paths only — rejects protocol-relative URLs (`//evil.com`)
-  const safeReturnTo = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : null;
 
   // Get logged-in user's name (if authenticated)
   const { user, session: authSession, isLoading: isAuthLoading } = useAuth();
@@ -729,7 +730,7 @@ export function ClarityLivePage() {
   // Refs to track partner departure (for polling to check without stale closure)
   const partnerLeftRef = useRef(false);
   const sessionEndedRef = useRef(false);
-  // P779: safeReturnTo read inside Realtime/polling callbacks — the effect is pinned to
+  // P779: returnTo read inside Realtime/polling callbacks — the effect is pinned to
   // [session?.id, session?.code], so a direct closure would capture the value at first
   // render of those deps (null if URL params hydrate late) and silently no-op forever.
   const safeReturnToRef = useRef<string | null>(null);
@@ -806,11 +807,11 @@ export function ClarityLivePage() {
     sessionEndedRef.current = sessionEnded;
   }, [partnerLeft, sessionEnded]);
 
-  // P779: keep safeReturnTo in a ref so the Realtime/polling effect reads the current
+  // P779: keep returnTo in a ref so the Realtime/polling effect reads the current
   // URL-derived value, not the one closed over when session?.id first resolved.
   useEffect(() => {
-    safeReturnToRef.current = safeReturnTo;
-  }, [safeReturnTo]);
+    safeReturnToRef.current = returnTo;
+  }, [returnTo]);
 
   // Refs to track isCreator and view for use in pagehide handler (avoids stale closure)
   const isCreatorRef = useRef(isCreator);

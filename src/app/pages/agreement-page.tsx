@@ -33,6 +33,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { profilePath } from '@/lib/profile-path';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,8 +80,8 @@ function MutedCertificate({ agreement }: { agreement: ClarityAgreement }) {
         termsText={agreement.termsText}
         creatorAvatarUrl={agreement.creator?.avatarUrl}
         partnerAvatarUrl={agreement.partner?.avatarUrl}
-        creatorProfileUrl={agreement.creator?.slug ? `/p/${agreement.creator.slug}` : null}
-        partnerProfileUrl={agreement.partner?.slug ? `/p/${agreement.partner.slug}` : null}
+        creatorProfileUrl={agreement.creator?.slug ? profilePath(agreement.creator.slug) : null}
+        partnerProfileUrl={agreement.partner?.slug ? profilePath(agreement.partner.slug) : null}
       />
     </div>
   );
@@ -193,8 +194,8 @@ function PendingView({
         termsText={agreement.termsText}
         creatorAvatarUrl={agreement.creator?.avatarUrl}
         partnerAvatarUrl={agreement.partner?.avatarUrl}
-        creatorProfileUrl={agreement.creator?.slug ? `/p/${agreement.creator.slug}` : null}
-        partnerProfileUrl={agreement.partner?.slug ? `/p/${agreement.partner.slug}` : null}
+        creatorProfileUrl={agreement.creator?.slug ? profilePath(agreement.creator.slug) : null}
+        partnerProfileUrl={agreement.partner?.slug ? profilePath(agreement.partner.slug) : null}
       />
 
       {isPartner && (
@@ -282,8 +283,8 @@ function ActiveView({
         termsText={agreement.termsText}
         creatorAvatarUrl={agreement.creator?.avatarUrl}
         partnerAvatarUrl={agreement.partner?.avatarUrl}
-        creatorProfileUrl={agreement.creator?.slug ? `/p/${agreement.creator.slug}` : null}
-        partnerProfileUrl={agreement.partner?.slug ? `/p/${agreement.partner.slug}` : null}
+        creatorProfileUrl={agreement.creator?.slug ? profilePath(agreement.creator.slug) : null}
+        partnerProfileUrl={agreement.partner?.slug ? profilePath(agreement.partner.slug) : null}
       />
 
       <div className="text-center">

@@ -47,6 +47,7 @@ import {
 import { networkMark } from '@/lib/network-outcome';
 import { PointOwnerQuoteRow, type PointOwner } from '@/app/components/shared/point-owner-header';
 import { PointSpreadRow } from '@/app/components/shared/position-spread';
+import { profilePath } from '@/lib/profile-path';
 
 /** P1508 D5: the canvas owner, filled once by the canvas page. */
 export interface FeedPointCardOwner extends PointOwner {
@@ -564,7 +565,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
                   }}
                   onAuthorClick={(e) => {
                     e.stopPropagation();
-                    openPath(`/p/${linked.authorSlug || linked.authorId}`);
+                    openPath(profilePath(linked.authorSlug || linked.authorId));
                   }}
                   getStoryAuthor={() => ({
                     id: linked.authorId,

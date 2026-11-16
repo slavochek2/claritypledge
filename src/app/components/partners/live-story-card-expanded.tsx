@@ -24,6 +24,7 @@ import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { normalizeVideoQuotes, quotesNotInStoryText } from '@/lib/video';
 import { stripQuoteLabel } from '@/lib/story-quotes';
 import { stripHashtags } from '@/lib/utils';
+import { profilePath } from '@/lib/profile-path';
 
 interface LiveStoryCardExpandedProps {
   story: StoryWithPoints;
@@ -148,7 +149,7 @@ export function LiveStoryCardExpanded({
    * footer below. Trimmed rather than truthiness-checked: a whitespace slug would build
    * `/p/%20`, a route that resolves to nothing and reads as a working link.
    */
-  const agentProfileHref = story.authorSlug?.trim() ? `/p/${story.authorSlug.trim()}` : null;
+  const agentProfileHref = story.authorSlug?.trim() ? profilePath(story.authorSlug.trim()) : null;
 
   // P1212 §4b — the quote block, minus anything the frozen prose already prints.
   // `quotesAlreadyInContent` is the pre-§1 snapshot case: quote bodies baked into

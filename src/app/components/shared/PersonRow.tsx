@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { EarBadge } from "@/components/ui/ear-badge";
+import { profilePath } from "@/lib/profile-path";
 
 export interface PersonRowProps {
   profileId: string;
@@ -76,7 +77,7 @@ export function PersonRow({
 }: PersonRowProps) {
   const nameWrap = stackOnPhone ? "line-clamp-2 break-words sm:line-clamp-none sm:truncate" : "truncate";
   const wrapLink = (children: React.ReactNode) =>
-    linkToProfile ? <Link to={`/p/${slug}`}>{children}</Link> : <>{children}</>;
+    linkToProfile ? <Link to={profilePath(slug)}>{children}</Link> : <>{children}</>;
   return (
     <div className={`flex items-center gap-3 bg-card border border-border rounded-xl hover:border-blue-200 transition-colors ${size === "lg" ? "p-5" : "p-4"}`}>
       {wrapLink(
@@ -91,7 +92,7 @@ export function PersonRow({
       <div className={stackOnPhone ? "flex-1 min-w-0 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-1.5" : "flex-1 min-w-0 flex items-center gap-1.5"}>
         {linkToProfile ? (
           <Link
-            to={`/p/${slug}`}
+            to={profilePath(slug)}
             className={`font-medium ${nameWrap} hover:text-blue-500 transition-colors ${size === "lg" ? "text-lg" : ""}`}
           >
             {name}

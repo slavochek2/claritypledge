@@ -4,7 +4,7 @@ import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { renderEventDescription } from '@/lib/markdown';
 import { shouldShowRsvpRepeat, type RsvpTrigger } from '../rsvp-repeat';
-import { shareOrCopy } from '@/lib/utils';
+import { shareOrCopy, profilePath } from '@/lib/utils';
 import { toast } from 'sonner';
 import { takeHiddenRsvpRefusal } from '@/app/data/event-hidden-rsvp';
 import { isSessionMismatch } from '@/lib/session-guard';
@@ -1209,7 +1209,7 @@ export function EventDetail() {
               <h2 className="font-semibold text-sm text-muted-foreground mb-4">Event Organizer</h2>
 
               <Link
-                to={`/p/${event.hostSlug}`}
+                to={profilePath(event.hostSlug)}
                 className="flex flex-col items-center text-center w-full p-3 -m-3 rounded-lg hover:bg-muted/50 transition-colors"
               >
                 <PersonAvatar

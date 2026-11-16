@@ -47,7 +47,7 @@ import type { ShareSurface } from '@/app/components/shared/ShareDialog';
 import { useLazyStoryPlayer } from '@/app/hooks/use-lazy-story-player';
 import { normalizeVideoQuotes } from '@/lib/video';
 import { parseVideoUrl } from '@/lib/video';
-import { stripHashtags, stripAgentPrefix } from '@/lib/utils';
+import { stripHashtags, stripAgentPrefix, profilePath } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import { useReturnState } from '@/app/hooks/use-return-state';
 import { PointSpreadRow } from '@/app/components/shared/position-spread';
@@ -707,7 +707,7 @@ export function PointCardWithLinks({
                         }}
                         onAuthorClick={(e) => {
                           e.stopPropagation();
-                          if (!liveSessionMode) embedNavigate(`/p/${story.authorId}`);
+                          if (!liveSessionMode) embedNavigate(profilePath(story.authorId));
                         }}
                         getStoryAuthor={getStoryAuthor}
                         openViaDetails={inListFooter}

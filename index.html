@@ -155,8 +155,9 @@
            property (composed with P1304's room-code redaction, not replacing it) and keep
            session recording off on the sign-in landing routes, where the recorder attaches the
            raw URL outside any hook. Same pattern as AUTH_TOKEN_IN_URL in
-           src/lib/sentry-filters.ts; a test asserts the two stay identical. */
-        var p1325SignInParam = /((?:[?&#;]|%3F|%26|%23|%253F|%2526|%2523)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code|k|%6B)(?:=|%3D|%253D))[^&#%\s"'<>]+/gi;
+           src/lib/sentry-filters.ts; a test asserts the two stay identical.
+           P1692 adds token: the access value of a letter link and of an agreement invitation. */
+        var p1325SignInParam = /((?:[?&#;]|%3F|%26|%23|%253F|%2526|%2523)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code|token|k|%6B)(?:=|%3D|%253D))[^&#%\s"'<>]+/gi;
         var p1325NoRecord = p1304IsCodeRoute || /^\/auth\/(?:verify|callback)(?:\/|$)/i.test(window.location.pathname)
         /* P1515: a canvas opened with its link token on arrival. The head script above has already taken the token out
            of the address (and set window.__canvasLinkTokenLoad); this stays as the second layer, so a load that carried
@@ -166,6 +167,29 @@
         p1325NoRecord = p1325NoRecord || /^\/admin(?:\/|$)/i.test(window.location.pathname);
         /* P1512: /chats/* (and the old /home/*) is Clarity Chat (people's messages); never record it. */
         p1325NoRecord = p1325NoRecord || /^\/(?:chats|home)(?:\/|$)/i.test(window.location.pathname);
+        /* P1692: a load whose address carries the token parameter (a letter link, an agreement invitation) is not
+           recorded: the recorder attaches the raw address outside any hook. Decided by PARSING the query, never by the
+           pattern above (it is global, so a test() call on it keeps state). Covers the load's own query and, on the
+           sign-in pages (/login, /signup, /auth/verify, /auth/callback), the address the person is sent back to: it
+           rides in redirect, and an emailed sign-in link wraps it once more in redirect_to. No other parameter's
+           recording changes. Same rule as loadCarriesAccessToken in src/lib/sentry-replay-guard.ts; a test asserts
+           the two agree. */
+        function p1692HasToken(query) {
+          try { return new URLSearchParams(query || '').has('token'); } catch (e) { return false; }
+        }
+        function p1692CarriedQuery(query, name) {
+          try {
+            var address = new URLSearchParams(query || '').get(name) || '';
+            var at = address.indexOf('?');
+            return at === -1 ? '' : address.slice(at + 1).split('#')[0] || '';
+          } catch (e) { return ''; }
+        }
+        function p1692CarriesToken(pathname, search) {
+          if (p1692HasToken(search)) return true;
+          if (!/^\/(?:login|signup|auth\/(?:verify|callback))(?:\/|$)/i.test(pathname || '')) return false;
+          return p1692HasToken(p1692CarriedQuery(search, 'redirect')) || p1692HasToken(p1692CarriedQuery(p1692CarriedQuery(search, 'redirect_to'), 'redirect'));
+        }
+        p1325NoRecord = p1325NoRecord || p1692CarriesToken(window.location.pathname, window.location.search);
         function p1325Redact(value) {
           if (typeof value === 'string') return p1304Redact(value).replace(p1325SignInParam, '$1[redacted]');
           if (Array.isArray(value)) return value.map(p1325Redact);

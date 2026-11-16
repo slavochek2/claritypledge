@@ -30,6 +30,7 @@ import { stripHashtags } from '@/lib/utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { analytics } from '@/lib/mixpanel';
 import { ARTIFACTS_LETTERS_SENT } from '@/app/pages/artifacts/legacy-redirect-targets';
+import { profilePath } from '@/lib/profile-path';
 
 function snippet(text: string, max: number): string {
   const t = text.trim();
@@ -118,7 +119,7 @@ function LetterOverviewHeader({ letter, isPublic, onAddRecipient }: {
             />
             {letter.sender.slug ? (
               <Link
-                to={`/p/${letter.sender.slug}`}
+                to={profilePath(letter.sender.slug)}
                 className="text-sm font-medium hover:underline"
               >
                 {letter.sender.name}

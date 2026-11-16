@@ -44,6 +44,7 @@ import { toast } from 'sonner';
 import { LetterListSkeleton } from './letter-list-skeleton';
 import { SectionWait } from '@/components/ui/section-wait';
 import type { ClarityLetter, LetterDelivery } from '@/app/types';
+import { profilePath } from '@/lib/profile-path';
 
 // ============================================================================
 // TYPES
@@ -113,7 +114,7 @@ function RecipientRow({ delivery, letterId }: { delivery: LetterDelivery; letter
         // P725: link registered recipient to their profile. Defensive null check kept:
         // RPC type is string|null even though DB enforces NOT NULL (P736).
         <Link
-          to={`/p/${delivery.receiver_slug}`}
+          to={profilePath(delivery.receiver_slug)}
           onClick={(e) => e.stopPropagation()}
           className="text-foreground hover:underline truncate max-w-[24ch] sm:max-w-[40ch] min-h-10 inline-flex items-center"
           title={displayName}

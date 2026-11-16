@@ -4,6 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { ClarityLogoMark } from "@/components/ui/clarity-logo";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { BadgePointDetail } from "@/app/data/badge-service";
+import { profilePath } from "@/lib/profile-path";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -132,7 +133,7 @@ export function BadgeCertificate({
           <p className="text-sm text-[#1A1A1A]/70 dark:text-muted-foreground">
             Verified by{" "}
             <a
-              href={`/p/${certifierSlug}`}
+              href={profilePath(certifierSlug)}
               className="underline hover:text-blue-600 transition-colors"
             >
               {certifierName}
@@ -221,7 +222,7 @@ export function BadgeCertificate({
             </div>
             <div className="text-center">
               <a
-                href={`/p/${profile.slug}`}
+                href={profilePath(profile.slug)}
                 className="text-xl font-semibold text-[#1A1A1A] dark:text-foreground hover:text-blue-600 hover:underline transition-colors"
               >
                 {profile.name}
@@ -247,7 +248,7 @@ export function BadgeCertificate({
           {/* Desktop: horizontal balanced layout */}
           <div className="hidden md:flex items-center gap-8">
             <div className="flex-1 flex items-center gap-4">
-              <a href={`/p/${profile.slug}`} className="flex items-center gap-4 group/sig">
+              <a href={profilePath(profile.slug)} className="flex items-center gap-4 group/sig">
                 <GravatarAvatar
                   name={profile.name}
                   photoUrl={profile.avatarUrl ?? undefined}

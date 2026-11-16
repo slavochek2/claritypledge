@@ -3,6 +3,10 @@ import { twMerge } from "tailwind-merge"
 import { isSystemTag } from '@/lib/feed-utils'
 import { URL_RUN } from '@/lib/linkify'
 
+// P1692: the address helpers live in '@/lib/profile-path'. They are also exported here so a file that is over the
+// size limit (and so may not gain an import statement) can take them through the utils import it already has.
+export { profilePath, comparePath, pathSegment } from '@/lib/profile-path'
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

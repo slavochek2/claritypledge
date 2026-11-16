@@ -29,6 +29,7 @@ import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/st
 import type { Story as ProtoStory } from '@/app/components/shared/prototype-types';
 import { totalPositions, type LevelCounts } from '@/lib/position-spread';
 import { SharedIcon } from '@/app/components/canvas/canvas-audience';
+import { profilePath } from '@/lib/profile-path';
 
 /**
  * P1515: the block inside a shared canvas. Stories come from the canvas read, so they are shown in
@@ -196,7 +197,7 @@ export function PointPositionsBlock({
                     <div key={holder.id}>
                       <PositionHolderCard
                         holder={holder}
-                        onProfileClick={() => navigate(`/p/${holder.userSlug}`)}
+                        onProfileClick={() => navigate(profilePath(holder.userSlug))}
                         hasStory={hasStory}
                         isExpanded={isExpanded}
                         onToggle={() => {
@@ -252,7 +253,7 @@ export function PointPositionsBlock({
                         prev === story.authorId ? null : story.authorId
                       );
                     }}
-                    onProfileClick={() => navigate(`/p/${story.authorSlug}`)}
+                    onProfileClick={() => navigate(profilePath(story.authorSlug))}
                   />
                   {isExpanded && (
                     <PositionlessStoryRegion

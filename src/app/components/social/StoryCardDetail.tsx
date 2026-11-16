@@ -38,7 +38,7 @@ import { normalizeVideoQuotes } from '@/lib/video';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import type { StoryWithAuthor, PointSummary, PositionType, PointPosition } from '@/app/types';
 import { TagPills } from '@/app/components/shared/tag-pills';
-import { stripHashtags, extractHashtags } from '@/lib/utils';
+import { stripHashtags, extractHashtags, profilePath } from '@/lib/utils';
 
 /** Minimal story shape needed to display a linked story card inside QuotedPoint */
 type LinkedStory = Pick<
@@ -56,7 +56,7 @@ import { useReturnState } from '@/app/hooks/use-return-state';
  * there and the byline name is the only path to it). Two components in one file needing the
  * same helper is the DRY trigger in `.claude/rules/src.md`.
  */
-const defaultProfileRoute = (id: string) => `/p/${id}`;
+const defaultProfileRoute = (id: string) => profilePath(id);
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';

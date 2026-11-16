@@ -17,7 +17,7 @@ import { createPortal } from 'react-dom';
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Check } from 'lucide-react';
 import { toast } from 'sonner';
-import { cn, stripAgentPrefix } from '@/lib/utils';
+import { cn, stripAgentPrefix, pathSegment } from '@/lib/utils';
 import { useAuth } from '@/auth';
 import { useReturnToParent } from '@/app/hooks/use-go-back';
 import { ClarityContentLoader, ClarityPageLoader } from '@/components/ui/clarity-loader';
@@ -111,11 +111,12 @@ export function EventPrepPage() {
   const state = usePrepState(event, user?.id);
 
   if (authLoading || eventLoading) return <ClarityPageLoader />;
-  if (!session) return <Navigate to={`/login?redirect=/events/${slug}/prepare`} replace />;
-  if (!event || !offersPreparation(event)) return <Navigate to={`/events/${slug}`} replace />;
+  // P1692: the event's name comes from the page address, so it stays one address segment in what is built from it.
+  if (!session) return <Navigate to={`/login?redirect=/events/${pathSegment(slug)}/prepare`} replace />;
+  if (!event || !offersPreparation(event)) return <Navigate to={`/events/${pathSegment(slug)}`} replace />;
   if (registered === null || state.loading) return <ClarityPageLoader />;
   // Preparation belongs to a registration, or to the host: founder 2026-11-02, a host shows people where to click.
-  if (!registered && user?.id !== event.hostId) return <Navigate to={`/events/${slug}`} replace />;
+  if (!registered && user?.id !== event.hostId) return <Navigate to={`/events/${pathSegment(slug)}`} replace />;
   if (state.error) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-16 text-center">

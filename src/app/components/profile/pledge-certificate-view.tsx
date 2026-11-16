@@ -7,6 +7,7 @@ import { ShareDropdown } from "@/app/components/profile/share-dropdown";
 import { WitnessCard } from "@/app/components/social/witness-card";
 import { WitnessList } from "@/app/components/social/witness-list";
 import { getInitials, getAvatarColor } from "@/lib/utils";
+import { profilePath } from "@/lib/profile-path";
 
 interface ProfileVisitorViewProps {
   profile: Profile;
@@ -24,8 +25,8 @@ export function ProfileVisitorView({
   const [hasAccepted, setHasAccepted] = useState(false);
 
   // P50: QR code links to certificate page, not profile page
-  const profileUrl = `${window.location.origin}/p/${profile.slug}`;
-  const pledgeUrl = `${window.location.origin}/p/${profile.slug}/pledge`;
+  const profileUrl = `${window.location.origin}${profilePath(profile.slug)}`;
+  const pledgeUrl = `${window.location.origin}${profilePath(profile.slug)}/pledge`;
 
   const handleWitness = async (witnessName: string, linkedinUrl?: string) => {
     await onWitness(witnessName, linkedinUrl);

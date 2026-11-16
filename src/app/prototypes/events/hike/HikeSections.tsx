@@ -13,6 +13,7 @@ import { safeLinkHref } from '../location-utils';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { PUBLIC_MEDIA_ORIGIN, isPublicMediaVideo, isPublicMediaImage } from '@/lib/public-media';
 import { VideoLightbox } from '@/app/components/shared/video-lightbox';
+import { profilePath as profileAddress } from '@/lib/profile-path';
 import {
   HIKE_LABELS,
   extractRouteGeometry,
@@ -219,7 +220,7 @@ export function SeriesReviews({ reviews, heading = HIKE_LABELS.reviews }: { revi
         {reviews.map(review => {
           // A linked profile wins over the legacy stored path; either must be a safe in-app path.
           const profilePath = safeInternalPath(
-            review.author?.slug ? `/p/${review.author.slug}` : review.authorProfilePath,
+            review.author?.slug ? profileAddress(review.author.slug) : review.authorProfilePath,
           );
           const name = review.author?.name ?? review.authorName;
           return (

@@ -19,6 +19,8 @@ import { analytics } from "@/lib/mixpanel";
 import { getPositionVerb } from "@/lib/auth-gate-utils";
 import { GoogleAuthButton } from "@/app/components/auth/google-auth-button";
 import { useAuth } from "@/auth";
+import { isSafeReturnPath } from "@/auth/redirect-allowlist";
+import { pathSegment, profilePath } from "@/lib/profile-path";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 
 export function SignupPage() {
@@ -70,7 +72,8 @@ export function SignupPage() {
 
     if (params.get('source') === 'letter-response') {
       const letterId = params.get('letterId') ?? '';
-      const confirmRedirect = letterId ? `/letter/${letterId}/confirm` : '/';
+      // P1692: the id is data read off the address, so it becomes exactly one segment of the confirm address.
+      const confirmRedirect = letterId ? `/letter/${pathSegment(letterId)}/confirm` : '/';
       const draftJson = letterId
         ? sessionStorage.getItem(`letter-response-draft-${letterId}`)
         : null;
@@ -116,11 +119,11 @@ export function SignupPage() {
     }
 
     // Non-letter signup: bounce out the same way login-page.tsx does.
+    // P1692: only a target the shared check accepts; anything else falls back to the person's own page.
     const redirect = params.get('redirect');
-    const safeRedirect =
-      redirect && !redirect.startsWith('/login') && !redirect.startsWith('/signup')
-        ? redirect
-        : user.slug ? `/p/${user.slug}` : '/';
+    const safeRedirect = isSafeReturnPath(redirect)
+      ? redirect
+      : user.slug ? profilePath(user.slug) : '/';
     navigate(safeRedirect, { replace: true });
   }, [user, sessionChecked, isLoading, location.search, navigate]);
 

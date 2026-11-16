@@ -36,6 +36,7 @@ import { stripHashtags } from '@/lib/utils';
 import { storyTextForDisplay } from '@/lib/story-quotes';
 import type { StoryAuthor } from '@/app/components/social/point-card-with-links';
 import { useReturnState } from '@/app/hooks/use-return-state';
+import { profilePath } from '@/lib/profile-path';
 
 /** Display context for StoryCard - controls what's shown */
 export type StoryCardContext = 'profile' | 'point-detail' | 'story-detail';
@@ -195,7 +196,7 @@ export function StoryCardWithLinks({
                 name={author.name}
                 onNameClick={(e) => {
                   e.stopPropagation();
-                  embedNavigate(`/p/${author.id}`);
+                  embedNavigate(profilePath(author.id));
                 }}
               />
             ) : (
@@ -315,7 +316,7 @@ export function StoryCardWithLinks({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              embedNavigate(`/p/${author.id}`);
+              embedNavigate(profilePath(author.id));
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
             aria-label={`View ${author.name}'s profile`}
@@ -345,14 +346,14 @@ export function StoryCardWithLinks({
                     name={author.name}
                     onNameClick={(e) => {
                       e.stopPropagation();
-                      embedNavigate(`/p/${author.id}`);
+                      embedNavigate(profilePath(author.id));
                     }}
                   />
                 ) : (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      embedNavigate(`/p/${author.id}`);
+                      embedNavigate(profilePath(author.id));
                     }}
                     className="font-semibold text-gray-900 hover:underline text-sm min-w-0"
                   >
@@ -723,7 +724,7 @@ function QuotedPoint({
                 name={authorName}
                 onNameClick={(e) => {
                   e.stopPropagation();
-                  embedNavigate(`/p/${authorId}`);
+                  embedNavigate(profilePath(authorId));
                 }}
               />
             ) : (

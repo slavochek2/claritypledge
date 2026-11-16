@@ -20,6 +20,7 @@ import { FOCUS_RING, HOVER, InlineError, PersonMark } from './chat-kit';
 import { focusOpenComposer, requestComposerFocus, useChatNavigate } from './chat-hooks';
 import { useChat } from './chat-state';
 import { chatErrorText, chatPath } from './chat-view-model';
+import { profilePath } from '@/lib/profile-path';
 
 const DEBOUNCE_MS = 250;
 /** A read that has not answered by now is a failure (with Retry), never an endless "Loading…". */
@@ -167,7 +168,7 @@ export function NewMessageDialog({
     }
     picked.current = true;
     onClose();
-    go(`/p/${hit.slug}`);
+    go(profilePath(hit.slug));
   };
 
   return (

@@ -25,6 +25,7 @@ import { useChat } from './chat-state';
 import { chatPath, messageSummary, mirrorName, sourceLabel } from './chat-view-model';
 import { ATTACHMENT_LABEL } from './chat-text';
 import type { MessageActions } from './MessageRow';
+import { profilePath } from '@/lib/profile-path';
 
 /** P1592: the small "Transcribed" pill beside a transcription's author and time. Not a button, not a link. */
 export function TranscriptionTag({ className }: { className?: string }) {
@@ -65,7 +66,7 @@ export function AuthorName({ author, authorId, pending, className }: { author: C
   const name = author?.name ?? 'Unknown member';
   if (!author?.slug) return <span className={cn('font-semibold', className)}>{name}</span>;
   return (
-    <Link to={`/p/${author.slug}`} className={cn('font-semibold hover:underline hover:underline-offset-2', FOCUS_RING, className)}>
+    <Link to={profilePath(author.slug)} className={cn('font-semibold hover:underline hover:underline-offset-2', FOCUS_RING, className)}>
       {name}
     </Link>
   );

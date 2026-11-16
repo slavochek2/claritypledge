@@ -15,7 +15,7 @@
  */
 import { StoryDetailSkeleton } from './story-detail-skeleton';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { extractHashtags } from '@/lib/utils';
+import { extractHashtags, profilePath } from '@/lib/utils';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { LockIcon, Loader2, Pencil, Trash2, Globe, ImagePlus } from 'lucide-react';
 import { VisibilityLine } from '@/app/components/shared/visibility-line';
@@ -997,7 +997,7 @@ export function StoryDetailPage() {
         setDeleteDialogOpen(false);
         toast.success('Story deleted');
         analytics.track('story_deleted', { story_id: story.id, linked_point_count: story.points.length });
-        navigate(`/p/${authorSlug}`);
+        navigate(profilePath(authorSlug));
       } else {
         toast.error('Failed to delete. Try again.');
       }
@@ -1333,7 +1333,7 @@ export function StoryDetailPage() {
         article={{
           headline: `Story by ${story.authorName}`,
           author: story.authorName,
-          authorUrl: story.authorSlug ? `/p/${story.authorSlug}` : undefined,
+          authorUrl: story.authorSlug ? profilePath(story.authorSlug) : undefined,
           datePublished: story.createdAt,
           dateModified: story.updatedAt,
         }}

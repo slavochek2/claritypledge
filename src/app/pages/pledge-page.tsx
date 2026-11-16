@@ -20,6 +20,7 @@ import { CheckCircleIcon } from "lucide-react";
 import { ClarityPageLoader } from "@/components/ui/clarity-loader";
 import { useAuth } from "@/auth";
 import { analytics } from "@/lib/mixpanel";
+import { profilePath } from "@/lib/profile-path";
 
 export function PledgePage() {
   const { id } = useParams<{ id: string }>();
@@ -143,7 +144,7 @@ export function PledgePage() {
           <p className="text-muted-foreground">
             This user hasn't signed the Clarity Pledge yet.
           </p>
-          <Link to={`/p/${profile.slug}`}>
+          <Link to={profilePath(profile.slug)}>
             <Button variant="outline">
               View Profile
             </Button>
@@ -180,7 +181,7 @@ export function PledgePage() {
       <SEO
         title={profile.name}
         description={profile.reason || `${profile.name} has signed the Clarity Pledge, committing to clear, honest communication.`}
-        url={`/p/${profile.slug}/pledge`}
+        url={`${profilePath(profile.slug)}/pledge`}
         type="profile"
         profile={{
           name: profile.name,
@@ -192,7 +193,7 @@ export function PledgePage() {
         <div className="container mx-auto max-w-5xl px-4 pb-12 pt-4 lg:pt-8">
           {/* P1512: Back sits in the shell's top bar (FocusHeader portals there); P1364: it returns to where
               the reader came from, and only a cold arrival goes to the profile. */}
-          <FocusHeader fallback={`/p/${profile.slug}`} />
+          <FocusHeader fallback={profilePath(profile.slug)} />
           {profile && (
             <>
               <ProfileVisitorView

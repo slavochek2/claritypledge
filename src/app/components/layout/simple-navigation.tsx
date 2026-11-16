@@ -37,6 +37,7 @@ import { WEBINAR_REGISTER_URL, WEBINAR_CTA_LABEL } from "@/app/content/webinar";
 import { useNextWebinar } from "@/app/hooks/useNextWebinar";
 import { useTonightsEvent, tonightsEventHref, type TonightsEvent } from "@/app/hooks/useTonightsEvent";
 import { useOfflineStripShown } from "@/app/contexts/offline-status-context";
+import { profilePath } from "@/lib/profile-path";
 
 const MOBILE_MENU_ID = "mobile-navigation-menu";
 
@@ -461,9 +462,9 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
       )}
       {partnersSlug && (
         <Link
-          to={`/p/${partnersSlug}/partners`}
+          to={`${profilePath(partnersSlug)}/partners`}
           className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
-            location.pathname === `/p/${partnersSlug}/partners`
+            location.pathname === `${profilePath(partnersSlug)}/partners`
               ? "text-primary"
               : "text-muted-foreground hover:text-foreground hover:bg-accent"
           }`}
@@ -667,7 +668,7 @@ export function SimpleNavigation({ compact, logoOnly, publicSite = false }: { co
                 {!compact && isProfilePending && <NavSlotPlaceholder icon={UserIcon} label="My Profile" />}
                 {!compact && !isProfilePending && (
                   <Link
-                    to={slug ? `/p/${slug}` : "/me"}
+                    to={slug ? profilePath(slug) : "/me"}
                     className={`flex flex-col items-center justify-center px-4 py-2 min-w-[80px] rounded-md transition-colors ${
                       (location.pathname.startsWith("/p/") && !location.pathname.endsWith("/partners")) || location.pathname === "/me"
                         ? "text-primary"

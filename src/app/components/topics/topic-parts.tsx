@@ -24,7 +24,7 @@ import {
   type OpenTopic,
 } from '@/app/data/topic-voting';
 import { useMyPhotoChoice } from '@/app/components/topics/use-my-photo-choice';
-import { cn } from '@/lib/utils';
+import { cn, profilePath } from '@/lib/utils';
 
 const STARS = [1, 2, 3, 4, 5] as const;
 /** Title, then one line: stars · average · faces. Phones put that line under the title. */
@@ -162,7 +162,7 @@ export function TopicRow({
                     <GravatarAvatar name={topic.author.name} photoUrl={topic.author.avatarUrl ?? undefined} avatarColor={topic.author.avatarColor ?? undefined} isPledger={topic.author.hasPledged} size="sm" className="!h-5 !w-5 !text-[9px]" />
                   </span>
                   {topic.author.slug ? (
-                    <Link to={`/p/${topic.author.slug}`} className="font-medium text-foreground hover:underline">
+                    <Link to={profilePath(topic.author.slug)} className="font-medium text-foreground hover:underline">
                       {topic.author.name}
                     </Link>
                   ) : (

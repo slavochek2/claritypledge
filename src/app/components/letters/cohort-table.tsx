@@ -21,6 +21,7 @@ import { formatRatingSummary, letterUsesPredictions, summarizeRatings } from '@/
 import { POSITION_SHORT_LABELS } from '@/app/utils/position-labels';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { analytics } from '@/lib/mixpanel';
+import { profilePath } from '@/lib/profile-path';
 
 function trackEntityLinkClick(linkType: 'recipient') {
   analytics.track('letter_overview_entity_link_clicked', { link_type: linkType });
@@ -154,7 +155,7 @@ export function CohortTable({ story, deliveries, ratings, predictions, responses
                   </span>
                   {d.profile_slug ? (
                     <Link
-                      to={`/p/${d.profile_slug}`}
+                      to={profilePath(d.profile_slug)}
                       className="min-w-0 truncate font-medium hover:underline"
                       title={fullName}
                       onClick={() => trackEntityLinkClick('recipient')}

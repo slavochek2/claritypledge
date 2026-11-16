@@ -23,6 +23,7 @@ import { headingBefore } from '@/app/pages/transcript-blocks';
 import { FOCUS_RING, PersonMark } from '@/app/pages/chat/chat-kit';
 import { AuthorName } from '@/app/pages/chat/MessageParts';
 import { UnlinkedAuthorMark } from '@/app/pages/chat/MessageRowPlaceholders';
+import { profilePath } from '@/lib/profile-path';
 
 function formatTimestamp(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -61,7 +62,7 @@ function SpeakerHeader({ segment, person, time }: { segment: SpeakerSegment; per
   return (
     <div className="flex items-center gap-3 mb-1">
       {author?.slug ? (
-        <Link to={`/p/${author.slug}`} aria-label={`Open ${author.name}'s profile`} className={`relative block shrink-0 rounded-full ${FOCUS_RING}`}>
+        <Link to={profilePath(author.slug)} aria-label={`Open ${author.name}'s profile`} className={`relative block shrink-0 rounded-full ${FOCUS_RING}`}>
           <PersonMark person={author} size="md" />
         </Link>
       ) : (

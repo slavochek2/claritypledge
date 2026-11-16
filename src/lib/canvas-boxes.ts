@@ -12,8 +12,11 @@
  * Advantage and Cost Structure: nine boxes in three layers, core bet first. Renames are titles only
  * (keys unchanged), as in sixth round R1; a dropped key leaves the list like `canvas:uvp` and its
  * points show on no canvas. Adding a box is a founder decision (src.md — No Agent-Authored
- * Hashtags). No imports: feed-utils.ts reads this module.
+ * Hashtags). No imports: feed-utils.ts reads this module. The one exception is the address helper
+ * (profile-path.ts), which itself imports nothing, so it cannot close a cycle.
  */
+
+import { profilePath } from './profile-path';
 
 export const CANVAS_BOXES = [
   { tag: 'canvas:segments', title: 'Customer Segments' },
@@ -59,7 +62,7 @@ export function isCanvasTag(tag: string): boolean {
 
 /** R14 (founder): a canvas lives under its owner's profile, `/p/<handle>/canvas/<name>`. */
 export function canvasPath(handle: string, name: string): string {
-  return `/p/${handle}/canvas/${encodeURIComponent(name)}`;
+  return `${profilePath(handle)}/canvas/${encodeURIComponent(name)}`;
 }
 
 export function isCanvasPathname(pathname: string): boolean {

@@ -1,6 +1,7 @@
 import { forwardRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import type { BadgeCertificateProps } from "./badge-certificate";
+import { profilePath } from "@/lib/profile-path";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ export const ExportBadgeCertificate = forwardRef<HTMLDivElement, BadgeCertificat
     const verifiedCount = badgePoints.length;
     const totalStations = 9;
 
-    const qrUrl = badgeUrl ?? `https://claritypledge.com/p/${profile.slug}`;
+    const qrUrl = badgeUrl ?? `https://claritypledge.com${profilePath(profile.slug)}`;
 
     const displayName =
       profile.name.length > 30 ? profile.name.slice(0, 27) + "..." : profile.name;

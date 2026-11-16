@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/auth';
 import { agreementsService } from '@/app/data/agreements-service';
-import type { ClarityAgreement } from '@/app/data/agreements-service';
+import type { ClarityAgreement, AgreementParty } from '@/app/data/agreements-service';
 import { AgreementCertificate } from '@/app/components/agreements/agreement-certificate';
 import { supabase } from '@/lib/supabase';
 import { CURRENT_TERMS_VERSION } from '@/lib/constants';
@@ -37,7 +37,7 @@ import {
 import { Loader2Icon, PenToolIcon } from 'lucide-react';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { Helmet } from 'react-helmet-async';
-import type { AgreementParty } from '@/app/data/agreements-service';
+import { profilePath } from '@/lib/profile-path';
 
 type PageState = 'loading' | 'invalid' | 'unauthenticated' | 'partner' | 'wrong-user';
 
@@ -481,8 +481,8 @@ export function AcceptAgreementPage() {
             termsText={agreement.termsText}
             creatorAvatarUrl={agreement.creator?.avatarUrl}
             partnerAvatarUrl={agreement.partner?.avatarUrl}
-            creatorProfileUrl={agreement.creator?.slug ? `/p/${agreement.creator.slug}` : null}
-            partnerProfileUrl={agreement.partner?.slug ? `/p/${agreement.partner.slug}` : null}
+            creatorProfileUrl={agreement.creator?.slug ? profilePath(agreement.creator.slug) : null}
+            partnerProfileUrl={agreement.partner?.slug ? profilePath(agreement.partner.slug) : null}
             onPartnerNameChange={pageState === 'partner' && currentUser && isPlaceholderName(currentUser.name) ? (name) => { setPartnerDisplayName(name); setNameError(null); } : undefined}
             partnerNameValue={partnerDisplayName}
             partnerNameError={nameError ?? undefined}

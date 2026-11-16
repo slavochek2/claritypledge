@@ -13,6 +13,7 @@ import { PersonAvatar } from '@/components/ui/person-avatar';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { fetchRoomPeople, type TranscribeRoomMember } from '@/app/data/transcribe-service';
 import type { PersonRef } from '@/app/types';
+import { profilePath } from '@/lib/profile-path';
 
 /** Founder, 2026-10-02: three small faces and "+N", beside the sound meter. */
 const MAX_FACES = 3;
@@ -75,7 +76,7 @@ export function RoomPeople({ members, speakingIds }: { members: TranscribeRoomMe
               return (
                 <li key={m.id}>
                   {person.slug ? (
-                    <Link to={`/p/${person.slug}`} onClick={() => setOpen(false)} className="flex items-center gap-3 py-2 min-h-11 hover:bg-slate-50 rounded">{row}</Link>
+                    <Link to={profilePath(person.slug)} onClick={() => setOpen(false)} className="flex items-center gap-3 py-2 min-h-11 hover:bg-slate-50 rounded">{row}</Link>
                   ) : (
                     <div className="flex items-center gap-3 py-2 min-h-11">{row}</div>
                   )}

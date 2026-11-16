@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/tooltip";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { analytics } from "@/lib/mixpanel";
+import { profilePath } from "@/lib/profile-path";
 
 export interface PledgerCardProps {
   /** Profile ID - kept for API compatibility with ProfileSummary type */
@@ -69,7 +70,7 @@ export function PledgerCard({
   // A member without a pledge has no pledge certificate: /p/:slug/pledge renders
   // "not found" for them (pledge-page.tsx guards on profile.hasPledged). Their
   // profile is the only page that always exists.
-  const href = isMemberCard ? `/p/${slug}` : `/p/${slug}/pledge`;
+  const href = isMemberCard ? profilePath(slug) : `${profilePath(slug)}/pledge`;
   const showPledgeRing = isMemberCard ? isPledger : true;
 
   return (

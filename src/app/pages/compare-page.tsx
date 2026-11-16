@@ -41,6 +41,7 @@ import type { Profile } from '@/app/types';
 import { CompareRowsSkeleton } from '@/app/pages/compare-rows-skeleton';
 import { SectionWait } from '@/components/ui/section-wait';
 import { useCompareRows } from '@/app/pages/use-compare-rows';
+import { comparePath, profilePath } from '@/lib/profile-path';
 
 function toPerson(profile: Profile, name = profile.name): Person {
   return {
@@ -187,7 +188,7 @@ export function ComparePage() {
   if (authLoading) return <ClarityPageLoader />;
 
   if (!user) {
-    const here = `/compare/${slug ?? ''}${tagParam ? `?tag=${encodeURIComponent(tagParam)}` : ''}`;
+    const here = `${comparePath(slug ?? '')}${tagParam ? `?tag=${encodeURIComponent(tagParam)}` : ''}`;
     return (
       <Shell>
         <Link to={`/login?redirect=${encodeURIComponent(here)}`} className="text-sm font-medium text-blue-700 underline">
@@ -197,7 +198,7 @@ export function ComparePage() {
     );
   }
 
-  if (person && person.id === viewerId) return <Navigate to={`/p/${person.slug ?? person.id}`} replace />;
+  if (person && person.id === viewerId) return <Navigate to={profilePath(person.slug ?? person.id)} replace />;
 
   if (!baseReady) return <ClarityPageLoader />;
   if (baseReady.error) return <Shell><Muted>Could not load the comparison.</Muted></Shell>;

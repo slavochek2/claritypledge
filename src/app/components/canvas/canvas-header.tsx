@@ -19,6 +19,7 @@ import { useCanvasWorkspace } from './canvas-workspace-context';
 import { CanvasVersionSlot } from './canvas-version-switcher';
 import { headerRow } from './canvas-header-model';
 import { isViewingDraft, type CanvasPerson, type CanvasReady } from './canvas-page-data';
+import { profilePath } from '@/lib/profile-path';
 
 interface CanvasHeaderProps {
   /** null while loading */
@@ -94,7 +95,7 @@ function CanvasByline({ ready, handle, ownerIsAgent, identityPending }: { ready:
       <span className="min-w-0 break-normal text-foreground sm:truncate">
         by{' '}
         <Link
-          to={`/p/${handle}`}
+          to={profilePath(handle)}
           className="rounded-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
           data-testid="canvas-owner-name"
         >

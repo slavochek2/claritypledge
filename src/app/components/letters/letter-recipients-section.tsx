@@ -14,6 +14,7 @@ import { ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { LetterDelivery } from '@/app/types';
 import { agoPhrase } from '@/app/pages/artifacts/artifacts-view-model';
+import { profilePath } from '@/lib/profile-path';
 
 const RESPONDENT_PAGE = 10;
 
@@ -69,7 +70,7 @@ function PersonRow({
               {name}
             </Link>
           ) : delivery.receiver_slug ? (
-            <Link to={`/p/${delivery.receiver_slug}`} className={`${NAME_CLASS} ${LINK_FOCUS} hover:underline`} title={name}>
+            <Link to={profilePath(delivery.receiver_slug)} className={`${NAME_CLASS} ${LINK_FOCUS} hover:underline`} title={name}>
               {name}
             </Link>
           ) : (

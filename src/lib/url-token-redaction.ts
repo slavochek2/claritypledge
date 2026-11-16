@@ -26,8 +26,17 @@ export function redactRoomCodes(text: string): string {
  * P1515 adds `k`: the unguessable token of a canvas open to anyone with the link (`#k=<32 hex>`, or the older
  * `?k=`), plain, URL-encoded inside a login redirect (up to double-encoded), HTML-escaped (`&amp;k=`) or with the
  * parameter NAME percent-encoded (`%6B=`). Canary: src/tests/p1515-canvas-link-token-redaction.test.ts.
+ *
+ * P1692 adds `token`: the access value of a one-to-one letter link (`/letter/<id>?token=`) and of an agreement
+ * invitation (`/agreements/<id>/accept?token=`), plain or carried inside a sign-in redirect. A name must be followed
+ * by `=`, so `token_hash` and `access_token` still match whole, and names that merely contain the word do not match.
+ * Every credential-named parameter the app reads is checked against this pattern by
+ * src/tests/p1692-address-credential-redaction.test.ts, so a new one fails a test.
+ *
+ * The pattern is GLOBAL: `.test()` on it keeps state between calls. It is for `.replace()` only. Whether a page load
+ * is recorded is decided by parsing the query (src/lib/sentry-replay-guard.ts), never by this pattern.
  */
-export const AUTH_TOKEN_IN_URL =/((?:[?&#;]|%3F|%26|%23|%253F|%2526|%2523)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code|k|%6B)(?:=|%3D|%253D))[^&#%\s"'<>]+/gi;
+export const AUTH_TOKEN_IN_URL =/((?:[?&#;]|%3F|%26|%23|%253F|%2526|%2523)(?:token_hash|terms_nonce|ticket|access_token|refresh_token|provider_token|provider_refresh_token|code|token|k|%6B)(?:=|%3D|%253D))[^&#%\s"'<>]+/gi;
 
 export function redactAuthTokens(text: string): string {
   return text.replace(AUTH_TOKEN_IN_URL, "$1[redacted]");

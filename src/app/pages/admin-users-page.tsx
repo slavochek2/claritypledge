@@ -29,6 +29,7 @@ import {
 } from '@/app/data/admin-users';
 import { analytics } from '@/lib/mixpanel';
 import { cn } from '@/lib/utils';
+import { profilePath } from '@/lib/profile-path';
 
 type Filter = 'all' | AdminUserStatus;
 
@@ -173,7 +174,7 @@ export function AdminUsersPage() {
           return (
             <li key={u.id} className="flex items-center" data-testid="admin-user-row">
               {u.slug ? (
-                <Link to={`/p/${encodeURIComponent(u.slug)}`} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 hover:bg-muted/50">
+                <Link to={profilePath(u.slug)} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 hover:bg-muted/50">
                   {body}
                 </Link>
               ) : (

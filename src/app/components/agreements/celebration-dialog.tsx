@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { AgreementCertificate } from './agreement-certificate';
 import { AddToCalendarButton } from '@/app/components/shared/add-to-calendar-button';
+import { profilePath } from '@/lib/profile-path';
 
 interface CelebrationDialogProps {
   open: boolean;
@@ -57,8 +58,8 @@ export function CelebrationDialog({
             partnerName={partnerName}
             partnerSignedAt={agreement.partnerSignedAt}
             termsText={agreement.termsText}
-            creatorProfileUrl={agreement.creator?.slug ? `/p/${agreement.creator.slug}` : null}
-            partnerProfileUrl={agreement.partner?.slug ? `/p/${agreement.partner.slug}` : null}
+            creatorProfileUrl={agreement.creator?.slug ? profilePath(agreement.creator.slug) : null}
+            partnerProfileUrl={agreement.partner?.slug ? profilePath(agreement.partner.slug) : null}
           />
         </div>
 

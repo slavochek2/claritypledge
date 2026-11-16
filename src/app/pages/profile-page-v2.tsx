@@ -76,7 +76,7 @@ import { InlineVisibilityIcon } from "@/app/components/shared/visibility-badge";
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { StoryImage } from '@/app/components/shared/story-image';
 import { StoryMedia } from '@/app/components/shared/story-media';
-import { stripAgentPrefix } from '@/lib/utils';
+import { stripAgentPrefix, profilePath, comparePath } from '@/lib/utils';
 import { StoryVideoQuotes } from '@/app/components/shared/story-video-quotes';
 import {
   CardCountText,
@@ -860,7 +860,7 @@ export function ProfilePageV2() {
         <SEO
           title="Verify Your Email"
           description="Verify your email to access your Clarity Pledge profile"
-          url={`/p/${profile.slug}`}
+          url={profilePath(profile.slug)}
         />
         <div className="min-h-screen bg-background flex items-center justify-center py-12 px-4">
           <div className="container mx-auto max-w-2xl">
@@ -942,7 +942,7 @@ export function ProfilePageV2() {
       <SEO
         title={profile.name}
         description={`${profile.name}'s profile on Clarity Pledge${profile.role ? ` - ${profile.role}` : ''}`}
-        url={`/p/${profile.slug}`}
+        url={profilePath(profile.slug)}
         image={banner.bannerUrl || profile.avatarUrl || undefined}
         type="profile"
         profile={{
@@ -1111,7 +1111,7 @@ export function ProfilePageV2() {
                     Clarity Pledge" for a machine's reading of a person. */}
                 {!isAgent && profile.hasPledged ? (
                   <Link
-                    to={`/p/${profile.slug}/pledge`}
+                    to={`${profilePath(profile.slug)}/pledge`}
                     className="inline-flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
                   >
                     <ScrollText className="h-4 w-4" aria-hidden="true" />
@@ -1129,7 +1129,7 @@ export function ProfilePageV2() {
                 {/* P686: Badge link — shown when profile has at least one verified badge point */}
                 {!isAgent && badgeCount > 0 && (
                   <a
-                    href={`/p/${profile.slug}/badge`}
+                    href={`${profilePath(profile.slug)}/badge`}
                     className="flex items-center gap-1 text-sm text-blue-500 hover:text-blue-600 hover:underline mt-1"
                   >
                     <Award className="h-4 w-4" aria-hidden="true" />
@@ -1322,7 +1322,7 @@ export function ProfilePageV2() {
                 {/* P1337: the compare entry lives where the positions are, not in the header (nothing to compare on Stories). */}
                 {currentUser && !isOwner && profile.slug && (
                   <Link
-                    to={`/compare/${profile.slug}`}
+                    to={comparePath(profile.slug)}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 min-h-[40px] text-sm font-medium text-blue-700"
                   >
                     <ArrowLeftRight size={16} />
@@ -1396,7 +1396,7 @@ export function ProfilePageV2() {
           open={showShareDialog}
           onOpenChange={setShowShareDialog}
           type="profile"
-          url={`${window.location.origin}/p/${profile.slug}`}
+          url={`${window.location.origin}${profilePath(profile.slug)}`}
           title={`${profile.name}'s Clarity Profile`}
           description={`Check out ${profile.name}'s profile on Clarity Pledge`}
         />
@@ -1637,7 +1637,7 @@ function StoryCardFull({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/p/${story.authorSlug || author.id}`);
+              navigate(profilePath(story.authorSlug || author.id));
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity self-start"
             aria-label={`View ${author.name}'s profile`}
@@ -1676,14 +1676,14 @@ function StoryCardFull({
                       name={author.name}
                       onNameClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/p/${story.authorSlug || author.id}`);
+                        navigate(profilePath(story.authorSlug || author.id));
                       }}
                     />
                   ) : (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/p/${story.authorSlug || author.id}`);
+                        navigate(profilePath(story.authorSlug || author.id));
                       }}
                       className="min-w-0 truncate font-semibold text-foreground hover:underline text-sm"
                     >

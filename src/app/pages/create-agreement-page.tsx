@@ -22,6 +22,7 @@ import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/mixpanel';
 import { CertificatePageShell } from '@/app/components/layout/certificate-page-shell';
+import { profilePath } from '@/lib/profile-path';
 
 const TERMS_MAX = 1000;
 
@@ -284,7 +285,7 @@ export function CreateAgreementPage() {
 
       analytics.track('agreement_create_success', { agreement_id: agreement.id });
       toast.success(`Agreement sent — waiting for ${partnerName.trim()} to co-sign.`);
-      navigate(`/p/${creatorSlug ?? user.id}/partners`);
+      navigate(`${profilePath(creatorSlug ?? user.id)}/partners`);
     } catch (err) {
       console.error('Error creating agreement:', err);
       analytics.track('agreement_create_failed', { reason: 'exception', error: String(err) });

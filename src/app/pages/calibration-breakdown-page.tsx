@@ -22,6 +22,7 @@ import {
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { BottomBackButton } from '@/app/components/layout/bottom-back-button';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
+import { profilePath } from '@/lib/profile-path';
 import {
   useListenerCalibrationDiffs,
   computeDiff,
@@ -270,7 +271,7 @@ export function CalibrationBreakdownPage() {
                           <td className="py-2 pr-2 px-3">
                             {row.speaker_slug ? (
                               <Link
-                                to={`/p/${row.speaker_slug}`}
+                                to={profilePath(row.speaker_slug)}
                                 className="text-foreground font-medium hover:underline"
                               >
                                 {row.speaker_name}

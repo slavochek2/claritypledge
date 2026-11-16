@@ -41,7 +41,7 @@ describe('P1487: terms nonce redaction', () => {
   });
 
   it('control: an ordinary URL is untouched', () => {
-    const url = 'https://claritypledge.com/agreements/a/accept?token=t&source=signup';
+    const url = 'https://claritypledge.com/agreements/a/accept?tab=t&source=signup';
     expect(redactAuthTokens(url)).toBe(url);
   });
 });

@@ -12,6 +12,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { profilePath } from '@/lib/profile-path';
 
 type EmbedPreset = 'collapsed' | 'expanded';
 
@@ -297,7 +298,7 @@ export function ShareButton({ type, id, url, className, title, description, from
       ? `/story/${id}`
       : type === 'point'
         ? `/point/${id}`
-        : `/p/${id}`;
+        : profilePath(id);
     return `${base}${path}`;
   };
 

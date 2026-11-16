@@ -23,6 +23,7 @@ import { Linkedin, Search, X } from 'lucide-react';
 import { PersonAvatar } from '@/components/ui/person-avatar';
 import { safeLinkHref } from '@/app/prototypes/events/location-utils';
 import { cn } from '@/lib/utils';
+import { profilePath } from '@/lib/profile-path';
 
 type Status = 'pledged' | 'verified' | 'unverified';
 
@@ -164,7 +165,7 @@ export function AdminUsersPrototype() {
           return (
             <li key={u.id} className="flex items-center">
               {u.slug ? (
-                <a href={`/p/${u.slug}`} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 hover:bg-muted/50">
+                <a href={profilePath(u.slug)} className="flex min-h-16 min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 hover:bg-muted/50">
                   {body}
                 </a>
               ) : (

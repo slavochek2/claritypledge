@@ -48,6 +48,7 @@ import { normalizeVideoQuotes } from '@/lib/video';
 import { parseVideoUrl } from '@/lib/video';
 import type { StoryWithAuthor, PointSummary } from '@/app/types';
 import { useReturnState } from '@/app/hooks/use-return-state';
+import { profilePath } from '@/lib/profile-path';
 
 interface FeedStoryCardProps {
   story: StoryWithAuthor;
@@ -257,7 +258,7 @@ function FullFeedStoryCard({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/p/${story.authorSlug}`);
+              navigate(profilePath(story.authorSlug));
             }}
             className="flex-shrink-0 hover:opacity-80 transition-opacity"
           >
@@ -289,14 +290,14 @@ function FullFeedStoryCard({
                       name={story.authorName}
                       onNameClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/p/${story.authorSlug}`);
+                        navigate(profilePath(story.authorSlug));
                       }}
                     />
                   ) : (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/p/${story.authorSlug}`);
+                        navigate(profilePath(story.authorSlug));
                       }}
                       className="font-semibold text-foreground hover:underline text-sm min-w-0 truncate"
                     >

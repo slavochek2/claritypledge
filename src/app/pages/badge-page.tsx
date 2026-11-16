@@ -20,6 +20,7 @@ import { badgeService, type BadgePointDetail } from "@/app/data/badge-service";
 import { copyToClipboard } from "@/lib/utils";
 import { toast } from "sonner";
 import { toPng } from "html-to-image";
+import { profilePath } from "@/lib/profile-path";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -157,7 +158,7 @@ export function BadgePage() {
           <p className="text-muted-foreground">
             {profile.name} hasn't earned any badge points yet.
           </p>
-          <Link to={`/p/${profile.slug}`}>
+          <Link to={profilePath(profile.slug)}>
             <Button variant="outline">View Profile</Button>
           </Link>
         </div>
@@ -167,7 +168,7 @@ export function BadgePage() {
 
   const isOwner = session?.user?.id === profile.id;
 
-  const badgeUrl = `https://claritypledge.com/p/${profile.slug}/badge`;
+  const badgeUrl = `https://claritypledge.com${profilePath(profile.slug)}/badge`;
 
   // Derive certifier name and slug: use certifierProfile if loaded, otherwise fallback
   const certifierName = certifierProfile?.name ?? "ClarityPledge";
@@ -203,7 +204,7 @@ export function BadgePage() {
       <SEO
         title={`${profile.name}'s Clarity Badge`}
         description={`${profile.name} is calibrated on ${verifiedCount} of 9 clarity points.`}
-        url={`/p/${profile.slug}/badge`}
+        url={`${profilePath(profile.slug)}/badge`}
         type="profile"
       />
 
@@ -211,7 +212,7 @@ export function BadgePage() {
         <div className="container mx-auto max-w-5xl py-12 px-4">
           {/* Back button */}
           <button
-            onClick={() => navigate(`/p/${profile.slug}`)}
+            onClick={() => navigate(profilePath(profile.slug))}
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />

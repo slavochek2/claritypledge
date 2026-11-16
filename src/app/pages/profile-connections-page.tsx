@@ -20,6 +20,7 @@ import type { ClarityAgreement } from '@/app/data/agreements-service.interface';
 import { filterAgreementsForViewer } from '@/app/components/agreements/filter-agreements';
 import { AgreementRow } from '@/app/components/agreements/agreement-row';
 import { analytics } from '@/lib/mixpanel';
+import { profilePath } from '@/lib/profile-path';
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -132,7 +133,7 @@ export function ProfileConnectionsPage() {
     return (
       <PageFrame size="reading">
         {/* P1364: Back returns to where the reader came from; a cold arrival goes to the profile. */}
-        <FocusHeader fallback={`/p/${id ?? ''}`} />
+        <FocusHeader fallback={profilePath(id ?? '')} />
         <p className="text-sm text-muted-foreground">{error ?? 'Profile not found.'}</p>
       </PageFrame>
     );
@@ -155,7 +156,7 @@ export function ProfileConnectionsPage() {
       {/* P1512: Partners is a top-level destination, so the owner's own page has no Back. Someone
           else's Partners is reached from their profile (agreements-metadata-line) and has no other
           way out, so it keeps Back — declared, returning to where the reader came from (P1364). */}
-      {!isOwner && <FocusHeader fallback={`/p/${id ?? ''}`} />}
+      {!isOwner && <FocusHeader fallback={profilePath(id ?? '')} />}
       <PageHeader
         title={isOwner ? 'My Partners' : `${(profile.name ?? 'User').split(' ')[0]}'s Partners`}
         actions={isOwner && hasAny ? (
