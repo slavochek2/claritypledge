@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 340
 workstream: events
 created_date: '2026-11-16'
 tags: [canvas, events, mastermind, publish]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -15,6 +14,7 @@ driver: heuristic
 depends_on: p1529
 spec_review_hash: 3ea96c62a3360c69a3d0b42ede63f560ff4edc9edb8422473e952e747cbfe02d
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-16
 ---
 
 # P1686: Review and publish the next version without leaving the event room
