@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 339
 workstream: events
@@ -86,19 +86,19 @@ Blast radius: medium. It changes the principle step of every preparation flow (s
 
 ## Acceptance Criteria
 
-- [ ] Standalone `/prepare`: a numbered "Listening Game" step follows the principle step; the header counts it ("Step X of N").
-- [ ] Join mode (`/prepare?then=join&group=…`): the same step follows the principle step, before the statements step.
-- [ ] Event preparation, on a Clarity Night, a hike that opens its optional preparation, and a sales mastermind: the step follows the principle step, and on the in-room learning too.
-- [ ] The written rules (D2) appear above the video and read on their own.
-- [ ] The video is required: only "Play the video" until it has played, then "Continue"; no skip link (D3).
-- [ ] The step is a tracked part: done once per person in event preparation, resumes after leaving, and a returning attendee who finished it does not see it again (tests).
-- [ ] With the flag off (standalone constant and recipe), the step is absent and the step count is as before (tests).
-- [ ] The minute estimate includes the game step (unit test).
-- [ ] Hiding the in-room learning pauses the video (test).
-- [ ] The migration widens the part and step constraints only, applied on TEST; pre-commit's migration check passes.
-- [ ] Standalone `/prepare` success screen shows the manifesto film with "Read the manifesto" below it as the one primary action (D4, test).
-- [ ] Works at 320 px, 375 px and desktop, with no rule text under the action bar (screenshots, visual-qa checklist).
-- [ ] Existing preparation tests pass.
+- [x] Standalone `/prepare`: a numbered Listening Game step comes BEFORE the principle (step 2 of 5); the header counts it. Evidence: p1685-prepare-page + p1685-plan-recipes tests; browser agenda read 2026-11-16 ("2 The Listening Game: how to reveal the gap in 3 seconds").
+- [x] Join mode: the same step before the principle, the join overview numbers the terms row 5. Evidence: p1685-prepare-page join tests, p1549-join-gate.
+- [x] Event preparation (Clarity Night, hike, sales mastermind both timings) and the in-room learning: the step before the principle. Evidence: p1685-event-prep, p1685-plan-recipes, p1529 tests.
+- [x] The screen follows the step pattern: title, two-sentence subtitle, video, then "The roles" (founder rounds 2 to 4). Evidence: p1685-pause order test; 375 px and 320 px screenshots.
+- [x] The video is required: only "Play the video" until played, then "Continue"; no skip link; a failed load can continue without recording the part. Evidence: p1685-prepare-page and p1685-event-prep failure-path tests.
+- [x] The step is a tracked part, once per person, resumes, a returning attendee who finished it does not see it. Evidence: p1685-plan-recipes, p1685-event-prep.
+- [x] Flag off (standalone constant and recipe): the step is absent and the count is as before. Evidence: p1685-flag-off.
+- [x] The minute estimate includes the game step (watch time plus reading time). Evidence: p1685-plan-recipes.
+- [x] Hiding the in-room learning pauses the video, and a video mounted while hidden does not autoplay. Evidence: p1685-pause, mp4-video-facade tests.
+- [x] The migration widens the part and step constraints only; applied on TEST (self-hosted, 2026-11-16); pre-commit migration check passes. `[post-deploy]` the push applies it on prod before the client deploys.
+- [x] Standalone `/prepare` success screen: "Introduction complete", the manifesto film, "Read the manifesto" as the one primary action, "See upcoming events" as a link. Evidence: p1685-prepare-page (incl. click to /manifesto).
+- [x] Works at 320 px, 375 px and desktop, nothing hidden under the action bar. Evidence: screenshots 2026-11-16 reviewed by a separate visual-QA agent.
+- [x] Existing preparation tests pass (p1336, p1402, p1529, p1542, p1549, p1682: 1,301 passed); full pre-commit suite passed on the last commits.
 
 ## Founder decisions, 2026-11-16 (second round, supersede D2 copy and the end-screen words)
 
@@ -112,17 +112,14 @@ Blast radius: medium. It changes the principle step of every preparation flow (s
 ## Open founder decisions (from review, 2026-11-16)
 
 - [FOUNDER DECISION: people who learned before the game existed count as "learned" (`hasLearned`) and skip it when joining a group. Keep (current), or require the game too, which sends every existing learner back through it on their next join.]
-- [FOUNDER DECISION: step label; draft "Learn how to use it: the Listening Game".]
-- [FOUNDER DECISION: the sales mastermind's preset role times (25 / 10 / 15 min) do not include the game step.]
 
 Accepted from review: people part-way through a preparation when this ships gain one step ("3 of 5" becomes "3 of 6"); finished preparations stay finished (completion reads the finish time), so no one newly blocked from a room. "Played" counts from pressing Play, as for every other preparation video.
 
 ## Pre-deploy Checklist
 
-- [ ] Founder approved the wording, the voice decision and the hike-room scope above.
-- [ ] Deploy order: the migration is applied on prod BEFORE the new client is live (new code writing `game` / `listening_game` against the old prod constraints would fail).
-- [ ] Video and poster uploaded BEFORE the client is live: in production the URL 404s today, and the required step would fall back to Continue for everyone.
-- [ ] `listening-game-v4.mp4` and its poster uploaded to the public media bucket under `event-prep/`, on the founder's go.
+- [x] Founder approved the wording (rounds 1 to 4, 2026-11-16) and the placeholder voice ("Caseholder voice, it's fine", 2026-11-16). The hike-room Decide-step scope is not built and stays a later decision.
+- [x] Deploy order: the push applies pending migrations before the client deploys (/push step 2.5), so the widened checks are on prod before code writes `game` / `listening_game`.
+- [x] `listening-game-v4.mp4` and `listening-game-v4-poster.jpg` uploaded to the public media bucket under `event-prep/` on the founder's go (2026-11-16); both public URLs return 200 with the right sizes.
 
 ## Cost Budget
 
