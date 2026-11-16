@@ -1,17 +1,17 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 84
 workstream: clarity-canvas
 created_date: '2026-10-21'
 tags: [events, host, canvas, sales-mastermind]
 disclosure: public
-delivery_stage: verify
 pipeline_ran: [create-spec, create-spec.2, dev, ship, verify]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-16
 ---
 
 # P1529: The sales mastermind's own registration, event room and host flow
