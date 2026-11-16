@@ -7,7 +7,7 @@
  * TDD: These tests define the required structure for both navigations
  * to ensure pixel-perfect alignment.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { LiveSessionBanner } from '@/app/components/partners/live-session-banner';

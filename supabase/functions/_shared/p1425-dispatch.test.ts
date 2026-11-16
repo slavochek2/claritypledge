@@ -469,7 +469,12 @@ Deno.test('dispatchReminder: sent but the write-back RPC keeps failing → error
     let calls = 0;
     const flaky = {
       rpc: () => Promise.resolve(++calls === 1 ? { data: true, error: null } : { data: null, error: { message: 'boom' } }),
-      from: () => ({ insert: () => Promise.resolve({ error: null }) }),
+      // The reminder also READS since P1529 (the series block asks whether this person chose to observe).
+      // No answers row is what the code reads as "not observing", so the read answers with no row.
+      from: () => {
+        const noRow = { eq: () => noRow, maybeSingle: () => Promise.resolve({ data: null, error: null }) };
+        return { insert: () => Promise.resolve({ error: null }), select: () => noRow };
+      },
     } as unknown as SupabaseClient;
     const start = new Date(Date.now() + 30 * HOUR);
     const rsvp = {

@@ -6,7 +6,7 @@
  * They mock Supabase responses to test error handling and data mapping.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { generateEventSlug } from '@/app/data/api';
 
 // Note: Full API tests require mocking Supabase which is complex.

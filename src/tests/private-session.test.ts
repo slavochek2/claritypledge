@@ -6,6 +6,8 @@
  * Integration and E2E tests cover the UI and recording gates.
  */
 
+import { describe, it, expect } from 'vitest';
+
 // NOTE: These tests require the DB schema to have the is_private column (P160 migration).
 // Run the migration before running these tests.
 

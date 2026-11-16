@@ -17,7 +17,6 @@ import { OathText } from "./oath-emphasis";
  *
  * Used by:
  * - ProfileCertificate (profile page display)
- * - PledgeCard (landing page card)
  * - SignPledgeForm (sign up flow)
  * - ExportCertificate (image export)
  */

@@ -4,7 +4,7 @@
 // the serviceWorker context only appears in stack frames. ignoreErrors stays
 // for message-matchable noise; this beforeSend filter handles frame-matchable noise.
 import { addBreadcrumb } from "@sentry/react";
-import type { Breadcrumb, ErrorEvent, EventHint, TransactionEvent } from "@sentry/react";
+import type { Breadcrumb, BrowserOptions, ErrorEvent, EventHint } from "@sentry/react";
 import { NetworkBlipError } from "@/lib/network-blip";
 import { redactAuthTokens, redactRoomCodes } from "@/lib/url-token-redaction";
 
@@ -268,6 +268,10 @@ function redactDeep<T>(value: T, seen: WeakMap<object, unknown> = new WeakMap())
 export function sentryBeforeBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
   return redactDeep(breadcrumb);
 }
+
+// @sentry/react does not re-export the SDK's TransactionEvent, so the type is read off the option this
+// function is passed to: whatever the installed SDK hands to `beforeSendTransaction`.
+type TransactionEvent = Parameters<NonNullable<BrowserOptions["beforeSendTransaction"]>>[0];
 
 /** P1304: Sentry.init `beforeSendTransaction` — page-load transactions bypass beforeSend. */
 export function sentryBeforeSendTransaction(event: TransactionEvent): TransactionEvent {

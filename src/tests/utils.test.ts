@@ -3,7 +3,7 @@
  * Unit tests for src/lib/utils.ts — pure utility functions.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { getInitials, getAvatarColor, formatRelativeTime, getGravatarUrl, copyToClipboard, shareOrCopy } from '../lib/utils';
 
 // ── getInitials ─────────────────────────────────────────────────────────────

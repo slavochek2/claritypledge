@@ -6,14 +6,14 @@
 import type { RefObject } from 'react';
 import { ArrowDown } from 'lucide-react';
 import type { TranscribeRoomMember } from '@/app/data/transcribe-service';
-import type { MergedRow } from '@/app/components/session/transcript-merge';
+import type { MergedTranscriptRow } from '@/app/components/session/transcript-merge';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
 export function TranscribeChatList({ rows, members, speaking, chatRef, onScroll, isAtBottom, scrollToBottom }: {
-  rows: MergedRow[];
+  rows: MergedTranscriptRow[];
   members: TranscribeRoomMember[];
   speaking: ReadonlySet<string>;
   chatRef: RefObject<HTMLDivElement>;
