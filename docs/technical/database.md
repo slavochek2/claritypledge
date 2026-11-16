@@ -709,6 +709,24 @@ Spec: `features/p1536_canvas_first_draft_from_owner_material.md`, "Design v6" (t
 - **Reads:** `get_canvas` gains `from_seq` on every version entry and, for the owner, `revision`, `focus` and `changed_boxes` (computed, never stored). `trg_points_updated_at` has a `WHEN` clause so tag-only changes (a point entering or leaving a draft, a supersede link at Publish) do not move `updated_at`.
 - **Tests:** `src/tests/p1536-v6-engine-migration.test.ts` (source contract), `src/tests/integration/p1536-v6-engine.test.ts` (test database).
 
+### The sales mastermind (P1529)
+
+An event's flow is `events.flow` (`clarity-night` | `social-hike` | `sales-mastermind`, NULL = its series decides), read by `_event_flow(event)` on the server and `recipeForEvent` in the client, and fixed once the first counted round starts. `events.previous_session_event_id` links a session 2 to its session 1, for seating only.
+
+| Table | Purpose |
+|-------|---------|
+| `event_registration_answers` | `(event_id, profile_id)`: participation (`canvas_before` \| `canvas_at_doors` \| `observer`), phone (`usbc` \| `lightning` \| `other`), optional hope, `recording_accepted_at`, and `observer_prep` (`home` \| `doors`, an observer's second answer; NULL for everyone else). Written only by `register_for_event`, which refuses an observer without `observer_prep`; read by the person and the host. A flow with questions has no seat without these. |
+| `event_waitlist` | `(event_id, profile_id)`: the small waiting list of a full sales-mastermind event (D24), answers stored like a registration, ordered by `joined_at`. Own row and host read; only `join_event_waitlist` / `leave_event_waitlist` write; cascades on delete. Not a seat: nothing promotes anyone. A registration removes the person's entry. |
+| `event_canvases` | One canvas per attendee per event. Changing it is one transaction, refused after the first counted round; a first canvas may arrive at any round (D17). No client privilege. |
+| `event_observer_overrides` | The host's per-person override. Kept when the flow is switched away, so a switch back restores it. |
+| `event_canvas_opens` | Evidence: each open of an owner's canvas from the round screen (round, owner, reader, version, time). Kept outside the seat rows, which `host_set_round_seats` replaces. No client privilege; read by `scripts/event-mastermind-results.sh`. |
+| `event_canvas_update_steps` | The host's canvas-update step, one row per event, `after_round_id` names the round it follows. On while that round is the newest. |
+| `event_next_version_taps` | `(round_id, profile_id, draft_id)`: which draft a tap on "Make my next version" opened. `_canvas_run_is_round_update` reads it: the tap's run, and a retry with the same trigger message, run in the round-update mode (D23); the owner's later messages keep the strict rule. |
+
+**Client RPCs (authenticated):** `make_my_next_version(round)`, `get_my_next_version_offer(event)` and `get_my_update_state(event)` for the owner; `get_my_round_canvas(round)` for anyone seated at that table (the canvas name only while it is still shared with the event); `record_event_canvas_open(round, owner)`; `get_my_event_canvas`, `set_event_canvas`; host only: `host_set_event_flow`, `host_set_observer`, `host_start_canvas_update`, `get_mastermind_host_state`, `get_mastermind_update_states`, `get_previous_session_partners`.
+
+**Round material.** `make_my_next_version` copies the round thread's lines the owner can read into the draft's thread as owner-authored `forward` copies. `forward_author_id` keeps the original author, so account erasure reaches the copy. One copy per line: a 24-minute round is about 192 rows.
+
 ### chat_message_reactions (P1652, migration `20261109120000`)
 
 One emoji reaction per (message, person, emoji). Columns: `id uuid` PK (generated), `message_id` (FK `chat_messages`, `CASCADE`), `profile_id` (FK `profiles`, `CASCADE`, so account erasure removes a person's reactions), `emoji text` (CHECK: one of `👍 ❤️ 😂 😮 😢 🙏`; the client constant is `REACTION_EMOJI`), `created_at`. `UNIQUE (message_id, profile_id, emoji)`; index on `profile_id`.

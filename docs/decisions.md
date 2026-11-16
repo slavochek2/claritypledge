@@ -147,7 +147,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** Proposed: the Stop hook also treats files whose content changed on disk since a session-start baseline as edited by this session (the baseline keeps co-tenant edits on the shared checkout out), with legitimate-flow cases (read-only session, docs-only edit, already receipted) added to `scripts/test-p1505-review-gate.sh` before it ships.
 **Alternatives rejected:** Plain `git diff` (flags co-tenant work on main); stronger brief wording (failed repeatedly). Deferred: refusing a review receipt whose prompt carried an empty diff (no recorded incident; fix would be `review_receipt.py --prompt-file`).
 **Consequences:** Follow-up tracked in the task inbox. Reached via /kdd 7.1b and 7.1c hostile checks.
-**References:** `.claude/hooks/verify-before-stop.py:71` · decisions.md "Who Builds" (P1634) · [p1653](../features/p1653_canvas_agent_never_a_wall.md)
+**References:** `.claude/hooks/verify-before-stop.py:71` · decisions.md "Who Builds" (P1634) · [p1653](../features/done/2026-06-10/p1653_canvas_agent_never_a_wall.md)
 
 ## 2026-11-11 [product]: The canvas agent is never a wall: every block says why, that the canvas is unchanged, and one next step; an empty answer gets the model's own guess-question (P1653)
 
@@ -155,7 +155,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** One founder-approved reply table: each failure says what happened, "Nothing changed on the canvas.", and the one next step for that cause; Try again shows only where retrying can help (a per-code table, unknown codes hide it). A bare domain is a link. A page that returns only a redirect notice gets "Is this your business?" with fixed Yes / Not mine buttons; Not mine removes the page from every later run. A follow-up keeps the conversation (a question run completes as done with nothing changed). When the model writes nothing, the reply shows the model's own question for the box it judges most likely, screened for names, numbers and money the owner did not say (founder F5 and its two amendments, 2026-11-10/11: a word-by-word screen never passed a natural question on a short message, 32 non-owner words against 3 owner words).
 **Alternatives rejected:** A fixed question for every empty answer (the founder: "It cannot always be scripted what comes after"). A word-by-word screen with a box-word list (measured 0 of 15 shown). Telling the model to guess points (P1639's rejection stands; questions ask, they never reach the canvas).
 **Consequences:** Points keep every evidence check unchanged. A readable link is still drafted from directly, with no assumption and options first; that, and live TEST proof of the retry table and the no-reply paths, are INBOX-319 (descoped by the founder to ship). The status word "live" the box guide asks the model to append is INBOX-316. Known limitations are listed in the spec.
-**References:** [p1653](../features/p1653_canvas_agent_never_a_wall.md) · P1646 · P1639 · P1625
+**References:** [p1653](../features/done/2026-06-10/p1653_canvas_agent_never_a_wall.md) · P1646 · P1639 · P1625
 
 ## 2026-11-11 [technical]: A button tap is a row marked in the same transaction as its message; typed text never counts as a tap (P1653)
 
@@ -163,7 +163,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** `canvas_workspace_send_tap` sends the token message and writes its marker in one transaction, refuses a stale tap without sending, and a tap counts only against the open question with nothing written since. Forks exclude marked taps. Typed text equal to a label is always an ordinary message. Link identity is one normalised key (lowercase host, no www, https form, cut at 200 characters after normalising).
 **Alternatives rejected:** Matching tap text (an owner typing "Not mine" became a tap). Send-then-mark (the gap above). A new parameter on `canvas_workspace_send` (would restate a pinned contract).
 **Consequences:** Any future fixed-token control should follow this pattern: the marker is written with the message, never after it.
-**References:** `supabase/migrations/20261110130000_p1653_atomic_tap.sql` · [p1653](../features/p1653_canvas_agent_never_a_wall.md)
+**References:** `supabase/migrations/20261110130000_p1653_atomic_tap.sql` · [p1653](../features/done/2026-06-10/p1653_canvas_agent_never_a_wall.md)
 
 ## 2026-11-11 [product]: Founder calls on the P1659/P1660 follow-ups
 
@@ -256,7 +256,7 @@ Also withdrawn: an agent conjecture that the founder's strongest skill is human�
 - All online clients receive removal events as opaque ids. This is accepted.
 - The emoji set is an agent default awaiting a founder decision. Read receipts and typing indicators are permanently out; alerts and mute are deferred.
 
-**References:** [p1652 spec](../features/p1652_chat_links_and_basics.md) · `supabase/migrations/20261109120000_p1652_chat_reactions.sql` · `src/app/utils/link-scan.ts`
+**References:** [p1652 spec](../features/done/2026-06-10/p1652_chat_links_and_basics.md) · `supabase/migrations/20261109120000_p1652_chat_reactions.sql` · `src/app/utils/link-scan.ts`
 
 ## 2026-11-09 [product]: The role card says "I am speaker" on top and "Your job" below, printed full-page and oversized for the shop's shrink
 
@@ -279,7 +279,7 @@ Also withdrawn: an agent conjecture that the founder's strongest skill is human�
 **Decision:** Audit every block and give each a cause, what is unchanged and a next step. A question counts as a finished run, so earlier words stay (1 of 30 updates). With only a link, state an assumption in the page's own words and offer A/B/C, recommended first, or ask plainly if none can be sourced. Buttons have fixed labels and send a fixed token. A bare domain counts as a link. The product composes questions, not the model.
 **Alternatives rejected:** "A model for mine": link text counts as the owner's words, so another company's facts could land on the canvas. Remembering refused messages: they would feed every later draft. Sending option text as a message: one tap would turn agent words into owner evidence.
 **Consequences:** Not built; UNTESTED until the replay in the spec. Correction: the 2026-11-05 entry's "5-run cap" is wrong, the code's cap is 30 used runs, and failed runs do not count toward it. **Falsifier:** owners still stop after a refusal once replies differ by cause, or a tap adds a point the owner never stated.
-**References:** [P1653](../features/p1653_canvas_agent_never_a_wall.md) · P1646 · P1639 · P1625
+**References:** [P1653](../features/done/2026-06-10/p1653_canvas_agent_never_a_wall.md) · P1646 · P1639 · P1625
 
 ## 2026-11-09 [product]: The sender's own share or invitation opens a 1:1 without a shared reason; events offered for sharing are current only (P1650)
 
@@ -287,7 +287,7 @@ Also withdrawn: an agent conjecture that the founder's strongest skill is human�
 **Decision:** A canvas share with a person, or a letter delivery the sender creates, may open the 1:1 with no shared reason. Blocks and the 20-new-chats-a-day limit still apply. Plain `start_dm`, handle search and reader self-enrolment keep the shared-connection rule. New event additions need the event to be upcoming, running, or started within 7 days; an event already on a canvas keeps admitting. The letter delivery trigger is replaced by an explicit post from the two sender functions, because a trigger cannot report who was skipped; `letter_deliveries.created_by_sender` records the origin. Compose keeps sealing one-to-many letters with no recipients, so invitation happens on the confirmation screen, and the acceptance criterion was reworded to that flow.
 **Alternatives rejected:** Requiring relationship scope for email-addressed recipients (automated security reviews proposed it): it removes the reach the founder asked for. Adding recipient rows to one-to-many compose: new scope.
 **Consequences:** Accepted knowingly: anyone who knows a member's email can open a chat with them, which shows that member's name and avatar and that the address has an account, and the skipped list can suggest a block. Falsifier: a report of unwanted messages or of an address being probed reopens this. Someone who merely opened a public letter is in scope in both directions, so this route also reaches them. Unsharing an event outside the window cannot be undone by re-adding it. A public letter's readers rank in the on-focus People list and can push out real relationships (inbox follow-up).
-**References:** [p1650](../features/p1650_sharing_reaches_people.md)
+**References:** [p1650](../features/done/2026-06-10/p1650_sharing_reaches_people.md)
 
 ## 2026-11-07 [technical]: A series short link reaches a hidden event; the public key may ask only "where does alias X point" (P1649)
 

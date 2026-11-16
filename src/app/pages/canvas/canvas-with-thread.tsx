@@ -13,86 +13,23 @@
  * (use-clone-canvas); × cancels it. Access is by ownership: anyone else, or an owner with no mirror chat, gets the plain canvas page. The page keeps one position in
  * the tree either way, so entering the workspace does not remount it.
  */
-import { useCallback, useMemo, useState } from 'react';
-import { useMediaQuery } from '@/app/pages/chat/chat-hooks';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { CanvasWorkspaceLayout } from '@/app/components/canvas/canvas-workspace-layout';
-import { CANVAS_WORKSPACE_WIDE_QUERY, type CanvasWorkspaceValue } from '@/app/components/canvas/canvas-workspace-context';
 import { CanvasPage } from '@/app/pages/canvas-page';
-import { useWorkspaceAccess } from './use-workspace-access';
-import { useWorkspaceMarker } from './use-workspace-marker';
 import { CloneDraftSheet } from './clone-draft-sheet';
-import { useCloneCanvas } from './use-clone-canvas';
-import { useCloneIntent } from './use-clone-intent';
-import { withoutCloneIntent } from '@/lib/canvas-hrefs';
 import { WorkspacePreparationBanner } from './PreparationBanner';
 import { TableBanner } from './TableBanner';
-import { useCloseThread, useWorkspacePanel } from './use-workspace-panel';
-import { useCanvasRename } from './use-canvas-rename';
-import { useWorkspacePublish } from './use-workspace-publish';
-import { useSpotRun } from './use-canvas-catches-up';
-import { useFollowDraft } from './use-follow-draft';
-import { useBareWorkspaceDraft } from './use-bare-workspace-draft';
 import { WorkspaceChat } from './workspace-chat';
 import { WorkspaceOwnerBar } from './workspace-owner-bar';
-import { useWorkspaceNav } from './use-workspace-nav';
-import { useReportedCanvas, useThreadOnPending } from './use-reported-canvas';
-import { useAddToChat } from './use-add-to-chat';
 import { WorkspaceProviders } from './workspace-providers';
-
-/** W8: once the canvas read has answered, it decides; before that, the signed-in owner of a canvas with a mirror chat gets the bar. */
-function showsOwnerBar(answered: { isOwner: boolean } | null | undefined, eligible: boolean): boolean {
-  return answered ? answered.isOwner : eligible;
-}
+import { useCanvasWorkspacePage } from './use-canvas-workspace-page';
 
 export function CanvasWithThread() {
-  const [params, setParams] = useSearchParams();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { handle, projectTag, mirror, resolved, eligible, workspace: workspaceOk, active } = useWorkspaceAccess(params);
-
-  const { reported, held, reportReady } = useReportedCanvas(handle, projectTag);
-  // 3c X3: every hook below writes navigation state; none of them may write a Clone intent back once it is consumed (use-clone-intent).
-  const navState = withoutCloneIntent(location.state);
-  const panel = useWorkspacePanel(location.state);
-  const { view, setView, panelOpen, setPanelOpen, showThread } = panel;
-  const [runActive, setRunActive] = useState(false);
-  const [reloads, setReloads] = useState(0);
-  // Below 1280px the chat takes focus only while it is the shown view.
-  const wide = useMediaQuery(CANVAS_WORKSPACE_WIDE_QUERY);
-  // W1: entering an edit (a draft shown, a Clone) brings the panel with it: it may have been closed on a draft before.
-  const openPanel = useCallback(() => setPanelOpen(true), [setPanelOpen]);
-  const { openedDraft, openExistingDraft, pickVersion, goBack } = useWorkspaceNav({ setParams, state: navState, openPanel, setView, navigate, isDraft: v => !!held?.versions.some(x => x.name === v && x.draft) });
-
-  // The page's read counts for Clone only when it was made for the `?v=` now in the address.
-  const freshReady = reported.forVersion === params.get('v') ? reported.ready : null;
-  const clone = useCloneCanvas({ eligible: workspaceOk, active, ready: freshReady, setParams, state: navState, openDraft: openExistingDraft, reload: () => setReloads(n => n + 1), onEnter: openPanel });
-  useCloneIntent({ state: location.state, resolved, ready: freshReady, clone: clone.clone, setParams });
-  // 3c X13: a pending Clone (the Clone tap, a reload of its address, Start over from the J4 sheet, Add to chat) opens on Thread, because typing is next.
-  useThreadOnPending(clone.pending?.version ?? null, setView);
-  const { spotRunActive, threadUnknown, onDraftRead, onThreadAnswered } = useSpotRun(runActive, reported.ready, active);
-  // P1529: only the owner is preparing this canvas, so the banner and the jump after Publish need ownerBar too (hence it is read before them).
-  // W8: the owner's header is the bar above the page: for the signed-in owner of a canvas with a mirror chat from the first render (so nothing shifts when
-  // the read lands), and for any owner once the page has read the canvas. Once the read HAS answered, it decides: a page that is not the viewer's own
-  // never shows owner controls. Everyone else keeps the reader header in the page.
-  const ownerBar = showsOwnerBar(reported.ready ?? held, eligible);
-  // `returnTo` is the event preparation this canvas was started from; the banner says so and Publish returns there.
-  const { closedDraftId, spot, publishing, publish, returnTo: backTo, table } = useWorkspacePublish({ ready: threadUnknown ? null : reported.ready, runActive: spotRunActive, pendingClone: !!clone.pending, setParams, state: navState, owner: ownerBar });
-  // S4: Add to chat (owner only: the tap exists only where Clone does) and the reply chips; the composer takes the tags from the bus.
-  const add = useAddToChat(reported, held, params.get('v'), ownerBar, clone, panel, closedDraftId);
-  const workspace = useMemo<CanvasWorkspaceValue>(() => ({ active, reportReady, reloads, showThread, ...add.tap, clone: clone.clone, cloneUnknown: !resolved, cloneSeq: clone.pending?.seq ?? null, cloning: !!clone.pending, ownerBar, runActive: spotRunActive, tableBack: !backTo && !!table }), [active, reportReady, reloads, showThread, add.tap, clone.clone, resolved, clone.pending, ownerBar, spotRunActive, backTo, table]);
-  // The bar shows the last read FOR this canvas (`held`), so name, version and state do not blink away while the page re-reads another version.
-  const rename = useCanvasRename(held, projectTag);
-  useWorkspaceMarker({ eligible: workspaceOk, resolved, params, setParams, state: navState, reported, closedDraftId });
-  // `?ws=1` with no version and a draft open IS the workspace on that draft (W0).
-  useBareWorkspaceDraft({ eligible: workspaceOk, params, reported, pendingClone: !!clone.pending, openDraft: openExistingDraft });
-  // A pending Clone over another base's draft must not be dragged onto that draft by its own first Send.
-  useFollowDraft(runActive, clone.pending ? null : reported.ready, openedDraft);
-
-  const closeThread = useCloseThread(wide, !!clone.pending, clone.cancel, setPanelOpen, setView);
-
+  const w = useCanvasWorkspacePage();
+  const { handle, projectTag, mirror, active, held, panel, clone, rename, ownerBar, backTo, table, navState, publishing, wide, bump } = w;
+  const { view, setView, panelOpen } = panel;
+  const { spot, publishing: isPublishing, publish } = publishing;
   return (
-    <WorkspaceProviders value={workspace} bus={add.bus}>
+    <WorkspaceProviders value={w.workspace} bus={w.bus}>
       <CanvasWorkspaceLayout
         active={active}
         banner={backTo ? <WorkspacePreparationBanner to={backTo} state={navState} canvasKey={`${handle}/${projectTag}`} /> : table ? <TableBanner to={table.to} eventId={table.eventId} /> : null}
@@ -100,15 +37,15 @@ export function CanvasWithThread() {
         panelOpen={panelOpen}
         bar={ownerBar ? (
           <WorkspaceOwnerBar
-            ready={held} handle={handle} projectTag={projectTag} rename={rename} onPick={pickVersion} onChanged={() => setReloads(n => n + 1)} onBack={table && !backTo ? () => navigate(table.to) : goBack}
-            active={active} view={view} onView={setView} panelOpen={panelOpen} onOpenPanel={openPanel} spot={{ state: spot, publishing, onPublish: publish }}
-            onCancelClone={clone.cancel} onGoToDraft={openExistingDraft}
+            ready={held} handle={handle} projectTag={projectTag} rename={rename} onPick={w.pickVersion} onChanged={bump} onBack={table && !backTo ? () => w.navigate(table.to) : w.goBack}
+            active={active} view={view} onView={setView} panelOpen={panelOpen} onOpenPanel={w.openPanel} spot={{ state: spot, publishing: isPublishing, onPublish: publish }}
+            onCancelClone={clone.cancel} onGoToDraft={w.openExistingDraft}
           />
         ) : null}
         canvas={<CanvasPage />}
-        chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} canvasTitle={rename.title} focusable={wide ? panelOpen : view === 'chat'} onClose={closeThread} onRunActive={setRunActive} onDraftRead={onDraftRead} onThreadAnswered={onThreadAnswered} onOpened={openedDraft} onReload={() => setReloads(n => n + 1)} cloning={clone.pending} onStale={() => void clone.onStale()} />}
+        chat={<WorkspaceChat mirror={active ? mirror : null} ready={held} projectTag={projectTag} canvasTitle={rename.title} focusable={wide ? panelOpen : view === 'chat'} onClose={w.closeThread} onRunActive={w.setRunActive} onDraftRead={w.spotRun.onDraftRead} onThreadAnswered={w.spotRun.onThreadAnswered} onOpened={w.openedDraft} onReload={bump} cloning={clone.pending} onStale={() => void clone.onStale()} />}
       />
-      <CloneDraftSheet sheet={clone.sheet} onAdd={clone.addToDraft} onStartOver={clone.startOver} onClose={add.dismissSheet} />
+      <CloneDraftSheet sheet={clone.sheet} onAdd={clone.addToDraft} onStartOver={clone.startOver} onClose={w.dismissSheet} />
     </WorkspaceProviders>
   );
 }
