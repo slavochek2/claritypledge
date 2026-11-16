@@ -1,16 +1,16 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 101
 workstream: clarity-chat
 created_date: '2026-11-05'
 tags: [clarity-chat, mirror-agent, points, drafting, transcription, live]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, dev.2, dev.3, ship]
 driver: heuristic
 spec_review_hash: 6a988b7461b2c28e2a6c3ea9b7ec0f8241173efd6cf95912a1b30736e042e6c0
 spec_review_vendors: [gemini]
+completed_at: 2026-11-16
 ---
 
 # P1631: Make a point during a live conversation, and share it
@@ -225,12 +225,12 @@ Not gating `/ship`: it needs the launched feature on prod (founder, 2026-11-05).
 
 ## Related
 
-- [P1431](p1431_mirror_agent_letter_chat.md) and [P1632](p1632_mirror_drafts_linked_owner_stories.md) — letters and stories, after this.
-- [P1536](done/2026-06-10/p1536_canvas_first_draft_from_owner_material.md) — owner-review drafting and spend rules; its boxes are not reusable as they are.
-- [P1089](p1089_audience_scoped_point_list.md) — the parked group-audience problem and the evidence above.
-- [P1596](done/2026-06-10/p1596_event_transcripts_one_speaker_per_sentence.md), [P1604](done/2026-06-10/p1604_transcription_belongs_to_a_chat.md), [P1601](p1601_one_phone_several_speakers.md) — capture and attribution.
-- [P1390](p1390_room_audio_fills_live_from_the_transcript.md) — numbers from speech, not needed here.
-- [P1457](p1457_clarity_chat_data_import.md) — later source integrations.
+- [P1431](../../p1431_mirror_agent_letter_chat.md) and [P1632](../../p1632_mirror_drafts_linked_owner_stories.md) — letters and stories, after this.
+- [P1536](p1536_canvas_first_draft_from_owner_material.md) — owner-review drafting and spend rules; its boxes are not reusable as they are.
+- [P1089](../../p1089_audience_scoped_point_list.md) — the parked group-audience problem and the evidence above.
+- [P1596](p1596_event_transcripts_one_speaker_per_sentence.md), [P1604](p1604_transcription_belongs_to_a_chat.md), [P1601](../../p1601_one_phone_several_speakers.md) — capture and attribution.
+- [P1390](../../p1390_room_audio_fills_live_from_the_transcript.md) — numbers from speech, not needed here.
+- [P1457](../../p1457_clarity_chat_data_import.md) — later source integrations.
 
 ## Cost Budget
 
