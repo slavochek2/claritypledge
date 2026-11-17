@@ -22,6 +22,9 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
   const eventDate = new Date(event.datetime);
   const userIsHost = isLoggedIn && !!userId && event.hostId === userId;
   const isCancelled = event.status === 'cancelled';
+  // P1698 (founder decision 2026-11-17): one past rule for the whole card, so the badge and the count label never
+  // disagree. Past = completed, or started (not the lists' 12h grace: this is the card's own tense).
+  const isPast = event.status === 'completed' || eventDate < new Date();
   const locInfo = classifyLocation(event.location);
 
   return (
@@ -59,7 +62,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
                 : 'bg-green-50 text-green-700 border border-green-200'
             }`}>
               <Crown className="w-3 h-3" />
-              {isCancelled ? 'You Were Hosting' : "You're Hosting"}
+              {isCancelled ? 'You Were Hosting' : isPast ? 'You Hosted' : "You're Hosting"}
             </span>
           )}
           {isUserGoing && !userIsHost && (
@@ -69,7 +72,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
                 : 'bg-green-50 text-green-700 border border-green-200'
             }`}>
               <CheckCircle2 className="w-3 h-3" />
-              {isCancelled ? 'You Were Going' : "You're Going"}
+              {isCancelled ? 'You Were Going' : isPast ? 'You Went' : "You're Going"}
             </span>
           )}
           {/* P1603: only the host and the registered ever receive a hidden event in a list */}
@@ -124,7 +127,7 @@ export function EventCard({ event, isLoggedIn = false, userId, isUserGoing = fal
                 /* Cancelled first: a cancelled event never ran, past or not — it reads "were
                    going", never "attended" (and adds no host; see event-going.ts). */
                 event.status === 'cancelled' ? 'were going' :
-                event.status === 'completed' || new Date(event.datetime) < new Date() ? 'attended' : 'going'
+                isPast ? 'attended' : 'going'
               }
             </span>
           </div>

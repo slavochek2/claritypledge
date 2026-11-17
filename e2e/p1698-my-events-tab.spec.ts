@@ -189,6 +189,11 @@ test.describe('P1698 — My events tab on /events', () => {
     await expect(past).toContainText('Past');
     await expect(past.getByTestId('event-card').locator('h3')).toHaveText([hiddenPast.title, pastOld.title]);
     await expect(card(page, hiddenPast.title).getByTestId('hidden-event-mark')).toBeVisible();
+    // Founder decision 2026-11-17: a past event the viewer hosted reads in the past tense.
+    for (const pastTitle of [hiddenPast.title, pastOld.title]) {
+      await expect(card(page, pastTitle)).toContainText('You Hosted');
+      await expect(card(page, pastTitle)).not.toContainText("You're Hosting");
+    }
   });
 
   test('from My events, a hidden event\'s card opens its event page', async ({ page }) => {

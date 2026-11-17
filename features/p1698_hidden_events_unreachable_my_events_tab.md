@@ -120,6 +120,7 @@ Applies because this adds a per-user Supabase read on every signed-in `/events/l
 - [ ] The founder has seen screenshots at phone (375px and 320px) and desktop width before ship.
 - [x] Regression test passes: `e2e/p1698-my-events-tab.spec.ts` *(final run 2026-11-17 with P1603 + P1060 specs, --retries=0, JSON reporter: 34 expected, 0 unexpected, 0 flaky; red before the fix: 6 of 10 failed for "no My events tab")*
 - [x] No console errors on `/events/list` in any of its three tabs. *(e2e smoke; the filter's only exemption, unresolvable banner hosts in TEST data, was proven not to swallow a real error by an injected-error control)*
+- [ ] A past event (completed, or started) shows "You Hosted" / "You Went" instead of the present tense, on every list that uses the event card; cancelled keeps "You Were …". (Founder decision 2026-11-17.)
 
 ## Resolution
 
