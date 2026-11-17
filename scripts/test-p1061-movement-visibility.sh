@@ -14,6 +14,9 @@
 #   private story   counted for its author, not for anyone else (a count built from part of its rows is wrong); the
 #                   "not for anyone else" half runs as the owner with the stranger's identity, so only the function's
 #                   own filter decides it (P1061_CONTROL_FILTERLESS=1 below proves it can fail)
+#   point guard     a non-public point returns no rows for anyone but its first validator; runs as the owner with
+#                   the stranger's identity (P1061_CONTROL_UNGUARDED=1 below proves it can fail), and with the
+#                   validator's identity the same point still answers
 #   completeness    1200 extra history rows behind one story come back whole (no 1000-row page cut, Done-When 4)
 # Control (gate 7): the OWNER sees the history the callers are denied, so a 0 above is a real refusal, not an
 # empty fixture. P1061_CONTROL_DEFINER=1 (below) proves the probes that depend on row-level policies can fail. The
@@ -145,6 +148,19 @@ SELECT set_config('p1061.private_story_stranger', (
   SELECT CASE WHEN current_setting('p1061.private_story') = '' OR current_setting('p1061.private_story_author') = current_setting('p1061.stranger') THEN 'skip'
               ELSE (jsonb_array_length(r->'stories') = 0)::text END
     FROM (SELECT public.get_story_movement_rows(ARRAY[NULLIF(current_setting('p1061.private_story'), '')::uuid]) r) x), true);
+-- The point guard alone (20261117200000), same owner-with-stranger's-identity setup: the non-public point the stranger
+-- did not validate returns no rows at all, although the owner reads its whole history. Under the caller's role the
+-- policies would hide it anyway; here only the function's guard decides (P1061_CONTROL_UNGUARDED=1 proves it can fail).
+SELECT set_config('p1061.point_guard_non_validator', (
+  SELECT (r->>'point_id' IS NULL AND jsonb_array_length(r->'history') = 0 AND jsonb_array_length(r->'current') = 0
+          AND jsonb_array_length(r->'stories') = 0 AND jsonb_array_length(r->'profiles') = 0)::text
+    FROM (SELECT public.get_point_movement_rows(current_setting('p1061.point')::uuid) r) x), true);
+-- Its positive half: with the first validator's identity the same point answers with its history, so the guard does
+-- not refuse the one non-public caller it must serve.
+SELECT set_config('request.jwt.claims', json_build_object('sub', current_setting('p1061.validator'), 'role', 'authenticated')::text, true);
+SELECT set_config('p1061.point_guard_validator', (
+  SELECT (r->>'point_id' = current_setting('p1061.point') AND jsonb_array_length(r->'history') > 0)::text
+    FROM (SELECT public.get_point_movement_rows(current_setting('p1061.point')::uuid) r) x), true);
 
 -- the private story's author: their own story is counted
 SET LOCAL ROLE authenticated;
@@ -198,6 +214,8 @@ SELECT current_setting('p1061.control') AS control_owner_sees_history,
        current_setting('p1061.signed_in_targets') AS signed_in_offered_events,
        current_setting('p1061.private_story_stranger') AS private_story_not_counted_for_stranger,
        current_setting('p1061.private_story_author_sees') AS private_story_counted_for_author,
+       current_setting('p1061.point_guard_non_validator') AS point_guard_non_validator,
+       current_setting('p1061.point_guard_validator') AS point_guard_validator_served,
        CASE WHEN current_setting('p1061.big_returned') = 'skip' THEN 'skip'
             ELSE (current_setting('p1061.big_returned') = current_setting('p1061.big_expected') AND current_setting('p1061.big_expected')::int > 1000)::text END AS complete_beyond_1000,
        current_setting('p1061.big_returned') || ' of ' || current_setting('p1061.big_expected') AS info_rows_returned;
@@ -207,7 +225,11 @@ EOSQL
 # Known-bad control (gate 7): P1061_CONTROL_DEFINER=1 turns both functions SECURITY DEFINER inside the same
 # rolled-back transaction, so they read past the caller's policies. The probes must then FAIL; if they pass, they
 # cannot see an exposure.
+# Since 20261117200000 the point guard refuses the same callers the policies do, so the definer control alone no
+# longer moves the point probes: it also restores the unguarded body (P1061_CONTROL_UNGUARDED, prepended after this,
+# so it runs first and the ALTER applies to it).
 if [ "${P1061_CONTROL_DEFINER:-}" = "1" ]; then
+  P1061_CONTROL_UNGUARDED=1
   SQL="ALTER FUNCTION public.get_point_movement_rows(uuid) SECURITY DEFINER;
 ALTER FUNCTION public.get_story_movement_rows(uuid[]) SECURITY DEFINER;
 $SQL"
@@ -215,6 +237,13 @@ fi
 if [ "${P1061_CONTROL_FILTERLESS:-}" = "1" ]; then
   FIRST="$ROOT/supabase/migrations/20261117160000_p1061_position_movement_reads.sql"
   SQL="$(grep -v '^BEGIN;$' "$FIRST" | grep -v '^COMMIT;$')
+$SQL"
+fi
+if [ "${P1061_CONTROL_UNGUARDED:-}" = "1" ]; then
+  # Restores the function as it was before the point guard (20261117190000), inside the same rolled-back
+  # transaction: point_guard_non_validator must then fail.
+  PREV="$ROOT/supabase/migrations/20261117190000_p1061_movement_reads_whole_rows_only.sql"
+  SQL="$(grep -v '^BEGIN;$' "$PREV" | grep -v '^COMMIT;$')
 $SQL"
 fi
 OUT="$(printf '%s\n' "$SQL" | "$SQL_RUNNER")" || { echo "p1061-visibility: the SQL did not run" >&2; exit 2; }
