@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [process]: Before the cost rule blocks a change, read the prod organisation's own usage page
+
+**Context:** A reviewed security fix (P1691) sat blocked for hours under the 2026-10-21 cost rule, on the belief that prod was over its free log allowance. The figure came from an older private note about the TEST organisation (246% of its free log allowance, driven by e2e runs). Prod's own usage page, read on 2026-11-17, was inside every Free-plan limit (logs about 60%, egress about 16%), and prod's organisation turned out to be on the Pro plan.
+**Decision:** The cost rule's "over plan" verdict is taken only from the prod organisation's current usage page (the /day reader, P1525), naming the organisation and the date, never from a note or from the TEST organisation.
+**Alternatives rejected:** Reusing the last recorded figure (it was a different organisation, and a month old).
+**Consequences:** One browser read before a cost block. Whether prod should drop from Pro to Free stays with P1530. **Falsifier:** a later cost block that rested on the right organisation's current page and was still wrong.
+**References:** `docs/technical/metered-services.md`, 2026-10-21 [process] (P1531), `scripts/supabase-usage-parse.py`
+
 ## 2026-11-17 [technical]: A host's "Reset rounds" deletes round state only, and a stored reset time keeps the deleted rounds' speech out of every later transcript window (P1699)
 
 **Context:** The founder tested rounds on a live event and had no way to start over. Deleting `event_rounds` is not enough: round chat replies stay in the event chat (`chat_messages.thread_root_id` is `ON DELETE SET NULL`), and the "Before round 1" and room-end transcript jobs rebuild their windows from `transcribe_rooms.created_at`, so test-round speech would be re-cleaned and posted to the whole event chat after the reset (Codex and Opus, /finish).
