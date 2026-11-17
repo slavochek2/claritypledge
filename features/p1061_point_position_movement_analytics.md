@@ -108,18 +108,18 @@ Build the surfaces as the prototype at branch `feature/p1683-story-fitness-mocku
 
 ## Cost Budget
 
-Applies (`docs/technical/metered-services.md`, When this applies): two functions called per request. Sizes measured on TEST: a 20-story feed page's answer is 2,121 bytes; the point with the most history (17 rows) answers 5,490 bytes, about 320 bytes per history row (5,490 / 17).
+Applies (`docs/technical/metered-services.md`, When this applies): two functions called per request. Sizes are **samples** measured on TEST, not bounds: a 20-story feed page's answer was 2,121 bytes; the point with the most history (17 rows) answered 5,490 bytes. A point answer grows with its history rows, holders, verifications, story links, holders' profiles, events and groups, each one jsonb object of tens to a few hundred bytes; its own size is the sum, with no fixed ceiling.
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | 1 per list page viewed (`withMovement`: one call for the whole page) + 1 per point page viewed on a public or own-validated point; no timer, no retry loop (Try again is a click) | users per hour x (list pages + point pages per user) | visibility script: 1 SQL request (self-hosted TEST over IAP) x 1 run = 1; unit tests: 0 (mocked) |
-| Egress (bytes) | list pages x about 2.1 KB + point pages x about 5.5 KB (at most 320 bytes x history rows on that point; history on prod is 842 rows in all, so a single point stays well under 270 KB) | users per hour x per-user bytes | 1 response of one JSON row, under 2 KB |
-| Log lines | 1 per failed read (`throwDbError`), only when a request fails; a refused point read (stale page) also logs 1 | failures per hour x 1 | 0 on a passing run |
+| Requests | list pages viewed x 1 (`withMovement`: one call for the whole page) + point pages viewed on a public or own-validated point x 1; no timer, no retry loop (Try again is a click) | users per hour x (list pages + point pages per user) | visibility gate: 1 SQL request (self-hosted TEST over IAP, not the Supabase organisation) x 4 runs (guarded + 3 controls) = 4; unit tests: 0 (mocked) |
+| Egress (bytes) | list pages x list answer + point pages x point answer; samples: 2.1 KB and 5.5 KB | users per hour x per-user bytes | 4 runs x 1 JSON row under 2 KB = under 8 KB |
+| Log lines | failed reads x 1 (`throwDbError`), only when a request fails; a refused point read (stale page) also logs 1 | failures per hour x 1 | 0 on a passing run |
 | Service unit | none beyond Supabase requests and egress; each call is one SQL statement | none | none |
 
-1. **Fits the plan limit today?** Fits. Supabase Free egress 5 GB a month (registry, read 2026-10-21): monthly bytes = active users x (list pages + 2.6 x point pages per user) x 2.1 KB. At 2.1 KB per list page, 5 GB holds about 2.4 million list page views a month from this read alone (5,000,000 KB / 2.1 KB); read today's usage from the registry row's dashboard before relying on it. Requests are not a Supabase Free limit.
-2. **Fits at 10x?** Fits: 10x traffic is 10x these bytes, still far below 2.4 million page views a month at today's scale.
-3. **If either answer is no:** not needed. The upgrade, if usage elsewhere ever eats the headroom, is Supabase Pro (from $25 a month, 250 GB egress).
+1. **Fits the plan limit today?** Fits. Prod is on the Supabase Pro row of the registry (250 GB egress included); the Free row (5 GB egress) is the limit if the P1530 downgrade happens. Formula: added monthly bytes = active users x (list pages x list answer + point pages x point answer per user). Checked against the private prod usage reading the registry row points to (`.private/docs/usage/`): current egress plus this formula at the samples stays under the Free limit as well as Pro, with room to spare. Log ingestion: this read logs only on failure (rule 5), so it adds nothing on a working day.
+2. **Fits at 10x?** Fits: 10 x the added bytes still sits under both limits on the same reading, since the samples are a few KB per view.
+3. **If either answer is no:** not needed. If usage elsewhere ever eats the headroom: Supabase Pro, from $25 a month, 250 GB egress, then $0.09 per GB (registry).
 
 ## UI Contract
 

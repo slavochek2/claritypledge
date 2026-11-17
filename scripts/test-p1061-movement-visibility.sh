@@ -243,14 +243,20 @@ EOSQL
 # so it runs first and the ALTER applies to it).
 # Each control run alone must fail EXACTLY its own set of probes (exit 1); any other set exits 3, so a control that
 # fails for the wrong reason cannot pass as proof. The definer set differs from the unguarded set by the three probes
-# that only row-level policies decide, which is what proves the ALTER took effect. Combined controls are not checked.
+# that only row-level policies decide, which is what proves the ALTER took effect. Controls run one at a time: a
+# value other than 1, or two controls together, is refused (exit 2), so no run can skip the expected-set check.
 EXPECT_FAIL=""
+for v in "${P1061_CONTROL_DEFINER:-}" "${P1061_CONTROL_FILTERLESS:-}" "${P1061_CONTROL_UNGUARDED:-}"; do
+  case "$v" in ""|1) ;; *) echo "p1061-visibility: a control flag must be 1 or unset" >&2; exit 2 ;; esac
+done
 case "${P1061_CONTROL_DEFINER:-}${P1061_CONTROL_FILTERLESS:-}${P1061_CONTROL_UNGUARDED:-}" in
+  "") ;;
   1)
     [ "${P1061_CONTROL_DEFINER:-}" = "1" ] && EXPECT_FAIL="anon_point,stranger_point,former_holder_point,point_guard_non_validator"
     [ "${P1061_CONTROL_FILTERLESS:-}" = "1" ] && EXPECT_FAIL="private_story_not_counted_for_stranger,point_guard_non_validator"
     [ "${P1061_CONTROL_UNGUARDED:-}" = "1" ] && EXPECT_FAIL="point_guard_non_validator"
     ;;
+  *) echo "p1061-visibility: run one control at a time" >&2; exit 2 ;;
 esac
 if [ "${P1061_CONTROL_DEFINER:-}" = "1" ]; then
   P1061_CONTROL_UNGUARDED=1
@@ -278,7 +284,8 @@ import json, sys
 rows = json.loads(sys.argv[1])
 expect = sorted(k for k in sys.argv[2].split(",") if k)
 if not rows:
-    print("p1061-visibility: FAIL: no result row"); sys.exit(1)
+    # Under a control, exit 1 would read as a correct detection; an empty answer proves nothing either way.
+    print("p1061-visibility: FAIL: no result row"); sys.exit(2 if expect else 1)
 row = rows[0]
 if row.get("control_owner_sees_history") != "true":
     print("p1061-visibility: CANNOT JUDGE: the owner sees no other history on the chosen point, so a 0 proves nothing"); sys.exit(2)

@@ -5,7 +5,8 @@
 -- Diffed against: 20261117190000_p1061_movement_reads_whole_rows_only.sql (the latest definition of this function).
 --   The only change is the WHERE on the pt step; every other line is copied unchanged.
 -- client-safe: same signature and return shape; it returns a subset of what it returned before (for a point outside
---   the rule: point_id null and every list empty, which the client already maps to an empty Changes view).
+--   the rule: point_id null and every list empty). The client reports that answer as a failed read, never as
+--   "nobody changed" (movement-service.ts getPointMovement); an older client shows it as an empty Changes view.
 --
 -- WHY. The function is SECURITY INVOKER, so it never shows a row the caller cannot select. A Changes view built from
 --   part of a point's history is a wrong number shown as fact, so the point page asks for this read only where the
