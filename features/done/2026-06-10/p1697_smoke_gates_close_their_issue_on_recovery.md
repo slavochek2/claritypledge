@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 343
 workstream: infrastructure
 created_date: '2026-11-17'
 tags: [ci, monitoring, smoke, alerts]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -14,6 +13,7 @@ exec_effort: medium
 driver: anomaly
 spec_review_hash: 5172c9258a4a0e651faacf365f20673cf465fbfe685843a114771707e168d257
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-17
 ---
 
 # P1697: Prod health and CSP smoke gates close their own issue when the gate passes again
