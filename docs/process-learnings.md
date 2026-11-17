@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 356
+**Next ID:** 358
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -4210,5 +4210,27 @@ decisions.md 2026-11-17 (Status: proposed): the Stop hook gate 3 matches complet
 **due:** month
 
 Set aside at the P1694 landing (all LOW, none changes what lands): the test file's AF header lists AF-a to AF-n but not AF-o to AF-s; the HEAD read before each pick in the ship loop has no failure message (a failure exits non-zero with nothing recorded); af_check_stopped does not assert the pick is still paused, so scenarios repeat it inline; the AF-h and AF-l stand-in gits match their trigger by argument position; the resume check runs one git status per 200 paths. Do them together in one small pass on scripts/test-git-ops-ship.sh and scripts/git-ops.sh. Droppable item by item.
+
+---
+
+## P1608 transcription harness: owed Codex review found 8 HIGH defects; do not rerun the live harness until fixed
+
+**ID:** INBOX-356
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+The owed after-the-fact Codex review of the P1608 live-transcription e2e harness (already on main) returned FAIL with 8 HIGH and 1 MEDIUM findings, each with file, line and smallest fix: UI or watch mode bypasses the paid-run guard; the standalone rule-off control accepts any target and job; concurrent runs share one recovery journal; failed cleanup can delete its own recovery record; the matcher can print PASS over a qualifying stray (reproduced on a real corpus phrase); the rule-off result does not prove duplication; direct-dispatch retries have no backoff or cap; cleanup deletes users one at a time; the traffic budget undercounts users and requests. Full text in the private improvement-run audit folder (review/p1608). Do: file a bug spec with create-bug and fix them before the next live run. Droppable only if the harness is retired.
+
+---
+
+## tidy ASK delete has no agent path after the founder says yes
+
+**ID:** INBOX-357
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+2026-11-17: tidy's ASK verdict for a shipped branch's worktree holding stale staged edits asks 'Delete them anyway?'. After a yes, the git-work-loss hook blocks worktree remove --force, --no-verify is banned, and a wip commit fails the pre-commit build on stale code, so only the founder running it with ! works. Proposed: git-ops.sh tidy --apply accepts a founder-confirmed ASK id, saves a patch to .private/patches, then removes. Also: check-deploy-drift.yml still closes only the first matching issue with --limit 100 across authors (P1697 fixed the smoke gates only).
 
 ---
