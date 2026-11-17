@@ -1,13 +1,13 @@
 ---
-status: week
+status: qa
 type: story
 rank: 342
 workstream: events
 created_date: '2026-11-17'
 tags: [listening-game, video, public-page, mobile]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -31,7 +31,7 @@ Blast radius: low, one new public page and one menu entry. Reversibility: git re
 ## Solution
 
 1. A public route `/game` that needs no sign-in. It shows the same content as the P1685 game step: the title, the two-sentence subtitle, our self-hosted video and "The roles", taken from the same copy source, so the two never drift apart.
-2. Under the video: primary button **"Start preparing"** → `/prepare`, and secondary link **"Read the manifesto"** → `/manifesto` (founder, 2026-11-17).
+2. At the end of the page, after "The roles" (the same order as the preparation step): primary button **"Start preparing"** → `/prepare`, and secondary link **"Read the manifesto"** → `/manifesto` (founder, 2026-11-17).
 3. A **"Listening Game"** entry in the Tools menu, under its Tools tab, linking to `/game` (founder, 2026-11-17).
 4. Mobile-friendly: the layout works at 320px and 375px with no horizontal scroll, and the button and link are at least 44px tall.
 
@@ -54,11 +54,11 @@ Blast radius: low, one new public page and one menu entry. Reversibility: git re
 
 ## Acceptance Criteria
 
-- [ ] Opening claritypledge.com/game while logged out shows the title, subtitle, video and "The roles"
-- [ ] "Start preparing" opens /prepare; "Read the manifesto" opens /manifesto
-- [ ] The Tools menu → Tools tab lists "Listening Game", and it opens /game
-- [ ] At 320px, 375px and desktop: no horizontal scroll, nothing clipped, the button and link at least 44px tall (screenshots)
-- [ ] No YouTube player or link on the page
+- [x] Opening claritypledge.com/game while logged out shows the title, subtitle, video and "The roles" — verified on the worktree dev server, signed out (screenshot at 375px) and by p1696-game-page.test.tsx. `[post-deploy]` re-check on claritypledge.com/game.
+- [x] "Start preparing" opens /prepare; "Read the manifesto" opens /manifesto — p1696-game-page.test.tsx asserts both hrefs
+- [x] The Tools menu → Tools tab lists "Listening Game", and it opens /game — p1696-game-page.test.tsx and p1179-links-menu.test.tsx
+- [x] At 320px, 375px and desktop: no horizontal scroll, nothing clipped, the button and link at least 44px tall — measured at 320px: scrollWidth 320 = innerWidth, both actions 44px; screenshots at 320, 375 and 1280 reviewed by a separate visual QA agent (only blocker was the dev-only poster file, restored)
+- [x] No YouTube player or link on the page — p1696-game-page.test.tsx
 
 ## Related
 
