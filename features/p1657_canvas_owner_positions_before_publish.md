@@ -34,6 +34,8 @@ Blast radius: medium (every canvas publish, every owner). Reversibility: high fo
 
 ## Prior rulings
 
+- **Founder, 2026-11-17: stays in backlog.** At the event the owner instruction shipped in P1529 ("Check your canvas: set your position on every point if not already.") covers it. Pick this up only if, at the next mastermind session, owners skip setting positions or complain about the clicks.
+
 - **Reverses P1536 D20** ("or publishes it unmarked"), by founder request 2026-11-10. D20's stated reason was "Needed by P1529's mid-session canvas update", so the reversal must answer how the event's 12-minute update step works (Open Question 2) before `/dev`.
 - **P1614 (on main):** a hand edit keeps the owner's stance on the new point; only an AI rewrite starts without one.
 - **decisions.md 2026-11-02:** no disabled Publish ("a dead control"); the main action stays tappable.
