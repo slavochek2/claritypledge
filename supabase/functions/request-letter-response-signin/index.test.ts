@@ -16,6 +16,7 @@ import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.t
 import { captureStdServe } from '../_shared/serve-capture.test-util.ts';
 import { HttpBackend } from '../_shared/http-backend.test-util.ts';
 import { FakeSupabase, linksIn } from '../_shared/fake-supabase.test-util.ts';
+import { SERVER_CURRENT_TERMS_VERSION } from '../_shared/terms-version.ts';
 
 const PROJECT = 'http://kong:8000';
 const APP = 'https://app.p1691.test';
@@ -107,7 +108,7 @@ function setup(extra: Extra = {}) {
           name: 'Rae Reader',
           email: READER_ADDRESS,
           termsAccepted: true,
-          termsVersion: 'v1.8',
+          termsVersion: SERVER_CURRENT_TERMS_VERSION,
           ...FULL_RESPONSE,
           ...overrides,
         }),
