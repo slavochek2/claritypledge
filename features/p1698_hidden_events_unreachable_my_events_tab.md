@@ -10,8 +10,8 @@ exec_model: opus
 exec_effort: high
 tags: [events, hidden-events, p1603, events-list]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, fix, ship]
 spec_review_hash: 35f78bb6781c75f2101cb9498dd7a0c8483b8d896dd6f17aee6fd153f3add1b3
 spec_review_vendors: [gemini, openrouter]
 date_resolved: 2026-11-17
