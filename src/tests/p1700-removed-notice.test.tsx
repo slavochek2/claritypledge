@@ -69,7 +69,7 @@ vi.mock('@/app/prototypes/events/utils', () => ({
 import { EventDetail } from '@/app/prototypes/events/components/EventDetail';
 import { _resetNetworkOutcomeForTesting } from '@/lib/network-outcome';
 
-const NOTICE = 'The host has closed your registration for this event.';
+const NOTICE = 'The host cancelled your registration for this event.';
 const FUTURE = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
 const makeEvent = (status = 'upcoming') => ({
   id: 'event-1', slug: 'test-event', title: 'Test Event', description: 'A test event',

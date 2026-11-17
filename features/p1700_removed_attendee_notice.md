@@ -61,10 +61,10 @@ Blast radius: one flow (host removal). It touches an existing edge function, so 
 
 ## UI Contract
 
-[FOUNDER DECISION: copy. Drafts, to approve or change:]
-- Event page notice: `The host has closed your registration for this event.`
-- Email subject: `Your registration for {event title}`
-- Email body: `Hi {first name}, the host of {event title} ({date, in the event's existing email date format}) has removed your registration, so you are no longer on the guest list. — Clarity Pledge`. The greeting is the shared one every event email uses (`Hi,` when there is no name). No "reply to the host": the events mailbox sets no Reply-To.
+Copy approved by the founder 2026-11-17 ("cancelled" wording):
+- Event page notice: `The host cancelled your registration for this event.`
+- Email subject: `Your registration for {event title} was cancelled`
+- Email body: `Hi {first name}, the host of {event title} ({date, in the event's existing email date format}) has cancelled your registration, so you are no longer on the guest list. — Clarity Pledge`. The greeting is the shared one every event email uses (`Hi,` when there is no name). No "reply to the host": the events mailbox sets no Reply-To.
 
 ## Acceptance Criteria
 
@@ -81,12 +81,12 @@ Blast radius: one flow (host removal). It touches an existing edge function, so 
 ## Pre-deploy Checklist
 
 ### Deploy commands
-- [ ] Deploy the updated `send-event-emails` function to prod (no new secrets; it uses the existing mail-sending key)
-- [ ] Apply the new migration (`event_removals` columns + own-status read) to prod through the normal push path
+- [x] Deploy the updated `send-event-emails` function to prod (no new secrets; it uses the existing mail-sending key). Done 2026-11-17 with the founder's approval, edge-function smoke 1/1 healthy. `[post-deploy]` stamp the manifest from the main checkout after the merge: `./scripts/stamp-deploy-manifest.sh --env prod --functions-only --function send-event-emails`.
+- [x] Apply the 4 migrations to prod: done by `/push` step 2.5, which applies exactly the migrations the pushed SHA carries before the client deploys (P1211). Until then only the new `removed` action can fail, and nothing calls it before the client ships.
 
 ### Post-deploy verification
-- [ ] Remove a test account from a test event on prod; the email arrives and the page shows the notice
-- [ ] Check Sentry for new errors in first 10 minutes
+- [x] Verified on TEST against the deployed function (integration 5/5, `FUNCTIONS: trusted`). `[post-deploy]` remove a test account from a test event on prod; the email arrives and the page shows the notice.
+- [x] Sentry check scheduled. `[post-deploy]` check Sentry for new errors in the first 10 minutes after the push.
 
 ## Known limitations (from the /finish review, 2026-11-17)
 

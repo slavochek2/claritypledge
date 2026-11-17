@@ -21,20 +21,20 @@ import {
 } from './email-helpers.ts';
 import { notifyRemoval } from './removal-notice.ts';
 
-/** [FOUNDER DECISION: copy, drafted in the spec's UI Contract] No "reply to the host" line: the events mailbox sets no
+/** Copy approved by the founder 2026-11-17 (spec UI Contract). No "reply to the host" line: the events mailbox sets no
  *  Reply-To, so a reply would not reach the host. The greeting is the shared one ("Hi <first name>," or "Hi,"). */
 export function buildRemoval(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
-  const subject = `Your registration for ${event.title}`;
+  const subject = `Your registration for ${event.title} was cancelled`;
   const when = formatDate(event.datetime, event.timezone);
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <p style="margin:0;font-size:16px;color:#4b5563;">
-      The host of <strong>${escapeHtml(event.title)}</strong> (${escapeHtml(when)}) has removed your registration, so you are no
+      The host of <strong>${escapeHtml(event.title)}</strong> (${escapeHtml(when)}) has cancelled your registration, so you are no
       longer on the guest list.
     </p>
   `);
   const first = firstName(name);
-  const text = `${first ? `Hi ${first},` : 'Hi,'}\n\nThe host of ${event.title} (${when}) has removed your registration, so you are no longer on the guest list.\n\n— Clarity Pledge`;
+  const text = `${first ? `Hi ${first},` : 'Hi,'}\n\nThe host of ${event.title} (${when}) has cancelled your registration, so you are no longer on the guest list.\n\n— Clarity Pledge`;
   return { subject, html, text };
 }
 

@@ -86,7 +86,7 @@ import { networkMark } from '@/lib/network-outcome';
 const ROOM_JOIN_WINDOW_MS = 60 * 60 * 1000;
 
 /** P1700: shown in place of the Register / waiting-list action to a person the host removed. */
-const REMOVED_NOTICE = 'The host has closed your registration for this event.';
+const REMOVED_NOTICE = 'The host cancelled your registration for this event.';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();

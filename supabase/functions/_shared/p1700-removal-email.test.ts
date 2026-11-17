@@ -17,14 +17,14 @@ const event: EventRow = {
 };
 
 Deno.test('subject names the event', () => {
-  assertEquals(buildRemoval(event, 'Ann Lee').subject, 'Your registration for Sales Mastermind <test>');
+  assertEquals(buildRemoval(event, 'Ann Lee').subject, 'Your registration for Sales Mastermind <test> was cancelled');
 });
 
 Deno.test('greets by first name in both parts, and says the registration was removed', () => {
   const { html, text } = buildRemoval(event, 'Ann Lee');
   assertStringIncludes(text, 'Hi Ann,');
   assertStringIncludes(html, 'Hi Ann,');
-  assertStringIncludes(text, 'has removed your registration, so you are no longer on the guest list.');
+  assertStringIncludes(text, 'has cancelled your registration, so you are no longer on the guest list.');
   assertStringIncludes(text, '— Clarity Pledge');
 });
 
@@ -43,5 +43,5 @@ Deno.test('the event title is escaped in the HTML', () => {
 Deno.test('never promises a reply reaches the host (the events mailbox sets no Reply-To)', () => {
   const { html, text } = buildRemoval(event, 'Ann');
   assertFalse(/reply/i.test(text));
-  assertFalse(/reply/i.test(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').match(/has removed your registration[^.]*\./)?.[0] ?? ''));
+  assertFalse(/reply/i.test(html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').match(/has cancelled your registration[^.]*\./)?.[0] ?? ''));
 });
