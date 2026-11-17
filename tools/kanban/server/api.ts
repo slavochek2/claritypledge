@@ -49,6 +49,14 @@ const HIDDEN_COLUMNS = new Set(
 )
 const WORKTREES_DISABLED = process.env.KANBAN_DISABLE_WORKTREES === 'true'
 
+// Extra sidebar links to other local tools (CSV of "icon|label|url" in env). The URL lives in the
+// embedder's own launch script, never in this public repo. Only http(s) URLs are passed through.
+const EXTRA_LINKS = (process.env.KANBAN_EXTRA_LINKS ?? '')
+  .split(',')
+  .map((s) => s.trim().split('|'))
+  .filter((p) => p.length === 3 && /^https?:\/\//.test(p[2]))
+  .map(([icon, label, url]) => ({ icon, label, url }))
+
 // Per-column WIP limits (CSV in env: "today=5,week=10,in-progress=3"). Purely
 // advisory — the board renders "N / limit" and tints the count when a column is
 // at or over its limit; nothing blocks a drag. The point is that the limit is
@@ -683,6 +691,7 @@ app.get('/api/config', (_req, res) => {
     wipLimits: WIP_LIMITS,
     inboxEnabled: inboxEnabled(),
     dayEnabled: dayEnabled(),
+    extraLinks: EXTRA_LINKS,
   })
 })
 

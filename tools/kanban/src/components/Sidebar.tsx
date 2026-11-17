@@ -10,9 +10,11 @@ interface SidebarProps {
   // App owns the visible page list (filtered by KANBAN_HIDE_PAGES). Sidebar
   // renders whatever is passed; no local hardcoded array.
   pages: { id: PageId; icon: string; label: string }[]
+  // Links to other local tools, opened in a new tab (KANBAN_EXTRA_LINKS).
+  links?: { icon: string; label: string; url: string }[]
 }
 
-export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse, pages }: SidebarProps) {
+export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse, pages, links = [] }: SidebarProps) {
   const [hoveredPage, setHoveredPage] = useState<PageId | null>(null)
 
   return (
@@ -104,6 +106,36 @@ export function Sidebar({ currentPage, onPageChange, collapsed, onToggleCollapse
           </button>
         )
       })}
+      {links.map((l) => (
+        <a
+          key={l.url}
+          href={l.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={collapsed ? l.label : undefined}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: collapsed ? 0 : 'var(--spacing-8)',
+            width: collapsed ? 40 : 'calc(100% - 8px)',
+            minHeight: 40,
+            padding: collapsed ? 'var(--spacing-6)' : 'var(--spacing-6) var(--spacing-12)',
+            fontSize: 'var(--font-size-14)',
+            fontWeight: 'var(--font-weight-semibold)',
+            color: 'var(--cp-fg3)',
+            textDecoration: 'none',
+            borderRadius: 'var(--cp-r)',
+            margin: collapsed ? '0 auto var(--spacing-2)' : '0 var(--spacing-4) var(--spacing-2)',
+            boxSizing: 'border-box',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+          }}
+        >
+          <span style={{ fontSize: 16, flexShrink: 0 }}>{l.icon}</span>
+          {!collapsed && <>{l.label} ↗</>}
+        </a>
+      ))}
     </div>
   )
 }

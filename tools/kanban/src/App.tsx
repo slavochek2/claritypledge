@@ -48,6 +48,8 @@ interface KanbanConfig {
   frontendPort: number
   featuresDir: string
   hidePages: string[]
+  // KANBAN_EXTRA_LINKS: sidebar links that open another local tool in a new tab.
+  extraLinks?: { icon: string; label: string; url: string }[]
   hideColumns: string[]
   disableWorktrees: boolean
   title?: string
@@ -762,6 +764,7 @@ export default function App() {
           collapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebar}
           pages={filteredPages}
+          links={config?.extraLinks ?? []}
         />
 
         {/* Content area */}
