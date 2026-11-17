@@ -18,6 +18,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [product]: H-CheapGapReveal refuted in the P1702 model — the check is worth only the errors it removes; withdraw the film's claim from public writing
+
+**Context:** The same-day bet below was tested in a seeded, reproducible model (branch `feature/p1702-cheap-gap-reveal-model`, `docs/research/p1702/RESULTS.md`): repeated donation game, slips and misreadings kept apart, gap-reveal and always-paraphrase checkers against forgiveness, contrition, apology, Prudent Pavlov and fakers, Fermi imitation at three selection strengths, committed minorities well-mixed and on a 4-regular network. The main session re-ran the 36 tests and the full generator and confirmed the verdict numbers against the data file.
+
+**Decision:** Mark H-CheapGapReveal refuted (model). Gap-reveal won 0 of 765 cells above the pre-registered cost floor; an equal-cost untargeted error cut matched or beat it (81% of 3,888 comparisons); its edge did not grow with the misreading share; the critical committed share was identical with and without the check (≈2% at strong selection, ≈0–1% otherwise). The film's "a check fixes it and pledgers turn the room" is withdrawn from public writing, as the bet's own Transform-if requires. No article, preprint or organiser outreach claims it.
+
+**Alternatives rejected:** re-running with a forgiving-base checker or a different rule to find a winning cell (post-hoc rescue; any such variant is a new bet with its own pre-registration); dropping Prudent Pavlov from the pool (done as a recorded post-hoc check: still 0 wins); calling the result inconclusive because the model is simple (the simplicity was pre-registered).
+
+**Falsifier of this refutation:** a model that adds what this one structurally lacks — a misreading the partner can tell apart from a slip, or understanding that carries over between encounters — in which the check beats an equal-cost untargeted error cut. Until such a model is pre-registered and run, the refutation stands.
+
+**Consequences:** The result is itself publishable as a negative finding, with the narrowed prior art (Han, Santos, Lenaerts & Pereira 2015 already shows the two-stage structure one-shot). The badge-only and committed-TFT minorities tipped exactly as well as committed checkers, so the model gives no support for "pledgers spread it by checking"; H-NormFlip keeps the empirical cascade question. Fakers who wear the badge and never check topped 378–662 cells, a model-level warning that a visible pledge without a cost is exploitable.
+
+**References:** hypotheses.md H-CheapGapReveal (REFUTED block) · features/p1702_verification_beats_forgiveness_conjecture.md · `docs/research/p1702/` on the P1702 branch
+
+---
+
 ## 2026-11-17 [product]: Record H-CheapGapReveal — a cheap gap reveal, used only in high-stakes encounters, beats forgiveness as the fix for misunderstanding (P1702, model-only bet)
 
 **Context:** The Third Condition film and the P1687 explorable argue that good people who misread each other stop cooperating, and that a check fixes it and spreads through visible first movers (pledgers). The founder asked whether that is a known result or a new conjecture. A first prior-art pass (one agent, abstracts only) and a hostile spec review (Gemini; the Fable review hit a usage limit) found: noise repairs by forgiveness, contrition and apology are established; a costly check *after* a perceived defection is costly monitoring, studied in economics; committed-minority thresholds exist for conventions and opinion models, not for a check strategy. The review also found the P1687 engine has no misreading at all, only slips in what is done, and assumes rather than measures the "9 in 10" catch rate. The founder then defined the check: *"If it's always asking to paraphrase, it costs. But if it is always to reveal the gap in understanding, and then they can decide if they are bridging it, then it's different."* and scoped it: *"it's only for specific relationships, for specific situations like meetings and for specific groups… And pledge is the biggest one."*
