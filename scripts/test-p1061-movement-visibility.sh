@@ -25,7 +25,8 @@
 # version of the story function (no whole-rows filter) inside the same rolled-back transaction: the private-story
 # probe must then fail.
 #
-# Output lines use ":" separators only (shell-safety.md). Exit 0 all pass, 1 a probe failed, 2 could not run.
+# Output lines use ":" separators only (shell-safety.md). Exit 0 all pass, 1 a probe failed (under a single control: exactly
+# its expected probes failed), 2 could not run, 3 a single control failed a different set than expected.
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 SQL_RUNNER="$ROOT/scripts/selfhosted/run-test-sql.sh"
@@ -61,13 +62,17 @@ SELECT set_config('p1061.story_private', COALESCE((SELECT sp.story_id::text FROM
 SELECT set_config('p1061.private_points', COALESCE((SELECT string_agg(id::text, ',') FROM public.points WHERE visibility <> 'public'), ''), true);
 SELECT set_config('p1061.letter_story', COALESCE((SELECT story_id::text FROM public.story_verifications WHERE source = 'letter' AND story_id IS NOT NULL ORDER BY id LIMIT 1), ''), true);
 SELECT set_config('p1061.letter_speaker', COALESCE((SELECT speaker_id::text FROM public.story_verifications WHERE source = 'letter' AND story_id::text = current_setting('p1061.letter_story') ORDER BY id LIMIT 1), ''), true);
--- A member of a private group who holds a position somewhere, and that point.
+-- A member of a private group who holds a position on a PUBLIC point, and that point. Public, so the point guard
+-- (20261117200000) never empties the answer first: the probe must reach the function's own group filter.
 SELECT set_config('p1061.private_member', COALESCE((
   SELECT m.user_id::text FROM public.membership m JOIN public.organization o ON o.id = m.org_id
-   WHERE o.visibility = 'private' AND EXISTS (SELECT 1 FROM public.point_positions pp WHERE pp.user_id = m.user_id)
+   WHERE o.visibility = 'private' AND EXISTS (
+     SELECT 1 FROM public.point_positions pp JOIN public.points p ON p.id = pp.point_id AND p.visibility = 'public'
+      WHERE pp.user_id = m.user_id)
    ORDER BY m.user_id LIMIT 1), ''), true);
 SELECT set_config('p1061.private_member_point', COALESCE((
-  SELECT pp.point_id::text FROM public.point_positions pp WHERE pp.user_id::text = current_setting('p1061.private_member') ORDER BY pp.point_id LIMIT 1), ''), true);
+  SELECT pp.point_id::text FROM public.point_positions pp JOIN public.points p ON p.id = pp.point_id AND p.visibility = 'public'
+   WHERE pp.user_id::text = current_setting('p1061.private_member') ORDER BY pp.point_id LIMIT 1), ''), true);
 SELECT set_config('p1061.private_orgs', COALESCE((SELECT string_agg(id::text, ',') FROM public.organization WHERE visibility = 'private'), ''), true);
 
 -- Completeness (Done-When 4): 1200 more history rows on a public story point, for a verified listener of that
@@ -152,15 +157,23 @@ SELECT set_config('p1061.private_story_stranger', (
 -- did not validate returns no rows at all, although the owner reads its whole history. Under the caller's role the
 -- policies would hide it anyway; here only the function's guard decides (P1061_CONTROL_UNGUARDED=1 proves it can fail).
 SELECT set_config('p1061.point_guard_non_validator', (
-  SELECT (r->>'point_id' IS NULL AND jsonb_array_length(r->'history') = 0 AND jsonb_array_length(r->'current') = 0
-          AND jsonb_array_length(r->'stories') = 0 AND jsonb_array_length(r->'profiles') = 0)::text
+  -- every list the function returns, so a later edit that stops one of them from depending on the guard fails here
+  SELECT (r->>'point_id' IS NULL AND NOT EXISTS (
+            SELECT 1 FROM unnest(ARRAY['stories','verifications','history','current','agent_ids','profiles','events','groups']) k
+             WHERE jsonb_array_length(COALESCE(r->k, '[]'::jsonb)) <> 0 OR NOT (r ? k)))::text
     FROM (SELECT public.get_point_movement_rows(current_setting('p1061.point')::uuid) r) x), true);
--- Its positive half: with the first validator's identity the same point answers with its history, so the guard does
--- not refuse the one non-public caller it must serve.
+-- Its positive half, as the real caller: the first validator, under their own role and policies, gets the same point
+-- with its WHOLE history (every row the owner sees, the seeded former holder's included), so the guard does not refuse
+-- the one non-public caller it must serve, and a partial answer would fail here.
+SELECT set_config('p1061.point_history_all', (
+  SELECT count(*)::text FROM public.point_position_history WHERE point_id = current_setting('p1061.point')::uuid), true);
+SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', json_build_object('sub', current_setting('p1061.validator'), 'role', 'authenticated')::text, true);
 SELECT set_config('p1061.point_guard_validator', (
-  SELECT (r->>'point_id' = current_setting('p1061.point') AND jsonb_array_length(r->'history') > 0)::text
+  SELECT (r->>'point_id' = current_setting('p1061.point')
+          AND jsonb_array_length(r->'history') = current_setting('p1061.point_history_all')::int)::text
     FROM (SELECT public.get_point_movement_rows(current_setting('p1061.point')::uuid) r) x), true);
+RESET ROLE;
 
 -- the private story's author: their own story is counted
 SET LOCAL ROLE authenticated;
@@ -173,8 +186,8 @@ RESET ROLE;
 -- former holder: their own row only
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', json_build_object('sub', current_setting('p1061.former'), 'role', 'authenticated')::text, true);
--- Never another holder's row. (They may get fewer than their own: the point row itself is unreadable to them, so
--- the function finds no point; less than today is allowed, more never is.)
+-- Never another holder's row. (They get none at all: the point row is unreadable to them, and since 20261117200000
+-- the point guard refuses a non-validator anyway; less than today is allowed, more never is.)
 SELECT set_config('p1061.former_rows', (
   SELECT jsonb_array_length(r->'history')::text FROM (SELECT public.get_point_movement_rows(current_setting('p1061.point')::uuid) r) x), true);
 SELECT set_config('p1061.former_point', (
@@ -228,8 +241,20 @@ EOSQL
 # Since 20261117200000 the point guard refuses the same callers the policies do, so the definer control alone no
 # longer moves the point probes: it also restores the unguarded body (P1061_CONTROL_UNGUARDED, prepended after this,
 # so it runs first and the ALTER applies to it).
+# Each control run alone must fail EXACTLY its own set of probes (exit 1); any other set exits 3, so a control that
+# fails for the wrong reason cannot pass as proof. The definer set differs from the unguarded set by the three probes
+# that only row-level policies decide, which is what proves the ALTER took effect. Combined controls are not checked.
+EXPECT_FAIL=""
+case "${P1061_CONTROL_DEFINER:-}${P1061_CONTROL_FILTERLESS:-}${P1061_CONTROL_UNGUARDED:-}" in
+  1)
+    [ "${P1061_CONTROL_DEFINER:-}" = "1" ] && EXPECT_FAIL="anon_point,stranger_point,former_holder_point,point_guard_non_validator"
+    [ "${P1061_CONTROL_FILTERLESS:-}" = "1" ] && EXPECT_FAIL="private_story_not_counted_for_stranger,point_guard_non_validator"
+    [ "${P1061_CONTROL_UNGUARDED:-}" = "1" ] && EXPECT_FAIL="point_guard_non_validator"
+    ;;
+esac
 if [ "${P1061_CONTROL_DEFINER:-}" = "1" ]; then
   P1061_CONTROL_UNGUARDED=1
+  echo "p1061-visibility: control: definer also restores the unguarded point body (P1061_CONTROL_UNGUARDED)" >&2
   SQL="ALTER FUNCTION public.get_point_movement_rows(uuid) SECURITY DEFINER;
 ALTER FUNCTION public.get_story_movement_rows(uuid[]) SECURITY DEFINER;
 $SQL"
@@ -248,9 +273,10 @@ $SQL"
 fi
 OUT="$(printf '%s\n' "$SQL" | "$SQL_RUNNER")" || { echo "p1061-visibility: the SQL did not run" >&2; exit 2; }
 echo "p1061-visibility: $OUT" | tr '>' ' '
-python3 - "$OUT" <<'EOPY'
+python3 - "$OUT" "$EXPECT_FAIL" <<'EOPY'
 import json, sys
 rows = json.loads(sys.argv[1])
+expect = sorted(k for k in sys.argv[2].split(",") if k)
 if not rows:
     print("p1061-visibility: FAIL: no result row"); sys.exit(1)
 row = rows[0]
@@ -260,6 +286,8 @@ failed = [k for k, v in row.items() if k != "control_owner_sees_history" and not
 skipped = [k for k, v in row.items() if v == "skip"]
 for k in skipped:
     print(f"p1061-visibility: SKIP: {k} (TEST holds no such case)")
+if expect and sorted(failed) != expect:
+    print("p1061-visibility: CONTROL MISMATCH: expected to fail " + ", ".join(expect) + " but failed " + (", ".join(sorted(failed)) or "nothing")); sys.exit(3)
 if failed:
     print("p1061-visibility: FAIL: " + ", ".join(failed)); sys.exit(1)
 print("p1061-visibility: PASS: every probe")

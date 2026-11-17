@@ -7,12 +7,15 @@
 -- client-safe: same signature and return shape; it returns a subset of what it returned before (for a point outside
 --   the rule: point_id null and every list empty, which the client already maps to an empty Changes view).
 --
--- WHY. The function is SECURITY INVOKER, so it never shows a row the caller cannot select. But a caller can select
---   SOME of a non-public point's history without all of it (their own rows; the shared rows of a chat-shared point),
---   and a Changes view built from part of the rows is a wrong number shown as fact. Until now only the point page
---   held this rule (readsAllHistory asks for the read only when the point is public or the caller validated it). The
+-- WHY. The function is SECURITY INVOKER, so it never shows a row the caller cannot select. A Changes view built from
+--   part of a point's history is a wrong number shown as fact, so the point page asks for this read only where the
+--   viewer reads it whole by rule (readsAllHistory: the point is public, or the viewer is its first validator). The
 --   founder approved the same rule in the function as a backup (decisions.md 2026-11-17 [technical], P1061 (4)):
 --   a point that is not public and that the caller is not the first validator of returns no rows.
+--   What it does under today's policies: a non-validator who cannot read the private point row already got nothing;
+--   a chat-share reader (points_select_chat_shared and point_position_history_select_chat_shared, 20261112190000)
+--   reads the whole history and is now refused here too, exactly as the page refuses them. The guard keeps the
+--   function to the page's rule if a later policy ever lets a caller read part of a non-public point's history.
 
 BEGIN;
 

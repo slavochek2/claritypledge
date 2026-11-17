@@ -120,5 +120,8 @@ export async function getPointMovement(pointId: string): Promise<PointMovementRo
   if (!USE_REAL_API) return mapPointMovementRows({ point_id: pointId });
   const { data, error } = await supabase.rpc('get_point_movement_rows', { p_point_id: pointId });
   if (error || !data) throwDbError('getPointMovement', error, 'Could not load how positions changed');
+  // point_id null: the server refused (a point that is not public and not validated by the caller, 20261117200000).
+  // Only a page whose visibility went stale asks for it; an empty answer there would read as "nobody changed".
+  if ((data as Raw).point_id == null) throwDbError('getPointMovement', null, 'Could not load how positions changed');
   return mapPointMovementRows(data as Raw);
 }

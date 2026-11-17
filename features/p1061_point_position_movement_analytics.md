@@ -106,6 +106,21 @@ Build the surfaces as the prototype at branch `feature/p1683-story-fitness-mocku
 - Do NOT claim causation anywhere: the panel compares, it does not say verification caused movement.
 - Do NOT add tables or columns.
 
+## Cost Budget
+
+Applies (`docs/technical/metered-services.md`, When this applies): two functions called per request. Sizes measured on TEST: a 20-story feed page's answer is 2,121 bytes; the point with the most history (17 rows) answers 5,490 bytes, about 320 bytes per history row (5,490 / 17).
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | 1 per list page viewed (`withMovement`: one call for the whole page) + 1 per point page viewed on a public or own-validated point; no timer, no retry loop (Try again is a click) | users per hour x (list pages + point pages per user) | visibility script: 1 SQL request (self-hosted TEST over IAP) x 1 run = 1; unit tests: 0 (mocked) |
+| Egress (bytes) | list pages x about 2.1 KB + point pages x about 5.5 KB (at most 320 bytes x history rows on that point; history on prod is 842 rows in all, so a single point stays well under 270 KB) | users per hour x per-user bytes | 1 response of one JSON row, under 2 KB |
+| Log lines | 1 per failed read (`throwDbError`), only when a request fails; a refused point read (stale page) also logs 1 | failures per hour x 1 | 0 on a passing run |
+| Service unit | none beyond Supabase requests and egress; each call is one SQL statement | none | none |
+
+1. **Fits the plan limit today?** Fits. Supabase Free egress 5 GB a month (registry, read 2026-10-21): monthly bytes = active users x (list pages + 2.6 x point pages per user) x 2.1 KB. At 2.1 KB per list page, 5 GB holds about 2.4 million list page views a month from this read alone (5,000,000 KB / 2.1 KB); read today's usage from the registry row's dashboard before relying on it. Requests are not a Supabase Free limit.
+2. **Fits at 10x?** Fits: 10x traffic is 10x these bytes, still far below 2.4 million page views a month at today's scale.
+3. **If either answer is no:** not needed. The upgrade, if usage elsewhere ever eats the headroom, is Supabase Pro (from $25 a month, 250 GB egress).
+
 ## UI Contract
 
 Words ship exactly as in the prototype at `f5eacc37b` (`copy.ts`, `bits.tsx`, `charts.tsx`, `StoryPanel.tsx`, `ScopeControl.tsx`, `ChangesBlock.tsx`), invented names replaced by real ones, with three corrections (founder, 2026-11-17, "correct them minimally"):
