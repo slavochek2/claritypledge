@@ -1510,6 +1510,25 @@ Separate `playwright.config.ts` in `tools/kanban/` targeting port 9050 with `reu
 
 ---
 
+## Narrow-Width Layout Tests Need Phone Emulation, Not a Resized Window
+
+**Problem:** `page.setViewportSize({ width: 320, … })` on desktop Chromium leaves a classic 15px scrollbar, so the page is really 305px wide while `window.innerWidth` still reads 320. Measurements against "320px" are then wrong in both directions. In P1698, a pill-row fit check passed for the wrong reason, and a later correct layout change failed it (the row wrapped at 273px of usable width).
+
+**Fix:** Run narrow-width tests under phone emulation, and assert the width you think you have:
+```ts
+test.describe('at 320px on a phone', () => {
+  test.use({ viewport: { width: 320, height: 700 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  test('…', async ({ page }) => {
+    // …navigate…
+    expect(await page.evaluate(() => [window.innerWidth, document.documentElement.clientWidth])).toEqual([320, 320]);
+  });
+});
+```
+
+**Rule:** `innerWidth` includes the scrollbar; `document.documentElement.clientWidth` does not. A layout assertion at a phone width checks `clientWidth` (or runs under `isMobile`) before trusting any pixel number. The same applies to screenshots for visual QA. Reference: `e2e/p1698-my-events-tab.spec.ts`, "at 320px on a phone".
+
+---
+
 ## `data-*` Attributes for Stateful UI Indicators
 
 **Problem:** CSS Tailwind ring classes and `class*=` selectors are fragile — a class rename breaks every test that targets it. P686: pledge ring was only identifiable via `class*="ring-"`, which didn't survive refactoring.
