@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 347
 workstream: events
 created_date: '2026-11-17'
 tags: [events, host, registration, email]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 664eb4d1fae5bc4b3d81b357d160d36d173f8fddecec1de6488a94fd05000ee1
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-17
 ---
 
 # P1700: A person the host removes from an event is told, by email and on the event page
