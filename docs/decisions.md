@@ -108,6 +108,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [technical]: Position movement reads are SECURITY INVOKER raw rows, counted in TypeScript, and only where every row behind a count is readable (P1061)
+
+**Context:** P1061 shows "N moved" on stories and a Changes view on points. The spec's first invariant is no new exposure, and every counting rule had to be unit-tested.
+**Decision:** (1) Two read functions, `get_story_movement_rows` and `get_point_movement_rows`, run as the caller (SECURITY INVOKER) and return raw rows as one jsonb value; the rules live in `src/lib/position-movement.ts`. Exposure is impossible by construction, and no read stops at the 1000-row page. (2) A count is made only where the caller reads every row behind it: stories public or their own, points public or validated by them (follow-up migration). A count from part of its rows is a wrong number shown as fact; review found it for chat-shared private stories. (3) A list read attaches each count to its story object (`withMovement`), so the Back and offline caches carry it with no new page state; the over-limit list pages did not grow. (4) Founder kept the error wording "Could not load the changes" / "Try again" and approved a server-side whole-history guard on `get_point_movement_rows` (to build before ship; today only the page gates it).
+**Alternatives rejected:** a SECURITY DEFINER function computing counts (would have to re-implement every policy); per-card reads (N requests per feed page); separate count state on the feed and stake pages (blocked by the quality ratchet, and a second cache to keep in step).
+**Consequences:** Accepted limits, listed for the founder in the build report: a failed count read shows no chip and Back restores that; hidden events are offered only to people who see their registrations; verifier names can overlap in a person's graph. Learning: in Vitest, `beforeEach(() => mock.mockReset())` returns the mock, which Vitest then runs as cleanup; write hooks with a block body. UNTESTED: falsifier, if verified people's movement shows no difference from not-verified people's once 5+ exist per story, the comparison earns no place.
+**References:** [p1061 spec](../features/p1061_point_position_movement_analytics.md) · `scripts/test-p1061-movement-visibility.sh`
+
+---
 
 ## 2026-11-17 [product]: Position movement is built now for stories and points, ahead of the recognition chain; the four open P1683 questions are settled (P1061)
 
