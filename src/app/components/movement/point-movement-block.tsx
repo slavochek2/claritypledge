@@ -8,14 +8,14 @@
  * `?view=changes` opens Changes; `?filter=` keeps applying to Positions only; the Changes filter is not in the
  * address.
  */
-import { useCallback, useMemo, useState, type ComponentProps, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PointPositionsBlock } from '@/app/components/social/point-positions-block';
 import { PointSpreadRow } from '@/app/components/shared/position-spread';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { LevelCounts } from '@/lib/position-spread';
+import { totalPositions, type LevelCounts } from '@/lib/position-spread';
 import { arrowsOn, EVERYONE, spreadShift, storyMovements, type MovementScope } from '@/lib/position-movement';
 import type { PointMovementRows } from '@/app/data/movement-service';
 import { SpreadShift } from './movement-bits';
@@ -96,12 +96,26 @@ function useViewParam(enabled: boolean): [View, (next: View) => void] {
 type BlockProps = ComponentProps<typeof PointPositionsBlock>;
 
 export function PointPositionsWithChanges({ point, signedIn, ...block }: BlockProps & { point: MovementPoint; signedIn: boolean }) {
-  const movement = usePointMovement(point.id, block.viewerId, JSON.stringify(block.counts));
-  const arrowsFor = useStoryArrows(movement.data, point.id);
   const canChange = readsAllHistory(point, block.viewerId);
+  // Only where every holder's history is readable: elsewhere the arrows would count part of the people.
+  const movement = usePointMovement(point.id, block.viewerId, JSON.stringify(block.counts), canChange);
+  const arrowsFor = useStoryArrows(movement.data, point.id);
   const [view, setView] = useViewParam(canChange);
   // Whose positions Changes counts: kept while Positions is looked at.
   const [scope, setScope] = useState<MovementScope>(EVERYONE);
+  // Each view draws the switch inside its own frame, so a switch made from the keyboard would lose the focus with
+  // the view it left: hand it to the tab now active.
+  const root = useRef<HTMLDivElement>(null);
+  const fromKeyboard = useRef(false);
+  useEffect(() => {
+    if (!fromKeyboard.current) return;
+    fromKeyboard.current = false;
+    root.current?.querySelector<HTMLElement>('[role="tab"][data-state="active"]')?.focus();
+  }, [view]);
+  const onViewChange = (next: string) => {
+    fromKeyboard.current = document.activeElement?.getAttribute('role') === 'tab';
+    setView(next === 'changes' ? 'changes' : 'positions');
+  };
   const positions = (header?: ReactNode) => (
     <PointStoryArrowsContext.Provider value={arrowsFor}>
       <PointPositionsBlock {...block} header={header} />
@@ -111,7 +125,7 @@ export function PointPositionsWithChanges({ point, signedIn, ...block }: BlockPr
   const filter = movement.data && offersFilter(movement.data, scope) ? <MovementFilter data={movement.data} scope={scope} onChange={setScope} signedIn={signedIn} /> : undefined;
   const line = <MovementViewLine view={view} filter={filter} />;
   return (
-    <Tabs value={view} onValueChange={next => setView(next === 'changes' ? 'changes' : 'positions')}>
+    <Tabs ref={root} value={view} onValueChange={onViewChange}>
       <TabsContent value="positions" className="mt-0">{positions(line)}</TabsContent>
       <TabsContent value="changes" className="mt-0">
         <div className="overflow-hidden rounded-lg border border-border bg-card" data-testid="point-changes-frame">
@@ -134,8 +148,11 @@ export function PointPositionsWithChanges({ point, signedIn, ...block }: BlockPr
  */
 export function PointCardSpread({ point, viewer, counts }: { point: MovementPoint; viewer?: { id: string } | null; counts: LevelCounts }) {
   const viewerId = viewer?.id;
-  const movement = usePointMovement(point.id, viewerId, JSON.stringify(counts));
+  const movement = usePointMovement(point.id, viewerId, JSON.stringify(counts), readsAllHistory(point, viewerId));
   const shift = useMemo(() => (movement.data ? spreadShift(movement.data.history, movement.data.current) : null), [movement.data]);
-  if (!readsAllHistory(point, viewerId) || !shift?.changed) return <PointSpreadRow counts={counts} withInfo className="mb-2" />;
+  // Both halves must count the same people: while the rows lag the counts on screen (a position just taken or
+  // removed, its read still in flight), today's row is drawn alone.
+  const sameHolders = shift !== null && totalPositions(shift.first) === totalPositions(counts);
+  if (!readsAllHistory(point, viewerId) || !shift?.changed || !sameHolders) return <PointSpreadRow counts={counts} withInfo className="mb-2" />;
   return <SpreadShift first={shift.first} now={counts} className="mb-2" />;
 }

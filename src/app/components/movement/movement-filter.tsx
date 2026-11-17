@@ -24,20 +24,25 @@ const sized = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 /** The rows on offer: the holders listed in Changes (by the start of the name), then events and groups when signed in. */
 function optionsFor(query: string, scope: MovementScope, data: PointMovementRows, signedIn: boolean): Option[] {
   const needle = query.trim().toLowerCase();
-  const holders = readingsOf(data.history, data.current, data.agentIds)
-    .map(r => ({ id: r.userId, person: data.people.get(r.userId) }))
+  const listed = readingsOf(data.history, data.current, data.agentIds).map(r => r.userId);
+  const holders = listed
+    .map(id => ({ id, person: data.people.get(id) }))
     .map(h => ({ id: h.id, name: h.person?.name ?? 'Someone', person: h.person }))
-    .filter(h => !scope.people.includes(h.id) && h.name.toLowerCase().startsWith(needle));
+    // Any word of the name, as the canvas Share field matches people: "smith" finds "Alice Smith".
+    .filter(h => !scope.people.includes(h.id) && h.name.toLowerCase().split(/[\s\-'’.]+/).some(word => word.startsWith(needle)));
   const people = needle === '' ? holders.slice(0, PEOPLE_SHOWN_UNTYPED) : holders;
+  // An event or a group counts the people Changes lists, the same people choosing it selects; with none it is not offered.
+  const inList = new Set(listed);
+  const counted = <T extends { memberIds: string[] }>(target: T) => ({ ...target, n: target.memberIds.filter(id => inList.has(id)).length });
   return [
     ...people.map(h => ({
       kind: 'person' as const, id: h.id, label: h.name, sub: 'Person',
       avatar: { photoUrl: h.person?.avatarUrl ?? undefined, color: h.person?.avatarColor ?? undefined },
     })),
-    ...(signedIn ? data.events.filter(e => !scope.events.includes(e.id) && e.title.toLowerCase().includes(needle))
-      .map(e => ({ kind: 'event' as const, id: e.id, label: e.title, sub: `Event · ${sized(e.memberIds.length)}` })) : []),
-    ...(signedIn ? data.groups.filter(g => !scope.groups.includes(g.id) && g.name.toLowerCase().includes(needle))
-      .map(g => ({ kind: 'group' as const, id: g.id, label: g.name, sub: sized(g.memberIds.length) })) : []),
+    ...(signedIn ? data.events.map(counted).filter(e => e.n > 0 && !scope.events.includes(e.id) && e.title.toLowerCase().includes(needle))
+      .map(e => ({ kind: 'event' as const, id: e.id, label: e.title, sub: `Event · ${sized(e.n)}` })) : []),
+    ...(signedIn ? data.groups.map(counted).filter(g => g.n > 0 && !scope.groups.includes(g.id) && g.name.toLowerCase().includes(needle))
+      .map(g => ({ kind: 'group' as const, id: g.id, label: g.name, sub: sized(g.n) })) : []),
   ];
 }
 

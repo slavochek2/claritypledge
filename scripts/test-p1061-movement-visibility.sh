@@ -9,9 +9,18 @@
 #   former holder   of a non-public point: their own history only, never another holder's
 #   letter speaker  a letter explain-back never appears, even to the one person who may read it
 #   private member  a private group is never offered, even to its own member
+#   signed out      a PUBLIC point whose holders are in events and groups: no event or group for anon, while a
+#                   signed-in caller is offered some (the positive control that makes the anon result mean something)
+#   private story   counted for its author, not for anyone else (a count built from part of its rows is wrong); the
+#                   "not for anyone else" half runs as the owner with the stranger's identity, so only the function's
+#                   own filter decides it (P1061_CONTROL_FILTERLESS=1 below proves it can fail)
 #   completeness    1200 extra history rows behind one story come back whole (no 1000-row page cut, Done-When 4)
 # Control (gate 7): the OWNER sees the history the callers are denied, so a 0 above is a real refusal, not an
-# empty fixture.
+# empty fixture. P1061_CONTROL_DEFINER=1 (below) proves the probes that depend on row-level policies can fail. The
+# letter, private-group, signed-out and private-story probes test the functions' own filters instead: they hold with
+# or without the policies, and a definer control does not move them. P1061_CONTROL_FILTERLESS=1 restores the first
+# version of the story function (no whole-rows filter) inside the same rolled-back transaction: the private-story
+# probe must then fail.
 #
 # Output lines use ":" separators only (shell-safety.md). Exit 0 all pass, 1 a probe failed, 2 could not run.
 set -euo pipefail
@@ -79,6 +88,17 @@ SELECT set_config('p1061.big_expected', (
      AND point_id = NULLIF(split_part(current_setting('p1061.big_pair'), '|', 1), '')::uuid
      AND user_id = NULLIF(split_part(current_setting('p1061.big_pair'), '|', 2), '')::uuid), true);
 
+-- A public point whose holders are registered for a (not cancelled, not hidden) event, and a signed-in profile.
+SELECT set_config('p1061.public_point_ev', COALESCE((
+  SELECT pp.point_id::text FROM public.point_positions pp
+    JOIN public.points p ON p.id = pp.point_id AND p.visibility = 'public'
+    JOIN public.event_rsvps r ON r.profile_id = pp.user_id
+    JOIN public.events ev ON ev.id = r.event_id AND NOT ev.is_hidden AND ev.status IS DISTINCT FROM 'cancelled'
+   ORDER BY pp.point_id LIMIT 1), ''), true);
+-- A private story and its author.
+SELECT set_config('p1061.private_story', COALESCE((SELECT id::text FROM public.stories WHERE visibility <> 'public' ORDER BY id LIMIT 1), ''), true);
+SELECT set_config('p1061.private_story_author', COALESCE((SELECT author_id::text FROM public.stories WHERE id::text = current_setting('p1061.private_story')), ''), true);
+
 -- Control: the owner sees other holders' history on the point.
 SELECT set_config('p1061.control', (SELECT (count(*) > 0)::text FROM public.point_position_history WHERE point_id = current_setting('p1061.point')::uuid AND user_id::text <> current_setting('p1061.former')), true);
 
@@ -94,6 +114,10 @@ SELECT set_config('p1061.anon_story', (
     AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(r->'history') e WHERE (e->>'point_id') = ANY(string_to_array(current_setting('p1061.private_points'), ',')))
   )::text END
     FROM (SELECT public.get_story_movement_rows(ARRAY[NULLIF(current_setting('p1061.story_private'), '')::uuid]) r) x), true);
+SELECT set_config('p1061.anon_public_targets', (
+  SELECT CASE WHEN current_setting('p1061.public_point_ev') = '' THEN 'skip' ELSE (
+    jsonb_array_length(r->'events') = 0 AND jsonb_array_length(r->'groups') = 0 AND jsonb_array_length(r->'current') > 0)::text END
+    FROM (SELECT public.get_point_movement_rows(NULLIF(current_setting('p1061.public_point_ev'), '')::uuid) r) x), true);
 SELECT set_config('p1061.big_returned', (
   SELECT CASE WHEN current_setting('p1061.big_pair') = '' THEN 'skip' ELSE (
     SELECT count(*)::text FROM jsonb_array_elements(r->'history') e
@@ -107,6 +131,27 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claims', json_build_object('sub', current_setting('p1061.stranger'), 'role', 'authenticated')::text, true);
 SELECT set_config('p1061.stranger_point', (
   SELECT (jsonb_array_length(r->'history') = 0)::text FROM (SELECT public.get_point_movement_rows(current_setting('p1061.point')::uuid) r) x), true);
+-- Positive control for the signed-out probe: a signed-in caller IS offered the events on that public point.
+SELECT set_config('p1061.signed_in_targets', (
+  SELECT CASE WHEN current_setting('p1061.public_point_ev') = '' THEN 'skip' ELSE (jsonb_array_length(r->'events') > 0)::text END
+    FROM (SELECT public.get_point_movement_rows(NULLIF(current_setting('p1061.public_point_ev'), '')::uuid) r) x), true);
+RESET ROLE;
+
+-- The function's own rule, alone: as the OWNER (row-level policies bypassed, as a chat share lets a participant read a
+-- private story) with the stranger's identity, a private story that is not theirs is still not counted. Under the
+-- caller's role this check could not fail (the policies would hide the story anyway); here only the filter decides.
+SELECT set_config('request.jwt.claims', json_build_object('sub', current_setting('p1061.stranger'), 'role', 'authenticated')::text, true);
+SELECT set_config('p1061.private_story_stranger', (
+  SELECT CASE WHEN current_setting('p1061.private_story') = '' OR current_setting('p1061.private_story_author') = current_setting('p1061.stranger') THEN 'skip'
+              ELSE (jsonb_array_length(r->'stories') = 0)::text END
+    FROM (SELECT public.get_story_movement_rows(ARRAY[NULLIF(current_setting('p1061.private_story'), '')::uuid]) r) x), true);
+
+-- the private story's author: their own story is counted
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claims', json_build_object('sub', NULLIF(current_setting('p1061.private_story_author'), ''), 'role', 'authenticated')::text, true);
+SELECT set_config('p1061.private_story_author_sees', (
+  SELECT CASE WHEN current_setting('p1061.private_story') = '' THEN 'skip' ELSE (jsonb_array_length(r->'stories') = 1)::text END
+    FROM (SELECT public.get_story_movement_rows(ARRAY[NULLIF(current_setting('p1061.private_story'), '')::uuid]) r) x), true);
 RESET ROLE;
 
 -- former holder: their own row only
@@ -149,6 +194,10 @@ SELECT current_setting('p1061.control') AS control_owner_sees_history,
        current_setting('p1061.former_rows') AS info_former_holder_rows,
        current_setting('p1061.letter') AS letter_row_absent,
        current_setting('p1061.private_group') AS private_group_absent,
+       current_setting('p1061.anon_public_targets') AS anon_no_events_on_public_point,
+       current_setting('p1061.signed_in_targets') AS signed_in_offered_events,
+       current_setting('p1061.private_story_stranger') AS private_story_not_counted_for_stranger,
+       current_setting('p1061.private_story_author_sees') AS private_story_counted_for_author,
        CASE WHEN current_setting('p1061.big_returned') = 'skip' THEN 'skip'
             ELSE (current_setting('p1061.big_returned') = current_setting('p1061.big_expected') AND current_setting('p1061.big_expected')::int > 1000)::text END AS complete_beyond_1000,
        current_setting('p1061.big_returned') || ' of ' || current_setting('p1061.big_expected') AS info_rows_returned;
@@ -161,6 +210,11 @@ EOSQL
 if [ "${P1061_CONTROL_DEFINER:-}" = "1" ]; then
   SQL="ALTER FUNCTION public.get_point_movement_rows(uuid) SECURITY DEFINER;
 ALTER FUNCTION public.get_story_movement_rows(uuid[]) SECURITY DEFINER;
+$SQL"
+fi
+if [ "${P1061_CONTROL_FILTERLESS:-}" = "1" ]; then
+  FIRST="$ROOT/supabase/migrations/20261117160000_p1061_position_movement_reads.sql"
+  SQL="$(grep -v '^BEGIN;$' "$FIRST" | grep -v '^COMMIT;$')
 $SQL"
 fi
 OUT="$(printf '%s\n' "$SQL" | "$SQL_RUNNER")" || { echo "p1061-visibility: the SQL did not run" >&2; exit 2; }

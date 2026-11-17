@@ -87,7 +87,7 @@ function hubAndFixtureRoutes(LazyRoute: LazyRouteComponent) {
       {import.meta.env.DEV && <Route path="/tree/_gate/canvas-workspace" element={<LazyRoute><GateFixtureCanvasWorkspace /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/_gate/canvas-draft" element={<LazyRoute><GateFixtureCanvasDraft /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/_gate/position-movement" element={<LazyRoute><GateFixturePositionMovement /></LazyRoute>} />}
-      {import.meta.env.DEV && <Route path="/tree/_gate/clarify-thread"element={<LazyRoute><GateFixtureClarifyThread /></LazyRoute>} />}
+      {import.meta.env.DEV && <Route path="/tree/_gate/clarify-thread" element={<LazyRoute><GateFixtureClarifyThread /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/design-audit" element={<LazyRoute><DesignAuditPage /></LazyRoute>} />}
     </>
   );

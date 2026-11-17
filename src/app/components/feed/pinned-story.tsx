@@ -15,7 +15,7 @@ import { FeedStoryCard } from "@/app/components/feed/feed-story-card";
 import { GravatarAvatar } from "@/components/ui/gravatar-avatar";
 import { getThumbnailUrl } from "@/lib/video";
 import type { PointSummary, StoryWithAuthor } from "@/app/types";
-import { movementOf, withMovement } from "@/app/data/movement-for-list";
+import { withStoryMovement } from "@/app/data/movement-for-list";
 
 export const PINNED_STORY_SLUG = "st1";
 /** Founder-approved label for st1 (event-links.ts, 2026-09-16). */
@@ -34,7 +34,10 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
   useEffect(() => {
     let cancelled = false;
     // One request: the slug resolves to the story's row directly (was resolveStorySlug + getStory).
+    // P1061: the story and its "N moved" count arrive together (a failed count leaves the story without one), so
+    // the chip is never added after the card.
     getStoryBySlug(PINNED_STORY_SLUG)
+      .then(withStoryMovement)
       .then((s) => {
         if (cancelled) return;
         if (!s) {
@@ -43,8 +46,6 @@ export function PinnedStory({ onResolved }: { onResolved?: (storyId: string) => 
         }
         setStory(s);
         onResolved?.(s.id);
-        // P1061: the count arrives while the bar is still collapsed, so the chip is in the card when it opens.
-        void withMovement([s]).then(([counted]) => { if (!cancelled && counted && movementOf(counted)) setStory(counted); });
       })
       .catch(() => {
         if (!cancelled) setFailed(true); // no featured story is the fallback
