@@ -64,5 +64,17 @@ check "nothing to close is a clean exit" $([ "$rc" = 0 ] && grep -q "nothing to 
 rc=$(run schedule refs/heads/main "" GH_FAIL_CLOSE=1)
 check "a gh close failure exits non-zero (rc=$rc)" $([ "$rc" != 0 ]; echo $?)
 
+# Workflow wiring: each workflow's close step exists, has its condition, and passes the SAME
+# title its open step uses (a rename in one place would silently stop the close).
+wiring() {  # wiring <workflow> <expected close if:>
+  local f=".github/workflows/$1" open_t close_t close_if
+  open_t=$(sed -n 's/^ *TITLE="\(.*\)"$/\1/p' "$f" | head -1)
+  close_t=$(sed -n 's/^ *run: \.\/scripts\/close-recovered-alert\.sh "\(.*\)"$/\1/p' "$f")
+  close_if=$(awk '/name: Close the issue on recovery/{f=1;next} f&&/^ *if:/{print;exit}' "$f" | sed 's/^ *if: //')
+  [ -n "$open_t" ] && [ "$open_t" = "$close_t" ] && [ "$close_if" = "$2" ]
+}
+wiring prod-health-smoke.yml "steps.smoke.outcome == 'success'"; check "prod-health close step wired with the open step's title" $?
+wiring csp-smoke.yml "success() && steps.smoke.outcome == 'success'"; check "csp close step wired with the open step's title" $?
+
 echo "== $pass passed, $fail failed =="
 [ "$fail" = 0 ]

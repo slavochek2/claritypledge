@@ -47,6 +47,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run CSP smoke against prod
+        id: smoke
         env:
           CSP_SMOKE_URL: ${{ github.event.inputs.url || 'https://claritypledge.com' }}
         run: npm run smoke:csp
@@ -86,7 +87,8 @@ jobs:
       # exact-title + bot-author match live in the script and its test. No continue-on-error:
       # a failed close turns the run red, which means only "the alerting itself broke".
       - name: Close the issue on recovery
-        if: success()
+        # Tied to the smoke step's own result: success() alone is also true when the smoke step is skipped.
+        if: success() && steps.smoke.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           EVENT_NAME: ${{ github.event_name }}
