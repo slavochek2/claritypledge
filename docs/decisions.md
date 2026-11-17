@@ -8,6 +8,25 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-18 [product]: Correction to "H-CheapGapReveal refuted in the P1702 model": three review rounds moved two of its numbers and one verdict
+
+**Context:** The 2026-11-17 entry "H-CheapGapReveal refuted in the P1702 model" reported the first model run. That code then went through three review rounds: Gemini, Codex and a criteria reviewer, about 42 findings, all fixed or set aside as latent. The final round found no defect that could change a verdict (branch `feature/p1702-cheap-gap-reveal-model`, commit `685fd6abe`, `docs/research/p1702/RESULTS.md`).
+
+**Decision:** The refutation stands, scoped to a restricted model: tit-for-tat-based checkers, one misreading channel, no post-perception check. The checker wins 0 of 765 cells above the cost floor. Three statements in the earlier entry are corrected:
+1. "An equal-cost untargeted error cut matched or beat it (81%)" is wrong. Once the control's unmatched round-1 advantage and float ties were removed, the result is **no consistent difference** (GAP 16.7%, control 58.3%, ties 25.0%). A control that cuts only misreadings ties the check in every cell, by construction. In this model the check is exactly paying for fewer misreadings.
+2. "Its edge did not grow with the misreading share" overstated the result. The novel prediction is **not corroborated** (40.8% of cells positive against the pre-registered 75%). It is positive at weak selection only, and that split was post-hoc.
+3. "The critical committed share was identical with and without the check" was not a test. Committed checkers only check willing partners, and the starting room has none, so the design could not tell the check from the badge. The pledger leg is **untested**.
+
+The withdrawal of the film's claim from public writing stands.
+
+**Falsifier of this refutation:** unchanged from the 2026-11-17 entry.
+
+**Consequences:** The pledger question, whether a visible check changes how a group tips, is still open in the model as well as in H-NormFlip. Testing it needs a new pre-registered design in which checks can reach the starting population, for example willing normals or checks that need no consent. The film note in the private events folder carries the corrected wording.
+
+**References:** hypotheses.md H-CheapGapReveal · features/p1702_verification_beats_forgiveness_conjecture.md · `docs/research/p1702/` on the P1702 branch
+
+---
+
 ## 2026-11-17 [product]: The product demo goes on every use-case page in place of the founder video; the Third Condition gets its own page and the communities page (P1701 exploration)
 
 **Context:** The founder asked where to embed two videos: the product demo (being produced in another session) and "The Third Condition" (working title, a film on why trust breaks between people who mean well, being re-made for organisers of rationalist community groups). A dev-only exploration (`/tree/video-placements`, branch `feature/p1701-video-placements-exploration`, no spec) first mocked the wrong pair, using the Listening Game; the rulings below are for the two videos the founder meant. Since P1674 removed "How the platform works", the use-case pages show a pledge but no product. Measured over the previous 30 days: /change-managers 1 visitor; landing founder clip played 5 times in 180 days against 2,675 landing visitors; manifesto film 3 plays from 60 visitors in its first days.
