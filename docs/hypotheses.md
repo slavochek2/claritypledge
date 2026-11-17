@@ -72,6 +72,7 @@ These apply to **new or materially-updated** hypotheses. Existing entries are **
 | H-TruthTracking | On contested questions that have a checkable answer, verification moves the people who were wrong toward the answer more than it moves the people who were right. Verification as error correction, not convergence | Active | P1 (scientific) | — | New 2026-10-22, founder conversation. The cheapest test of hard-core K7 (truth-measurement layer). **UNTESTED, n=0.** decisions.md 2026-10-22 [product] |
 | H-CalibrationPredicts | A person's listening-calibration track record predicts whether their next "I understood" is true, so it is a local trust signal for whose "got it" to rely on, inside a team, not a general credibility score | Active | P1 | — | New 2026-10-22, founder conversation. Turns the trust/hierarchy chain into a testable link. **UNTESTED, n=0.** decisions.md 2026-10-22 [product] |
 | H-CompartmentsShrink | Verified understanding of a rival epistemology makes a person more fallibilist in other domains too | Active | P2 (scientific) | — | New 2026-10-27, founder conjecture; a76 |
+| H-CheapGapReveal | A cheap gap reveal, used in high-stakes encounters, beats forgiveness as the fix for misunderstanding; a visible committed minority tips the group through the check, not the badge | Active | P2 (scientific) | — | New 2026-11-17, founder conjecture from the Third Condition film. Model-only test first (P1702). **UNTESTED, n=0.** decisions.md 2026-11-17 [product] |
 | H-AccountingLayer | Misunderstanding-harm goes unfixed in institutions because they can't *attribute/account for* it (no metric/owner/budget), not because they can't see it — so CP could be an accounting layer that makes it countable | Blocked | P2 | H-LegibilityVsCost | New 2026-07-21 — counter recorded: absence may be correct triage. Test = find countable "corpses" (aviation CRM). **UNTESTED.** |
 
 **Parked (12+ months):** H-AgentCoordination, H-SalesTeamAdoption, H-TeamCommunication, H-ProtocolReachesScale, H-ToleranceAmplifies — see [Parked](#parked) section.
@@ -685,6 +686,24 @@ Surviving differentiators, narrower than the docs previously implied: (1) **a nu
 **Transform if:** across two runs, the undiscussed domains do not move more in the verified arm ⟹ comprehension stays local, and "spreads fallibilism" must be withdrawn from public writing (a76).
 
 **Status (2026-10-27):** New. **UNTESTED, n=0.** See [decisions.md](decisions.md) 2026-10-27 [product].
+
+---
+
+#### H-CheapGapReveal: A cheap gap reveal beats forgiveness as the fix for misunderstanding, and spreads through visible first movers
+
+> **Programme tag:** `scientific` · **Core-adjacent: no (belt).** Model-only bet: the first test is a simulation, not people.
+
+**Bet (2026-11-17, UNTESTED, n=0, founder conjecture):** when good people misread what the other meant, cooperation breaks although nobody cheated. The known repairs are to absorb the error (forgive) or to apologise for it afterwards. The bet is that a **two-stage check** does better: a cheap signal shows *whether* a gap exists, and time is spent closing it only when it does — used only in high-stakes encounters such as meetings. Always paraphrasing costs too much to win. A visible minority that welcomes the check (pledgers) tips a population once it passes a critical share, and the check, not the badge, is what does the tipping. Founder framing, verbatim: *"verification beats forgiveness as the fix for noise, and it spreads through visible first movers (pledgers)."*
+
+**Why it is distinct:** [H-NormFlip](#h-normflip-paraphrase-expectation-shifts-the-norm-flip-threshold) tests a real-world norm cascade and its threshold in rooms. This one tests, in a model first, whether the mechanism can beat forgiveness at all when the check costs real time, and separates the check from the badge — the in-silico version of H-NormFlip's unresolved objection that *"A pledge can change the signer and still fail to change the room."* The two-stage check is the protocol's own split ([definitions.md](definitions.md): "Assessment is screening, not verification").
+
+**Test:** the P1702 model ([spec](../features/p1702_verification_beats_forgiveness_conjecture.md)) — a repeated cooperation game with misreading kept apart from slips; always-paraphrase, gap-reveal-then-bridge, forgiveness, contrition and apology strategies compared; fakers present; checks available only in a share of encounters; a committed visible minority with and without the check. Pre-registered pass rules live in the spec.
+
+**Novel prediction, recorded 2026-11-17 before any test.** The checker's advantage grows with the share of errors that are *misreadings* rather than *slips*, and gap-reveal-then-bridge wins where always-paraphrase loses at the same error rate. Forgiveness framings (generous tit-for-tat) predict no dependence on the kind of error and favour forgiving whenever checking costs anything. *Corroboration status: pending.*
+
+**Transform if:** in the P1702 model the checker wins only as the check cost approaches zero, or loses once fakers are present, or a badge without the check tips the population as well as the badge with it ⟹ the film's claim is withdrawn from public writing and the cascade question returns to H-NormFlip alone.
+
+**Status (2026-11-17):** New. **UNTESTED, n=0.** The P1687 toy engine assumes the 90% catch rate rather than measuring it and models slips only, so it is not evidence either way. See [decisions.md](decisions.md) 2026-11-17 [product].
 
 ---
 

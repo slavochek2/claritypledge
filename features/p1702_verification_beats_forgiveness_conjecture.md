@@ -36,7 +36,7 @@ Blast radius: low — research, docs and a prototype route; no migration, auth, 
 
 Stage-gated; each stage's Decision Criteria decide whether the next one runs.
 
-0. **Record the bet.** Add H-VerificationBeatsForgiveness to `docs/hypotheses.md` (UNTESTED, n=0, falsifier = stage 2 result) via `/docs-strategy-update`.
+0. **Record the bet.** Add H-CheapGapReveal to `docs/hypotheses.md` (UNTESTED, n=0, falsifier = stage 2 result) via `/docs-strategy-update`.
 1. **Novelty check.** Targeted search: costly / imperfect private monitoring in repeated games, costly verification, intention recognition (Han, Pereira, Santos 2012 — unread), communication before moves in noisy PD, tag/greenbeard assortment. Verify by reading, not search summaries: Wu & Axelrod 1995; Han et al. IJCAI 2013; Centola et al. Science 2018; Cardillo & Masuda 2020; arXiv 2307.08502 (authors/venue unconfirmed); Xie et al. PRE 2011. Reviewer-suggested, all UNVERIFIED until read: Miyagawa, Miyahara & Sekiguchi 2008 (JET, observation costs); Ben-Porath & Kahneman 2003; Kandori & Obara 2006; Bhaskar & Obara 2002; Sekiguchi 1997; Boerlijst, Nowak & Sigmund 1997 (contrite TFT vs Pavlov, both noise types); Martinez-Vaquero et al. 2015 (apology and forgiveness); Jansen & van Baalen 2006 (greenbeards).
 2. **Minimal model + headless simulation.** Repeated PD with three error sources kept apart: implementation slips, perception errors, and *understanding* errors (the partner's intended move is misread before acting — the film's Friday-vs-Sunday case). Two distinct check placements, never merged:
    - **Pre-move check** (what the P1687 askers do): both pay to confirm meaning before acting; lowers the understanding-error rate by q. Can be invaded by fakers/excusers, so model it as gameable.
@@ -86,7 +86,7 @@ Hypothesis entry; a prior-art note (`docs/research/`); simulation code + data + 
 
 ## Done-When
 
-- [ ] H-VerificationBeatsForgiveness recorded in `docs/hypotheses.md` as UNTESTED with a falsifier
+- [x] H-CheapGapReveal recorded in `docs/hypotheses.md` as UNTESTED with a falsifier
 - [ ] Prior-art note lists every cited paper as read (or marked unread), and states criterion-1 verdict
 - [ ] Simulation reproduces from one command with a fixed seed; figures regenerate from committed data
 - [ ] Criterion-2 and criterion-3 verdicts written, with the numbers

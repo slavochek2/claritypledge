@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [product]: Record H-CheapGapReveal — a cheap gap reveal, used only in high-stakes encounters, beats forgiveness as the fix for misunderstanding (P1702, model-only bet)
+
+**Context:** The Third Condition film and the P1687 explorable argue that good people who misread each other stop cooperating, and that a check fixes it and spreads through visible first movers (pledgers). The founder asked whether that is a known result or a new conjecture. A first prior-art pass (one agent, abstracts only) and a hostile spec review (Gemini; the Fable review hit a usage limit) found: noise repairs by forgiveness, contrition and apology are established; a costly check *after* a perceived defection is costly monitoring, studied in economics; committed-minority thresholds exist for conventions and opinion models, not for a check strategy. The review also found the P1687 engine has no misreading at all, only slips in what is done, and assumes rather than measures the "9 in 10" catch rate. The founder then defined the check: *"If it's always asking to paraphrase, it costs. But if it is always to reveal the gap in understanding, and then they can decide if they are bridging it, then it's different."* and scoped it: *"it's only for specific relationships, for specific situations like meetings and for specific groups… And pledge is the biggest one."*
+
+**Decision:** Add H-CheapGapReveal to hypotheses.md at P2, programme tag `scientific`, UNTESTED, n=0, as the formal-model sibling of H-NormFlip (which carries the empirical cascade). Test it in the P1702 model before any public claim. The check is two-stage — cheap detection, repair only when a gap is flagged — matching definitions.md "Assessment is screening, not verification".
+
+**Alternatives rejected:** folding it into H-NormFlip (that entry tests a real-world threshold; this one tests whether the mechanism can win at all, and the badge-without-check control answers H-NormFlip's unresolved "A pledge can change the signer and still fail to change the room" objection in a model first); waiting to record until the model runs (epistemic gate 8); stating "a few pledgers turn the room" now (no model computes it).
+
+**Falsifier:** in the P1702 model, the gap-reveal checker wins only as check cost approaches zero, or loses once fakers/excusers are present, or a badge without the check tips the population as well as the badge with it.
+
+**Consequences:** No public text (article, film copy, outreach) may claim the result until P1702's Decision Criteria pass. The P1687 session receives an engine reconciliation note. The founder's outreach-to-organisers idea ties to the 2026-10 organiser-outreach entry and its open tension with the goals.md outreach park; not resolved here.
+
+**References:** features/p1702_verification_beats_forgiveness_conjecture.md · hypotheses.md H-CheapGapReveal, H-NormFlip · definitions.md "Assessment is screening, not verification"
+
+---
+
 ## 2026-11-17 [process]: Before the cost rule blocks a change, read the prod organisation's own usage page
 
 **Context:** A reviewed security fix (P1691) sat blocked for hours under the 2026-10-21 cost rule, on the belief that prod was over its free log allowance. The figure came from an older private note about the TEST organisation (246% of its free log allowance, driven by e2e runs). Prod's own usage page, read on 2026-11-17, was inside every Free-plan limit (logs about 60%, egress about 16%), and prod's organisation turned out to be on the Pro plan.
