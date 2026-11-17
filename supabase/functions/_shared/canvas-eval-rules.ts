@@ -101,9 +101,14 @@ export function startsWithBannedOpening(text: string): boolean {
   return /^\s*(?:i|we|my customers)\b/i.test(text.replace(SALE_LABEL, '').replace(/^["'“”‘’\s]+/, ''));
 }
 
-/** S2.2 rule 2 (P1658): a Guiding values point is `X over Y[, even when Z]`: one "over" clause, no first-person subject, an optional ", even when" cost, and no "because". */
+/**
+ * S2.2 rule 2 (P1658): a Guiding values point is `X over Y[, even when Z]`: exactly one "over", no "I"/"We"/"My" subject (a personal habit or an
+ * action, not a business rule), and no reason (because, since, so that, or a ";" clause). A heuristic for the eval's report: "Honesty over winning so
+ * trust compounds" still passes, and commas inside X or Y are allowed.
+ */
 export function isGuidingValueShape(text: string): boolean {
-  return /^\s*(?!(?:i|we|my|our)\b)[^,]+\sover\s[^,]+(?:,\s*even when\s.+)?\.?\s*$/i.test(text) && !/\bbecause\b/i.test(text);
+  return /^\s*(?!(?:i|we|my)\b)\S.*\sover\s+\S/i.test(text) && (text.match(/\bover\b/gi) ?? []).length === 1
+    && !/\b(?:because|since|so that)\b|;/i.test(text);
 }
 
 /**

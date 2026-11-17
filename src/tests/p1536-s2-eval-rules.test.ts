@@ -131,13 +131,17 @@ describe('S2.2: the three existing rules, each with a known-good and a known-bad
   });
 
   it('every Guiding values point matches "X over Y" with no reason inside (P1658)', () => {
-    for (const good of ['Honesty over winning.', 'Filing on time over filing perfectly, even when a late receipt means correcting the return afterwards.']) expect(isGuidingValueShape(good), good).toBe(true);
+    for (const good of [
+      'Honesty over winning.', 'Filing on time over filing perfectly, even when a late receipt means correcting the return afterwards.',
+      // P1658 review round 2: legitimate business-culture values the first regex refused.
+      "Our clients' time over our own convenience.", 'Honesty over winning, even if it costs a sale.', 'Clear, honest pricing over hidden fees.',
+    ]) expect(isGuidingValueShape(good), good).toBe(true);
     for (const bad of [
       'Intellectual honesty over winning the argument, because decisions built on hidden misunderstandings fail later.',
       'Honesty over winning, BECAUSE it matters.',
       'Integrity and customer focus.', 'I keep weekends for family.', 'Honesty, because it matters.',
       'We hand over the keys over the weekend.', 'Honesty, over and over.', 'Honesty over winning, since trust compounds.',
-      'I keep weekends for family over client calls.']) expect(isGuidingValueShape(bad), bad).toBe(false);
+      'I keep weekends for family over client calls.', 'Clarity over speed; it saves rework.', 'Clarity over speed so that rework drops.']) expect(isGuidingValueShape(bad), bad).toBe(false);
   });
 
   it('every number in a point appears in the material', () => {

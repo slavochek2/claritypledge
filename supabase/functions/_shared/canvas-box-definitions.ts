@@ -69,12 +69,12 @@ export const GLOBAL_RULES: readonly GlobalRule[] = [
 export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   {
     tag: 'canvas:segments', title: 'Customer Segments',
-    type: 'Claim about who buys', voice: 'third-person claim; no "I"',
-    definition: `The specific people who have the problem and pay (or will), what they do today and what makes it urgent now. Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:". Each point needs a role or title, plus at least two of: industry, company size, demographics, psychographics. "Not" names a lookalike the owner's words show does not buy; a group you dropped goes under Hypotheses I've falsified.`,
-    shape: `"<role + qualifier> who <do X today> <when trigger> are the buyers[, not <group the owner named>]." "Are" only once someone has paid; before that, "will be".`,
-    good: `"Owners of 1-3 independent cafés who do their own books after closing are the buyers, not café chains with an in-house accountant."`,
+    type: 'Claim about who the customer is', voice: 'third-person claim; no "I"',
+    definition: `The specific people who have the problem and pay (or will), what they do today and what makes it urgent now. Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:". Each point needs a role or title, plus at least two of: industry, company size, demographics, psychographics. "Not" names a lookalike the owner's words show is not the customer; a group you dropped goes under Hypotheses I've falsified.`,
+    shape: `"<role + qualifier> who <do X today> <when trigger> are the customers[, not <group the owner named>]." A role point drops "are the customers".`,
+    good: `"Owners of 1-3 independent cafés who do their own books after closing are the customers, not café chains with an in-house accountant."`,
     not: `"Owners of independent cafés." (a description nobody can disagree with) / "I sell to small businesses"`,
-    gap: `Who exactly pays for this, what do they do about the problem today, and who looks like a buyer but is not?`,
+    gap: `Who exactly is the customer, what do they do about the problem today, and who looks like one but is not?`,
   },
   {
     tag: 'canvas:problem', title: 'Problem',
@@ -100,7 +100,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     tag: 'canvas:channels', title: 'Go-to-market strategy',
     type: 'Stance on how you reach them', voice: 'first-person stance ("I do", "I will not")',
     definition: `Where this segment can be reached, your first action there, and which paths brought customers vs. which are plans. Leave out why. Public platform names allowed.`,
-    shape: `"I <first action> in <place>[, not <path the owner named>];<result so far, or 'not tried yet'>."`,
+    shape: `"I <first action> in <place>[, not <path the owner named>]; <result so far, or 'not tried yet'>."`,
     good: `"I answer tax questions weekly in two café-owner Facebook groups, not through paid ads; 4 of my 6 clients came via an espresso-machine technician who refers me."`,
     not: `"Social media and word of mouth." / "I post in café-owner groups because owners trust peers more than ads." (the reason is inside the point)`,
     gap: `How did your last customer find you, and where do the next ones gather?`,
