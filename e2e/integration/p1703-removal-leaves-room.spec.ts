@@ -4,10 +4,11 @@
  *   - removing a person who is in the event room sets left_at on their presence row, visible to the host's own read
  *   - removing someone seated in an open round logs the move off their table (to_table NULL)
  *   - removing someone who never entered the room writes no presence data
+ *   - an existing presence row (sitting out a round) is marked out and keeps sits_out_round; a past event's room is not touched
  *   - the backfill marks out earlier-removed members of open rooms only, spares closed rooms and host-restored
- *     members, and writes nothing on a second run
+ *     members, marks out an existing older row keeping sits_out_round, and writes nothing on a second run. It runs
+ *     the migration's own SQL scoped to this file's two events, so a run never touches another test's rows.
  */
-// e2e-exclusive: the backfill test runs the P1703 backfill SQL, which writes presence for every open event's removed members, not only this file's
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -77,6 +78,10 @@ test.describe('P1703: removal also leaves the room', () => {
   let bfA: TestUser;
   let bfB: TestUser;
   let bfC: TestUser;
+  let bfD: TestUser;
+  let withRow: TestUser;
+  let pastUser: TestUser;
+  let pastEvent: string;
   let eventId: string;
   let openEvent: string;
   let closedEvent: string;
@@ -90,14 +95,18 @@ test.describe('P1703: removal also leaves the room', () => {
     bfA = await createTestUser({ name: 'P1703 BackfillA' });
     bfB = await createTestUser({ name: 'P1703 BackfillB' });
     bfC = await createTestUser({ name: 'P1703 BackfillC' });
+    bfD = await createTestUser({ name: 'P1703 BackfillD' });
+    withRow = await createTestUser({ name: 'P1703 WithRow' });
+    pastUser = await createTestUser({ name: 'P1703 Past' });
     eventId = await makeEvent(host.user.id, new Date(Date.now() + 3 * 24 * 3600 * 1000));
     openEvent = await makeEvent(host.user.id, new Date(Date.now() + 3 * 24 * 3600 * 1000));
     closedEvent = await makeEvent(host.user.id, new Date(Date.now() - 2 * 24 * 3600 * 1000));
-    eventIds.push(eventId, openEvent, closedEvent);
+    pastEvent = await makeEvent(host.user.id, new Date(Date.now() - 2 * 24 * 3600 * 1000));
+    eventIds.push(eventId, openEvent, closedEvent, pastEvent);
   });
 
   test.afterAll(async () => {
-    const userIds = [host, inRoom, seated, never, bfA, bfB, bfC].map(u => u?.user?.id).filter(Boolean) as string[];
+    const userIds = [host, inRoom, seated, never, bfA, bfB, bfC, bfD, withRow, pastUser].map(u => u?.user?.id).filter(Boolean) as string[];
     for (const id of eventIds) {
       // transcribe_* rows hang off our rounds (cascade) but are not reachable through REST; delete explicitly.
       await testDbSql(
@@ -190,14 +199,43 @@ test.describe('P1703: removal also leaves the room', () => {
     expect(members ?? []).toHaveLength(0);
   });
 
+  test('an existing presence row (sitting out round 2) is marked out and keeps sits_out_round', async () => {
+    const memberId = await makeMember(eventId, withRow.user.id, 'P1703 WithRow');
+    const { error: pErr } = await supabaseAdmin.from('event_round_presence').insert({
+      event_id: eventId, room_member_id: memberId, left_at: null, sits_out_round: 2,
+      updated_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    });
+    expect(pErr).toBeNull();
+    const h = await clientFor(host);
+    const { error } = await h.rpc('remove_event_attendee', { p_event: eventId, p_user: withRow.user.id });
+    expect(error).toBeNull();
+    const rows = await presence(eventId, memberId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].left_at).not.toBeNull();
+    expect(rows[0].sits_out_round).toBe(2);
+  });
+
+  test('a past event: the removal is recorded but its closed room is not touched', async () => {
+    const memberId = await makeMember(pastEvent, pastUser.user.id, 'P1703 Past');
+    const h = await clientFor(host);
+    const { error } = await h.rpc('remove_event_attendee', { p_event: pastEvent, p_user: pastUser.user.id });
+    expect(error).toBeNull();
+    const { count } = await supabaseAdmin.from('event_removals')
+      .select('user_id', { count: 'exact', head: true }).eq('event_id', pastEvent).eq('user_id', pastUser.user.id);
+    expect(count).toBe(1);
+    expect(await presence(pastEvent, memberId)).toHaveLength(0);
+  });
+
   test('backfill: marks out an open room member, spares closed room and host-restored, idempotent', async () => {
     const removedAt = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const mA = await makeMember(openEvent, bfA.user.id, 'P1703 BackfillA');
     const mC = await makeMember(openEvent, bfC.user.id, 'P1703 BackfillC');
     const mB = await makeMember(closedEvent, bfB.user.id, 'P1703 BackfillB');
+    const mD = await makeMember(openEvent, bfD.user.id, 'P1703 BackfillD');
     const removals = [
       { event_id: openEvent, user_id: bfA.user.id },
       { event_id: openEvent, user_id: bfC.user.id },
+      { event_id: openEvent, user_id: bfD.user.id },
       { event_id: closedEvent, user_id: bfB.user.id },
     ].map(r => ({ ...r, removed_by: host.user.id, removed_at: removedAt }));
     const { error: remErr } = await supabaseAdmin.from('event_removals').insert(removals);
@@ -206,8 +244,18 @@ test.describe('P1703: removal also leaves the room', () => {
     const { error: pErr } = await supabaseAdmin.from('event_round_presence')
       .insert({ event_id: openEvent, room_member_id: mC, left_at: null });
     expect(pErr).toBeNull();
+    // (d): an older presence row (sitting out round 2, written before the removal): the update path, not the insert.
+    const { error: dErr } = await supabaseAdmin.from('event_round_presence').insert({
+      event_id: openEvent, room_member_id: mD, left_at: null, sits_out_round: 2,
+      updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    });
+    expect(dErr).toBeNull();
 
-    await testDbSql(BACKFILL_SQL + '\nSELECT 1 AS ok;');
+    // The migration's own SQL, scoped to this file's events so a run never touches another test's rows.
+    const anchor = 'WHERE now() < e.datetime';
+    expect(BACKFILL_SQL).toContain(anchor);
+    const scoped = BACKFILL_SQL.replace(anchor, `WHERE x.event_id IN ('${openEvent}', '${closedEvent}') AND now() < e.datetime`);
+    await testDbSql(scoped + '\nSELECT 1 AS ok;');
 
     const a1 = await presence(openEvent, mA);
     expect(a1).toHaveLength(1);
@@ -216,8 +264,12 @@ test.describe('P1703: removal also leaves the room', () => {
     const c1 = await presence(openEvent, mC);
     expect(c1).toHaveLength(1);
     expect(c1[0].left_at).toBeNull();
+    const d1 = await presence(openEvent, mD);
+    expect(d1).toHaveLength(1);
+    expect(d1[0].left_at).not.toBeNull();
+    expect(d1[0].sits_out_round).toBe(2);
 
-    await testDbSql(BACKFILL_SQL + '\nSELECT 1 AS ok;');
+    await testDbSql(scoped + '\nSELECT 1 AS ok;');
 
     const a2 = await presence(openEvent, mA);
     expect(a2[0].left_at).toBe(a1[0].left_at);
@@ -226,5 +278,8 @@ test.describe('P1703: removal also leaves the room', () => {
     const c2 = await presence(openEvent, mC);
     expect(c2[0].left_at).toBeNull();
     expect(c2[0].updated_at).toBe(c1[0].updated_at);
+    const d2 = await presence(openEvent, mD);
+    expect(d2[0].left_at).toBe(d1[0].left_at);
+    expect(d2[0].updated_at).toBe(d1[0].updated_at);
   });
 });

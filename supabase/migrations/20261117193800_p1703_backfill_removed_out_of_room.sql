@@ -13,7 +13,9 @@
 -- never override user-set state). An already-out row is never touched (the DO UPDATE's WHERE).
 --
 -- Idempotent: a second run writes nothing. Triggers: the presence trigger (_transcribe_log_presence_change) fires per row
--- exactly as for a mark-out, and catches its own errors.
+-- exactly as for a mark-out, and catches its own errors. Any seat move it logs is stamped at the time this runs, not at
+-- the original removal: an earlier-removed person still seated in an open round leaves that table now, as if the host
+-- pressed Out at deploy time (spec Risks, ACCEPT).
 --
 -- client-safe: data only; no function, policy or grant changes.
 
@@ -30,4 +32,10 @@ SELECT m.event_id, m.id, now()
 ON CONFLICT (event_id, room_member_id) DO UPDATE
   SET left_at = now(),
       updated_at = now()
-  WHERE p.left_at IS NULL;
+  -- Re-checked here because DO UPDATE sees the row's latest version: a "Back in" committed after this statement's
+  -- snapshot (so the NOT EXISTS above missed it) must still win (Codex review).
+  WHERE p.left_at IS NULL
+    AND p.updated_at < (SELECT x.removed_at
+                          FROM public.event_removals x
+                          JOIN public.event_room_members m2 ON m2.event_id = x.event_id AND m2.profile_id = x.user_id
+                         WHERE m2.id = p.room_member_id AND x.event_id = p.event_id);

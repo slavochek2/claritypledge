@@ -20,6 +20,8 @@
 --   * The row itself is never deleted (P1114: the record of who was there is never deleted). Seated in an open round,
 --     the existing presence trigger (_transcribe_log_presence_change, 20261101183700_p1596_final_fixes.sql) logs the
 --     move off their table exactly as for a mark-out.
+--   * Open rooms only (now() < datetime + event_grace_interval(), the test join_event_room uses). The host can remove
+--     people from a past event too (canvas access), and that must not rewrite who was in a room that has closed.
 --   * The host can still press "Back in" for a removed person. That is the host's own explicit choice; the removal
 --     record still governs registration and admission.
 --
@@ -66,10 +68,13 @@ BEGIN
   END IF;
 
   -- P1703: they also leave the room, as the host's "Mark out" would record it. No member row (never entered) = no write.
+  -- Only while the room is open (the join's own test): removing someone from a past event leaves its attendance record as it was.
   INSERT INTO public.event_round_presence AS p (event_id, room_member_id, left_at)
   SELECT p_event, m.id, now()
     FROM public.event_room_members m
+    JOIN public.events e ON e.id = m.event_id
    WHERE m.event_id = p_event AND m.profile_id = p_user
+     AND now() < e.datetime + public.event_grace_interval()
   ON CONFLICT (event_id, room_member_id) DO UPDATE
     SET left_at = now(),
         updated_at = now()
