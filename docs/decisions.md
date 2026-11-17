@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [technical]: Smoke gates close their own alert on recovery; only a schedule or a main run against prod may close, and the author filter takes the other spelling (P1697)
+
+**Context:** Two prod alert issues stayed open 11 days after their gates went green, so `/day` reported prod as failing every morning. The 2026-07 alert-only decision already required auto-close on recovery; only the drift workflow had it.
+**Decision:** One shared script (`scripts/close-recovered-alert.sh`) closes every open bot issue with the exact title. It acts only on a scheduled run, or a manual run on `main` whose URL input is empty or exactly the prod URL; a prefix match would accept a lookalike host. Each close step is tied to its smoke step's own outcome, because `success()` alone is also true when that step is skipped. The close step is not `continue-on-error`, so a broken close turns the run red.
+**Gotcha (extends 2026-09-08 "two spellings"):** `gh issue list --author` filters server-side only with `github-actions[bot]` (3 hits; `app/github-actions` returned 0, same repo, same minute), while the JSON it returns spells the author `app/github-actions`. The script filters with one spelling and checks with the other.
+**Alternatives rejected:** eligibility in the workflow `if:` (untestable locally; moved into bash with a 14-case stub-`gh` test, including a workflow-wiring check proven by a mutated title); `--limit 100` across all authors (an alert can hide behind 100 human issues).
+**Consequences:** `check-deploy-drift.yml` still uses `first` and `--limit 100` across authors; not changed here.
+**References:** [features/p1697_smoke_gates_close_their_issue_on_recovery.md](../features/p1697_smoke_gates_close_their_issue_on_recovery.md) · [scripts/close-recovered-alert.sh](../scripts/close-recovered-alert.sh)
 ## 2026-11-17 [product]: The Listening Game gets a public page at /game; our pages keep playing our own copy (P1696)
 
 **Context:** After P1685 the Listening Game video lived only inside a preparation, and the founder wanted a short address for cards, hikes and sharing ("can we also link it to claritypledge.com/game ... lands on our own page?"). The video was also published to YouTube (https://youtu.be/0FD3H7rwiIk) the same day.
@@ -17,6 +25,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **References:** [p1696 spec](../features/done/2026-06-10/p1696_listening_game_public_page.md) · [listening-game-page.tsx](../src/app/pages/listening-game-page.tsx)
 
 ---
+
 
 ## 2026-11-17 [product]: Position movement is built now for stories and points, ahead of the recognition chain; the four open P1683 questions are settled (P1061)
 
