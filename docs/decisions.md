@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [process]: A Codex review gets its diff inline; its isolated copy has no history to diff against
+
+**Context:** The review standard sends Codex the repository to read, and `codex-review` runs it in an isolated clone. On 2026-11-17 the first P1691 run reported "`git diff main...HEAD` failed because this copy lacks history" and reviewed the files without knowing what had changed. The later P1691 and P1689 runs carried the diff inside the prompt and reviewed the change itself; between them they found and reproduced seven defects the earlier rounds had passed, among them two HIGH fail-open paths in the ship tool's disclosure check.
+**Decision:** A Codex review prompt for a branch includes the diff it should judge (`git diff main...HEAD` for the package, `git show <fix commit>` for a re-review), plus the spec path to read for intent. The prompt also says which suites to run; Codex's sandbox cannot start the ones that inspect processes, so the main session runs those itself and states the counts in the prompt.
+**Alternatives rejected:** `--no-isolate` (Codex then runs in the real working tree, which the wrapper isolates against on purpose).
+**Consequences:** Prompts grow by the diff (about 650 lines for a ship-tool round). **Falsifier:** an isolated Codex run that diffs the branch on its own.
+**References:** `~/.agents/bin/codex-review`, `.claude/commands/slava/build/finish/SKILL.md` Step 4b
+
 ## 2026-11-17 [product]: The change-lead session is the product demo, and it waits for our own call with the Listening Game inside it. Founder decision, UNTESTED
 
 **Context:** Reopening outreach to warm change leads (2026-11-02; shelved 2026-11-06 until sales mastermind session 1) hit the objection "what is the product?". The site has had no how-it-works section since P1671 took the five-moves block off /builders on 2026-11-13, and no product demo exists. Working out what the change-lead session would show then exposed a harder gap: its online version cannot run the Listening Game, because the physical lanyard card (two worded sides and a pause band, 2026-11-09) has no online equivalent.
@@ -103,7 +111,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** In the 2026-11-16 run, two subagent reports arrived hours late. On 2026-11-17 the P1694 adversary was told to write its report to a scratchpad file; the harness blocked the subagent from writing it, and the report came back only as messages, the first truncated mid-finding, the rest after a follow-up request. The summary table arrived, but the details and reproductions of its two HIGH findings were in the part that was cut off. `.claude/rules/skills.md` (Subagent I/O) tells agents to have each subagent write its deliverable to a file and to check that the file exists.
 **Decision:** Proposed: while a subagent runs, the main session keeps working and sets a timed fallback (a background wait that ends on the report or after a set time); it reads the agent's messages as well as the expected file, asks for the remainder when a message ends mid-finding, and does the work inline when nothing arrives by the fallback.
 **Alternatives rejected:** Polling in a loop; widening the fan-out to compensate (the global rule forbids it).
-**Consequences:** `.claude/rules/skills.md` says a written file is the reliable return path; this session observed the opposite once. The rule edit needs the claude-md gate and is left as a follow-up. **Falsifier:** subagent report files are written reliably across the next three spawns that request one.
+**Consequences:** `.claude/rules/skills.md` says a written file is the reliable return path; this session observed the opposite once. The rule edit needs the claude-md gate and is left as a follow-up. **Falsifier:** subagent report files are written reliably across the next three spawns that request one. **Seen again the same day:** the P1689 fixer agent finished and went idle without its report reaching the main session; a resend request recovered it, and the main session had already re-run every suite itself (gate 9).
 **References:** `.claude/rules/skills.md` (Subagent I/O), `.claude/rules/epistemic.md` gate 9b
 
 ## 2026-11-17 [process]: The Stop hook re-reads the whole turn for completion words and blocks every stop while subagent edits lack receipts (Status: proposed)
@@ -111,7 +119,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Context:** In the 2026-11-16 run, the Stop hook (`.claude/hooks/verify-before-stop.py`, gate 3) matched completion words (`DONE_RE`: done, shipped, landed and similar) anywhere in the turn's text, not only in the closing message, and, while files edited by subagents had no review receipt, it blocked every attempt to stop. A long orchestration turn always contains such words in status lines, so the block fired on progress notes.
 **Decision:** Proposed: the hook reads completion words from the final assistant message only, and a file whose edit came from a subagent whose package is held with a written hold does not block the stop.
 **Alternatives rejected:** Avoiding the words in status lines (prose discipline already failed); disabling the gate (it is the trigger for the review standard).
-**Consequences:** A hook change needs its own spec and the review standard's Opus adversary (hooks are a gate). **Falsifier:** the next long orchestration session stops without a spurious block.
+**Consequences:** A hook change needs its own spec and the review standard's Opus adversary (hooks are a gate). **Falsifier:** the next long orchestration session stops without a spurious block. **Seen again the same day:** the hook blocked a status turn over `scripts/git-ops.sh` in a worktree while a subagent was still editing it; reviewing a file mid-edit would have produced a receipt for content about to change, so the main session waited for the agent instead.
 **References:** `.claude/hooks/verify-before-stop.py` (`DONE_RE`, gate 3), 2026-10-16 [process] (P1505)
 
 ## 2026-11-16 [product]: The Listening Game is a required preparation step, before the principle (P1685)
