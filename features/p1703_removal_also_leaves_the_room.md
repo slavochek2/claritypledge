@@ -83,8 +83,8 @@ Applies: a function called per request changes, and a backfill runs (`docs/techn
 
 The backfill is one statement, run once at deploy: (removed people in still-open rooms) x at most 300 B, and no requests.
 
-1. **Fits the plan limit today?** Prod's organisation is on the Pro plan (registry row "Supabase, Pro plan"; the usage page, read 2026-11-18, shows 8 GB of disk included per project and no disk overage in the current cycle). Growth = (removals per month + backfill rows) x 300 B on top of the current disk size, so it fits. Requests and egress are unchanged. Log lines are 0 on success, so log ingestion is unchanged. Tests run on self-hosted TEST (registry row "Compute Engine"), billed per VM-hour, not per request: runs per month x 141 requests adds no billed unit. Fits.
-2. **Fits at 10x?** Yes: (removals per month x 10) x 300 B is still far inside the included disk, and VM cost does not scale with requests.
+1. **Fits the plan limit today?** Fits. Prod's plan and current disk are read where the registry rows "Supabase, Free plan" and "Supabase, Pro plan" say usage is read; this spec records only the verdict. The worst case needs no reading: growth is (removals per month + backfill rows) x 300 B. Removal is a manual host action; at 1,000 removals a month that is 1,000 x 300 B = 300 KB, which is 0.06% of the Free row's 500 MB, and on a disk already at its included size it costs 0.0003 GB x $0.125 per GB-month (Supabase's published disk price on the usage page) = under $0.0001. Requests and egress are unchanged. Log lines are 0 on success, so log ingestion is unchanged. Tests run on self-hosted TEST (registry row "Compute Engine"), billed per VM-hour, not per request: runs per month x 141 requests adds no billed unit.
+2. **Fits at 10x?** Yes: 10,000 x 300 B = 3 MB, 0.6% of 500 MB, or under $0.001 a month of disk overage; VM cost does not scale with requests.
 3. Not applicable.
 
 ## Related
