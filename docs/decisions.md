@@ -8,6 +8,46 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [process]: A package with no valid Gemini or Codex run is held, never waived by the agent (2026-11-16 improvement run)
+
+**Context:** In the 2026-11-16/17 autonomous improvement run, the Gemini wrapper's credential-shape scan refused the review payloads of P1691 and P1689, because their test fixtures look like secrets. The review standard's fallback is Codex, and Codex was out of quota until 2026-11-18 14:00. GLM ran but counts only alongside Gemini or Codex. Both packages were built and adversary-reviewed (0 open high or medium findings) and still had no evidence reviewer. The same scan already left P1628 with Codex as its only outside reviewer (2026-11-05 [technical], P1628).
+**Decision:** Both packages stay committed on their branches with a written hold naming the next step and its date. The agent does not edit the payload to get past the scan, and does not waive: the review standard reserves the waiver for the founder, and a general "ship everything" instruction is not read as one.
+**Alternatives rejected:** Trimming the fixture files from the review payload (the scan is the control; editing the payload to pass it is banned). Treating GLM plus an Opus adversary as enough (the receipt refuses it by design).
+**Consequences:** A package whose tests carry secret-shaped fixtures depends on Codex for its evidence review, and so on Codex quota. Recurs whenever both conditions hold. **Falsifier:** a package with secret-shaped fixtures gets a valid Gemini run without any payload edit. Open question for the founder: a scan exemption for files under test directories, or fixtures generated at test time instead of written out.
+**References:** `.claude/commands/slava/build/finish/SKILL.md` Step 4b (Failures), `scripts/review_receipt.py`
+
+## 2026-11-17 [process]: After every ship, re-run the package's own tests on main; a clean cherry-pick runs no pre-commit hook
+
+**Context:** The 2026-11-05 entry (P1635) recorded as disputed whether `git cherry-pick` fires the pre-commit hook: in scratch repos on git 2.54 a clean pick did not, while a conflicted pick's `--continue` did. The real ships of P1692, P1690 and P1693 on 2026-11-16 landed clean picks with no hook run, so their tests never ran against main as it was at landing.
+**Decision:** After each ship, the shipping session runs the package's own tests on main and reports the counts. On 2026-11-17 this was done for the three: the P1690 deploy canary 245 of 245; the P1692 and P1693 unit files 584 of 584 across 12 files; P1694's ship suite 102 PASS on main after its commit-to-main landing.
+**Alternatives rejected:** Relying on the staging-hop CI run alone (it runs after the founder pushes, hours later, and the unit job is not a required check).
+**Consequences:** One test run per ship. A package with an edge-function test needs a runner the unit suite lacks (P1695). This settles, for clean picks on git 2.54, the dispute the 2026-11-05 entry left open.
+**References:** 2026-11-05 [technical] (P1635), `scripts/git-ops.sh` cmd_ship
+
+## 2026-11-17 [process]: To fix an over-limit function, add small helpers called from it, not new files holding the moved logic
+
+**Context:** During the 2026-11-16 run, a fix that moved logic out of an over-limit function into a new file was reported by the quality ratchet as new oversized functions, because a function born over the limit in a new file is judged as new code, and a move that adds code back is judged as split laundering (2026-10-26 entry, P1566 stage 1).
+**Decision:** A fix inside an over-limit function goes into small, separately named helpers (each under 80 lines and complexity 20) called from the existing function, in the same file or a sibling, so the existing function shrinks or stays the same and nothing new is born over the limit.
+**Alternatives rejected:** Moving the whole function to a new file to "start fresh" (judged as a new oversized function); an eslint-disable for the size rule (the ratchet refuses it).
+**Consequences:** Matches what the ratchet already measures; no tool change. **Falsifier:** a fix written this way is still refused by the ratchet.
+**References:** 2026-10-26 [technical] (P1566 stage 1), `scripts/quality-ratchet.cjs`
+
+## 2026-11-17 [process]: Wait for a background subagent with a timed fallback, and look for its report in messages as well as on disk (Status: proposed)
+
+**Context:** In the 2026-11-16 run, two subagent reports arrived hours late. On 2026-11-17 the P1694 adversary was told to write its report to a scratchpad file; the harness blocked the subagent from writing it, and the report came back only as messages, the first truncated mid-finding, the rest after a follow-up request. The summary table arrived, but the details and reproductions of its two HIGH findings were in the part that was cut off. `.claude/rules/skills.md` (Subagent I/O) tells agents to have each subagent write its deliverable to a file and to check that the file exists.
+**Decision:** Proposed: while a subagent runs, the main session keeps working and sets a timed fallback (a background wait that ends on the report or after a set time); it reads the agent's messages as well as the expected file, asks for the remainder when a message ends mid-finding, and does the work inline when nothing arrives by the fallback.
+**Alternatives rejected:** Polling in a loop; widening the fan-out to compensate (the global rule forbids it).
+**Consequences:** `.claude/rules/skills.md` says a written file is the reliable return path; this session observed the opposite once. The rule edit needs the claude-md gate and is left as a follow-up. **Falsifier:** subagent report files are written reliably across the next three spawns that request one.
+**References:** `.claude/rules/skills.md` (Subagent I/O), `.claude/rules/epistemic.md` gate 9b
+
+## 2026-11-17 [process]: The Stop hook re-reads the whole turn for completion words and blocks every stop while subagent edits lack receipts (Status: proposed)
+
+**Context:** In the 2026-11-16 run, the Stop hook (`.claude/hooks/verify-before-stop.py`, gate 3) matched completion words (`DONE_RE`: done, shipped, landed and similar) anywhere in the turn's text, not only in the closing message, and, while files edited by subagents had no review receipt, it blocked every attempt to stop. A long orchestration turn always contains such words in status lines, so the block fired on progress notes.
+**Decision:** Proposed: the hook reads completion words from the final assistant message only, and a file whose edit came from a subagent whose package is held with a written hold does not block the stop.
+**Alternatives rejected:** Avoiding the words in status lines (prose discipline already failed); disabling the gate (it is the trigger for the review standard).
+**Consequences:** A hook change needs its own spec and the review standard's Opus adversary (hooks are a gate). **Falsifier:** the next long orchestration session stops without a spurious block.
+**References:** `.claude/hooks/verify-before-stop.py` (`DONE_RE`, gate 3), 2026-10-16 [process] (P1505)
+
 ## 2026-11-16 [product]: The Listening Game is a required preparation step, before the principle (P1685)
 
 **Context:** The preparation taught the Clarity Meeting Principle and asked people to opt in, but never showed how to use it in a live conversation. A 90-second Listening Game video (speaker, listener, observer; 0 to 10, the lower number counts) now exists. Founder: "the game is how we all personalize using the Clarity practice."

@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 344
+**Next ID:** 353
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -4046,6 +4046,28 @@ In the P1674 session, ask-model openrouter (GLM) failed 5 of 5 review runs with 
 
 ---
 
+## Change the Contested rule on points: smaller side at least a quarter
+
+**ID:** INBOX-340
+**Date:** 2026-11-16
+**Status:** proposed
+**due:** week
+
+Founder approved on 2026-11-16 (P1683 exploration session): a point is Contested only when at least two people are on each side AND the smaller side is at least a quarter of those who took a side. Measured on production the same day: the current rule (two on each side) marks 17 of 38 current points, and 15 of the 23 points with ten or more people, including one at 26 agree and 2 disagree; the new rule leaves 9 of 38. Touches isContested in src/lib/position-spread.ts, the spread's info text ("at least two people on each side") and the P1508 tests; whether the feed's ordering score changes too is undecided. This is a change to a shipped design: file it with /change-request against P1508. Droppable if the founder decides to remove the Contested label instead.
+
+---
+
+## Worktree slot w20 gets test port 7000, which macOS AirPlay holds
+
+**ID:** INBOX-341
+**Date:** 2026-11-16
+**Status:** proposed
+**due:** week
+
+The port scheme in scripts/lib/worktree-port.mjs gives slot w20 port 7000 (5000 + N*100), and macOS AirPlay Receiver holds 7000 as well as 5000. In w20 the standard Playwright config cannot reach its own dev server and the dev launcher refuses to start because something already answers on 7000. Found on P1688, worked around with a short-lived config on port 7100. Do: shift 7000 the way 6000 is already shifted, and add a test that no slot resolves to a port AirPlay holds. Droppable if worktree slots are capped below w20.
+
+---
+
 ## Position buttons overflow a point card inside the 400 px thread panel (window 1024–1279 px)
 
 **ID:** INBOX-342
@@ -4065,5 +4087,95 @@ Found in the P1631 live re-test: in a group thread opened as the 400 px side pan
 **due:** week
 
 Found in the P1631 live re-test: opening a chat with `?m=<id>` for an older point card scrolls to the card while it is still a small loading placeholder; the cards above it then load, grow, and push it off screen (the jump-down button shows). The jump code (`ensureLoaded` / `jumpTo`) is unchanged from main; publishing's own jump was fixed separately in P1631. Fix shape: re-anchor the jump target after the rows above it finish measuring (the list already observes sizes), or reserve card height before load.
+
+---
+
+<!-- Resolved 2026-11-17: fixed in P1685 (afterEach act flush in p1539-loading.test.tsx); 3 of 3 runs on main clean -->
+
+## Reconcile the Verification Threshold definition with the exactly-10 rule
+
+**ID:** INBOX-345
+**Date:** 2026-11-16
+**Status:** proposed
+**due:** week
+
+The definitions page (section Verification Threshold) says 8 or more out of 10 counts as verified understanding, but the stored rule since P272 is exactly 10, and the founder restated on 2026-11-16 (P1683 exploration, decisions.md 2026-11-16 [product]) that verified means the author rated the explain-back exactly 10. Reconcile it through the strategy-docs update skill, which is the gated path for that page; check first whether the 8-or-more wording describes a different thing (the two-party live threshold) before changing it. Found while recording the P1683 rulings. Droppable if the founder confirms the two numbers are meant for two different things and the page already says so clearly.
+
+---
+
+## Deploy wrapper ignores unknown flags and treats any non-prod --env value as TEST
+
+**ID:** INBOX-346
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+scripts/deploy-functions.sh drops flags it does not know (so --help deploys every function to the active TEST server), and any --env value other than prod, for example a typo like prdo, silently deploys to TEST. Found in P1690 (a Non-Goal there). Do: refuse unknown flags and refuse an --env value outside an explicit list, with canary cases in scripts/test-p1690-deploy-args.sh. Droppable if the wrapper is replaced by a caller-checked entry point.
+
+---
+
+## deploy-functions.sh --check-secrets exits 1 when nothing is missing
+
+**ID:** INBOX-347
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+The missing-secrets list is built with printf, sort and tr, which turns an empty list into one space, so the emptiness test fails: the command exits 1 and prints a blank instead of none. Reproduced in isolation during P1690; test-p1602 prints the exit code but does not assert it. Do: trim the list before the test and assert exit 0 on a complete set. Done when a run with every secret present exits 0.
+
+---
+
+## Wire the P1690 deploy canary and the ship-embargo canary into pre-commit
+
+**ID:** INBOX-348
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+scripts/test-p1690-deploy-args.sh and scripts/test-p1464-ship-embargo.sh run only by hand, so a change to the deploy wrapper or to the ship tool can break them unnoticed. Do: add each to pre-commit-checks.sh, triggered only when its target script is staged (the way test-p890 runs when deploy-functions.sh is staged), and prove the wiring fires by staging a deliberately broken copy. The embargo suite took 78 seconds before P1689; measure it again first. Droppable if CI runs both on every push.
+
+---
+
+## Worktree .env.development.local symlink makes ship and park keep finished slots
+
+**ID:** INBOX-349
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+setup-worktree.sh adds a .env.development.local symlink to every slot (P1557), and ship and park count it as uncommitted work, so a finished slot is never removed and shows up as stranded. Do: add it to the same ignore list as the other setup symlinks, or have the cleanup check skip files setup-worktree itself creates. Done when a shipped slot with only that symlink is removed by tidy.
+
+---
+
+## test-p924-sigterm-orphan-reap.sh skips and exits 0
+
+**ID:** INBOX-350
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+The canary prints SKIP when the ship finishes before the first landed sha is seen, then exits 0, so a fast machine reports it green without exercising the orphan path. Do: slow the ship deterministically (SHIP_DEBUG_SLEEP_SECS already exists) so the path is always reached, and make a skip exit non-zero. Done when three runs in a row exercise the path.
+
+---
+
+## Supply-chain audit workflow cannot find its own open issue
+
+**ID:** INBOX-351
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+.github/workflows/supply-chain-audit.yml looks its issue up with gh issue list --author app/github-actions, which does not match how the issue's author comes back, so every failing run opens or misses instead of updating issue 30. Its canary test-p1567-supply-chain-alert.sh stubs gh with the same string, and test-producer-author-bind.sh leaves this workflow off its hand-kept list. Do: use the --json author plus jq lookup the other alert workflows use, make the canary check the real output shape, add the workflow to the list. Takes effect after a push.
+
+---
+
+## Close about 27 inbox entries and specs P1044, P742, P612, P1654 that look already resolved
+
+**ID:** INBOX-352
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+The 2026-11-16 improvement run checked these against code and found them done. Public entries: INBOX-178, 269, 205, 219, 175 item 1, 66, 261, 259, 136, 332, 236, 185, 323, 131, 216, 69, 55 (re-run half), 247 (half). Specs: P1044 fixed by 9c0f900e9, P742 documented in docs/technical/authentication.md, P612 superseded by P818, P1654 fixed in 24835cffa with one box left to tick. Private entries are listed in the run's inbox report in the private audits folder. Do: close each with a decisions.md graduation line, spot-checking the evidence first. Droppable entry by entry if a check shows it still open.
 
 ---

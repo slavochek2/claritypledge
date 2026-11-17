@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-16
+Last updated: 2026-11-17
 
 ---
 
@@ -462,6 +462,9 @@ Last updated: 2026-11-16
 
 ## Infrastructure / Process
 
+- **P1694** (Nov 17) Ship records a commit as landed without applying it — "empty" is read from git's state (paused pick, nothing unmerged, index equals HEAD), never from words in git's output; a resume checks untracked and ignored files and runs even while the spec is unmerged; landed through commit-to-main because a branch editing git-ops.sh cannot ship itself
+- **P1693** (Nov 16) Function test and type repairs — a cherry-pick ship ran no pre-commit hook, so its tests were re-run on main afterwards (584 of 584)
+- **P1690** (Nov 16) Two deploy scripts report success, or fail, for the wrong reason — a parse loop that kept only the last function name; every name now passes the bare-name and folder checks before the prod token is asked for
 - **P1677** (Nov 13) Offline strip episodes in Mixpanel — an episode must follow the strip's STATE, not its text (the saved-copy age changes each minute); hold events that end in a hidden tab (metered-services rule 3).
 - **P1666** (Nov 11) Unit tests read the developer's env files — vitest loads `.env.local`, so a test passed locally and failed in CI for two days; unit runs now load no env file and drop shell `VITE_*` exports, and a child-process test proves it in CI (a canary alone stays green where no env file exists)
 - **P1648** (Nov 26) /live prod smoke false alarm — a page that stops the recorder on mount can prove only "bundle loaded and ran", never "/record posted"; "requested", "downloaded ok" and regex drift guards each passed a broken recorder in review — see decisions.md 2026-11-06 [technical]
