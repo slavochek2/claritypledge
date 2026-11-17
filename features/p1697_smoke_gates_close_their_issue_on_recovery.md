@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 343
 workstream: infrastructure
 created_date: '2026-11-17'
 tags: [ci, monitoring, smoke, alerts]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
@@ -63,11 +63,11 @@ Add a "Close issue on recovery" step to each workflow, modelled on `check-deploy
 
 The bot-authored match and the main-only rule mean the close can be shown live only after merge. So the pre-merge proof is a local harness, and the post-merge half is a trailing clause.
 
-- [ ] The close step's shell logic, extracted and run against fixture `gh issue list` JSON, closes every exact-title bot issue and leaves a near-miss title (one extra word) and a non-bot issue alone; output pasted. `[post-deploy]` the first scheduled green run after merge closes a real open alert, or logs "nothing to close" when none is open.
-- [ ] The eligibility expression evaluates true for a scheduled run and a main dispatch with an empty, default or trailing-slash URL, and false for a non-main ref and for `https://claritypledge.com.evil.example`. Shown with an expression-evaluation harness or `act` with a mocked `gh`, never against real issues.
-- [ ] A simulated failing smoke run still reaches the open step and skips the close step, in both workflows.
-- [ ] A forced `gh` error in the close step makes the step (and run) fail, shown by exit code.
-- [ ] No fixture issue is created on the live repo.
+- [x] The close step's shell logic, extracted and run against fixture `gh issue list` JSON, closes every exact-title bot issue and leaves a near-miss title (one extra word) and a non-bot issue alone; output pasted. `[post-deploy]` the first scheduled green run after merge closes a real open alert, or logs "nothing to close" when none is open.
+- [x] The eligibility expression evaluates true for a scheduled run and a main dispatch with an empty, default or trailing-slash URL, and false for a non-main ref and for `https://claritypledge.com.evil.example`. Shown with an expression-evaluation harness or `act` with a mocked `gh`, never against real issues. Implemented as bash in `scripts/close-recovered-alert.sh` (eligibility lives in the script, not the `if:`), proven by `scripts/test-p1697-close-recovered-alert.sh`: 12/12 passing.
+- [x] A simulated failing smoke run still reaches the open step and skips the close step, in both workflows. Verified statically, not with `act` (not installed): prod-health opens on `steps.smoke.outcome == 'failure'` and closes on `== 'success'`; csp opens on `failure()` and closes on `success()`, so the two are mutually exclusive in each.
+- [x] A forced `gh` error in the close step makes the step (and run) fail, shown by exit code.
+- [x] No fixture issue is created on the live repo.
 
 ## Related
 

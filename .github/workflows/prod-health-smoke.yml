@@ -96,3 +96,17 @@ jobs:
             gh issue create --title "$TITLE" \
               --body "The scheduled prod health smoke gate failed: a non-allowlisted console error or HTTP>=400 appeared on a public route. Triage from the run log (redacted detail): revert / fix-forward / add the pattern to the allowlist in e2e/helpers/prod-health.ts. Run: $RUN_URL"
           fi
+
+      # P1697: close this gate's alert once it passes again, so /day never reports a recovered
+      # gate as failing. Eligibility (schedule, or a main dispatch against prod) and the
+      # exact-title + bot-author match live in the script and its test. No continue-on-error:
+      # a failed close turns the run red, which means only "the alerting itself broke".
+      - name: Close the issue on recovery
+        if: steps.smoke.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          GIT_REF: ${{ github.ref }}
+          INPUT_URL: ${{ github.event.inputs.url }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: ./scripts/close-recovered-alert.sh "Prod health smoke gate failing on prod"
