@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 346
 workstream: events
 created_date: '2026-11-17'
 tags: [events, host, rounds, removal]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: medium
 driver: anomaly
 spec_review_hash: 8a45bb03b4a6acc77ba416b1f81f58c53189367d903db3bb8897092574337263
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-17
 ---
 
 # P1703: A person the host removes from an event also leaves the room
