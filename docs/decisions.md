@@ -8,6 +8,39 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [product]: The change-lead session is the product demo, and it waits for our own call with the Listening Game inside it. Founder decision, UNTESTED
+
+**Context:** Reopening outreach to warm change leads (2026-11-02; shelved 2026-11-06 until sales mastermind session 1) hit the objection "what is the product?". The site has had no how-it-works section since P1671 took the five-moves block off /builders on 2026-11-13, and no product demo exists. Working out what the change-lead session would show then exposed a harder gap: its online version cannot run the Listening Game, because the physical lanyard card (two worded sides and a pause band, 2026-11-09) has no online equivalent.
+**Decision:**
+1. **The change-lead group session is the product demo.** Points are made *during* the discussion (P1631's Clarify); the letter comes after, as the second act. This is what P1631 §Problem already said on 2026-11-05 ("A letter cannot help at a first meeting"); the private journey note that made the letter the main event is corrected.
+2. **Format: fishbowl, no breakout rooms,** as 2026-09-28 already ruled for online events. One pair talks with roles while the others watch and take positions. Positions on 3 to 5 contested points are taken during preparation, so the room opens on visible splits rather than a warm-up. Run of show: the founder's opening (who he is, why, what they will see and leave with), the positions, 2 to 3 fishbowl rounds with Clarify pressed every few minutes, a "what just happened" walk-through of the points and spread, and a wrap-up offering a one-on-one. Timings are kept with the private journey note.
+3. **A guest needs one device and records nothing.** The founder's phone captures the call (P1631 is built for one mic with no speaker names; untested on call audio from a laptop speaker). Requiring headphones or a second device was rejected: each requirement is a reason not to come.
+4. **The online session needs our own call with the game inside it:** each person's card on their own video tile, flipped by them, a pause, and the live transcript and points, all behind one link. The workarounds were rejected without a test, on the founder's principle that **the session demonstrates an experience the lead will have to run with their own team, so they will feel every friction point acutely**:
+   - **Roles said aloud.** The card works because it is always visible, the partner acknowledges it, the wearer flips it, and anyone can pause.
+   - **A handwritten card held to the camera.** It is visible only while held up, and looks homemade in a demo.
+   - **Meet custom backgrounds as cards.** Everyone downloads the images and uploads them before the call, then uses the effects panel to flip mid-conversation, and company admins may block them.
+   - **Only the founder wearing the real card.** It does not show how a team would do it, and implies shipping cards.
+   - **A Meet add-on.** Each person installs it from Google's store, it cannot touch video tiles, and transcription still runs separately.
+5. **Order:** P1688 step one (calls running beside the room's capture on real phones), then a step two (card on the tile, self-flip, pause), then the change-lead invitations go out with a date. In parallel: P1631 reaches prod and runs its 3 real conversations, the 10 names are picked, and a product demo film is planned in a separate session.
+6. **No one-to-one call campaign with change leads in the meantime.** Each call is one-off, there is no follow-on to offer while the group session is blocked, and the founder's time per call (preparation questions included) exceeds what one call can show. P1631's 3 real conversations are still needed, as product proof.
+7. **Parked as ideas, built when a lead or attendee asks for them:**
+   - a labelled bot that posts points every few minutes (tested first by the host pressing Clarify every few minutes);
+   - a live shared canvas for a chat (pen input, visible cursors, jump to a person);
+   - dynamic digital badges outside our own call;
+   - breakout rooms the host can observe.
+**Alternatives rejected:** see 4 and 6. Physical workshops abroad: travel costs, and they do not answer the online question.
+**Prediction check:** the 2026-11-10 prediction that something new would delay the change-lead invitations has come true in its delay half (n=1). This time the reason is stated, and the wait is tied to a build test rather than to further reflection.
+**Falsifier:** P1688 step one fails on real phones ⟹ online group sessions are not the near-term channel, and the plan is decided again. Once the call and card exist, the 2026-11-02 falsifier applies unchanged: of the first 10 invited, fewer than 3 join.
+**Consequences:**
+- P1688 needs a step-two spec (card on the tile, flip, pause).
+- goals.md §Current bet and lean-canvas §Channels need this through /docs-strategy-update.
+- The site's missing product section is covered first by the demo film, not by new page copy.
+- The private journey note carries the details.
+**References:** [p1631](../features/p1631_mirror_drafts_reviewable_point_set.md) · [p1688](../features/p1688_in_app_audio_video_calls_in_rooms.md) · [docs/events/badges/](events/badges/) · 2026-11-09 [product] (role card) · 2026-09-28 [product] (online fishbowl) · 2026-11-02, 2026-11-06, 2026-11-10 [product]
+**Details private:** .private/docs/decisions.md 2026-11-17 "The change-lead session waits for our own call: named contacts, list and costs"
+
+---
+
 ## 2026-11-17 [technical]: Smoke gates close their own alert on recovery; only a schedule or a main run against prod may close, and the author filter takes the other spelling (P1697)
 
 **Context:** Two prod alert issues stayed open 11 days after their gates went green, so `/day` reported prod as failing every morning. The 2026-07 alert-only decision already required auto-close on recovery; only the drift workflow had it.
