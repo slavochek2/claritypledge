@@ -87,10 +87,10 @@ Hypothesis entry; a prior-art note (`docs/research/`); simulation code + data + 
 ## Done-When
 
 - [x] H-CheapGapReveal recorded in `docs/hypotheses.md` as UNTESTED with a falsifier
-- [ ] Prior-art note lists every cited paper as read (or marked unread), and states criterion-1 verdict
+- [x] Prior-art note lists every cited paper as read (or marked unread), and states criterion-1 verdict — `docs/research/p1702/PRIOR-ART.md`. Verdict: (a) post-perception check COVERED (Miyagawa, Miyahara & Sekiguchi; Han, Perret & Powers 2021); (b) pre-move check vs forgiveness PARTIAL — Han, Santos, Lenaerts & Pereira 2015 (*Sci. Rep.* 5:9312) already has the cheap-first-stage / costly-fix-when-unsure structure, one-shot and noise-free; (c) committed-checker threshold PARTIAL — committed-TFT critical mass exists (He et al. 2024), none for a check strategy or under noise. Paper track continues, novelty claim narrowed to the understanding-error check in a noisy repeated game and its committed-minority threshold vs committed TFT and badge-only. Key risk carried into stage 2: a misreading may be indistinguishable from a slip to the partner, so the check could reduce to "pay for a lower error rate" — tested by an equal-cost untargeted-error-reduction control.
 - [ ] Simulation reproduces from one command with a fixed seed; figures regenerate from committed data
 - [ ] Criterion-2 and criterion-3 verdicts written, with the numbers
-- [ ] Engine reconciliation note delivered to the P1687 session
+- [x] Engine reconciliation note delivered to the P1687 session — written beside the film briefs in the private events folder (2026-11-17); no live P1687 session was identifiable to message
 - [ ] Follow-up spec(s) for explorable / preprint filed only if criteria pass; otherwise refutation recorded
 
 ## Open Questions
