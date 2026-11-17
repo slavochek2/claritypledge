@@ -37,7 +37,8 @@ export const CANVAS_REPLY_HINT = 'Reply, or upload a file';
 export const CANVAS_OWN_AI_PROMPT = [
   'Help me draft my Clarity Canvas: nine short sections about my business that other people can agree or disagree with.',
   '',
-  'Use only what I have actually told you or shared with you. If you know little about my business, first ask me up to five short questions (who I sell to, what I sell, for how much, what is hard right now), wait for my answers, then write it.',
+  // P1658 founder test: an owner's AI that read one file asked five questions instead of looking. It looks first, then asks only about gaps.
+  'First look through what you can reach about my business: our past chats, your memory of me, files you can open. Not the web; where sources disagree, the newest wins. Ask me up to five questions only about what is still missing, wait for my answers, and write it.',
   '',
   'Rules:',
   globalRulesText('owner'),
