@@ -5,8 +5,8 @@ disclosure: public
 rank: 344
 created_date: '2026-08-13'
 tags: [recognition-chain, points, positions, stories]
-delivery_stage: dev
-pipeline_ran: [create-spec, create-spec.2, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, create-spec.2, dev, ship]
 exec_model: opus
 exec_effort: high
 driver: heuristic
