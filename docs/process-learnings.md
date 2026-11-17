@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 353
+**Next ID:** 356
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -4177,5 +4177,38 @@ The canary prints SKIP when the ship finishes before the first landed sha is see
 **due:** week
 
 The 2026-11-16 improvement run checked these against code and found them done. Public entries: INBOX-178, 269, 205, 219, 175 item 1, 66, 261, 259, 136, 332, 236, 185, 323, 131, 216, 69, 55 (re-run half), 247 (half). Specs: P1044 fixed by 9c0f900e9, P742 documented in docs/technical/authentication.md, P612 superseded by P818, P1654 fixed in 24835cffa with one box left to tick. Private entries are listed in the run's inbox report in the private audits folder. Do: close each with a decisions.md graduation line, spot-checking the evidence first. Droppable entry by entry if a check shows it still open.
+
+---
+
+## Correct the Subagent I/O rule: a background subagent was blocked from writing its report file
+
+**ID:** INBOX-353
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+.claude/rules/skills.md (Subagent I/O) says to have each background subagent write its deliverable to a file. On 2026-11-17 the harness blocked the P1694 adversary from writing its report to the scratchpad, and the report came back only as messages, the first truncated. See decisions.md 2026-11-17 on waiting for subagents. Do: run the claude-md gate, then reword the rule to read both the file and the agent's messages and to ask for the rest when a message ends mid-finding. Droppable if the next three spawns that ask for a report file all write it.
+
+---
+
+## Spec the Stop hook change: completion words from the final message only
+
+**ID:** INBOX-354
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+decisions.md 2026-11-17 (Status: proposed): the Stop hook gate 3 matches completion words anywhere in the turn, so long orchestration turns are blocked on progress notes while subagent edits lack receipts. Do: file a spec with create-spec (reading only the final assistant message; whether a held package's subagent edits should block), with cases in scripts/test-p1505-review-gate.sh for the legitimate flows; hooks are a gate, so the Opus adversary applies. Droppable if the next long orchestration session stops without a spurious block.
+
+---
+
+## P1694 low findings set aside at landing
+
+**ID:** INBOX-355
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+Set aside at the P1694 landing (all LOW, none changes what lands): the test file's AF header lists AF-a to AF-n but not AF-o to AF-s; the HEAD read before each pick in the ship loop has no failure message (a failure exits non-zero with nothing recorded); af_check_stopped does not assert the pick is still paused, so scenarios repeat it inline; the AF-h and AF-l stand-in gits match their trigger by argument position; the resume check runs one git status per 200 paths. Do them together in one small pass on scripts/test-git-ops-ship.sh and scripts/git-ops.sh. Droppable item by item.
 
 ---
