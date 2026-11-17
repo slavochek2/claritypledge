@@ -118,6 +118,7 @@ describe('P1351 — Tools is first and open by default', () => {
     const tools = buildLinksMenu().filter(e => e.group === 'tools');
     expect(tools.map(e => [e.label, e.to])).toEqual([
       ['Learn the Clarity process', '/prepare'],
+      ['Listening Game', '/game'],
       ['Ready', '/ready'],
       ['Clarity meeting principle', '/meet'],
       ['Transcribe', '/transcribe'],

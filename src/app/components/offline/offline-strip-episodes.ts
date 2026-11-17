@@ -28,7 +28,7 @@ export const KNOWN_TOP_LEVEL_SEGMENTS: readonly string[] = [
   'pricing', 'privacy-policy', 'ready', 's', 'sessions', 'settings', 'sign-pledge', 'signup', 'stake', 'story',
   'terms-of-service', 'topics', 'transcribe', 'understanding-champions', 'video',
   // Declared outside App.tsx: src/app/routes/code-routes.tsx, template-routes.tsx, use-case-landings.ts.
-  'connect', 'partner-template', 'hospitals', 'communities', 'change-managers',
+  'connect', 'game', 'partner-template', 'hospitals', 'communities', 'change-managers',
 ];
 
 const CACHED_PREFIX = stripCachedText('just now');

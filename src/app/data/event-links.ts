@@ -216,6 +216,8 @@ export function letterPath(code: string): string {
 export const STANDARD_TOOL_ENTRIES: ReadonlyArray<{ label: string; to: string; newTab?: boolean; featured?: boolean }> = [
   // P1402: the Clarity process without an event — the explainer anyone can open (founder, 2026-10-04).
   { label: 'Learn the Clarity process', to: '/prepare' },
+  // P1696: the public Listening Game page.
+  { label: 'Listening Game', to: '/game' },
   { label: 'Ready', to: '/ready' },
   { label: 'Clarity meeting principle', to: '/meet' },
   { label: 'Transcribe', to: '/transcribe' },
