@@ -120,7 +120,7 @@ Applies because this adds a per-user Supabase read on every signed-in `/events/l
 - [ ] The founder has seen screenshots at phone (375px and 320px) and desktop width before ship.
 - [x] Regression test passes: `e2e/p1698-my-events-tab.spec.ts` *(final run 2026-11-17 with P1603 + P1060 specs, --retries=0, JSON reporter: 34 expected, 0 unexpected, 0 flaky; red before the fix: 6 of 10 failed for "no My events tab")*
 - [x] No console errors on `/events/list` in any of its three tabs. *(e2e smoke; the filter's only exemption, unresolvable banner hosts in TEST data, was proven not to swallow a real error by an injected-error control)*
-- [ ] A past event (completed, or started) shows "You Hosted" / "You Went" instead of the present tense, on every list that uses the event card; cancelled keeps "You Were …". (Founder decision 2026-11-17.)
+- [x] A past event (completed, or started) shows "You Hosted" / "You Went" instead of the present tense, on every list that uses the event card; cancelled keeps "You Were …". (Founder decision 2026-11-17.) *(unit: src/tests/p1698-event-card-badges.test.tsx, 10 cells, red 4 then green; e2e: past cards in My events read "You Hosted"; the change is inside EventCard, which every list renders; review round 4: Gemini + GLM, Codex missing)*
 
 ## Resolution
 
@@ -130,6 +130,8 @@ Applies because this adds a per-user Supabase read on every signed-in `/events/l
 
 **Review:** spec review Gemini + GLM (2 of 2). Code review in three rounds: Gemini (3 of 3), GLM (3 of 3), `/finish code` criteria subagent (2 of 2), a visual-QA subagent on screenshots only (1 of 1); Codex missing (usage limit). 7 findings fixed. Set aside with reasons: a failed counts read fails the whole personal read (same rule as the global lists); no deadline on the personal read and no in-page retry when only the personal read fails (a hang or failure is today's page; reload recovers); registered rows past a 1000-row cap drop by RSVP date; WAI-ARIA tab semantics (older gap); the mock's copied 12h constant.
 
-**Known observations, not changed:** on phones under 400px the Upcoming and Past pills drop to smaller text once My events appears (founder to judge on screenshots). One unexplained 500 during a run while other worktrees loaded the shared TEST server; it did not recur in 4 repeats, and the smoke test now names the URL of any status 400 or above.
+**Round 3 (founder decision 2026-11-17):** past events read "You Hosted" / "You Went" on the event card, by the card's own past rule (completed, or started), shared with the attended count. An event that started under 12 hours ago still sits under Upcoming but reads "You Hosted · attended".
+
+**Known observations, not changed:** the home page's next-events rail never passes the viewer's RSVP to the card, so a registered guest sees no "You're Going" there (also on main; found in review round 4). on phones under 400px the Upcoming and Past pills drop to smaller text once My events appears (founder to judge on screenshots). One unexplained 500 during a run while other worktrees loaded the shared TEST server; it did not recur in 4 repeats, and the smoke test now names the URL of any status 400 or above.
 
 **Files:** `src/app/prototypes/events/components/EventsList.tsx`, `src/app/data/event-list-reads.ts`, `src/app/data/events-service{.interface,-real,-mock}.ts`. **Tests:** `e2e/p1698-my-events-tab.spec.ts`, `src/tests/p1698-my-events-tab.test.tsx`, `src/tests/p1698-fetch-my-events.test.ts`, plus fixture stubs in `src/tests/p1586-events-list-contract.test.tsx` and `src/tests/p1545-events-cm-card.test.tsx`.
