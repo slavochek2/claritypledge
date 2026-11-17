@@ -1,22 +1,22 @@
 ---
-status: qa
+status: all-done
 type: story
 disclosure: public
 rank: 344
 created_date: '2026-08-13'
 tags: [recognition-chain, points, positions, stories]
-delivery_stage: ship
 pipeline_ran: [create-spec, create-spec.2, dev, ship]
 exec_model: opus
 exec_effort: high
 driver: heuristic
 spec_review_hash: f50027bb28dfc17e28e3050d993fe156aed70e6f2ef8869e8e122b78cfd4b356
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-17
 ---
 
 # P1061: Show position movement on a point or story
 
-> **Whose intention this serves:** [p1055](p1055_norm_measurement_instrument.md) §Intention owns it. In short: make visible whether people's positions move, and whether they move more after their understanding of a story was verified.
+> **Whose intention this serves:** [p1055](../../p1055_norm_measurement_instrument.md) §Intention owns it. In short: make visible whether people's positions move, and whether they move more after their understanding of a story was verified.
 
 ## Problem
 
@@ -36,8 +36,8 @@ spec_review_vendors: [codex, gemini, openrouter]
 
 ## Decisions already made
 
-- [decisions.md](../docs/decisions.md) 2026-11-16 [product] "A story carries one count of verified people who moved; where and how they moved belongs to the point (P1683 exploration)": story names nobody; one count on the story; arrows only on a single point; least text, explanations behind info buttons; the word "people", never "readers"; "verified" = the author rated the explain-back exactly 10; a person can be verified on several stories, each a line in their log with the story linked; no narrated notes, no ratings; filter by people, events, groups and dates, no place; one column; linked points keep their look and links; no white buttons.
-- [decisions.md](../docs/decisions.md) 2026-11-17 [product] "Position movement is built now for stories and points, ahead of the recognition chain": "moved" = any change of position; the point page names who changed; the verified against not-verified comparison stays, not-verified withheld under 5; the prototype's words ship as seen, except three sentences corrected minimally (UI Contract); a verified person who kept their position counts as "same" in the bars. This narrows 2026-11-01 [product] (3): the canvas half of P1061 still comes with [P1574](p1574_canvas_partner_story_requests.md)'s link and is not part of this build.
+- [decisions.md](../../../docs/decisions.md) 2026-11-16 [product] "A story carries one count of verified people who moved; where and how they moved belongs to the point (P1683 exploration)": story names nobody; one count on the story; arrows only on a single point; least text, explanations behind info buttons; the word "people", never "readers"; "verified" = the author rated the explain-back exactly 10; a person can be verified on several stories, each a line in their log with the story linked; no narrated notes, no ratings; filter by people, events, groups and dates, no place; one column; linked points keep their look and links; no white buttons.
+- [decisions.md](../../../docs/decisions.md) 2026-11-17 [product] "Position movement is built now for stories and points, ahead of the recognition chain": "moved" = any change of position; the point page names who changed; the verified against not-verified comparison stays, not-verified withheld under 5; the prototype's words ship as seen, except three sentences corrected minimally (UI Contract); a verified person who kept their position counts as "same" in the bars. This narrows 2026-11-01 [product] (3): the canvas half of P1061 still comes with [P1574](../../p1574_canvas_partner_story_requests.md)'s link and is not part of this build.
 
 ## Definitions (the counting rules)
 
@@ -170,4 +170,4 @@ Other words, unchanged, include "N moved", "Verified", "Not verified", "switched
 - Rulings: decisions.md 2026-11-16 [product], 2026-11-17 [product], 2026-11-01 [product] (narrowed)
 - Today's surfaces: `src/app/components/feed/feed-story-card.tsx` (rendered by `feed-page.tsx`, `stake-page.tsx`, `pinned-story.tsx` and three chat cards), `src/app/components/social/StoryCardDetail.tsx`, `src/app/components/social/point-positions-block.tsx`, `src/app/pages/point-detail-page.tsx`, `src/app/components/shared/position-spread.tsx`
 - Data: `point_position_history` and `story_verifications` (`20260204_stories_points_calibration.sql`), exactly-10 (`20260218_p272_accuracy_achieved_threshold.sql`), history visibility (`20260325120000_p586_visibility_privacy_foundation.sql`), verification visibility (`20260910110000_p1278_b_live_verification_visible_to_its_participants.sql`), letter rows (`20260403224331_p581_clarity_letters.sql`), agent accounts (`20260819120000_p1104_agent_accounts.sql`), group membership visibility (`20260724120000_p1010_organizations_membership.sql`), point versions (`20260424120000_p800_point_supersede.sql`), the badge count (`update_story_understood_count`, `20260222120000_p413_nullable_story_verifications.sql`)
-- Related: [P1574](p1574_canvas_partner_story_requests.md) (carries the canvas half), [P1055](p1055_norm_measurement_instrument.md), [P1559](p1559_follow_through_record.md)
+- Related: [P1574](../../p1574_canvas_partner_story_requests.md) (carries the canvas half), [P1055](../../p1055_norm_measurement_instrument.md), [P1559](../../p1559_follow_through_record.md)
