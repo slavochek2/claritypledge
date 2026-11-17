@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 345
 severity: medium
@@ -10,13 +10,13 @@ exec_model: opus
 exec_effort: high
 tags: [events, hidden-events, p1603, events-list]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, fix, ship]
 spec_review_hash: 35f78bb6781c75f2101cb9498dd7a0c8483b8d896dd6f17aee6fd153f3add1b3
 spec_review_vendors: [gemini, openrouter]
 date_resolved: 2026-11-17
 root_cause: P1603 filtered hidden events out of every global list by design but never rendered the personal view it promised; the two personal reads existed with no callers.
 resolution: Third tab My events on the standalone /events/list page only, from one new getMyEvents read (hosted + registered, hidden included, 3 requests signed in, 0 signed out), keyed by the session-verified viewer.
+completed_at: 2026-11-17
 ---
 
 # P1698: A hidden event cannot be found by its own host or by the people registered for it
@@ -29,7 +29,7 @@ P1603 promised that a hidden event stays visible in "the host's own events" and 
 
 ## Root Cause
 
-Every rendered list (the global Upcoming and Past reads) filters hidden events out explicitly, including for the host. This is deliberate, per [decisions.md](../docs/decisions.md) 2026-11-03 [technical]: a hidden event must not take a public event's place in a global list. That entry only holds together if a personal view exists, and none does:
+Every rendered list (the global Upcoming and Past reads) filters hidden events out explicitly, including for the host. This is deliberate, per [decisions.md](../../../docs/decisions.md) 2026-11-03 [technical]: a hidden event must not take a public event's place in a global list. That entry only holds together if a personal view exists, and none does:
 
 - `getUserRegisteredEvents` and `getUserHostedEvents` exist (`src/app/data/events-service-real.ts:1030`, `:1075`) and apply no `is_hidden` filter. Grep of `src/` for either name outside the service, its interface and its mock: **no callers**.
 - The P1603 AC "the host and an RSVP'd person still see it ... in their own views, marked hidden" was checked on the strength of the event page alone (`EventDetail.tsx:840`).
