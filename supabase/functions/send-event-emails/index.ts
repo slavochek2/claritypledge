@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { removedResponse } from '../_shared/removal-email.ts';
 import {
   buildCancellation,
   buildConfirmation,
@@ -370,7 +371,15 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 /** The request body. `userId` names the rsvp recipient when the host adds someone from the waiting list (P1529 D24). */
-type EmailRequest = { action: 'rsvp' | 'cancel' | 'uncancel' | 'update'; eventId: string; userId?: string };
+type EmailRequest = { action: 'rsvp' | 'cancel' | 'uncancel' | 'update' | 'removed'; eventId: string; userId?: string };
+
+/** cancel, uncancel and update are the event host's alone; every other action passes here (P1700: extracted unchanged from
+ *  serve() so the entry point does not grow). */
+async function hostMayRun(supabase: SupabaseClient, action: EmailRequest['action'], eventId: string, caller: string): Promise<boolean> {
+  if (action !== 'cancel' && action !== 'uncancel' && action !== 'update') return true;
+  const { data: eventCheck } = await supabase.from('events').select('host_id').eq('id', eventId).single();
+  return !!eventCheck && eventCheck.host_id === caller;
+}
 
 serve(async (req: Request) => {
   const corsHeaders = buildCorsHeaders(req);
@@ -428,18 +437,14 @@ serve(async (req: Request) => {
       );
     }
 
-    if (action === 'cancel' || action === 'uncancel' || action === 'update') {
-      const { data: eventCheck } = await supabaseClient
-        .from('events')
-        .select('host_id')
-        .eq('id', eventId)
-        .single();
-      if (!eventCheck || eventCheck.host_id !== authenticatedUserId) {
-        return new Response(
-          JSON.stringify({ error: 'Forbidden' }),
-          { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
-        );
-      }
+    // P1700: the removal email (_shared/removal-email.ts) answers for itself: 400 / 403 / 502 / 200.
+    if (action === 'removed') return await removedResponse(supabaseClient, eventId, authenticatedUserId, targetUserId, corsHeaders);
+
+    if (!(await hostMayRun(supabaseClient, action, eventId, authenticatedUserId))) {
+      return new Response(
+        JSON.stringify({ error: 'Forbidden' }),
+        { status: 403, headers: { 'Content-Type': 'application/json', ...corsHeaders } },
+      );
     }
 
     switch (action) {

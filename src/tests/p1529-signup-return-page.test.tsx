@@ -61,6 +61,9 @@ vi.mock('@/app/data/event-waitlist', () => ({
   joinWaitlist: (...a: unknown[]) => mockJoin(...a),
   getMyWaitlistEntry: (...a: unknown[]) => mockOnList(...a),
   leaveWaitlist: vi.fn(),
+  // P1700: the page reads the viewer's own removal status; nobody in these tests was removed.
+  getMyEventRemoval: () => Promise.resolve(false),
+  isRemovalRefusal: () => false,
 }));
 
 // ── Analytics ─────────────────────────────────────────────────────────────────

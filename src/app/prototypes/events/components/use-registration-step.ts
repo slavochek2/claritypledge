@@ -28,6 +28,8 @@ export function useRegistrationStep(opts: {
   onRegistered: () => void;
   onRefused: (refusal: 'full' | 'cancelled') => void;
   onSessionLost: () => void;
+  /** P1700: the server refused with the removal messages; the page re-reads the removal status and shows its notice. */
+  onClosed?: () => void;
   /** The event is full for this person: the same form joins the waiting list. */
   full?: boolean;
   /** A flow that asks, for someone without a place: read whether they are on the waiting list. Absent in every other flow. */
@@ -62,6 +64,7 @@ export function useRegistrationStep(opts: {
           setAsking(false);
           return true;
         }
+        if (listed === 'closed') { setAsking(false); opts.onClosed?.(); return true; }
         if (listed === 'cancelled') { setAsking(false); opts.onRefused('cancelled'); return true; }
         if (listed !== 'not_full' && listed !== 'registered') { toast.error("Couldn't join the waiting list. Please try again."); return false; }
         // 'not_full' or 'registered': a place is free after all, so register below
@@ -77,6 +80,10 @@ export function useRegistrationStep(opts: {
         setFilled(true);
         setAsking(false);
         opts.onRefused('full');
+        return true;
+      } else if (result === 'closed') {
+        setAsking(false);
+        opts.onClosed?.();
         return true;
       } else if (result === 'cancelled') {
         setAsking(false);

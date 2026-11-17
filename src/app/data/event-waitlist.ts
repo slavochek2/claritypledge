@@ -12,7 +12,26 @@ import { clearListReturnCache } from '@/lib/list-return-cache';
 import type { RegistrationAnswers } from './registration-answer-model';
 
 /** 'not_full': a place is free, so the person should register instead. 'registered': they already have a place. */
-export type WaitlistResult = 'ok' | 'already' | 'registered' | 'not_full' | 'cancelled' | 'not_found' | 'failed';
+export type WaitlistResult = 'ok' | 'already' | 'registered' | 'not_full' | 'cancelled' | 'not_found' | 'failed' | 'closed';
+
+/**
+ * P1700: whether a refused registration or waiting-list join was the host's removal. Matches only the two messages those
+ * paths raise for a removed person (registration trigger; join_event_waitlist), never a bare 42501.
+ */
+export function isRemovalRefusal(error: { message?: string } | null | undefined): boolean {
+  const m = error?.message ?? '';
+  return m.includes('registration is closed for you on this event') || m.includes('not authorized for this event');
+}
+
+/** P1700: the signed-in caller's own removal status for an event (my_event_removed). Anonymous gets false; an error reads as false. */
+export async function getMyEventRemoval(eventId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('my_event_removed', { p_event: eventId });
+  if (error) {
+    logDbError('getMyEventRemoval', error);
+    return false;
+  }
+  return data === true;
+}
 
 export async function joinWaitlist(slug: string, profileId: string, answers: RegistrationAnswers): Promise<WaitlistResult> {
   if (!(await guardSeatWrite(profileId))) return 'failed';
@@ -26,6 +45,7 @@ export async function joinWaitlist(slug: string, profileId: string, answers: Reg
   });
   if (isAnonymousRlsDenial(error, status)) throw new SessionMismatchError(profileId);
   if (error) {
+    if (isRemovalRefusal(error)) return 'closed';
     logDbError('joinWaitlist', error);
     return 'failed';
   }

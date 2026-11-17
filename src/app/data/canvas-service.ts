@@ -17,6 +17,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { clearListReturnCache } from '@/lib/list-return-cache';
+import { invokeEventEmails } from '@/lib/event-emails';
 import { throwDbError } from './db-error-logger';
 import { mapPointFromDb, mapPositionFromDb, mapPositionWithUserFromDb } from './points-service-real';
 import { mapStoryFromDb } from './stories-service-real';
@@ -356,6 +357,8 @@ async function removeEventAttendee(eventId: string, userId: string): Promise<voi
   try {
     const { error } = await supabase.rpc('remove_event_attendee', { p_event: eventId, p_user: userId });
     if (error) throwDbError('canvas.removeEventAttendee', error, `Could not remove this person: ${error.message}`);
+    // P1700: tell the removed person once. Fire-and-forget; a failed email never fails the removal.
+    void invokeEventEmails('removed', eventId, userId);
   } finally {
     clearListReturnCache();
   }

@@ -12,7 +12,9 @@ import { logDbError } from './db-error-logger';
 export type { Participation, ObserverPrep, PhoneKind, RegistrationAnswers } from './registration-answer-model';
 import type { RegistrationAnswers } from './registration-answer-model';
 
-export type RegisterResult = 'ok' | 'already' | 'full' | 'cancelled' | 'not_found' | 'failed';
+import { isRemovalRefusal } from './event-waitlist';
+
+export type RegisterResult = 'ok' | 'already' | 'full' | 'cancelled' | 'not_found' | 'failed' | 'closed';
 
 export async function registerForEvent(
   event: { id: string; slug: string },
@@ -36,6 +38,7 @@ export async function registerForEvent(
   const { data, error, status } = result;
   if (isAnonymousRlsDenial(error, status)) throw new SessionMismatchError(profileId);
   if (error) {
+    if (isRemovalRefusal(error)) return 'closed'; // P1700: the page re-reads the removal status and shows its notice
     logDbError('registerForEvent', error);
     return 'failed';
   }

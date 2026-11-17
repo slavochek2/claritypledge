@@ -60,7 +60,7 @@ export interface EventRow {
 export interface LogEmailSendOpts {
   eventId: string;
   profileId: string | null;
-  emailType: 'confirmation' | 'reminder' | 'feedback' | 'cancellation' | 'update' | 'uncancel' | 'starting_soon';
+  emailType: 'confirmation' | 'reminder' | 'feedback' | 'cancellation' | 'update' | 'uncancel' | 'starting_soon' | 'removal';
   messageId: string | null;
   errorMessage?: string;
   /** P1425: the event_rsvps claim token this send was made under (scheduled kinds only). */
@@ -93,7 +93,7 @@ export function feedbackFrom(hostName: string | null | undefined): string {
 
 // ── HTML email base template ──────────────────────────────────────────────────
 
-function htmlEmail(title: string, body: string, opts: { preheader?: string; footerNote?: string } = {}): string {
+export function htmlEmail(title: string, body: string, opts: { preheader?: string; footerNote?: string } = {}): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -216,13 +216,13 @@ function eventCard(event: EventRow): string {
 }
 
 /** Extract first name from "First Last" or return null */
-function firstName(name: string | null | undefined): string | null {
+export function firstName(name: string | null | undefined): string | null {
   if (!name) return null;
   const first = name.trim().split(/\s+/)[0];
   return first || null;
 }
 
-function greeting(name: string | null | undefined): string {
+export function greeting(name: string | null | undefined): string {
   const first = firstName(name);
   return first ? `Hi ${escapeHtml(first)},` : 'Hi,';
 }

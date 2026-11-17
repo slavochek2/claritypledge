@@ -36,6 +36,7 @@ import { EventShareRow } from './EventShareRow';
 import { Button } from '@/components/ui/button';
 import { eventsService } from '@/app/data/events-service';
 import { canvasService } from '@/app/data/canvas-service';
+import { getMyEventRemoval } from '@/app/data/event-waitlist';
 import { REMOVE_ATTENDEE_COPY } from '../remove-attendee-copy';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { useAuth } from '@/auth';
@@ -83,6 +84,9 @@ import { networkMark } from '@/lib/network-outcome';
  * destination ("Event Room") to inviting entry ("Join now"). Founder call,
  * 2026-09-08. Label only — it never gates access to the room. */
 const ROOM_JOIN_WINDOW_MS = 60 * 60 * 1000;
+
+/** P1700: shown in place of the Register / waiting-list action to a person the host removed. */
+const REMOVED_NOTICE = 'The host has closed your registration for this event.';
 
 export function EventDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -419,14 +423,43 @@ export function EventDetail() {
     // D24: in a flow that asks, "full" is the page's own line with the waiting list under it, not a toast.
     if (!(refusal === 'full' && asksBeforeSeat)) toast.error(refusalMessage(refusal));
   };
+  // P1700: the host removed this signed-in, unregistered viewer. Read once per event; the notice replaces the Register action.
+  // The result is keyed by (event, viewer): a different viewer's answer is never read as this viewer's.
+  const [removalRead, setRemovalRead] = useState<{ key: string; removed: boolean } | null>(null);
+  const removalEventId = event?.id;
+  const removalKey = `${removalEventId ?? ''}:${user?.id ?? ''}`;
+  const readsRemoval = isLoggedIn && !isRsvpd && !!removalEventId && event?.hostId !== user?.id;
+  const removalKnown = !readsRemoval || removalRead?.key === removalKey;
+  const removed = readsRemoval && removalRead?.key === removalKey && removalRead.removed;
+  const removalPending = !removalKnown;
+  useEffect(() => {
+    if (!readsRemoval || !removalEventId) { setRemovalRead(null); return; }
+    let live = true;
+    setRemovalRead(null);
+    void getMyEventRemoval(removalEventId).then(v => { if (live) setRemovalRead({ key: removalKey, removed: v }); });
+    return () => { live = false; };
+  }, [readsRemoval, removalEventId, removalKey]);
+  /** A refusal that may be the removal: the status read decides, the raw error is never shown for it. */
+  const checkRemovedAfterRefusal = async (): Promise<boolean> => {
+    if (!event) return false;
+    const v = await getMyEventRemoval(event.id);
+    if (v) setRemovalRead({ key: removalKey, removed: true });
+    return v;
+  };
+  const registrationFull = asksBeforeSeat && !!event && !isRsvpd && eventsService.isEventFull(event);
   const registration = useRegistrationStep({
+    onClosed: () => {
+      void checkRemovedAfterRefusal().then(v => {
+        if (!v) toast.error(registrationFull ? "Couldn't join the waiting list. Please try again." : "Couldn't register you. Please try again.");
+      });
+    },
     event: event ? { id: event.id, slug: event.slug } : null,
     userId: user?.id,
     onRegistered: () => { setIsRsvpd(true); navigate(`/events/${slug}/confirm`, { state: { fromEvent: true } }); },
     onRefused: showRefusal,
     onSessionLost: () => { if (event) signInAgain(event.slug); },
     // D24: full means the same form joins the waiting list; signed out, the form ends in Continue and sign-up comes next.
-    full: asksBeforeSeat && !!event && !isRsvpd && eventsService.isEventFull(event),
+    full: registrationFull,
     readsWaitlist: asksBeforeSeat && !isRsvpd,
     onSignIn: () => navigate('/signup?redirect=/events/' + slug + '&action=rsvp'),
   });
@@ -532,6 +565,8 @@ export function EventDetail() {
       // P1603: the link door said why. Show the state the page already has a message for: the "Event Full" button,
       // or the cancelled banner, instead of the generic failure.
       showRefusal(refusal);
+    } else if (await checkRemovedAfterRefusal()) {
+      // P1700: the host closed this person's registration; the page now shows its notice instead of an error.
     } else {
       // P1369: the service returns false for "full" AND for a request that never got through.
       toast.error(writeFailureMessage(null, 'Couldn\'t sign you up. The event may be full or no longer available.', sentAt));
@@ -661,7 +696,12 @@ export function EventDetail() {
   // P844: RSVP affordance hidden for host and cancelled events (sticky bar, mobile inline card, desktop card all gated)
   const rsvpAffordanceHidden = !!isHost || isCancelled;
 
-  const renderRsvpButton = (trigger: RsvpTrigger) => (
+  // The notice shows once per viewport: in the card slot only (the sticky bar is not rendered for a removed viewer).
+  const renderRsvpButton = (trigger: RsvpTrigger) => removalPending ? null : removed ? (
+    trigger !== 'card' ? null : (
+      <p className="text-center text-sm text-muted-foreground" role="status" data-testid="removed-notice">{REMOVED_NOTICE}</p>
+    )
+  ) : (
     <RsvpButton
       trigger={trigger}
       isPast={isPast}
@@ -1064,7 +1104,7 @@ export function EventDetail() {
                   here at every width; it used to sit after the description on phones, ~6000px
                   down, so someone returning from WhatsApp could not tell they were registered. */}
               {!rsvpAffordanceHidden && (
-                <div className={isRsvpd ? 'mb-6' : 'hidden lg:block mb-6'}>
+                <div className={isRsvpd || removed ? 'mb-6' : 'hidden lg:block mb-6'}>
                   {isRsvpd ? renderRsvpGreenCard() : renderRsvpButton('card')}
                 </div>
               )}
@@ -1332,10 +1372,10 @@ export function EventDetail() {
 
       {/* Bottom padding — mobile needs ~136px clearance (sticky bar ~72px + BottomNav 64px) when bar renders.
           h-* sets height on this empty div; pb-* would have no visible effect because there's no content to push. */}
-      <div className={!rsvpAffordanceHidden && !isRsvpd ? 'h-36 lg:h-12' : 'h-12'} />
+      <div className={!rsvpAffordanceHidden && !isRsvpd && !removed && !removalPending ? 'h-36 lg:h-12' : 'h-12'} />
 
       {/* P844: Sticky mobile RSVP bar — fixed bottom, above BottomNav. Hidden on desktop, when RSVP'd, host, or cancelled. */}
-      {!rsvpAffordanceHidden && !isRsvpd && (
+      {!rsvpAffordanceHidden && !isRsvpd && !removed && !removalPending && (
         <div
           role="region"
           aria-label="Event registration"
