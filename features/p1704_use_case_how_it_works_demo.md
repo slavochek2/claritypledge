@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 347
 workstream: landing
 created_date: '2026-11-17'
 tags: [landing, video, analytics, use-cases]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: high
