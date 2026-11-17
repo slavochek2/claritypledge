@@ -158,6 +158,7 @@ Last updated: 2026-11-17
 
 ## Database / RLS / Migrations
 
+- **P1703** (Nov 26) Host removal also marks the person out of the event room — insert via SELECT so no room row means no write; ON CONFLICT DO UPDATE WHERE is the only clause that sees a concurrent write
 - **P1699** (Nov 26) Host resets an event's rounds — `chat_messages.thread_root_id` is SET NULL, so delete replies before roots; transcript windows built from a room's creation must respect the last reset; find a function's latest body with a sorted `grep -l`, ugrep's order is not filename order
 - **P1598** (Nov 26) A hike's host walks Learn in the room — showing a step for a new role needs its RLS checked; tab alone gave failing saves.
 - **P1515** (Oct 23) Share a canvas with events, groups, people or a link; one canvas has many versions — everything flows through checked functions, a version is not a separate canvas, and a long branch with a main merge ships as one reconciled commit (merge-tree + --mark-landed), not a replay
