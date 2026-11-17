@@ -5,6 +5,7 @@
  * limit. A failed read THROWS (reported through throwDbError); it is never returned as "no movement", so a caller
  * cannot cache a failure as zero. The counting itself lives in `src/lib/position-movement.ts`.
  */
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { PositionType } from '@/app/types';
 import {
@@ -126,7 +127,11 @@ export async function getPointMovement(pointId: string): Promise<PointMovementRo
   if ((data as Raw).point_id == null) {
     throwDbError(
       'getPointMovement',
-      { message: 'point refused: not public and not validated by the caller', code: 'P1061_REFUSED', details: pointId, hint: '' },
+      Object.assign(new Error('point refused: not public and not validated by the caller, or no longer exists'), {
+        code: 'P1061_REFUSED',
+        details: pointId,
+        hint: '',
+      }) as PostgrestError,
       'Could not load how positions changed'
     );
   }

@@ -293,6 +293,14 @@ except ValueError:
 if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
     print("p1061-visibility: CANNOT JUDGE: no result row"); sys.exit(2)
 row = rows[0]
+# Every probe must be in the answer: a column dropped from the final SELECT would otherwise vanish as a silent pass.
+REQUIRED = ["control_owner_sees_history", "anon_point", "anon_story", "stranger_point", "former_holder_point",
+            "letter_row_absent", "private_group_absent", "anon_no_events_on_public_point", "signed_in_offered_events",
+            "private_story_not_counted_for_stranger", "private_story_counted_for_author", "point_guard_non_validator",
+            "point_guard_validator_served", "complete_beyond_1000"]
+missing = [k for k in REQUIRED if k not in row]
+if missing:
+    print("p1061-visibility: CANNOT JUDGE: probes missing from the answer: " + ", ".join(missing)); sys.exit(2)
 if row.get("control_owner_sees_history") != "true":
     print("p1061-visibility: CANNOT JUDGE: the owner sees no other history on the chosen point, so a 0 proves nothing"); sys.exit(2)
 failed = [k for k, v in row.items() if k != "control_owner_sees_history" and not k.startswith("info_") and v not in ("true", "skip")]

@@ -15,6 +15,7 @@ async function load() {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks(); // the console spy, even when an assertion failed first
   rpc.mockReset();
   vi.unstubAllEnvs();
   vi.resetModules();
