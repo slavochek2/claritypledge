@@ -3110,6 +3110,103 @@ except Exception:
 PY
 }
 
+# P1694. True only when git itself holds the pick of $1 paused with nothing to
+# commit: CHERRY_PICK_HEAD names it, no path is unmerged, and the index equals
+# HEAD. It is the one state in which a pick may be skipped and recorded without a
+# new commit. Read from the repository, never from words in git's or a hook's
+# output: that output carries the commit subject and the paths, and a subject
+# containing "empty" made the old word search skip two real conflicts and record
+# them as landed (decisions.md 2026-11-16). Any doubt reads as "not empty".
+ship_pick_is_empty() {
+  local sha="$1" gd cph full unmerged
+  gd="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir 2>/dev/null )" || return 1
+  [[ -e "$gd/CHERRY_PICK_HEAD" ]] || return 1
+  cph="$( tr -d '[:space:]' < "$gd/CHERRY_PICK_HEAD" 2>/dev/null )" || return 1
+  full="$( cd "$REPO_ROOT" && git rev-parse -q --verify "${sha}^{commit}" 2>/dev/null )" || return 1
+  [[ -n "$cph" && "$cph" == "$full" ]] || return 1
+  unmerged="$( cd "$REPO_ROOT" && git ls-files --unmerged 2>/dev/null )" || return 1
+  [[ -z "$unmerged" ]] || return 1
+  ( cd "$REPO_ROOT" && git diff --cached --quiet HEAD -- 2>/dev/null ) || return 1
+  return 0
+}
+
+# P1694. What a paused pick of $1 left unstaged: status lines for the paths the
+# commit changes whose working copy differs from the index, untracked and
+# git-ignored ones included (second status column set: a branch can force-add an
+# ignored file, and once unstaged it is invisible to a plain status). Unmerged
+# paths are left out: --continue refuses them with the conflict diagnostic, and
+# the spec add/add auto-resolve handles its own. Empty output means the working
+# tree agrees with the index there. Used on --resume, where what is staged is
+# taken as the operator's whole resolution: a difference here is a resolution, or
+# part of one, that was never staged or was unstaged from under the pick, as a
+# session clearing "bystanders" from the shared index does. A failed read counts
+# as leftovers.
+ship_pick_leftovers() {
+  local sha="$1" p out tmp i=0 n
+  local -a paths=()
+  tmp="$(mktemp)" || { echo "?? (the paths of $sha could not be read)"; return 0; }
+  if ! ( cd "$REPO_ROOT" && git diff-tree -r --root --no-commit-id --name-only --no-renames -z "$sha" ) >"$tmp" 2>/dev/null; then
+    rm -f "$tmp"
+    echo "?? (the paths of $sha could not be read)"
+    return 0
+  fi
+  while IFS= read -r -d '' p; do
+    paths+=("$p")
+  done < "$tmp"
+  rm -f "$tmp"
+  n=${#paths[@]}
+  # In batches, so a commit touching thousands of paths cannot overflow the argument list.
+  while (( i < n )); do
+    out="$( cd "$REPO_ROOT" && git -c status.renames=false --literal-pathspecs status --porcelain --untracked-files=all --ignored=traditional -- "${paths[@]:i:200}" 2>/dev/null )" \
+      || { echo "?? (git status could not be read)"; return 0; }
+    if [[ -n "$out" ]]; then
+      printf '%s\n' "$out" | awk 'substr($0, 2, 1) != " " && substr($0, 1, 2) !~ /^(DD|AU|UD|UA|DU|AA|UU)$/'
+    fi
+    i=$(( i + 200 ))
+  done
+  return 0
+}
+
+# P1694. Clear a pick that ship_pick_is_empty has just held empty. --skip is the
+# only sanctioned way out of a pick (P972: never --abort, never --quit). Its
+# failure is not swallowed: if the pick is still paused afterwards, stop before
+# anything is recorded for it.
+ship_skip_empty_pick() {
+  local pn="$1" sha="$2" gd
+  ( cd "$REPO_ROOT" && git cherry-pick --skip >/dev/null 2>&1 ) || true
+  # An unreadable git dir counts as "still paused": stop with the message, never
+  # exit silently under set -e.
+  gd="$( cd "$REPO_ROOT" && git rev-parse --absolute-git-dir 2>/dev/null )" || gd=""
+  if [[ -z "$gd" || -e "$gd/CHERRY_PICK_HEAD" ]]; then
+    {
+      echo "ship: STOP. The pick of $sha is empty (its change is already on main), but git cherry-pick --skip could not clear it."
+      echo "  Nothing was recorded for it. Another git process may hold the index; once it has finished, run: git-ops ship $pn --resume"
+    } >&2
+    exit 1
+  fi
+}
+
+# P1694. The only way the pick loop records a landing. $3 is main's tip from
+# before the attempt; $4 is 1 when ship_pick_is_empty held before the pick was
+# skipped. A pick that left main where it was and was not held empty by git is
+# NOT recorded: stop, name the commit, leave the journal as it is.
+ship_record_pick() {
+  local pn="$1" sha="$2" pre="$3" proven_empty="$4" head
+  head="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+  if [[ "$head" == "$pre" ]]; then
+    if [[ "$proven_empty" != "1" ]]; then
+      {
+        echo "ship: STOP. Commit $sha was not applied: main is still at $pre and git does not hold the pick as empty."
+        echo "  Nothing was recorded for it; the journal still lists it as pending. Do not push."
+        echo "  Look at 'git status' in $REPO_ROOT, clear whatever blocked the pick, then run: git-ops ship $pn --resume"
+      } >&2
+      exit 1
+    fi
+    echo "ship: no new commit for $sha: with it applied, main's content is unchanged. Recorded at $head. If it should have changed main, stop and check before you push." >&2
+  fi
+  ship_record_landed "$pn" "$sha" "$head"
+}
+
 # Record pre_pick_head (HEAD before a pick attempt) for a source_sha. Lets the
 # crash-window recovery below (P972 finding #1) find a commit that landed via a
 # prior --continue but crashed before ship_record_landed wrote the journal.
@@ -5124,7 +5221,9 @@ The branch is authoritative for shipped migrations. Compare each file with
     # Record the pre-pick HEAD so the recovery path above can fire if THIS attempt
     # commits but crashes before the landed_sha write. HEAD is the pick's parent
     # in both the fresh and --continue (paused) cases.
-    ship_record_pre_pick "$pn" "$sha" "$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+    local _pick_pre
+    _pick_pre="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+    ship_record_pre_pick "$pn" "$sha" "$_pick_pre"
     # P1464: an operator's conflict resolution is staged content this run never
     # classified. Under embargo, refuse to commit it if it adds or modifies any
     # protected spec path (NUL-delimited, so a quoted name cannot slip past).
@@ -5141,12 +5240,46 @@ The branch is authoritative for shipped migrations. Compare each file with
         exit 1
       fi
     fi
+    # P1694: what is staged is taken as the whole resolution, so before a paused
+    # pick is continued the working tree must agree with the index for the files
+    # this commit changes. A difference there is a resolution (or part of one)
+    # that was never staged, or was unstaged from under the pick by another
+    # session: --continue would commit the pick without it, or git would call the
+    # pick empty. It can also be another session's own edit; the two cannot be
+    # told apart, so stop and say both. The check runs even while paths are
+    # unmerged: ship_pick_leftovers leaves those out (--continue refuses them with
+    # the conflict diagnostic below, and the spec add/add auto-resolve handles its
+    # own), so an unresolved spec cannot carry the rest of the commit past it.
+    if (( _resume_continue == 1 )); then
+      local _leftovers
+      _leftovers="$(ship_pick_leftovers "$sha")"
+      if [[ -n "$_leftovers" ]]; then
+        {
+          echo "ship: STOP before continuing the paused pick of $sha. Nothing was committed and nothing was recorded."
+          echo "ship: files it changes differ between the index and the working tree:"
+          echo "#CP_DIAGNOSTIC_BEGIN"
+          printf '%s\n' "$_leftovers"
+          echo "#CP_DIAGNOSTIC_END"
+          echo "  1. If the differences are your resolution: stage them with 'git add' (a line starting !! is a git-ignored"
+          echo "     file: 'git add -f'), then run: git-ops ship $pn --resume"
+          echo "  2. If they are another session's uncommitted edit (kanban edits to the spec included): do not stage it and do"
+          echo "     not discard it. That session cannot commit here while the pick is paused. For each such FILE:"
+          echo "     if 'git ls-files -- FILE' lists it, save the edit outside the repository with"
+          echo "     'git diff --output=SAVED -- FILE', then put the staged version back with 'git checkout-index -f -- FILE';"
+          echo "     if it lists nothing, move FILE out of the repository instead. Run: git-ops ship $pn --resume"
+          echo "     Then give the edit back with 'git apply SAVED', or move the file back if its path is still free."
+          echo "     Never copy the old file over the new one: commits this ship lands may have changed it. If the apply"
+          echo "     fails, hand SAVED to that session."
+        } >&2
+        exit 1
+      fi
+    fi
     set +e
     if (( _resume_continue == 1 )); then
       # --no-edit reuses the original commit message (no interactive editor).
-      # If the resolution is net-empty vs main, --continue exits non-zero with
-      # "previous cherry-pick is now empty" — the benign-already-applied arm
-      # below catches that and --skips. Genuinely-unresolved conflicts (unmerged
+      # If the resolution is net-empty vs main, --continue exits non-zero and
+      # leaves the pick paused with the index equal to HEAD — the empty-pick arm
+      # below reads that state and --skips. Genuinely-unresolved conflicts (unmerged
       # paths still present) also fail here and fall through to the diagnostic.
       cherry_out=$( cd "$REPO_ROOT" && git cherry-pick --continue --no-edit 2>&1 )
       cherry_rc=$?
@@ -5157,14 +5290,14 @@ The branch is authoritative for shipped migrations. Compare each file with
     set -e
     if (( cherry_rc != 0 )); then
       # Cherry-pick failed. Distinguish "already applied / redundant" (benign
-      # — prior run picked this commit before SIGTERM could write the journal)
-      # from a real conflict.
-      if echo "$cherry_out" | grep -qiE 'empty|nothing to commit|previous cherry-pick is now empty|already been applied'; then
-        # Clean the sequencer state and treat HEAD as the landed sha. HEAD
-        # already contains this commit's changes from the prior partial run.
-        ( cd "$REPO_ROOT" && git cherry-pick --skip >/dev/null 2>&1 ) || true
-        landed="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
-        ship_record_landed "$pn" "$sha" "$landed"
+      # — main already holds this commit's change, or the staged resolution
+      # leaves main as it is) from a real conflict or a rejected commit. P1694:
+      # the test is git's own state, never a word in $cherry_out.
+      if ship_pick_is_empty "$sha"; then
+        # Clear the paused pick and record it without a new commit. (On --resume
+        # the working tree was already checked against the index, above.)
+        ship_skip_empty_pick "$pn" "$sha"
+        ship_record_pick "$pn" "$sha" "$_pick_pre" 1
         if [[ -n "${SHIP_DEBUG_SLEEP_SECS:-}" ]]; then
           sleep "${SHIP_DEBUG_SLEEP_SECS}"
         fi
@@ -5206,16 +5339,29 @@ The branch is authoritative for shipped migrations. Compare each file with
         if [[ -n "$_main_content" && "$_main_content" == "$_branch_content" ]]; then
           # Content matches: safe to resolve with --ours (keep main, finding 2).
           ( cd "$REPO_ROOT" && git checkout --ours -- "$_aa_spec" && git add -- "$_aa_spec" ) >/dev/null
-          # --continue may report "nothing to commit" (net-zero change); --skip then.
-          ( cd "$REPO_ROOT" && git cherry-pick --continue --no-edit >/dev/null 2>&1 ) || \
-            ( cd "$REPO_ROOT" && git cherry-pick --skip >/dev/null 2>&1 ) || true
-          echo "ship: AA conflict on ${_aa_spec} auto-resolved (Layer 2 --ours; content matches branch-tip)" >&2
-          landed="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
-          ship_record_landed "$pn" "$sha" "$landed"
-          if [[ -n "${SHIP_DEBUG_SLEEP_SECS:-}" ]]; then
-            sleep "${SHIP_DEBUG_SLEEP_SECS}"
+          # P1694: --skip only a pick git holds empty (the commit was the spec and
+          # nothing else). Otherwise commit what is staged; if that commit fails
+          # (a hook), never --skip — the commit carries other files. Leave the
+          # pick paused and fall through to the diagnostic.
+          local _l2_empty=0 _l2_rc=0
+          if ship_pick_is_empty "$sha"; then
+            ship_skip_empty_pick "$pn" "$sha"
+            _l2_empty=1
+          else
+            set +e
+            cherry_out=$( cd "$REPO_ROOT" && git cherry-pick --continue --no-edit 2>&1 )
+            _l2_rc=$?
+            set -e
           fi
-          continue
+          if (( _l2_rc == 0 )); then
+            echo "ship: AA conflict on ${_aa_spec} auto-resolved (Layer 2 --ours; content matches branch-tip)" >&2
+            ship_record_pick "$pn" "$sha" "$_pick_pre" "$_l2_empty"
+            if [[ -n "${SHIP_DEBUG_SLEEP_SECS:-}" ]]; then
+              sleep "${SHIP_DEBUG_SLEEP_SECS}"
+            fi
+            continue
+          fi
+          echo "ship: ${_aa_spec} was resolved (main's copy kept) and staged, but the commit failed; see below" >&2
         fi
       fi
       # P1575: docs/decisions.md is newest-first, so a branch that wrote a decision
@@ -5244,8 +5390,7 @@ The branch is authoritative for shipped migrations. Compare each file with
           set -e
           if (( cherry_rc == 0 )); then
             echo "ship: ${_dm_out#decisions-merge: }" >&2
-            landed="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
-            ship_record_landed "$pn" "$sha" "$landed"
+            ship_record_pick "$pn" "$sha" "$_pick_pre" 0
             if [[ -n "${SHIP_DEBUG_SLEEP_SECS:-}" ]]; then
               sleep "${SHIP_DEBUG_SLEEP_SECS}"
             fi
@@ -5295,8 +5440,7 @@ The branch is authoritative for shipped migrations. Compare each file with
       } >&2
       exit 1
     fi
-    landed="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
-    ship_record_landed "$pn" "$sha" "$landed"
+    ship_record_pick "$pn" "$sha" "$_pick_pre" 0
     # Test-only knob: widen the SIGTERM window between picks. Unset in prod.
     if [[ -n "${SHIP_DEBUG_SLEEP_SECS:-}" ]]; then
       sleep "${SHIP_DEBUG_SLEEP_SECS}"

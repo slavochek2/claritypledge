@@ -78,6 +78,20 @@
 #       kept; drift that appears while waiting for main.lock is caught under it
 #       (AD-j/k/l on --resume, AD-m on a fresh ship); and the branch delete is
 #       compare-and-swap (AD-g).
+#   AF. P1694: a pick is recorded as landed only when main gained a commit for
+#       it or git itself holds the pick empty. The word "empty" in a commit
+#       subject, a path or a hook's output no longer turns a conflict or a
+#       rejected commit into "already applied" (AF-a..e); the two legitimate
+#       no-new-commit states still ship (AF-f/g) and are named (AF-n); a pick
+#       that reports success without committing is refused (AF-h); a paused
+#       pick whose files were unstaged, all or some, is neither taken for an
+#       empty one nor committed without them (AF-i/j/k); a failed --skip
+#       records nothing (AF-l); another session's edit is never committed or
+#       destroyed (AF-m).
+#
+# Usage: scripts/test-git-ops-ship.sh [path/to/git-ops.sh]
+#   The optional argument runs the suite against another git-ops.sh (gate 7:
+#   a control run against the pre-fix tool must go red).
 #
 # Hermetic: scratch main repo in /tmp, no network, no remote.
 # IMPORTANT: do not invoke via `eval "$(...)"`. Output is human-readable.
@@ -128,7 +142,9 @@ mkdir -p "$SCRATCH/main/scripts" \
          "$SCRATCH/main/.claude/worktrees" \
          "$SCRATCH/main/features/done/2026-04-22"
 
-cp "$REPO_ROOT/scripts/git-ops.sh" "$SCRATCH/main/scripts/git-ops.sh"
+GIT_OPS_SRC="${1:-$REPO_ROOT/scripts/git-ops.sh}"
+[[ -f "$GIT_OPS_SRC" ]] || fail "no git-ops.sh at '$GIT_OPS_SRC'"
+cp "$GIT_OPS_SRC" "$SCRATCH/main/scripts/git-ops.sh"
 chmod +x "$SCRATCH/main/scripts/git-ops.sh"
 
 # P1246: `ship` now runs scripts/ship-gates.sh from the closing path itself, and
@@ -4402,6 +4418,823 @@ ae_cleanup p196
 pass "AE-e: --resume never auto-resolves over a human's unstaged edit"
 
 # -----------------------------------------------------------------------------
+# AF (P1694). A pick is recorded as landed only when main gained a commit for
+# it, or when git itself holds the pick empty (nothing unmerged, index equal to
+# HEAD). The old test for "empty" was a word search over git's and the hook's
+# output, so a commit subject or a file path containing "empty" turned a real
+# conflict into "already applied": the pick was skipped, the previous commit's
+# sha was recorded for it, and the ship went on to print "Ready to push" with
+# the commit's change missing from main (two commits of a 38-commit ship,
+# decisions.md 2026-11-16).
+#
+# The invariant every scenario checks: when a ship reports success, each file
+# only the branch touched is, on main, the branch tip's file; and when a ship
+# stops, the commit it stopped on is named, still pending in the journal, and
+# no two journal entries share a landed sha.
+#
+#     AF-a  conflicting commit whose SUBJECT contains "empty" (the incident).
+#     AF-b  conflicting commit whose conflicted PATH contains "Empty".
+#     AF-c  --resume of a paused pick; the pre-commit hook rejects the commit
+#           and its output contains "empty" — the staged resolution survives.
+#     AF-d  git refuses the pick over an untracked file whose name contains
+#           "empty" — nothing is recorded, the file is untouched.
+#     AF-e  spec add/add auto-resolve in a commit that also adds a code file;
+#           the hook rejects the commit — the code file is not dropped.
+#     AF-f  control: the commit's whole change is already on main — ships, and
+#           main gains no commit for it.
+#     AF-g  control: the operator's resolution keeps main as it is (P972's
+#           net-empty resolution) — --resume converges; another session's
+#           edit to an unrelated file survives.
+#     AF-h  the net: a pick that reports success without committing anything
+#           (a git stand-in on PATH) is refused, named, and left pending.
+#     AF-i  a paused pick whose files another session unstaged: the index
+#           equals HEAD but the working tree still holds the pick — not empty.
+#     AF-j  the same with only the pick's added file unstaged: --continue
+#           would commit the rest. Stopped before anything is committed.
+#     AF-k  the same with only the resolved file unstaged.
+#     AF-l  an empty pick that --skip fails to clear is not recorded while it
+#           is still paused; --resume converges.
+#     AF-m  control: another session's unstaged edit in a file the commit
+#           changes is never committed and never destroyed.
+#     AF-n  output: a commit recorded without a new commit is named by sha.
+#
+#     On the pre-fix tool AF-f, AF-g and AF-m pass (that tool is correct
+#     there), AF-n is red because the output line is new, and the rest are
+#     red on behaviour.
+#
+#     Failures are collected and reported together, so a run against the
+#     pre-fix tool shows every scenario's verdict (epistemic gate 7).
+# -----------------------------------------------------------------------------
+
+AF_FAILS=""
+af_fail() { AF_FAILS+="  $*"$'\n'; echo "AF FAIL: $*" >&2; }
+AF_HOOK="$SCRATCH/main/.git/hooks/pre-commit"
+
+af_spec() {
+  cat > "$SCRATCH/main/features/$1_demo.md" <<SPECEOF
+---
+status: qa
+pipeline_ran: [fix]
+type: task
+rank: 1
+tags: [demo]
+---
+# $1: recorded only when applied
+
+Problem: demo.
+
+## Done-When
+
+- [x] fixture criterion (P1246: the closure gate reads completion
+      checkboxes, so a fixture spec must model a shippable one)
+SPECEOF
+  ( cd "$SCRATCH/main" && git add "features/$1_demo.md" && git commit -qm "chore: add $1 spec" ) >/dev/null
+}
+
+# Three commits on feature/<pn>-demo: 1 and 3 each add a file; 2 rewrites <file>
+# and adds <pn>-c2.txt. Main rewrites <file> after the branch point, so commit 2
+# conflicts. $2: commit 2's subject. $3: the file both sides rewrite.
+af_branch() {
+  local pn="$1" subj="$2" cf="$3"
+  (
+    cd "$SCRATCH/main"
+    echo base > "$cf" && git add -- "$cf" && git commit -qm "seed $cf"
+    git checkout -q -b "feature/$pn-demo"
+    echo c1 > "$pn-c1.txt" && git add "$pn-c1.txt" && git commit -qm "$pn: commit 1"
+    echo "branch version" > "$cf" && echo c2 > "$pn-c2.txt" && git add -- "$cf" "$pn-c2.txt" && git commit -qm "$subj"
+    echo c3 > "$pn-c3.txt" && git add "$pn-c3.txt" && git commit -qm "$pn: commit 3"
+    git checkout -q main
+    echo "main version" > "$cf" && git add -- "$cf" && git commit -qm "main: rewrites $cf"
+  ) >/dev/null
+  af_spec "$pn"
+}
+
+af_src() { ( cd "$SCRATCH/main" && git log --reverse --format=%H "main..feature/$1-demo" | sed -n "${2}p" ); }
+
+# The journal's landed sha for a source commit: "-" while pending, "?" with no journal.
+af_landed() {
+  local j="$SCRATCH/main/.claude/worktrees/.ship-journal/$1.json"
+  [[ -f "$j" ]] || { echo "?"; return 0; }
+  python3 - "$j" "$2" <<'PY3'
+import json, sys
+for c in json.load(open(sys.argv[1]))["commits"]:
+    if c["source_sha"] == sys.argv[2]:
+        print(c.get("landed_sha") or "-")
+        break
+else:
+    print("?")
+PY3
+}
+
+# Landed shas that more than one journal entry carries (empty when there are none).
+af_shared_landed() {
+  local j="$SCRATCH/main/.claude/worktrees/.ship-journal/$1.json"
+  [[ -f "$j" ]] || return 0
+  python3 - "$j" <<'PY3'
+import collections, json, sys
+n = collections.Counter(c["landed_sha"] for c in json.load(open(sys.argv[1]))["commits"] if c.get("landed_sha"))
+print(" ".join(s[:8] for s, k in n.items() if k > 1))
+PY3
+}
+
+af_cph() { cat "$SCRATCH/main/.git/CHERRY_PICK_HEAD" 2>/dev/null | tr -d '[:space:]' || true; }
+
+# Success half of the invariant: TAG TIP FILE... Each FILE (touched only by the
+# branch) must be, on main, the branch tip's file.
+af_check_landed() {
+  local tag="$1" tip="$2" f; shift 2
+  for f in "$@"; do
+    if [[ "$( cd "$SCRATCH/main" && git rev-parse -q --verify "HEAD:$f" 2>/dev/null )" != "$( cd "$SCRATCH/main" && git rev-parse -q --verify "$tip:$f" 2>/dev/null )" ]]; then
+      af_fail "$tag: the ship reported success, but $f on main is not the branch's — a commit was recorded without being applied"
+      return 1
+    fi
+  done
+  return 0
+}
+
+# Stop half of the invariant: TAG RC OUT PN SHA. The run exited non-zero, did not
+# print "Ready to push", kept the branch and the journal, left SHA pending, named
+# SHA, and left no landed sha shared by two entries.
+af_check_stopped() {
+  local tag="$1" rc="$2" out="$3" pn="$4" sha="$5" got shared
+  got="$(af_landed "$pn" "$sha")"
+  shared="$(af_shared_landed "$pn")"
+  if grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "$tag: printed 'Ready to push' with ${sha:0:8} not applied"; return 1
+  elif [[ $rc -eq 0 ]]; then
+    echo "$out" >&2; af_fail "$tag: exited 0 with ${sha:0:8} not applied"; return 1
+  elif [[ "$got" != "-" ]]; then
+    echo "$out" >&2; af_fail "$tag: the journal records ${sha:0:8} as landed at ${got:0:8}, and it was never applied (want: pending)"; return 1
+  elif [[ -n "$shared" ]]; then
+    af_fail "$tag: two journal entries share a landed sha ($shared)"; return 1
+  elif ! ( cd "$SCRATCH/main" && git rev-parse --verify -q "feature/$pn-demo" >/dev/null ); then
+    af_fail "$tag: the stop deleted the branch"; return 1
+  elif ! grep -qF -- "$sha" <<<"$out"; then
+    echo "$out" >&2; af_fail "$tag: stopped, but the output does not name the commit ($sha)"; return 1
+  fi
+  return 0
+}
+
+af_ship() {  # <rc var> <out var> <pn> [--resume]
+  local _rc=0 _out
+  _out="$( cd "$SCRATCH/main" && capture_r bash "$GIT_OPS" ship "${@:3}" 2>&1 )" || _rc=$?
+  printf -v "$1" '%s' "$_rc"
+  printf -v "$2" '%s' "$_out"
+}
+
+af_cleanup() {
+  rm -f "$AF_HOOK"
+  ( cd "$SCRATCH/main" && git cherry-pick --abort 2>/dev/null || true
+    git checkout -q main 2>/dev/null || true
+    git reset -q --hard HEAD 2>/dev/null || true
+    git branch -D "feature/$1-demo" 2>/dev/null || true
+    rm -f ".claude/worktrees/.ship-journal/$1.json" ".claude/worktrees/main.lock" ) >/dev/null 2>&1 || true
+}
+
+# Shared body of AF-a and AF-b: the first run must stop on commit 2 with the pick
+# paused; the operator resolves; --resume lands all three commits.
+af_conflict_then_resume() {
+  local tag="$1" pn="$2" cf="$3" rc out c2 tip
+  c2="$(af_src "$pn" 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse "feature/$pn-demo" )"
+  af_ship rc out "$pn"
+  if [[ "$rc" == 0 ]] && grep -qF 'Ready to push' <<<"$out"; then
+    af_check_landed "$tag" "$tip" "$pn-c1.txt" "$pn-c2.txt" "$pn-c3.txt" \
+      && af_fail "$tag: reported success on a conflicting pick with nobody resolving it"
+    return 0
+  fi
+  af_check_stopped "$tag" "$rc" "$out" "$pn" "$c2" || return 0
+  if [[ "$(af_cph)" != "$c2" ]]; then
+    af_fail "$tag: stopped, but the pick of ${c2:0:8} is not left paused for --resume (CHERRY_PICK_HEAD='$(af_cph)')"; return 0
+  fi
+  ( cd "$SCRATCH/main" && echo resolved > "$cf" && git add -- "$cf" ) >/dev/null
+  af_ship rc out "$pn" --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "$tag: --resume after a staged resolution did not complete (exit $rc)"; return 0
+  fi
+  af_check_landed "$tag" "$tip" "$pn-c1.txt" "$pn-c2.txt" "$pn-c3.txt" || return 0
+  if [[ "$( cd "$SCRATCH/main" && git log --oneline main | grep -c "$pn: commit" || true )" != "3" ]]; then
+    af_fail "$tag: main does not carry all three $pn commits"; return 0
+  fi
+  pass "$tag"
+}
+
+# --- AF-a ---------------------------------------------------------------------
+af_branch p230 "p230: commit 2 honest empty and capped states" p230-shared.txt
+af_conflict_then_resume "AF-a: a conflicting commit whose subject says 'empty' stops, stays pending, and lands on --resume" p230 p230-shared.txt
+af_cleanup p230
+
+# --- AF-b ---------------------------------------------------------------------
+af_branch p231 "p231: commit 2" p231-EmptyState.txt
+af_conflict_then_resume "AF-b: a conflict in a path named Empty* stops, stays pending, and lands on --resume" p231 p231-EmptyState.txt
+af_cleanup p231
+
+# --- AF-c ---------------------------------------------------------------------
+af_c() {
+  local tag="AF-c: a hook rejection that prints 'empty' on --resume keeps the staged resolution and the commit pending"
+  local rc out c2 tip head staged
+  af_branch p232 "p232: commit 2" p232-shared.txt
+  c2="$(af_src p232 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p232-demo )"
+  af_ship rc out p232
+  if [[ "$rc" == 0 || "$(af_cph)" != "$c2" ]]; then
+    echo "$out" >&2; af_fail "AF-c: fixture did not stop on commit 2's conflict (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && echo resolved > p232-shared.txt && git add p232-shared.txt ) >/dev/null
+  head="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+  printf '#!/bin/sh\necho "FAIL  src/tests/empty-state.test.ts"\nexit 1\n' > "$AF_HOOK"
+  chmod +x "$AF_HOOK"
+  af_ship rc out p232 --resume
+  rm -f "$AF_HOOK"
+  af_check_stopped "AF-c" "$rc" "$out" p232 "$c2" || return 0
+  staged="$( cd "$SCRATCH/main" && git diff --cached --name-only | tr '\n' ' ' )"
+  if [[ "$(af_cph)" != "$c2" || "$staged" != *"p232-shared.txt"* || "$staged" != *"p232-c2.txt"* ]]; then
+    af_fail "AF-c: the rejected commit's staged resolution was thrown away (paused pick: '$(af_cph)', staged: '$staged')"; return 0
+  fi
+  if [[ "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$head" ]]; then
+    af_fail "AF-c: main moved although the hook rejected the commit"; return 0
+  fi
+  af_ship rc out p232 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-c: --resume with the hook passing did not complete (exit $rc)"; return 0
+  fi
+  af_check_landed "AF-c" "$tip" p232-c1.txt p232-c2.txt p232-c3.txt || return 0
+  if [[ "$( cd "$SCRATCH/main" && cat p232-shared.txt )" != "resolved" ]]; then
+    af_fail "AF-c: the operator's resolution is not what landed"; return 0
+  fi
+  pass "$tag"
+}
+af_c
+af_cleanup p232
+
+# --- AF-d ---------------------------------------------------------------------
+af_d() {
+  local tag="AF-d: a pick git refuses over an untracked file named *empty* is not recorded, and lands once the file is moved"
+  local rc out c2 tip
+  (
+    cd "$SCRATCH/main"
+    git checkout -q -b feature/p233-demo
+    echo c1 > p233-c1.txt && git add p233-c1.txt && git commit -qm "p233: commit 1"
+    echo c2 > p233-empty-notes.txt && git add p233-empty-notes.txt && git commit -qm "p233: commit 2"
+    git checkout -q main
+  ) >/dev/null
+  af_spec p233
+  c2="$(af_src p233 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p233-demo )"
+  echo "another session's notes" > "$SCRATCH/main/p233-empty-notes.txt"
+  af_ship rc out p233
+  if [[ "$rc" == 0 ]] && grep -qF 'Ready to push' <<<"$out"; then
+    af_check_landed "AF-d" "$tip" p233-c1.txt p233-empty-notes.txt \
+      && af_fail "AF-d: reported success although git refused the pick"
+    rm -f "$SCRATCH/main/p233-empty-notes.txt"
+    return 0
+  fi
+  af_check_stopped "AF-d" "$rc" "$out" p233 "$c2" || { rm -f "$SCRATCH/main/p233-empty-notes.txt"; return 0; }
+  if [[ "$(cat "$SCRATCH/main/p233-empty-notes.txt")" != "another session's notes" ]]; then
+    af_fail "AF-d: the untracked file was overwritten"; rm -f "$SCRATCH/main/p233-empty-notes.txt"; return 0
+  fi
+  rm -f "$SCRATCH/main/p233-empty-notes.txt"
+  af_ship rc out p233 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-d: --resume with the file out of the way did not complete (exit $rc)"; return 0
+  fi
+  af_check_landed "AF-d" "$tip" p233-c1.txt p233-empty-notes.txt || return 0
+  pass "$tag"
+}
+af_d
+af_cleanup p233
+
+# --- AF-e ---------------------------------------------------------------------
+af_e() {
+  local tag="AF-e: a spec add/add auto-resolve whose commit the hook rejects leaves the pick paused; its code file lands on --resume"
+  local rc out c1 tip
+  af_e_final() { printf -- '---\nstatus: qa\npipeline_ran: [fix]\ntype: task\nrank: 1\ntags: [demo]\n---\n# p234: final\n\nProblem: demo.\n\n## Done-When\n\n- [x] fixture criterion\n'; }
+  (
+    cd "$SCRATCH/main"
+    git checkout -q -b feature/p234-demo
+    printf -- '---\nstatus: in-progress\npipeline_ran: [fix]\ntype: task\nrank: 1\ntags: [demo]\n---\n# p234: stub\n\nStub.\n\n## Done-When\n\n- [x] fixture criterion\n' > features/p234_demo.md
+    echo code > p234-code.txt
+    git add features/p234_demo.md p234-code.txt && git commit -qm "p234: start, with code"
+    af_e_final > features/p234_demo.md && git add features/p234_demo.md && git commit -qm "chore: p234 ready for QA"
+    git checkout -q main
+    af_e_final > features/p234_demo.md && git add features/p234_demo.md && git commit -qm "seed p234 final spec for ship"
+  ) >/dev/null
+  c1="$(af_src p234 1)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p234-demo )"
+  printf '#!/bin/sh\necho "tests failed"\nexit 1\n' > "$AF_HOOK"
+  chmod +x "$AF_HOOK"
+  af_ship rc out p234
+  rm -f "$AF_HOOK"
+  af_check_stopped "AF-e" "$rc" "$out" p234 "$c1" || return 0
+  if [[ "$(af_cph)" != "$c1" || "$( cd "$SCRATCH/main" && git diff --cached --name-only | tr '\n' ' ' )" != *"p234-code.txt"* ]]; then
+    af_fail "AF-e: the rejected commit was skipped — its code file is no longer staged (paused pick: '$(af_cph)')"; return 0
+  fi
+  af_ship rc out p234 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-e: --resume with the hook passing did not complete (exit $rc)"; return 0
+  fi
+  af_check_landed "AF-e" "$tip" p234-code.txt || return 0
+  pass "$tag"
+}
+af_e
+af_cleanup p234
+
+# --- AF-f (control, gate 7c) ---------------------------------------------------
+AF_F_OUT=""; AF_F_C2=""; AF_G_OUT=""; AF_G_C2=""
+af_f() {
+  local tag="AF-f: a commit whose whole change is already on main ships, and main gains no commit for it"
+  local rc out c2 tip
+  (
+    cd "$SCRATCH/main"
+    git checkout -q -b feature/p235-demo
+    echo c1 > p235-c1.txt && git add p235-c1.txt && git commit -qm "p235: commit 1"
+    echo c2 > p235-c2.txt && git add p235-c2.txt && git commit -qm "p235: commit 2"
+    git checkout -q main
+    echo c2 > p235-c2.txt && git add p235-c2.txt && git commit -qm "main: the same change by another route"
+  ) >/dev/null
+  af_spec p235
+  c2="$(af_src p235 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p235-demo )"
+  af_ship rc out p235
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-f: a correct ship was refused (exit $rc) — an empty pick is a legitimate state"; return 0
+  fi
+  af_check_landed "AF-f" "$tip" p235-c1.txt p235-c2.txt || return 0
+  if [[ "$( cd "$SCRATCH/main" && git log --format=%s main | grep -c '^p235: commit 2$' || true )" != "0" \
+     || "$( cd "$SCRATCH/main" && git log --format=%s main | grep -c '^p235: commit 1$' || true )" != "1" ]]; then
+    af_fail "AF-f: main should carry commit 1 and no commit for commit 2 (its change was already there)"; return 0
+  fi
+  AF_F_OUT="$out"; AF_F_C2="$c2"
+  pass "$tag"
+}
+af_f
+af_cleanup p235
+
+# --- AF-g (control, gate 7c) ---------------------------------------------------
+af_g() {
+  local tag="AF-g: a resolution that keeps main as it is converges on --resume (P972); another session's edit elsewhere survives"
+  local rc out c2
+  (
+    cd "$SCRATCH/main"
+    echo base > p236-shared.txt && git add p236-shared.txt && git commit -qm "seed p236-shared.txt"
+    git checkout -q -b feature/p236-demo
+    echo c1 > p236-c1.txt && git add p236-c1.txt && git commit -qm "p236: commit 1"
+    echo "branch version" > p236-shared.txt && git add p236-shared.txt && git commit -qm "p236: commit 2"
+    git checkout -q main
+    echo "main version" > p236-shared.txt && git add p236-shared.txt && git commit -qm "main: rewrites p236-shared.txt"
+  ) >/dev/null
+  af_spec p236
+  c2="$(af_src p236 2)"
+  af_ship rc out p236
+  if [[ "$rc" == 0 || "$(af_cph)" != "$c2" ]]; then
+    echo "$out" >&2; af_fail "AF-g: fixture did not stop on commit 2's conflict (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && git checkout --ours -- p236-shared.txt && git add p236-shared.txt ) >/dev/null
+  # Another session's unstaged edit to a file this commit does not touch must not
+  # be read as a leftover of the pick (AF-i's check, pointed at a correct ship).
+  echo "another session's edit" >> "$SCRATCH/main/README.md"
+  af_ship rc out p236 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-g: --resume after a keep-main resolution did not complete (exit $rc)"; return 0
+  fi
+  if ! grep -qF "another session's edit" "$SCRATCH/main/README.md"; then
+    af_fail "AF-g: another session's unstaged edit was destroyed"; return 0
+  fi
+  if [[ "$( cd "$SCRATCH/main" && git show HEAD:p236-shared.txt )" != "main version" \
+     || "$( cd "$SCRATCH/main" && git log --format=%s main | grep -c '^p236: commit 2$' || true )" != "0" ]]; then
+    af_fail "AF-g: main should keep its own p236-shared.txt and gain no commit for commit 2"; return 0
+  fi
+  AF_G_OUT="$out"; AF_G_C2="$c2"
+  pass "$tag"
+}
+af_g
+af_cleanup p236
+
+# --- AF-h (the net) -------------------------------------------------------------
+# No known path reaches the net once the empty test reads git's state, so it is
+# driven directly: a stand-in git, first on PATH, answers a fresh pick of commit 2
+# with exit 0 and does nothing. Everything else goes to the real git.
+af_h() {
+  local tag="AF-h: a pick that reports success without committing is refused, named and left pending; --resume then lands it"
+  local rc=0 out c2 tip shim="$SCRATCH/af-shim"
+  scratch_feature p237 3
+  c2="$(af_src p237 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p237-demo )"
+  mkdir -p "$shim"
+  printf '#!/bin/sh\nif [ "$1" = cherry-pick ] && [ "$2" = "$AF_SHIM_SHA" ]; then exit 0; fi\nexec "$AF_REAL_GIT" "$@"\n' > "$shim/git"
+  chmod +x "$shim/git"
+  out="$( cd "$SCRATCH/main" && capture_r env PATH="$shim:$PATH" AF_SHIM_SHA="$c2" AF_REAL_GIT="$(command -v git)" bash "$GIT_OPS" ship p237 2>&1 )" || rc=$?
+  if [[ "$rc" == 0 ]] && grep -qF 'Ready to push' <<<"$out"; then
+    af_check_landed "AF-h" "$tip" p237-c1.txt p237-c2.txt p237-c3.txt \
+      && af_fail "AF-h: reported success although the pick committed nothing"
+    return 0
+  fi
+  af_check_stopped "AF-h" "$rc" "$out" p237 "$c2" || return 0
+  if [[ "$(af_landed p237 "$(af_src p237 3)")" != "-" ]]; then
+    af_fail "AF-h: the ship went on to commit 3 past the commit it could not land"; return 0
+  fi
+  af_ship rc out p237 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-h: --resume with the real git did not complete (exit $rc)"; return 0
+  fi
+  af_check_landed "AF-h" "$tip" p237-c1.txt p237-c2.txt p237-c3.txt || return 0
+  pass "$tag"
+}
+af_h
+af_cleanup p237
+
+# --- AF-i ---------------------------------------------------------------------
+# A pick is paused on a conflict; before --resume, another session unstages the
+# pick's files from the shared index as "bystanders" (the documented
+# `git reset HEAD -- <file>`). The index now equals HEAD, so git calls the pick
+# empty — but the working tree still holds the pick's files.
+#
+# AF-j and AF-k are the same event with only ONE file unstaged. Git then does not
+# call the pick empty: --continue would commit what is still staged and the ship
+# would go on to "Ready to push" with the other file's change missing.
+#
+# Shared body. $1 tag, $2 description, $3 pn, $4... the files the other session
+# unstages. The resume must stop before committing anything, name the commit and
+# the files, and keep everything in the working tree; re-staged, it must land.
+af_unstaged_then_resume() {
+  local tag="$1" desc="$2" pn="$3" rc out c2 tip head f
+  shift 3
+  af_branch "$pn" "$pn: commit 2" "$pn-shared.txt"
+  c2="$(af_src "$pn" 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse "feature/$pn-demo" )"
+  af_ship rc out "$pn"
+  if [[ "$rc" == 0 || "$(af_cph)" != "$c2" ]]; then
+    echo "$out" >&2; af_fail "$tag: fixture did not stop on commit 2's conflict (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && echo resolved > "$pn-shared.txt" && git add "$pn-shared.txt" \
+      && git reset -q HEAD -- "$@" ) >/dev/null
+  head="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+  af_ship rc out "$pn" --resume
+  if [[ "$rc" == 0 ]] && grep -qF 'Ready to push' <<<"$out"; then
+    if af_check_landed "$tag" "$tip" "$pn-c1.txt" "$pn-c2.txt" "$pn-c3.txt"; then
+      if [[ "$( cd "$SCRATCH/main" && git show "HEAD:$pn-shared.txt" )" != "resolved" ]]; then
+        af_fail "$tag: the ship reported success, but the operator's resolution of $pn-shared.txt is not on main"
+      else
+        af_fail "$tag: reported success with part of commit 2 unstaged"
+      fi
+    fi
+    return 0
+  fi
+  af_check_stopped "$tag" "$rc" "$out" "$pn" "$c2" || return 0
+  if [[ "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$head" ]]; then
+    af_fail "$tag: stopped, but only after committing part of commit 2"; return 0
+  fi
+  if [[ "$(af_cph)" != "$c2" || "$(cat "$SCRATCH/main/$pn-shared.txt")" != "resolved" || ! -f "$SCRATCH/main/$pn-c2.txt" ]]; then
+    af_fail "$tag: the stop did not keep the pick paused with its files in the working tree"; return 0
+  fi
+  for f in "$@"; do
+    if ! grep -qF -- "$f" <<<"$out"; then
+      echo "$out" >&2; af_fail "$tag: the stop does not list $f, whose working copy differs from the index"; return 0
+    fi
+  done
+  ( cd "$SCRATCH/main" && git add "$pn-shared.txt" "$pn-c2.txt" ) >/dev/null
+  af_ship rc out "$pn" --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "$tag: --resume after re-staging did not complete (exit $rc)"; return 0
+  fi
+  af_check_landed "$tag" "$tip" "$pn-c1.txt" "$pn-c2.txt" "$pn-c3.txt" || return 0
+  if [[ "$( cd "$SCRATCH/main" && git show "HEAD:$pn-shared.txt" )" != "resolved" ]]; then
+    af_fail "$tag: the operator's resolution is not what landed"; return 0
+  fi
+  pass "$tag: $desc"
+}
+af_unstaged_then_resume "AF-i" "a paused pick whose files were all unstaged by another session is not recorded as empty; re-staged, it lands" \
+  p238 p238-shared.txt p238-c2.txt
+rm -f "$SCRATCH/main/p238-c2.txt"; af_cleanup p238
+
+# --- AF-j / AF-k ----------------------------------------------------------------
+af_unstaged_then_resume "AF-j" "a paused pick with its added file unstaged is not committed without it; re-staged, it lands" \
+  p239 p239-c2.txt
+rm -f "$SCRATCH/main/p239-c2.txt"; af_cleanup p239
+af_unstaged_then_resume "AF-k" "a paused pick with its resolved file unstaged is not committed without the resolution; re-staged, it lands" \
+  p240 p240-shared.txt
+rm -f "$SCRATCH/main/p240-c2.txt"; af_cleanup p240
+
+# --- AF-l -----------------------------------------------------------------------
+# The pick is held empty, and clearing it fails (a stand-in git answers
+# `cherry-pick --skip` with exit 1 and does nothing — an index.lock held by
+# another process looks the same). The commit must not be recorded while its pick
+# is still paused, and --resume with the real git must converge.
+af_l() {
+  local tag="AF-l: a failed --skip of an empty pick records nothing; --resume converges"
+  local rc=0 out c2 tip shim="$SCRATCH/af-shim-skip"
+  (
+    cd "$SCRATCH/main"
+    git checkout -q -b feature/p241-demo
+    echo c1 > p241-c1.txt && git add p241-c1.txt && git commit -qm "p241: commit 1"
+    echo c2 > p241-c2.txt && git add p241-c2.txt && git commit -qm "p241: commit 2"
+    echo c3 > p241-c3.txt && git add p241-c3.txt && git commit -qm "p241: commit 3"
+    git checkout -q main
+    echo c2 > p241-c2.txt && git add p241-c2.txt && git commit -qm "main: the same change by another route"
+  ) >/dev/null
+  af_spec p241
+  c2="$(af_src p241 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p241-demo )"
+  mkdir -p "$shim"
+  printf '#!/bin/sh\nif [ "$1" = cherry-pick ] && [ "$2" = --skip ]; then exit 1; fi\nexec "$AF_REAL_GIT" "$@"\n' > "$shim/git"
+  chmod +x "$shim/git"
+  out="$( cd "$SCRATCH/main" && capture_r env PATH="$shim:$PATH" AF_REAL_GIT="$(command -v git)" bash "$GIT_OPS" ship p241 2>&1 )" || rc=$?
+  rm -rf "$shim"
+  # The same stop contract as every other stop scenario: non-zero, no "Ready to
+  # push", the commit named and pending, the branch kept.
+  af_check_stopped "AF-l" "$rc" "$out" p241 "$c2" || return 0
+  if [[ "$(af_cph)" != "$c2" ]]; then
+    af_fail "AF-l: stopped, but the pick of ${c2:0:8} is not left paused (CHERRY_PICK_HEAD='$(af_cph)')"; return 0
+  fi
+  af_ship rc out p241 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-l: --resume with the real git did not complete (exit $rc) — the failed --skip left the ship wedged"; return 0
+  fi
+  af_check_landed "AF-l" "$tip" p241-c1.txt p241-c2.txt p241-c3.txt || return 0
+  pass "$tag"
+}
+af_l
+af_cleanup p241
+
+# --- AF-m (control, gate 7c) ----------------------------------------------------
+# Another session has an unstaged edit in a file this commit changes. Whatever the
+# ship does, that edit is never committed and never destroyed. The fixed tool
+# stops (it cannot tell this from AF-k); the way forward it prints is followed
+# here: copy the file aside, put the staged version back, resume, return the copy.
+af_m() {
+  local tag="AF-m: another session's unstaged edit in a file the commit changes is neither committed nor destroyed"
+  local rc out c2 tip
+  af_branch p242 "p242: commit 2" p242-shared.txt
+  c2="$(af_src p242 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p242-demo )"
+  af_ship rc out p242
+  if [[ "$rc" == 0 || "$(af_cph)" != "$c2" ]]; then
+    echo "$out" >&2; af_fail "AF-m: fixture did not stop on commit 2's conflict (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && echo resolved > p242-shared.txt && git add p242-shared.txt ) >/dev/null
+  echo "another session's line" >> "$SCRATCH/main/p242-shared.txt"
+  af_ship rc out p242 --resume
+  if ! grep -qF "another session's line" "$SCRATCH/main/p242-shared.txt"; then
+    af_fail "AF-m: another session's unstaged edit was destroyed"; return 0
+  fi
+  if grep -qF "another session's line" <<<"$( cd "$SCRATCH/main" && git show HEAD:p242-shared.txt )"; then
+    af_fail "AF-m: another session's unstaged edit was committed to main"; return 0
+  fi
+  if [[ "$rc" != 0 ]]; then
+    # The printed route 2: save the edit as a patch outside the repository, put
+    # the staged version back, resume, apply the patch.
+    ( cd "$SCRATCH/main" && git diff --output="$SCRATCH/p242-saved.patch" -- p242-shared.txt \
+        && git checkout-index -f -- p242-shared.txt )
+    af_ship rc out p242 --resume
+    ( cd "$SCRATCH/main" && git apply "$SCRATCH/p242-saved.patch" ) >/dev/null 2>&1 \
+      || af_fail "AF-m: the saved edit did not apply back"
+  fi
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-m: the ship did not complete (exit $rc)"; return 0
+  fi
+  af_check_landed "AF-m" "$tip" p242-c1.txt p242-c2.txt p242-c3.txt || return 0
+  if [[ "$( cd "$SCRATCH/main" && git show HEAD:p242-shared.txt )" != "resolved" ]] \
+     || ! grep -qF "another session's line" "$SCRATCH/main/p242-shared.txt"; then
+    af_fail "AF-m: main should hold the staged resolution only, and the working tree the other session's edit"; return 0
+  fi
+  pass "$tag"
+}
+af_m
+af_cleanup p242
+
+# --- AF-o -----------------------------------------------------------------------
+# AF-j with the pick's added file matched by .gitignore (the branch force-added
+# it). Unstaged by another session, it is invisible to a plain `git status`, so
+# the working-tree check must ask for ignored files too.
+af_o() {
+  local tag="AF-o: a paused pick whose force-added ignored file was unstaged is not committed without it"
+  local rc out c2 tip head
+  (
+    cd "$SCRATCH/main"
+    echo base > p243-shared.txt && echo 'p243-cov/' > .gitignore && git add p243-shared.txt .gitignore && git commit -qm "seed p243"
+    git checkout -q -b feature/p243-demo
+    echo c1 > p243-c1.txt && git add p243-c1.txt && git commit -qm "p243: commit 1"
+    mkdir -p p243-cov && echo report > p243-cov/report.html
+    echo "branch version" > p243-shared.txt && git add p243-shared.txt && git add -f p243-cov/report.html && git commit -qm "p243: commit 2"
+    echo c3 > p243-c3.txt && git add p243-c3.txt && git commit -qm "p243: commit 3"
+    git checkout -q main
+    echo "main version" > p243-shared.txt && git add p243-shared.txt && git commit -qm "main: rewrites p243-shared.txt"
+  ) >/dev/null
+  af_spec p243
+  c2="$(af_src p243 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p243-demo )"
+  af_ship rc out p243
+  if [[ "$rc" == 0 || "$(af_cph)" != "$c2" ]]; then
+    echo "$out" >&2; af_fail "AF-o: fixture did not stop on commit 2's conflict (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && echo resolved > p243-shared.txt && git add p243-shared.txt \
+      && git reset -q HEAD -- p243-cov/report.html ) >/dev/null
+  head="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+  af_ship rc out p243 --resume
+  af_check_stopped "AF-o" "$rc" "$out" p243 "$c2" || return 0
+  if [[ "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$head" ]] || ! grep -qF 'p243-cov/report.html' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-o: the stop committed something or does not list the ignored file"; return 0
+  fi
+  ( cd "$SCRATCH/main" && git add -f p243-cov/report.html ) >/dev/null
+  af_ship rc out p243 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-o: --resume after re-staging did not complete (exit $rc)"; return 0
+  fi
+  af_check_landed "AF-o" "$tip" p243-c1.txt p243-cov/report.html p243-c3.txt || return 0
+  pass "$tag"
+}
+af_o
+( cd "$SCRATCH/main" && rm -rf p243-cov && git rm -q --cached .gitignore 2>/dev/null; rm -f .gitignore; git commit -qm "drop p243 ignore rule" ) >/dev/null 2>&1 || true
+af_cleanup p243
+
+# --- AF-p -----------------------------------------------------------------------
+# A resume while the branch's spec is still an add/add conflict, and another
+# session has unstaged the commit's added file. The working-tree check must still
+# run (unmerged paths are only left out of it), so the spec auto-resolve cannot
+# commit the pick without that file.
+af_p() {
+  local tag="AF-p: an unresolved spec on --resume does not carry an unstaged file past the working-tree check"
+  local rc out c2 tip head final
+  final=$'---\nstatus: qa\npipeline_ran: [fix]\ntype: task\nrank: 1\ntags: [demo]\n---\n# p244: final\n\nProblem: demo.\n\n## Done-When\n\n- [x] fixture criterion\n'
+  (
+    cd "$SCRATCH/main"
+    echo base > p244-shared.txt && git add p244-shared.txt && git commit -qm "seed p244"
+    git checkout -q -b feature/p244-demo
+    echo c1 > p244-c1.txt && git add p244-c1.txt && git commit -qm "p244: commit 1"
+    printf -- '---\nstatus: draft\n---\n# p244: v1\n' > features/p244_demo.md
+    echo "branch version" > p244-shared.txt && echo c2 > p244-c2.txt
+    git add features/p244_demo.md p244-shared.txt p244-c2.txt && git commit -qm "p244: commit 2 adds the spec"
+    printf '%s' "$final" > features/p244_demo.md && echo c3 > p244-c3.txt
+    git add features/p244_demo.md p244-c3.txt && git commit -qm "p244: commit 3"
+    git checkout -q main
+    echo "main version" > p244-shared.txt && git add p244-shared.txt && git commit -qm "main: rewrites p244-shared.txt"
+    printf '%s' "$final" > features/p244_demo.md && git add features/p244_demo.md && git commit -qm "seed p244 spec on main"
+  ) >/dev/null
+  c2="$(af_src p244 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p244-demo )"
+  af_ship rc out p244
+  if [[ "$rc" == 0 || "$(af_cph)" != "$c2" ]]; then
+    echo "$out" >&2; af_fail "AF-p: fixture did not stop on commit 2's conflict (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && echo resolved > p244-shared.txt && git add p244-shared.txt \
+      && git reset -q HEAD -- p244-c2.txt ) >/dev/null
+  head="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+  af_ship rc out p244 --resume
+  af_check_stopped "AF-p" "$rc" "$out" p244 "$c2" || return 0
+  if [[ "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$head" ]] || ! grep -qF 'p244-c2.txt' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-p: the stop committed something or does not list p244-c2.txt"; return 0
+  fi
+  ( cd "$SCRATCH/main" && git add p244-c2.txt ) >/dev/null
+  af_ship rc out p244 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-p: --resume after re-staging did not complete (exit $rc)"; return 0
+  fi
+  af_check_landed "AF-p" "$tip" p244-c1.txt p244-c2.txt p244-c3.txt || return 0
+  pass "$tag"
+}
+af_p
+rm -f "$SCRATCH/main/p244-c2.txt"; af_cleanup p244
+
+# --- AF-q -----------------------------------------------------------------------
+# The working-tree read fails (a stand-in git answers the check's status call with
+# exit 1). A failed read counts as leftovers: the resume stops and commits nothing,
+# never reads the empty output as "the working tree agrees".
+af_q() {
+  local tag="AF-q: a failed working-tree read on --resume stops instead of reading as clean"
+  local rc=0 out c2 head shim="$SCRATCH/af-shim-status"
+  af_branch p245 "p245: commit 2" p245-shared.txt
+  c2="$(af_src p245 2)"
+  af_ship rc out p245
+  if [[ "$rc" == 0 || "$(af_cph)" != "$c2" ]]; then
+    echo "$out" >&2; af_fail "AF-q: fixture did not stop on commit 2's conflict (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && echo resolved > p245-shared.txt && git add p245-shared.txt \
+      && git reset -q HEAD -- p245-c2.txt ) >/dev/null
+  head="$( cd "$SCRATCH/main" && git rev-parse HEAD )"
+  mkdir -p "$shim"
+  printf '#!/bin/sh\ncase " $* " in *" status "*"--ignored=traditional"*) exit 1 ;; esac\nexec "$AF_REAL_GIT" "$@"\n' > "$shim/git"
+  chmod +x "$shim/git"
+  rc=0
+  out="$( cd "$SCRATCH/main" && capture_r env PATH="$shim:$PATH" AF_REAL_GIT="$(command -v git)" bash "$GIT_OPS" ship p245 --resume 2>&1 )" || rc=$?
+  rm -rf "$shim"
+  af_check_stopped "AF-q" "$rc" "$out" p245 "$c2" || return 0
+  if [[ "$( cd "$SCRATCH/main" && git rev-parse HEAD )" != "$head" ]] || ! grep -qF 'could not be read' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-q: the stop committed something or does not say the read failed"; return 0
+  fi
+  pass "$tag"
+}
+af_q
+rm -f "$SCRATCH/main/p245-c2.txt"; af_cleanup p245
+
+# --- AF-r -----------------------------------------------------------------------
+# Route 2 of the stop when a LATER commit of the same ship changes the same file:
+# the saved patch goes back on top, so commit 3's line survives in the working
+# tree and on main. (Copying the old file back would undo commit 3 there.)
+af_r() {
+  local tag="AF-r: route 2 keeps another session's edit without undoing a later commit to the same file"
+  local rc out c2 tip
+  (
+    cd "$SCRATCH/main"
+    printf 'l%s\n' 1 2 3 4 5 6 7 8 9 > p246-shared.txt && git add p246-shared.txt && git commit -qm "seed p246"
+    git checkout -q -b feature/p246-demo
+    echo c1 > p246-c1.txt && git add p246-c1.txt && git commit -qm "p246: commit 1"
+    sed -i.bak 's/^l2$/branch-l2/' p246-shared.txt && rm -f p246-shared.txt.bak && git add p246-shared.txt && git commit -qm "p246: commit 2"
+    sed -i.bak 's/^l9$/c3-line/' p246-shared.txt && rm -f p246-shared.txt.bak && git add p246-shared.txt && git commit -qm "p246: commit 3"
+    git checkout -q main
+    sed -i.bak 's/^l2$/main-l2/' p246-shared.txt && rm -f p246-shared.txt.bak && git add p246-shared.txt && git commit -qm "main: rewrites l2"
+  ) >/dev/null
+  af_spec p246
+  c2="$(af_src p246 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p246-demo )"
+  af_ship rc out p246
+  if [[ "$rc" == 0 || "$(af_cph)" != "$c2" ]]; then
+    echo "$out" >&2; af_fail "AF-r: fixture did not stop on commit 2's conflict (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && printf 'l%s\n' 1 x 3 4 5 6 7 8 9 | sed 's/^lx$/resolved-l2/' > p246-shared.txt && git add p246-shared.txt \
+      && sed -i.bak 's/^l1$/l1 OTHER-SESSION/' p246-shared.txt && rm -f p246-shared.txt.bak ) >/dev/null
+  af_ship rc out p246 --resume
+  af_check_stopped "AF-r" "$rc" "$out" p246 "$c2" || return 0
+  ( cd "$SCRATCH/main" && git diff --output="$SCRATCH/p246-saved.patch" -- p246-shared.txt && git checkout-index -f -- p246-shared.txt )
+  af_ship rc out p246 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-r: --resume after route 2 did not complete (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && git apply "$SCRATCH/p246-saved.patch" ) >/dev/null 2>&1 || { af_fail "AF-r: the saved edit did not apply back"; return 0; }
+  if ! grep -qx 'c3-line' <<<"$( cd "$SCRATCH/main" && git show HEAD:p246-shared.txt )" \
+     || ! grep -qx 'c3-line' "$SCRATCH/main/p246-shared.txt" \
+     || ! grep -qx 'l1 OTHER-SESSION' "$SCRATCH/main/p246-shared.txt" \
+     || grep -qF 'OTHER-SESSION' <<<"$( cd "$SCRATCH/main" && git show HEAD:p246-shared.txt )"; then
+    af_fail "AF-r: want commit 3's line on main and in the working tree, and the other session's edit only in the working tree"; return 0
+  fi
+  pass "$tag"
+}
+af_r
+af_cleanup p246
+
+# --- AF-s -----------------------------------------------------------------------
+# Route 2 when the file has no staged copy: commit 2 deletes it, and another
+# session has written a file at that path. checkout-index cannot restore it, so
+# the route moves it out of the repository and back.
+af_s() {
+  local tag="AF-s: route 2 works for a file the paused commit deletes"
+  local rc out c2 tip
+  (
+    cd "$SCRATCH/main"
+    echo base > p247-shared.txt && echo old > p247-gone.txt && git add p247-shared.txt p247-gone.txt && git commit -qm "seed p247"
+    git checkout -q -b feature/p247-demo
+    echo c1 > p247-c1.txt && git add p247-c1.txt && git commit -qm "p247: commit 1"
+    echo "branch version" > p247-shared.txt && git rm -q p247-gone.txt && git add p247-shared.txt && git commit -qm "p247: commit 2"
+    echo c3 > p247-c3.txt && git add p247-c3.txt && git commit -qm "p247: commit 3"
+    git checkout -q main
+    echo "main version" > p247-shared.txt && git add p247-shared.txt && git commit -qm "main: rewrites p247-shared.txt"
+  ) >/dev/null
+  af_spec p247
+  c2="$(af_src p247 2)"
+  tip="$( cd "$SCRATCH/main" && git rev-parse feature/p247-demo )"
+  af_ship rc out p247
+  if [[ "$rc" == 0 || "$(af_cph)" != "$c2" ]]; then
+    echo "$out" >&2; af_fail "AF-s: fixture did not stop on commit 2's conflict (exit $rc)"; return 0
+  fi
+  ( cd "$SCRATCH/main" && echo resolved > p247-shared.txt && git add p247-shared.txt && echo "other session" > p247-gone.txt ) >/dev/null
+  af_ship rc out p247 --resume
+  af_check_stopped "AF-s" "$rc" "$out" p247 "$c2" || return 0
+  if [[ -n "$( cd "$SCRATCH/main" && git ls-files -- p247-gone.txt )" ]]; then
+    af_fail "AF-s: fixture: p247-gone.txt should have no index entry"; return 0
+  fi
+  mv "$SCRATCH/main/p247-gone.txt" "$SCRATCH/p247-gone.aside"
+  af_ship rc out p247 --resume
+  if [[ "$rc" != 0 ]] || ! grep -qF 'Ready to push' <<<"$out"; then
+    echo "$out" >&2; af_fail "AF-s: --resume after moving the file out did not complete (exit $rc)"; return 0
+  fi
+  [[ ! -e "$SCRATCH/main/p247-gone.txt" ]] && mv "$SCRATCH/p247-gone.aside" "$SCRATCH/main/p247-gone.txt"
+  af_check_landed "AF-s" "$tip" p247-c1.txt p247-c3.txt || return 0
+  if ( cd "$SCRATCH/main" && git cat-file -e HEAD:p247-gone.txt 2>/dev/null ) \
+     || [[ "$(cat "$SCRATCH/main/p247-gone.txt" 2>/dev/null)" != "other session" ]]; then
+    af_fail "AF-s: want the deletion on main and the other session's file back in the working tree"; return 0
+  fi
+  pass "$tag"
+}
+af_s
+rm -f "$SCRATCH/main/p247-gone.txt"; af_cleanup p247
+
+# --- AF-n (output) --------------------------------------------------------------
+# New output, not the defect: a commit recorded without a new commit is named by
+# its full sha. Checked on AF-f's and AF-g's runs. Red on the pre-fix tool only
+# because that tool names nothing.
+if [[ -z "$AF_F_C2" || -z "$AF_G_C2" ]]; then
+  af_fail "AF-n: not checked — AF-f or AF-g did not complete"
+elif ! grep -qF "$AF_F_C2" <<<"$AF_F_OUT" || ! grep -qF "$AF_G_C2" <<<"$AF_G_OUT"; then
+  af_fail "AF-n: a commit recorded without a new commit is not named in the output"
+else
+  pass "AF-n: a commit recorded without a new commit is named by its sha in the output"
+fi
+
+if [[ -n "$AF_FAILS" ]]; then
+  fail "AF (P1694): $(printf '%s' "$AF_FAILS" | grep -c .) scenario(s) failed:"$'\n'"$AF_FAILS"
+fi
+pass "AF: a pick is recorded only when it was applied or git holds it empty (P1694)"
+
+# -----------------------------------------------------------------------------
 # R2. Shell-safety over the WHOLE run (P783). Must stay the last invariant in
 #     the file, so every canary's output is inside it.
 # -----------------------------------------------------------------------------
@@ -4438,4 +5271,4 @@ if [[ -n "$ORIGINAL_CWD" ]] && ( cd "$ORIGINAL_CWD" && git rev-parse --is-inside
   fi
 fi
 
-echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, AB, AC, UU, VV, WW, XX, YY, ZZ, AD, AE, R2) hold"
+echo "PASS: all git-ops.sh ship invariants (K-Y, Z2, Z3, AA-JJ, KK, LL, MM, NN, OO, PP, QQ, RR, SS, TT, AB, AC, UU, VV, WW, XX, YY, ZZ, AD, AE, AF, R2) hold"
