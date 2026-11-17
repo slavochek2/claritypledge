@@ -14,8 +14,9 @@
  * the lines that name a canvas box or box key), and every line starting with `reused_story_id:` (ignoring leading spaces) is dropped. All
  * other lines are kept verbatim and sent as ONE owner message.
  * The key is read from EVAL_GEMINI_KEY and never printed. TEST only: refused when the environment names the prod project or the key is one a
- * prod env file holds (p1536-eval-guard.ts). The judge (canvas-eval-rules.ts) is always the working tree's.
- * The material is private: write --out only under .private/.
+ * prod env file holds (p1536-eval-guard.ts). The judge (canvas-eval-rules.ts) is loaded from --shared, so each arm is judged by its own rules.
+ * The material is private: --out must resolve under a .private/ directory (refused, exit 2, otherwise). Also refused (exit 2): --arm not old|new,
+ * --arm old without a --shared that differs from the working tree's, --repeat not an integer >= 1, any flag with a missing or --flag value.
  */
 /* eslint-disable @typescript-eslint/no-non-null-assertion -- a dev-only eval script; the engine modules are loaded by path, so their types are not known here */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -76,15 +77,27 @@ function render(pack: string, arm: string, rows: RunRow[]): string {
 }
 
 async function main(): Promise<void> {
+  const refuse = (msg: string): never => { console.error(`refused: ${msg}`); process.exit(2); };
+  const argv = process.argv.slice(2);
+  argv.forEach((a, i) => {
+    if (a.startsWith('--') && (argv[i + 1] === undefined || argv[i + 1]!.startsWith('--'))) refuse(`flag ${a} needs a value`);
+  });
   const key = process.env.EVAL_GEMINI_KEY ?? '';
-  const shared = resolve(arg('shared', 'supabase/functions/_shared')!);
+  const workingShared = resolve('supabase/functions/_shared');
+  const sharedArg = arg('shared');
+  const shared = resolve(sharedArg ?? 'supabase/functions/_shared');
   const arm = arg('arm', 'old')!;
-  const outDir = arg('out');
+  const outArg = arg('out');
   const repeat = Number(arg('repeat', '2'));
+  if (!outArg || !`${resolve(outArg)}/`.includes('/.private/')) refuse('--out is required and must be under a .private/ directory (the material is private)');
+  const outDir = outArg!;
+  if (arm !== 'old' && arm !== 'new') refuse('--arm must be old or new');
+  if (arm === 'old' && (!sharedArg || shared === workingShared)) refuse('--arm old needs --shared pointing at a copy of the old _shared, not the working tree');
+  if (!Number.isInteger(repeat) || repeat < 1) refuse('--repeat must be an integer >= 1');
   const files = (arg('material') ?? '').split(',').filter(Boolean);
-  if (files.length === 0 || !outDir) { console.error('need --material and --out'); process.exit(1); }
+  if (files.length === 0) { console.error('need --material'); process.exit(1); }
   const load = (f: string) => import(`${shared}/${f}.ts`);
-  const [{ executeRun }, { geminiCaller }, { checkEvalPoints }] = await Promise.all([load('canvas-run'), load('canvas-model'), import(resolve('supabase/functions/_shared/canvas-eval-rules.ts'))]);
+  const [{ executeRun }, { geminiCaller }, { checkEvalPoints }] = await Promise.all([load('canvas-run'), load('canvas-model'), load('canvas-eval-rules')]);
   const refusal = refuseNonTest({ key, env: process.env, prodValues: prodEnvValues() });
   if (refusal) { console.error(refusal); process.exit(2); }
   mkdirSync(outDir, { recursive: true });

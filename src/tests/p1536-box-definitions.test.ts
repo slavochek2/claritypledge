@@ -165,7 +165,7 @@ describe('S2 box guidance', () => {
     expect(v.shape).toBe('"X over Y[, even when <what it costs>]."');
     expect(v.gap).toContain("'X over Y'");
     expect(v.good).toMatch(/^"\S.* over .*\."$/);
-    expect(v.good).not.toContain('because');
+    expect(v.good).not.toMatch(/\bbecause\b/i);
     expect(DRAFT_RULES).toContain('"X over Y[, even when <what it costs>]."');
   });
 
@@ -173,10 +173,18 @@ describe('S2 box guidance', () => {
     for (const tag of ['canvas:segments', 'canvas:problem', 'canvas:revenue', 'canvas:metrics']) {
       const g = def(tag).good;
       expect(g, tag).not.toMatch(/(^|[\s"(])I /);
-      expect(g, tag).not.toContain(' because ');
+      expect(g, tag).not.toMatch(/\bbecause\b/i);
     }
     for (const tag of ['canvas:solution', 'canvas:channels']) expect(def(tag).good.startsWith('"I '), tag).toBe(true);
-    for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toContain(' because ');
+    for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toMatch(/\bbecause\b/i);
+  });
+
+  it('P1658 review: Offers & Pricing has no "not" form, and Problem does not rank problems by cost', () => {
+    const r = def('canvas:revenue');
+    expect(r.shape).not.toContain(', not ');
+    expect(r.good).not.toContain(', not ');
+    const p = def('canvas:problem');
+    for (const s of [p.shape, p.good, p.definition]) expect(s).not.toContain('costliest');
   });
 
   it('the Copy prompt says "This canvas is about" and lists the nine headings in order', () => {

@@ -20,7 +20,7 @@ describe('P1653 F5: a natural question with words the owner never typed is shown
     'What do you charge for a car?',
     'Which customers do you sell cars to?',
     'Who usually buys the cars you sell, and how do they find you?',
-    'What does your business choose over something else it cares about, and why?',
+    'What does your business choose over something else it cares about, even when it costs you?',
     'Who are the customers of your car selling business?',
   ])('%s', (q) => {
     expect(shown(OWNER, q)).toBe(q);

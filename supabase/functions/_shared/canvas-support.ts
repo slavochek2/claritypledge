@@ -33,10 +33,9 @@ export function contentWords(text: string): Set<string> {
 }
 
 /**
- * Who a point is about, not what it says: these need not be in the quote. "today" is here because the Problem box's own
- * shape (canvas-box-definitions.ts) tells the model to start "Today <customer> ...".
+ * Who a point is about, not what it says: these need not be in the quote. "today" stays for canvases drafted under the old Problem shape ("Today <customer> ..."); "problem" because the current Problem shape (canvas-box-definitions.ts) says "For <customer> the problem is ...".
  */
-const FRAMING = new Set(['customer', 'customers', 'user', 'users', 'client', 'clients', 'people', 'person', 'buyer', 'buyers', 'they', 'today']);
+const FRAMING = new Set(['customer', 'customers', 'user', 'users', 'client', 'clients', 'people', 'person', 'buyer', 'buyers', 'they', 'today', 'problem']);
 /** Any of these in the owner's sentence and the agent does not guess: it may deny, hedge, ask, suppose or request. An open list. */
 const UNSURE = new Set((
   'refuse refuses fail fails false myth ' +

@@ -101,9 +101,9 @@ export function startsWithBannedOpening(text: string): boolean {
   return /^\s*(?:i|we|my customers)\b/i.test(text.replace(SALE_LABEL, '').replace(/^["'“”‘’\s]+/, ''));
 }
 
-/** S2.2 rule 2 (P1658): a Guiding values point is `X over Y[, even when Z]` and carries no "because": the reason is not part of the point. */
+/** S2.2 rule 2 (P1658): a Guiding values point is `X over Y[, even when Z]`: one "over" clause, no first-person subject, an optional ", even when" cost, and no "because". */
 export function isGuidingValueShape(text: string): boolean {
-  return /^\s*\S.*\sover\s+\S/i.test(text) && !/\bbecause\b/i.test(text);
+  return /^\s*(?!(?:i|we|my|our)\b)[^,]+\sover\s[^,]+(?:,\s*even when\s.+)?\.?\s*$/i.test(text) && !/\bbecause\b/i.test(text);
 }
 
 /**

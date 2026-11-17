@@ -16,7 +16,7 @@ export const FIXED_BOX_QUESTIONS: Record<CanvasBoxTag, string> = {
   'canvas:channels': 'How did your last customer find you?',
   'canvas:revenue': 'What does a customer buy, for how much, and has anyone paid yet?',
   'canvas:metrics': 'What number, by when, would show this is working?',
-  'canvas:love': 'What does your business choose over something else it cares about, and why?',
+  'canvas:love': 'What does your business choose over something else it cares about, even when it costs you?',
   'canvas:good-at': 'Where are you now, where do you want to be, and what blocks you?',
-  'canvas:world-needs': 'What did you expect that turned out wrong?',
+  'canvas:world-needs': 'Which direction did you drop, and what showed you it was wrong?',
 };

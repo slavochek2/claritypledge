@@ -135,7 +135,9 @@ describe('S2.2: the three existing rules, each with a known-good and a known-bad
     for (const bad of [
       'Intellectual honesty over winning the argument, because decisions built on hidden misunderstandings fail later.',
       'Honesty over winning, BECAUSE it matters.',
-      'Integrity and customer focus.', 'I keep weekends for family.', 'Honesty, because it matters.']) expect(isGuidingValueShape(bad), bad).toBe(false);
+      'Integrity and customer focus.', 'I keep weekends for family.', 'Honesty, because it matters.',
+      'We hand over the keys over the weekend.', 'Honesty, over and over.', 'Honesty over winning, since trust compounds.',
+      'I keep weekends for family over client calls.']) expect(isGuidingValueShape(bad), bad).toBe(false);
   });
 
   it('every number in a point appears in the material', () => {
