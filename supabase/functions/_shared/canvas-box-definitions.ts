@@ -79,7 +79,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   {
     tag: 'canvas:problem', title: 'Problem',
     type: `Claim about the customer's problem`, voice: `third-person claim; no "I"`,
-    definition: `The problem this customer has, before they hear of you, said so a reader could call it the wrong problem: where they are and its cost (A), what they want (B), what stops them (obstacle). Rank it above another problem only if the owner did.`,
+    definition: `The problem this customer has, before they hear of you, said so a reader could call it the wrong problem: where they are and its cost (A), what they want (B), what stops them (obstacle). Rank it above another problem only if the owner did. Leave out why.`,
     shape: `"For <customer> the problem is <A + cost>[, not <other problem the owner named>]; they want <B>, but <obstacle>." The obstacle is a barrier, not a missing product.`,
     good: `"For café owners the problem is sorting a quarter of receipts in the week before the deadline, not the bookkeeping itself; they want their books closed without losing evenings, but receipts pile up during 14-hour shifts."`,
     not: `"Café owners spend time on bookkeeping." (true, and nobody can disagree) / "There is no simple bookkeeping app for cafés."`,
