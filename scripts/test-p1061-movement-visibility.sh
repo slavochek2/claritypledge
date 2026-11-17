@@ -267,6 +267,7 @@ $SQL"
 fi
 if [ "${P1061_CONTROL_FILTERLESS:-}" = "1" ]; then
   FIRST="$ROOT/supabase/migrations/20261117160000_p1061_position_movement_reads.sql"
+  [ -r "$FIRST" ] || { echo "p1061-visibility: control source missing: $FIRST" >&2; exit 2; }
   SQL="$(grep -v '^BEGIN;$' "$FIRST" | grep -v '^COMMIT;$')
 $SQL"
 fi
@@ -274,6 +275,7 @@ if [ "${P1061_CONTROL_UNGUARDED:-}" = "1" ]; then
   # Restores the function as it was before the point guard (20261117190000), inside the same rolled-back
   # transaction: point_guard_non_validator must then fail.
   PREV="$ROOT/supabase/migrations/20261117190000_p1061_movement_reads_whole_rows_only.sql"
+  [ -r "$PREV" ] || { echo "p1061-visibility: control source missing: $PREV" >&2; exit 2; }
   SQL="$(grep -v '^BEGIN;$' "$PREV" | grep -v '^COMMIT;$')
 $SQL"
 fi
@@ -281,11 +283,15 @@ OUT="$(printf '%s\n' "$SQL" | "$SQL_RUNNER")" || { echo "p1061-visibility: the S
 echo "p1061-visibility: $OUT" | tr '>' ' '
 python3 - "$OUT" "$EXPECT_FAIL" <<'EOPY'
 import json, sys
-rows = json.loads(sys.argv[1])
 expect = sorted(k for k in sys.argv[2].split(",") if k)
-if not rows:
-    # Under a control, exit 1 would read as a correct detection; an empty answer proves nothing either way.
-    print("p1061-visibility: FAIL: no result row"); sys.exit(2 if expect else 1)
+# An answer that is not a result row proves nothing either way: "could not run" (2), never "a probe failed" (1),
+# which under a control would read as a correct detection.
+try:
+    rows = json.loads(sys.argv[1])
+except ValueError:
+    print("p1061-visibility: CANNOT JUDGE: the runner's answer is not JSON"); sys.exit(2)
+if not isinstance(rows, list) or not rows or not isinstance(rows[0], dict):
+    print("p1061-visibility: CANNOT JUDGE: no result row"); sys.exit(2)
 row = rows[0]
 if row.get("control_owner_sees_history") != "true":
     print("p1061-visibility: CANNOT JUDGE: the owner sees no other history on the chosen point, so a 0 proves nothing"); sys.exit(2)
