@@ -1,17 +1,19 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 328
 workstream: clarity-canvas
 created_date: '2026-11-10'
 tags: [clarity-canvas, points, mirror, prompt]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
+spec_review_hash: 6af12ce52eb8ae22cbfa1d82dfeeb854ae88d88012daee8bb9f5608e6d73e00d
+spec_review_vendors: [gemini, openrouter]
 ---
 
 # P1658: Clarity Canvas points are written as claims people can take a position on
@@ -48,11 +50,14 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
 ## Solution
 
 1. **Draft new box rules** following the point model:
-   - Claim boxes (Customer Segments, Problem, Offers & Pricing, My next milestone): third-person, falsifiable claims, no "I", no "because". Comparative and "not" forms allowed ("Our first buyer is X, not Y").
+   - Claim boxes (Customer Segments, Problem, Offers & Pricing, My next milestone): third-person, falsifiable claims, no "I", no "because". Comparative and "not" forms allowed ("The first buyer is X, not Y").
    - Action boxes (Solution, Go-to-market strategy): first-person stance points about what the owner does.
    - A "not" point per box where the owner's material contains a falsified hypothesis. Test the founder's idea of retiring or repurposing "Hypotheses I've falsified" `[FOUNDER DECISION: what that box becomes]`.
    - Reasons leave the point: today's Solution shape ("I <do X>, which removes <obstacle> so they reach <B>") and Guiding values shape ("X over Y, because Z") carry reasons inside the point. The test tries both with the reason moved out `[FOUNDER DECISION: keep or move the reason in these two boxes]`.
    - Each box's `good` and `not` examples rewritten to match.
+   - **Scope of the rewrite (spec review 2026-11-17).** Per box, every field that contradicts the new voice and shape changes too: `type`, `definition`, `gap`, `empty`, not only voice, shape and examples. The Copy prompt shows title, definition, voice and shape and no examples (`copyPromptSection`), so a rewrite that only touches examples never reaches the founder's own-AI test. The seven `GLOBAL_RULES` texts and `ONE_SALE_LOOP_PLAIN` stay word for word.
+   - **Box by box, the defaults for the test build:** My next milestone keeps its target modality in third person ("10 cafés pay monthly by 31 March 2027 (target)"), since a target stays a target. My current biggest challenge is unchanged unless the drafting test shows it needs the claim form. Solution and Go-to-market are stance points: what the owner does, will not do or requires; the "which removes … so …" mechanism half is the reason that moves out.
+   - **"Not" points:** they count toward `MAX_POINTS_PER_BOX` (3), and the "not" half must trace to the owner's material like any other clause (Grounding); a "not" with nothing behind it is left out. A box-level falsified hypothesis becomes a "not" point in its box. A whole dropped direction still goes to "Hypotheses I've falsified", because `ONE_SALE_LOOP_PLAIN` routes it there and stays unchanged; the box keeps its title and tag in this build. Renaming or retiring it relabels every published canvas (titles come from `CANVAS_BOXES`), so that is the founder decision, built separately.
 2. **Test before shipping**, two ways:
    - The founder presses Copy prompt on a localhost branch build, runs it in his own AI with his own material, and compares the result with his current canvas.
    - The drafting agent runs on two or three real canvases with the old and new rules, side by side.
@@ -66,6 +71,9 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
 | Some boxes resist claim form (Guiding values, current biggest challenge) | ACCEPT | Leave those as they are if the test shows it; say so in the result |
 | Drafts on TEST differ by model run | MITIGATE | Run each side at least twice |
 | A model cost per test run | ACCEPT | A handful of runs at about 3 cents each (P1529 walk, 2026-11-09) |
+| The engine's evidence checks drop the new forms (a "not" sentence read as a denial, P1625; a claim-shaped price missing its unit, `PRICE_GAP_QUESTION`) | MITIGATE | The old-vs-new run counts the points the engine kept and dropped per side, and names any dropped "not" point |
+| Owners of published canvases get the new Copy prompt at once, in a form their published canvas does not use | ACCEPT | Only if adopted; the next version brings the canvas into the new form |
+| Tests pin today's wording (`p1536-box-definitions.test.ts` pins "X over Y, because Z"; `canvas-eval-rules.ts` values-shape) | MITIGATE | The branch updates those pins to the new wording, because the wording itself is what this spec changes; every other test stays as it is |
 
 **Non-Goals**
 - Do NOT rewrite published canvases.
@@ -76,9 +84,9 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
 
 - [ ] New box rules drafted, shown to the founder side by side with the current ones.
 - [ ] The founder has run the new Copy prompt on his own material; his output is saved in `.private/canvas-rules-test/` next to his current canvas.
-- [ ] At least two real canvases drafted with old and new rules, each output saved in `.private/canvas-rules-test/<canvas>-old.md` and `-new.md`, and one side-by-side summary there.
-- [ ] The founder's decision recorded: adopt, revise or drop; and what the falsified box becomes.
-- [ ] If adopted, the drafting prompt, the Copy prompt and the empty-box questions all show the new rules (one text), and the existing canvas tests pass (including `src/tests/p1536-box-definitions.test.ts`; a renamed falsified box updates its pinned title).
+- [ ] At least two real canvases drafted with old and new rules, each side run twice; both runs of a side saved in one file, `.private/canvas-rules-test/<canvas>-old.md` and `-new.md`, and one side-by-side summary there that counts kept and dropped points per side.
+- [ ] The founder's decision recorded in `docs/decisions.md`: adopt, revise or drop; keep or move the reason in Solution and Guiding values; and what the falsified box becomes.
+- [ ] If adopted, the drafting prompt, the Copy prompt and the empty-box questions all show the new rules (one text), and the canvas tests pass (including `src/tests/p1536-box-definitions.test.ts`, with its wording pins moved to the new wording).
 
 ## Related
 

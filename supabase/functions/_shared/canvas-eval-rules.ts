@@ -3,7 +3,7 @@
  * eval script and vitest load it as it is; nothing in the running product imports it.
  *
  *  - voice: no Customer Segments point starts with "I", "We", "My customers" or "I sell to";
- *  - values-shape: every Guiding values point matches `X over Y, because Z`;
+ *  - values-shape: every Guiding values point matches `X over Y` (optionally ", even when Z") and contains no "because" (P1658);
  *  - number-grounding: every number in every point appears in the owner's material;
  *  - segment-specificity (Q1): a Customer Segments point names a role or title, plus at least two of industry, company size, demographics,
  *    psychographics.
@@ -101,9 +101,9 @@ export function startsWithBannedOpening(text: string): boolean {
   return /^\s*(?:i|we|my customers)\b/i.test(text.replace(SALE_LABEL, '').replace(/^["'“”‘’\s]+/, ''));
 }
 
-/** S2.2 rule 2: a Guiding values point is `X over Y, because Z`. */
+/** S2.2 rule 2 (P1658): a Guiding values point is `X over Y[, even when Z]` and carries no "because": the reason is not part of the point. */
 export function isGuidingValueShape(text: string): boolean {
-  return /^\s*\S.*\sover\s.+,\s*because\s+\S/i.test(text);
+  return /^\s*\S.*\sover\s+\S/i.test(text) && !/\bbecause\b/i.test(text);
 }
 
 /**

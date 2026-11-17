@@ -130,9 +130,12 @@ describe('S2.2: the three existing rules, each with a known-good and a known-bad
     for (const good of ['Owners of 1-3 independent cafés', 'Pays: finance directors', 'Independent bakers', 'Weavers in Tartu']) expect(startsWithBannedOpening(good), good).toBe(false);
   });
 
-  it('every Guiding values point matches "X over Y, because Z"', () => {
-    expect(isGuidingValueShape('Intellectual honesty over winning the argument, because decisions built on hidden misunderstandings fail later.')).toBe(true);
-    for (const bad of ['Integrity and customer focus.', 'I keep weekends for family.', 'Honesty over winning.', 'Honesty, because it matters.']) expect(isGuidingValueShape(bad), bad).toBe(false);
+  it('every Guiding values point matches "X over Y" with no reason inside (P1658)', () => {
+    for (const good of ['Honesty over winning.', 'Filing on time over filing perfectly, even when a late receipt means correcting the return afterwards.']) expect(isGuidingValueShape(good), good).toBe(true);
+    for (const bad of [
+      'Intellectual honesty over winning the argument, because decisions built on hidden misunderstandings fail later.',
+      'Honesty over winning, BECAUSE it matters.',
+      'Integrity and customer focus.', 'I keep weekends for family.', 'Honesty, because it matters.']) expect(isGuidingValueShape(bad), bad).toBe(false);
   });
 
   it('every number in a point appears in the material', () => {
@@ -146,7 +149,7 @@ describe('S2.2: the three existing rules, each with a known-good and a known-bad
     const material = 'Owners of 2 cafés in Tallinn, in their 30s, pay 40 euros.';
     const clean = checkEvalPoints([
       { box: 'canvas:segments', text: 'Owners of 2 cafés in Tallinn who are in their 30s' },
-      { box: 'canvas:love', text: 'Honesty over speed, because trust compounds.' },
+      { box: 'canvas:love', text: 'Honesty over speed, even when it costs a sale.' },
     ], material);
     expect(clean).toEqual([]);
     const dirty = checkEvalPoints([

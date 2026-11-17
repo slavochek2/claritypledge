@@ -2,7 +2,7 @@
  * P1536 Design v6, S2: one source for the nine Clarity Canvas box definitions.
  *   S2.1 the drafting prompt, the empty-box questions and the Copy prompt are byte-equal to the module, hold no box text
  *        of their own, and the module's titles equal CANVAS_BOXES;
- *   Customer Segments guidance forbids "I sell to"; Guiding values is written "X over Y, because Z";
+ *   Customer Segments guidance forbids "I sell to"; Guiding values is written "X over Y" with no reason inside;
  *   the Copy prompt names "This canvas is about" and the nine headings in order.
  * The real-model checks (S2.2 to S2.5) are not here: they need the real model and the S1-edge output schema.
  */
@@ -160,12 +160,23 @@ describe('S2 box guidance', () => {
     expect(CANVAS_OWN_AI_PROMPT).toContain(voice.text);
   });
 
-  it('Guiding values is written "X over Y, because Z"', () => {
+  it('Guiding values is written "X over Y", with no reason inside', () => {
     const v = def('canvas:love');
-    expect(v.shape).toBe('"X over Y, because Z."');
-    expect(v.gap).toContain("'X over Y, because Z'");
-    expect(v.good).toMatch(/^"\S.* over .*, because .*\."$/);
-    expect(DRAFT_RULES).toContain('X over Y, because Z');
+    expect(v.shape).toBe('"X over Y[, even when <what it costs>]."');
+    expect(v.gap).toContain("'X over Y'");
+    expect(v.good).toMatch(/^"\S.* over .*\."$/);
+    expect(v.good).not.toContain('because');
+    expect(DRAFT_RULES).toContain('"X over Y[, even when <what it costs>]."');
+  });
+
+  it('P1658 claim/stance split: claim boxes are third person, action boxes start "I ", no good example carries a reason', () => {
+    for (const tag of ['canvas:segments', 'canvas:problem', 'canvas:revenue', 'canvas:metrics']) {
+      const g = def(tag).good;
+      expect(g, tag).not.toMatch(/(^|[\s"(])I /);
+      expect(g, tag).not.toContain(' because ');
+    }
+    for (const tag of ['canvas:solution', 'canvas:channels']) expect(def(tag).good.startsWith('"I '), tag).toBe(true);
+    for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toContain(' because ');
   });
 
   it('the Copy prompt says "This canvas is about" and lists the nine headings in order', () => {

@@ -553,7 +553,7 @@ describe('P1536 reply text', () => {
     expect(run).toContain("'I could not save that draft, so nothing changed on the canvas. Try again.'");
   });
   it('questions are keyed by box tag', () => {
-    expect(questionsFor(['canvas:love'])).toEqual({ 'canvas:love': "What does your business choose over something else it cares about, and why? Write it as 'X over Y, because Z'." });
+    expect(questionsFor(['canvas:love'])).toEqual({ 'canvas:love': "What does your business choose over something else it cares about, even when it costs you? Write it as 'X over Y'." });
   });
 });
 
