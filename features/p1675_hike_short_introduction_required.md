@@ -7,7 +7,7 @@ created_date: '2026-11-13'
 tags: [events, social-hike, clarity-hike, registration, preparation]
 disclosure: public
 delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+pipeline_ran: [create-spec, dev, dev.2]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -230,18 +230,49 @@ Per month, with V = hike page views per hike (V ≈ 50 assumed) and the registra
 - [x] The hike template's title prefix is "Clarity Hike" and its opening is the founder's new line; the app's visible series label reads "Clarity Hike".
 - [x] `/hike`, `publish-run`, `re-create-event`, the group-chat mapping and `promote-all` handle both a "Social Hike: …" and a "Clarity Hike: …" event.
 
+UAT round 1 (R1 to R8 below):
+
+- [ ] R1: the hike form's lead line is "Everyone does a short introduction before the hike. When will you do it?" and shows no minutes; the "now" option shows the computed minutes.
+- [ ] R2: choosing "I need a ride" shows the ride line in the form, and the confirmation email of a need-ride registration contains it; other transport answers show neither.
+- [ ] R3: the help question reads R3's question and line, "Just attend as a participant" is selected when the form opens, and submitting with it stores no help role.
+- [ ] R4: a chosen role shows the heading "{Role}: what you'll do" above its text, in the form and in the confirmation email.
+- [ ] R6: Create and Edit event show the two checkboxes for hikes only, on by default; a non-hike event shows neither.
+- [ ] R6: with transport off, the form has no transport question, the server stores transport and seats NULL even when the client sends values, and the seat is created; with help off, the same for help and Other. With both on, behaviour is unchanged (P1675's existing tests green).
+- [ ] R6: the host page shows a dash for an answer the event did not ask.
+- [ ] R7: a hike's confirmation and reminder emails contain the group chat link when one is set and no group chat line when none is; Clarity Night's emails are unchanged.
+- [ ] R7: a hike registration made after the deploy schedules no feedback email; a Clarity Night registration still does.
+- [ ] R8: for a new person on the same hike, the form's minutes equal the preparation page's minutes and `/prepare`'s total for the same steps, all from one shared function; the factor is not applied to the canvas step; a test pins that the hike's number is the factor applied to the modelled seconds, not a typed total.
+
 ## UAT round 1 (founder, 2026-11-17, localhost)
 
-Founder feedback after trying the form on the Wat Pha Lat hike. Each item is open until built and checked.
+Founder feedback after trying the form on the Wat Pha Lat hike. Every founder decision below was given in session on 2026-11-17; the text is verbatim and supersedes the matching text in sections 1 to 3 above.
 
-- [ ] **The minutes are wrong.** The form says 8 minutes; the real introduction takes about 15 (founder: "its not 8 minutes - its 15 - we should correct it properly"). Find why `useHikeMinutes` differs from the preparation page's own estimate for the same hike (the Listening Game step from P1685, the card counts, or the plan built for "a new person") and make the form show the same number the preparation shows. Never a literal.
-- [ ] **The lead line is too long and repeats itself** (founder: "It's a long thing to simplify. It's redundant also against words."). `[FOUNDER DECISION: the shorter lead line; propose two or three versions.]`
-- [ ] **"I need a ride" says what happens next:** after registering they get the hike's WhatsApp group, where rides are coordinated (founder's words: "after registration they will get access to the WhatsApp group and the rides are coordinated there"). `[FOUNDER DECISION: exact wording.]`
-- [ ] **The help question has a default:** "Just attend as a participant" is selected by default (founder: "The default should be no... Maybe instead of no, attend as a participant"), and the question explains this is a social, non-commercial hike and asks whether they would like to volunteer. `[FOUNDER DECISION: exact wording of the question, its one-line explanation and the default option.]`
-- [ ] **A chosen role's text reads as instructions:** it is not clear that the text under a chosen role is what we expect of them (founder: "it's not clear that the text below is an instruction of what we expect"). Give it a heading such as "What we ask of a Sweep". `[FOUNDER DECISION: heading wording.]`
-- [ ] **Questions per event, not per series:** not every hike needs every question. Founder's example: the city collab event needs neither help nor transport ("how you're coming is irrelevant because it's in the city... the only thing relevant is when they want to do the preparation"). The host chooses, per event, which of the transport and help questions are asked; the "when" question is always asked. Design the setting (event field and where the host sets it) before building.
-- [ ] **"Only you and the host see these answers."** The founder questioned this line ("Though we really need it, I guess / I can delete it right now"). It is the collection notice until the privacy page names these answers (INBOX-360). `[FOUNDER DECISION: keep, reword, or remove.]`
-- [ ] **Members-only hikes later need to be told apart** from open ones (founder: "how we will be able to see later separate between clarity hikes that are only for members"). Out of scope here (Non-Goals; INBOX-361); recorded so the per-event setting above is designed to fit beside it.
+**R1. Lead line, shorter, no minutes** (founder: "It's a long thing to simplify. It's redundant also against words."): "Everyone does a short introduction before the hike. When will you do it?" The minutes stay only in the "now" option ("I have N minutes, I'll do it now").
+
+**R2. "I need a ride" says what happens next.** Choosing it shows, under the option: "After you register, you'll get the hike's WhatsApp group. Rides are arranged there." The same line goes in that person's confirmation email (as the free-seats line does for drivers).
+
+**R3. The help question has a default.** Question: "How would you like to take part?" One line under it: "This is a social, non-commercial hike: nobody is paid, so a few of us help run it." First option, selected by default: "Just attend as a participant" (stored as no help role, `help` NULL). Then Lead, Sweep, Welcomer, Transport lead (only with "I need a ride"), Other.
+
+**R4. A chosen role's text reads as instructions.** A heading above it: "{Role}: what you'll do" (e.g. "Sweep: what you'll do", "Transport lead: what you'll do"). The confirmation email uses the same heading above the same text.
+
+**R5. Privacy line kept as is:** "Only you and the host see these answers."
+
+**R6. Questions per event, not per series.** Founder's example: the in-city collab needs neither help nor transport. Design (founder chose two checkboxes):
+- `events` gets two booleans, `hike_asks_transport` and `hike_asks_help`, `NOT NULL DEFAULT true`, so every existing hike keeps asking both. They are ordinary public event settings (not personal data), written by the host through the existing event update path.
+- Create and Edit event show, for hike events only, under a heading "Questions before the seat": "Ask how they're coming" and "Ask if they'd like to help", both on by default. The "when" question is always asked and has no checkbox.
+- With transport off, the form hides the transport question (and with it the free-seats answer, the ride line and the Transport lead option). With help off, it hides the help question.
+- `event_hike_answers.transport` becomes nullable: NULL exactly when not asked. The free-seats check accepts NULL transport with NULL seats; the Transport lead check already refuses `transport_lead` without `need_ride`.
+- `register_for_hike` reads the event's two settings: when transport is asked it stays required as today; when it is not, transport and seats are stored NULL whatever the client sends. When help is not asked, help and Other are stored NULL.
+- A host who changes a setting after people registered keeps their answers as they are; the host page shows a missing answer as a dash.
+- Members-only hikes (INBOX-361, out of scope) will be a separate "who can register" setting beside these, not a third checkbox here.
+
+**R7. Emails: the WhatsApp group link, and no feedback email for hikes** (founder: "confirmation and reminder - the feedback email we can skip - because i direct them to feedback at end of the event").
+- A hike's confirmation and 24-hour reminder carry the event's group chat link when the host has set one (P1193's private event info; the recipient holds a registration, which is who may read it). No new email is added.
+- Hike registrations made after the deploy get no after-event feedback email. Clarity Night and the mastermind keep theirs; whether to drop feedback emails for every event is a separate founder decision (filed).
+
+**R8. The minutes match the real time.** Finding (verified in code, 2026-11-17): the form and the preparation page already compute the same number, from the same plan and the same rule, and for a new person both say 8 for this hike; there was no mismatch between them. The rule undercounts real time: it assumes videos at 1.15x, reading at 200 words a minute, 20 seconds per statement, and nothing for thinking or moving between screens. The founder timed the hike introduction at about 15 minutes. Fix (founder: "update now, and later we can change"): one correction factor in the time rule, the founder's observed time over the rule's estimate (15 / 8), applied to every modelled step (videos, reading, statements) and not to the founder-set canvas time. It stays a computed number: adding or removing a step still changes it, and the form, the preparation page and `/prepare` keep agreeing. Because the rule is shared, Clarity Night's and the mastermind's preparation estimates rise by the same factor: a deliberate exception to the Non-Goal "do not change Clarity Night's preparation", shown to the founder before ship. Replacing the factor with measured completion times is filed as a follow-up.
+
+**R9. Members-only hikes** later need to be told apart from open ones (INBOX-361). Out of scope; R6 is designed to sit beside it.
 
 Also discussed, not built: tokens for asking a real question when there is a disagreement. This is the armband game already in "Not built: host practice". Recommendation given: try it by hand on the next one or two hikes and judge it with the measure below; build nothing in the app until it shows it helps.
 
