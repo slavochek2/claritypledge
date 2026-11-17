@@ -249,6 +249,13 @@ export async function hostEndRounds(eventId: string): Promise<void> {
   if (error) throw error;
 }
 
+/** P1699: deletes every round of the event (host only, irreversible). Returns how many rounds were deleted. */
+export async function hostResetRounds(eventId: string): Promise<number> {
+  const { data, error } = await supabase.rpc('host_reset_rounds', { p_event_id: eventId });
+  if (error) throw error;
+  return typeof data === 'number' ? data : 0;
+}
+
 /**
  * P1529: ends the newest round only (the Sales Mastermind's "End round N"); its transcript is cut there. Idempotent: true when
  * this call ended it, false when there was nothing open. The evening stays on: phones read the gap as "between rounds".

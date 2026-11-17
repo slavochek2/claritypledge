@@ -57,6 +57,7 @@ import {
   hostSetRoundSeats,
   hostShortenRound,
   hostEndRounds,
+  hostResetRounds,
   roundExists,
   hostStartRound,
   getRoundSeatKeys,
@@ -840,6 +841,13 @@ export function EventHostPage() {
   // Walkthrough 8: "End the evening" asks once, inline (no browser dialog), before every phone moves to Close.
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [confirmNext, setConfirmNext] = useState(false);
+  // P1699: "Reset rounds" asks once, inline, like "End the evening".
+  const [confirmReset, setConfirmReset] = useState(false);
+  // An open confirm whose rounds were reset elsewhere (another host device) closes, so it never reappears unasked
+  // under the next round 1 (/finish round 2).
+  // Keyed on the first round's id, so a reset followed by a new round 1 within one poll still closes it.
+  const firstRoundId = state.rounds[0]?.id ?? null;
+  useEffect(() => { setConfirmReset(false); }, [firstRoundId]);
   // Skipping the canvas update asks once: it leaves the owners no time to update.
   const [lifted, setLifted] = useState<string | null>(null);
   const [undoStack, setUndoStack] = useState<{ roundId: string; seats: Seat[]; label: string }[]>([]);
@@ -1610,6 +1618,57 @@ export function EventHostPage() {
               </div>
             </div>
           )}
+            </div>
+          )}
+          {(state.rounds.length > 0 || mm.eveningOver) && !preview && !confirmReset && (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setConfirmReset(true)}
+                disabled={!!busy}
+                className="mt-2 inline-flex min-h-10 items-center text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+                data-testid="host-reset-rounds"
+              >
+                Reset rounds
+              </button>
+            </div>
+          )}
+          {(state.rounds.length > 0 || mm.eveningOver) && !preview && confirmReset && (
+            <div className="mt-2 rounded-lg border border-border p-3 text-left text-sm" data-testid="host-reset-confirm">
+              <p className="font-semibold">Reset all rounds?</p>
+              <p className="mt-1">
+                This deletes every round of this event: the seating, the round chats and the round transcripts. Registrations, the waiting list, feedback, the rest of the event chat and everyone's canvases stay. People go back to the start, and you can start round 1 again. This cannot be undone.
+              </p>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="min-h-10"
+                  disabled={!!busy}
+                  onClick={() => {
+                    void run(async () => {
+                      await hostResetRounds(event.id);
+                      // Only once the server has deleted them: the rounds the page holds are gone, so nothing keyed to
+                      // them may linger. A failed reset keeps the confirm box, the undo history and any pending start.
+                      setConfirmReset(false);
+                      setUndoStack([]);
+                      setLifted(null);
+                      setConfirmNext(false);
+                      setConfirmEnd(false);
+                      setPendingNo(null);
+                      pendingRef.current = null;
+                      setNotice(null);
+                      await Promise.all([refresh(), mm.refresh()]);
+                    });
+                  }}
+                  data-testid="host-reset-yes"
+                >
+                  {busy ? 'Resetting…' : 'Reset rounds'}
+                </Button>
+                <Button type="button" variant="ghost" className="min-h-10" disabled={!!busy} onClick={() => setConfirmReset(false)}>
+                  Cancel
+                </Button>
+              </div>
             </div>
           )}
           {error && (

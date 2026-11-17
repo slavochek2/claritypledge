@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: story
 rank: 346
 workstream: events
 created_date: '2026-11-17'
 tags: [events, rounds, host, mastermind]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -34,7 +34,7 @@ Blast radius: medium. It's one host action on one event, but it deletes data oth
 
 ## Solution
 
-A host-only server function `host_reset_rounds(p_event_id uuid) RETURNS void`. It uses the same host check as `host_end_rounds` (the caller must be `events.host_id`, otherwise 42501), and **first takes the same `p1337_round:<event>` advisory lock** that `host_start_round`, `host_end_round` and `host_end_rounds` take (`20261110090000_p1529_end_round.sql:51,81`), so a start on another device cannot interleave. In that one transaction, in this order:
+A host-only server function `host_reset_rounds(p_event_id uuid) RETURNS integer` (the number of rounds deleted). It uses the same host check as `host_end_rounds` (the caller must be `events.host_id`, otherwise 42501), and **first takes the same `p1337_round:<event>` advisory lock** that `host_start_round`, `host_end_round` and `host_end_rounds` take (`20261110090000_p1529_end_round.sql:51,81`), so a start on another device cannot interleave. In that one transaction, in this order:
 
 1. **Round chat.** Deletes the replies in every round thread (`chat_messages` whose `thread_root_id` is a `chat_round_threads.root_message_id` of the event's rounds), then the root messages themselves. Order matters: `chat_messages.thread_root_id` is `ON DELETE SET NULL` (`20261019203000_p1512_clarity_chat.sql:112`), so deleting a root first would turn its replies into loose top-level messages in the event chat. Deleting `event_rounds` alone deletes only the `chat_round_threads` link rows, not the messages. The `/dev` agent checks every other table that references `chat_messages` (reactions, forwards, drafts) and states in the migration header what each does when a message goes. [FOUNDER DECISION: delete round chat on reset. Default taken: **yes**, because a reset that leaves "Round 1 · Table 2" threads in the chat contradicts "start rounds from the beginning".]
 2. **Round transcript lines and room-level transcript jobs.** Deletes `transcribe_messages` rows whose `dest_round_id` is one of the event's rounds; otherwise they'd survive with the round link nulled. Also deletes the event's room-level clean-transcript jobs (`transcribe_round_clean_jobs` with `kind = 'room'`, `place` in `before`/`end`). Starting round 1 creates the `before` job with no round link, and only one per room and place may exist (`20261102133000_p1596_threads_in_time_order.sql:41-43`). Left in place, it would stop the real evening making its own and would post test-round speech to the whole event chat. It also deletes the matching "Before/After rounds" threads (`chat_outside_round_threads` roots, replies first, as in step 1). Deleting the jobs cascades to `transcribe_round_clean_posts` and `transcribe_clean_texts` (people's session transcript history from the test), which is intended. The function locks these job rows before deleting, to avoid a deadlock with a transcript post running at the same moment.
@@ -82,16 +82,41 @@ The `/dev` agent re-runs the FK enumeration, plus a search for any table holding
 
 ## Acceptance Criteria
 
-- [ ] The host of an event with rounds sees "Reset rounds"; after confirming, the host page shows the pre-round state and the next start is round 1 (or the Demo).
-- [ ] An attendee seated in a round is back on the pre-rounds step within one poll after the reset, without reloading.
-- [ ] After the reset, once the chat is reopened or reloaded (live updates carry inserts and edits, not deletes: `chat-service.ts:388-393`), the event chat shows no round threads and no Before/After rounds threads; a message posted in the event channel before the reset is still there.
-- [ ] After a reset, the real round 1 gets its own Before-round-1 transcript job (no unique-index conflict).
-- [ ] On TEST, the ids of the event's registrations, waiting list, room members, canvases, canvas shares, principle answers, registration answers and non-round chat messages are identical before and after the reset, and a second event's rounds are untouched.
-- [ ] No reply from a round thread survives as a top-level message in the event chat.
-- [ ] An ended evening is open again after the reset.
-- [ ] A non-host (signed in) calling `host_reset_rounds` gets SQLSTATE 42501 and nothing is deleted; an anonymous call is refused.
-- [ ] An event with no rounds and no ended evening does not show the control; one with an ended evening and no rounds does.
-- [ ] An attendee who had tapped back to an earlier step while seated also lands on the pre-rounds step after the reset.
+- [x] The host of an event with rounds sees "Reset rounds"; after confirming, the host page shows the pre-round state and the next start is round 1 (or the Demo). Evidence 2026-11-17: `e2e/p1699-reset-rounds.spec.ts` (1 passed, TEST) steps (a) and (d); unit `p1699-host-reset-rounds.test.tsx`.
+- [x] An attendee seated in a round is back on the pre-rounds step within one poll after the reset, without reloading. Evidence: `e2e/p1699-reset-rounds.spec.ts` step (b), two browsers, no reload.
+- [x] After the reset, once the chat is reopened or reloaded (live updates carry inserts and edits, not deletes: `chat-service.ts:388-393`), the event chat shows no round threads and no Before/After rounds threads; a message posted in the event channel before the reset is still there. Evidence (database the chat reads, rolled-back probe on a TEST event with 4 rounds): 5 thread roots and 80 replies before, 0 left after; the 8 other event-channel messages identical by id. Not checked in a browser.
+- [x] After a reset, the real round 1 gets its own Before-round-1 transcript job (no unique-index conflict). Evidence: same probe, the event's room-level `before` job count went to 0, so the unique (room_id, place) slot is free.
+- [x] On TEST, the ids of the event's registrations, waiting list, room members, canvases, canvas shares, principle answers, registration answers and non-round chat messages are identical before and after the reset, and a second event's rounds are untouched. Evidence: probe compares md5 of each id set (rsvps, waiting list, room members, canvas shares, registration answers, non-round messages, every other event's rounds): all equal. Canvases are not touched by any statement in the function. Integration `p1699-reset-rounds-db.spec.ts` 5/5.
+- [x] No reply from a round thread survives as a top-level message in the event chat. Evidence: probe, replies_left=0.
+- [x] An ended evening is open again after the reset. Evidence: first dry run, `event_evening_ends` row count 0 after reset.
+- [x] A non-host (signed in) calling `host_reset_rounds` gets SQLSTATE 42501 and nothing is deleted; an anonymous call is refused. Evidence: `p1699-reset-rounds-db.spec.ts` 5/5 and the dry run.
+- [x] An event with no rounds does not show the control; one whose evening has ended still does. (Amended 2026-11-17: an ended evening with zero rounds cannot occur on the host page, `eveningEndedAfter` needs a round.) Evidence: unit `p1699-host-reset-rounds.test.tsx`.
+- [x] An attendee who had tapped back to an earlier step while seated also lands on the pre-rounds step after the reset. Evidence: `e2e/p1699-reset-rounds.spec.ts` step (c). Limit: in that test the step tapped back to (Principle) is also the pre-rounds step; the clearing itself is the existing effect at `EventRoomMeet.tsx:400` (seated change clears `viewingBack`).
+
+## Known limitations (from the /finish review, 2026-11-17)
+
+- A reset that commits after the page's 10-second write deadline still shows "That didn't save"; the next 4-second poll shows the rounds gone, and the host can press Reset again harmlessly.
+- "Sits out" marks on the host board can show for up to one poll after the reset.
+- The reset deletes the event's room-level transcript jobs, including a `before` or `end` job from an earlier room of the same event that ended before the test rounds; that is the personal transcript history of a part that, by the reset's meaning, is being started over.
+- A room that ends while the reset is running can build its end job from the old rounds before the reset commits; the reset cannot see that job, so it can later post test-round speech. The window is the reset's own duration (milliseconds). DEFER: if it is ever seen, skip room-job lines spoken before `reset_at` in `_post_clean_round_item`.
+- Two rare lock-order deadlocks (an account erasure, and the clean tick closing rounds) can abort one side; Postgres picks the victim and the host can press Reset again. No data is corrupted.
+- The confirm text reads the same whether a round is running or not (resetting mid-round sends every seated phone back to the start). [FOUNDER DECISION: add a line such as "A round is running right now" to the confirm when one is.]
+- The control is a muted text button with an inline confirm, the same pattern as the sibling "End the evening" on this page (reviewers suggested the shared ConfirmDialog and a red trigger; kept consistent with the sibling, founder's call).
+
+## Cost Budget
+
+Applies because the new tests create and delete test users (metered-services.md, "When this applies"). Added after the /finish review, 2026-11-17.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | A reset is a host action, not per user: 1 RPC + 2 existing refresh reads = 3 requests per reset | 0 standing traffic: no poll, timer or retry added (the existing 4-second host poll is unchanged) | Integration spec: 3 users created + 3 deleted = 6 auth admin calls, 3 password sign-ins, 10 RPCs (3 joins + 2 starts + 2 refused resets + 2 host resets + 1 restart), about 30 service-role seed and assertion reads and writes (chat, transcript, evening and canvas rows), 2 event inserts and 2 deletes. Total about 6 + 3 + 10 + 30 + 4 = 53 requests. Browser spec: 3 users created + 3 deleted = 6, 2 events, and for about 40 s two attendee pages and one host page polling every 4 s = 3 pages x 10 polls x about 3 reads = about 90 reads; about 100 requests in all |
+| Egress (bytes) | One RPC returning an integer: under 1 KB per reset | 0 added | Integration: 53 responses x under 2 KB = under 106 KB. Browser: 3 page loads x about 1.5 MB of app bundle and data = about 4.5 MB, plus 100 small JSON responses x under 4 KB = under 0.4 MB; about 5 MB per run |
+| Log lines | 1 per refused (non-host) call | 0 | 2 provoked refusals (non-host, anon) per integration run |
+| Service unit | None (no Gemini, no transcription call; deleting transcript rows costs no tokens) | 0 | 0 |
+
+1. **Fits the plan limit today?** Fits. Registry row: Supabase Free plan, which TEST spends since P1538 (5 GB egress, 50,000 MAU, 500,000 edge function invocations). Monthly TEST egress = (0.1 MB + 5 MB) x runs per month; neither spec calls an edge function; 6 test users exist only for the run's length. Prod: 3 requests x resets per month, a manual host action.
+2. **Fits at 10x?** 10 x runs per month x 5.1 MB stays within 5 GB while runs per month x 51 MB is under 5 GB, that is under about 100 full runs of both specs a month; the run rate is read from the registry's usage reader.
+3. If the browser spec ever runs more often than that, it is the share to cut first; the upgrade is Supabase Pro, from $25/month (registry).
 
 ## Related
 
