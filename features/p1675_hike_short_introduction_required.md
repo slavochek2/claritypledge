@@ -1,5 +1,5 @@
 ---
-status: qa
+status: in-progress
 type: story
 rank: 336
 workstream: events
@@ -229,6 +229,21 @@ Per month, with V = hike page views per hike (V ≈ 50 assumed) and the registra
 - [x] Clarity Night registration stays one tap, and the mastermind's step still asks its own questions and recording acceptance (P1529's e2e for registration, sign-in return and waiting list green).
 - [x] The hike template's title prefix is "Clarity Hike" and its opening is the founder's new line; the app's visible series label reads "Clarity Hike".
 - [x] `/hike`, `publish-run`, `re-create-event`, the group-chat mapping and `promote-all` handle both a "Social Hike: …" and a "Clarity Hike: …" event.
+
+## UAT round 1 (founder, 2026-11-17, localhost)
+
+Founder feedback after trying the form on the Wat Pha Lat hike. Each item is open until built and checked.
+
+- [ ] **The minutes are wrong.** The form says 8 minutes; the real introduction takes about 15 (founder: "its not 8 minutes - its 15 - we should correct it properly"). Find why `useHikeMinutes` differs from the preparation page's own estimate for the same hike (the Listening Game step from P1685, the card counts, or the plan built for "a new person") and make the form show the same number the preparation shows. Never a literal.
+- [ ] **The lead line is too long and repeats itself** (founder: "It's a long thing to simplify. It's redundant also against words."). `[FOUNDER DECISION: the shorter lead line; propose two or three versions.]`
+- [ ] **"I need a ride" says what happens next:** after registering they get the hike's WhatsApp group, where rides are coordinated (founder's words: "after registration they will get access to the WhatsApp group and the rides are coordinated there"). `[FOUNDER DECISION: exact wording.]`
+- [ ] **The help question has a default:** "Just attend as a participant" is selected by default (founder: "The default should be no... Maybe instead of no, attend as a participant"), and the question explains this is a social, non-commercial hike and asks whether they would like to volunteer. `[FOUNDER DECISION: exact wording of the question, its one-line explanation and the default option.]`
+- [ ] **A chosen role's text reads as instructions:** it is not clear that the text under a chosen role is what we expect of them (founder: "it's not clear that the text below is an instruction of what we expect"). Give it a heading such as "What we ask of a Sweep". `[FOUNDER DECISION: heading wording.]`
+- [ ] **Questions per event, not per series:** not every hike needs every question. Founder's example: the city collab event needs neither help nor transport ("how you're coming is irrelevant because it's in the city... the only thing relevant is when they want to do the preparation"). The host chooses, per event, which of the transport and help questions are asked; the "when" question is always asked. Design the setting (event field and where the host sets it) before building.
+- [ ] **"Only you and the host see these answers."** The founder questioned this line ("Though we really need it, I guess / I can delete it right now"). It is the collection notice until the privacy page names these answers (INBOX-360). `[FOUNDER DECISION: keep, reword, or remove.]`
+- [ ] **Members-only hikes later need to be told apart** from open ones (founder: "how we will be able to see later separate between clarity hikes that are only for members"). Out of scope here (Non-Goals; INBOX-361); recorded so the per-event setting above is designed to fit beside it.
+
+Also discussed, not built: tokens for asking a real question when there is a disagreement. This is the armband game already in "Not built: host practice". Recommendation given: try it by hand on the next one or two hikes and judge it with the measure below; build nothing in the app until it shows it helps.
 
 ## How the founder judges it (not a build gate)
 
