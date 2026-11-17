@@ -8,8 +8,8 @@ date_reported: '2026-11-16'
 created_date: '2026-11-16'
 tags: [git-ops, ship, journal, data-loss]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-spec, fix]
+delivery_stage: ship
+pipeline_ran: [create-spec, fix, ship]
 drafted_by: fable
 exec_model: opus
 exec_effort: high
