@@ -23,11 +23,15 @@ afterEach(() => {
 const empty = { stories: [], verifications: [], history: [], current: [], agent_ids: [], profiles: [], events: [], groups: [] };
 
 describe('getPointMovement: a server refusal is a failure', () => {
-  it('throws when the function answers point_id null', async () => {
+  it('throws when the function answers point_id null, and logs it', async () => {
     rpc.mockResolvedValue({ data: { point_id: null, ...empty }, error: null });
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { getPointMovement } = await load();
     await expect(getPointMovement('p-1')).rejects.toThrow('Could not load how positions changed');
     expect(rpc).toHaveBeenCalledWith('get_point_movement_rows', { p_point_id: 'p-1' });
+    // The unit run is a dev build, where logDbError writes to the console instead of Sentry; a null error writes nothing.
+    expect(logged).toHaveBeenCalledWith('[db-error] getPointMovement:', expect.objectContaining({ code: 'P1061_REFUSED' }));
+    logged.mockRestore();
   });
 
   it('returns the rows when the point is answered, even with nobody in it', async () => {

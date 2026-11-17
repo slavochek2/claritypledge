@@ -122,6 +122,13 @@ export async function getPointMovement(pointId: string): Promise<PointMovementRo
   if (error || !data) throwDbError('getPointMovement', error, 'Could not load how positions changed');
   // point_id null: the server refused (a point that is not public and not validated by the caller, 20261117200000).
   // Only a page whose visibility went stale asks for it; an empty answer there would read as "nobody changed".
-  if ((data as Raw).point_id == null) throwDbError('getPointMovement', null, 'Could not load how positions changed');
+  // A real error object, so it is logged (logDbError ignores a null error): the page and the server disagreed.
+  if ((data as Raw).point_id == null) {
+    throwDbError(
+      'getPointMovement',
+      { message: 'point refused: not public and not validated by the caller', code: 'P1061_REFUSED', details: pointId, hint: '' },
+      'Could not load how positions changed'
+    );
+  }
   return mapPointMovementRows(data as Raw);
 }
