@@ -1,7 +1,7 @@
 // Deno test: run with
 //   deno test --config supabase/functions/deno.json --allow-net --allow-env --allow-read supabase/functions/_shared/banner-small.test.ts
 //
-// P1417: the edge functions that save a banner (generate-banner, generate-event-banner) also save
+// P1417: the edge function that saves a banner (generate-banner) also saves
 // its small copy — 800px WebP at <path>.w800.webp, the path the app derives — and remove it with
 // the banner. Making the copy is best effort: a failure is logged and never fails the save.
 import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';

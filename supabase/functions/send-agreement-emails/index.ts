@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { resolveLinkBase } from '../_shared/link-base.ts';
 import {
   type BucketLimit,
   mailLimitResponse,
@@ -145,7 +146,7 @@ interface ProfileRow {
 
 // ── Action handlers ───────────────────────────────────────────────────────────
 
- 
+
 // deno-lint-ignore no-explicit-any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseClient = ReturnType<typeof createClient<any>>;
@@ -444,11 +445,9 @@ serve(async (req: Request) => {
 
     const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Derive app URL from request origin so local dev gets localhost links in emails
-    const requestOrigin = req.headers.get('origin');
-    const appUrl = (requestOrigin && requestOrigin.startsWith('http://localhost'))
-      ? requestOrigin
-      : APP_URL;
+    // Links point at the configured app address; local development on a test project gets
+    // local links. The rule is shared: _shared/link-base.ts.
+    const appUrl = resolveLinkBase(req, APP_URL, supabaseUrl);
 
     const { action, agreementId } = await req.json() as {
       action: 'invitation' | 'accepted' | 'declined' | 'terminated' | 'resend';

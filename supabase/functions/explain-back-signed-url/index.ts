@@ -177,6 +177,65 @@ function json(body: unknown, status: number, corsHeaders: Record<string, string>
   });
 }
 
+const AUDIO_OBJECT_SUFFIX = '.webm';
+
+/** The object that holds one delivery's recording for one story. Ids are written in lower case. */
+function ownObjectPath(deliveryId: string, storyId: string): string {
+  return `${deliveryId.toLowerCase()}/${storyId.toLowerCase()}${AUDIO_OBJECT_SUFFIX}`;
+}
+
+/**
+ * The object a playback link names: always the row's own. Object names are case-sensitive and
+ * earlier uploads were named with the request's spelling of the two ids, so when the stored
+ * location is exactly the row's own object in another letter case, that spelling is the one
+ * signed. Any other stored value is ignored and the path is built from the row's ids.
+ */
+function playbackObjectPath(deliveryId: string, storyId: string, storedPath: string): string {
+  const own = ownObjectPath(deliveryId, storyId);
+  const prefix = `gs://${GCS_BUCKET}/`;
+  if (!storedPath.startsWith(prefix)) return own;
+  const stored = storedPath.slice(prefix.length);
+  if (!stored.endsWith(AUDIO_OBJECT_SUFFIX)) return own;
+  const sameIds = stored.slice(0, -AUDIO_OBJECT_SUFFIX.length).toLowerCase() === own.slice(0, -AUDIO_OBJECT_SUFFIX.length);
+  return sameIds ? stored : own;
+}
+
+/**
+ * The object to sign for one explain-back's playback, or the refusal to answer with.
+ *
+ * Reads the row bound to the delivery the caller was just checked against, so a row that
+ * belongs to another delivery by now is simply not found. The object is the row's own,
+ * {delivery_id}/{story_id}.webm: the stored location is written by the client, so it only
+ * decides whether there is audio and, when it names exactly this object, which letter case
+ * the object was uploaded under (playbackObjectPath).
+ */
+async function playbackTarget(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  serviceClient: ReturnType<typeof createClient<any>>,
+  explainBackId: string,
+  checkedDeliveryId: string,
+): Promise<{ objectPath: string } | { status: number; error: string }> {
+  const { data: eb, error: ebErr } = await serviceClient
+    .from('story_explain_backs')
+    .select('delivery_id, story_id, audio_storage_path, medium')
+    .eq('id', explainBackId)
+    .eq('delivery_id', checkedDeliveryId)
+    .single();
+  if (ebErr || !eb) {
+    return { status: 404, error: 'Explain-back not found' };
+  }
+  if (eb.medium !== 'audio' || !eb.audio_storage_path) {
+    return { status: 404, error: 'No audio for this explain-back' };
+  }
+
+  const rowDeliveryId = String(eb.delivery_id ?? '');
+  const rowStoryId = String(eb.story_id ?? '');
+  if (!UUID_RE.test(rowDeliveryId) || !UUID_RE.test(rowStoryId)) {
+    return { status: 500, error: 'Invalid storage path' };
+  }
+  return { objectPath: playbackObjectPath(rowDeliveryId, rowStoryId, eb.audio_storage_path as string) };
+}
+
 interface Membership {
   isReceiver: boolean;
   isSender: boolean;
@@ -282,7 +341,7 @@ Deno.serve(async (req: Request) => {
         return json({ error: 'Only the delivery receiver may upload an explain-back' }, 403, corsHeaders);
       }
 
-      const objectPath = `${deliveryId}/${storyId}.webm`;
+      const objectPath = ownObjectPath(deliveryId, storyId);
       const signedUrl = await generateV4SignedUrl({
         method: 'PUT',
         bucket: GCS_BUCKET,
@@ -330,25 +389,12 @@ Deno.serve(async (req: Request) => {
         return json({ error: 'Not a participant of this letter' }, 403, corsHeaders);
       }
 
-      const { data: eb, error: ebErr } = await serviceClient
-        .from('story_explain_backs')
-        .select('audio_storage_path, medium')
-        .eq('id', explainBackId)
-        .single();
-      if (ebErr || !eb) {
-        return json({ error: 'Explain-back not found' }, 404, corsHeaders);
+      // The row's own object, read only now that the caller is known to be a participant.
+      const target = await playbackTarget(serviceClient, explainBackId, ebRef.delivery_id as string);
+      if ('error' in target) {
+        return json({ error: target.error }, target.status, corsHeaders);
       }
-      if (eb.medium !== 'audio' || !eb.audio_storage_path) {
-        return json({ error: 'No audio for this explain-back' }, 404, corsHeaders);
-      }
-
-      // Derive object path from the stored gs:// URI (server-controlled at upload time).
-      const prefix = `gs://${GCS_BUCKET}/`;
-      const storagePath = eb.audio_storage_path as string;
-      if (!storagePath.startsWith(prefix)) {
-        return json({ error: 'Invalid storage path' }, 500, corsHeaders);
-      }
-      const objectPath = storagePath.slice(prefix.length);
+      const objectPath = target.objectPath;
 
       const signedUrl = await generateV4SignedUrl({
         method: 'GET',

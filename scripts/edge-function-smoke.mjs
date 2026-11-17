@@ -147,10 +147,6 @@ export const EDGE_FUNCTION_EXPECTATIONS = {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },
   },
-  'generate-event-banner': {
-    options: { status: 200, expectCors: true },
-    deny: { status: 401, bodyIncludes: 'Missing authorization header' },
-  },
   'generate-story-image-url': {
     options: { status: 200, expectCors: true },
     deny: { status: 401, bodyIncludes: 'Missing authorization header' },

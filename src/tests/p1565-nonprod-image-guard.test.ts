@@ -70,14 +70,6 @@ describe('P1565: every Gemini image path is guarded before its request', () => {
     expect(guard).toBeGreaterThan(fn);
     expect(guard).toBeLessThan(loop);
   });
-  it('generate-event-banner guards before its own Gemini fetch', () => {
-    const src = read('supabase/functions/generate-event-banner/index.ts');
-    const fn = at(src, /async function generateImage/);
-    const guard = at(src, /nonProdImageBlocked\(/, fn);
-    const fetchAt = at(src, /fetch\(geminiGenerateUrl/, fn);
-    expect(guard).toBeGreaterThan(fn);
-    expect(guard).toBeLessThan(fetchAt);
-  });
   it.each([
     'supabase/functions/generate-banner/index.ts',
     'supabase/functions/mirror-portrait/index.ts',

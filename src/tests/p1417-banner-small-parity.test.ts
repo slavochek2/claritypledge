@@ -2,8 +2,8 @@
  * @file p1417-banner-small-parity.test.ts
  * @description P1417 — the small-copy path rule exists twice (the app's src/lib/banner-small.ts
  * and the edge functions' supabase/functions/_shared/banner-small.ts, which Deno cannot share with
- * Vite), so this pins them together; and both banner-saving edge functions must make the copy when
- * they save a banner and remove it when they remove the old banner. Source-level, like p1392: the
+ * Vite), so this pins them together; and the banner-saving edge function must make the copy when
+ * it saves a banner and remove it when it removes the old banner. Source-level, like p1392: the
  * helper's own behaviour is tested in Deno (supabase/functions/_shared/banner-small.test.ts).
  */
 import { describe, it, expect } from 'vitest';
@@ -24,7 +24,6 @@ describe('P1417: one path rule for the app and the edge functions', () => {
 
 describe.each([
   ['generate-banner', 'supabase/functions/generate-banner/index.ts'],
-  ['generate-event-banner', 'supabase/functions/generate-event-banner/index.ts'],
 ])('P1417: %s saves and removes the small copy', (_name, file) => {
   const src = read(file);
 
@@ -34,7 +33,7 @@ describe.each([
   });
 
   it('schedules the small copy after the banner upload, and never awaits it before responding', () => {
-    // generate-banner uploads through the shared helper since P1453; generate-event-banner locally.
+    // generate-banner uploads through the shared helper since P1453.
     const upload = src.search(/await (uploadToStorage|uploadBannerImage)\(/);
     const schedule = src.indexOf('scheduleSmallCopy(');
     const respond = src.indexOf('JSON.stringify({ url: ');

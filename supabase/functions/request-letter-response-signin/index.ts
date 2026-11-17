@@ -32,6 +32,7 @@ import {
   reserveMailSlot,
   targetLimitKey,
 } from '../_shared/mail-rate-limit.ts';
+import { jsonResponse, positionsToStore, ratingsToStore, refuseUnlessLetterFits, validationError } from './letter-check.ts';
 
 const FUNCTION_NAME = 'request-letter-response-signin';
 
@@ -52,18 +53,6 @@ const AVATAR_COLORS = ['#0044CC', '#002B5C', '#FFD700', '#FF6B6B', '#4ECDC4'];
 import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function jsonResponse(body: Record<string, unknown>, status: number, cors: Record<string, string>): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...cors, 'Content-Type': 'application/json' },
-  });
-}
-
-/** Generic 400 — never reveal which field failed (shape oracle prevention). */
-function validationError(cors: Record<string, string>): Response {
-  return jsonResponse({ error: 'Invalid request. Please check your input and try again.' }, 400, cors);
-}
 
 /** Generate a URL-safe slug from a name (mirrors create-and-open-letter pattern). */
 function generateSlug(name: string): string {
@@ -352,26 +341,10 @@ serve(async (req: Request) => {
     if (ipRefusal) return ipRefusal;
 
     // ── Validate letter (step 1 continued) ────────────────────────────────────
-    // Letter must exist, status='sealed', mode='one-to-many'.
-    // Security: without this check an attacker could trigger auth emails against
-    // arbitrary emails via one-to-one letters or drafts.
-    const { data: letter, error: letterError } = await supabase
-      .from('clarity_letters')
-      .select('id, status, mode')
-      .eq('id', letterId)
-      .eq('status', 'sealed')
-      .eq('mode', 'one-to-many')
-      .maybeSingle();
-
-    if (letterError) {
-      console.error('[request-letter-response-signin] Letter lookup error:', letterError.message);
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
-    }
-
-    if (!letter) {
-      // Letter not found, wrong status, or wrong mode — return generic error
-      return jsonResponse({ error: 'Something went wrong. Please try again.' }, 400, corsHeaders);
-    }
+    // The letter must be a sealed public letter, and the response no larger than it
+    // (letter-check.ts). Before the target bucket, so a refused request spends no allowance.
+    const letterRefusal = await refuseUnlessLetterFits(supabase, letterId, ratings.length, positions.length, corsHeaders);
+    if (letterRefusal) return letterRefusal;
 
     // ── Rate limit, target bucket (P1225) ──────────────────────────────────────
     // Only a request that could actually mail this address spends its allowance —
@@ -573,8 +546,8 @@ serve(async (req: Request) => {
           user_id: userId,
           letter_id: letterId,
           name: trimmedName,
-          ratings_json: ratings,
-          positions_json: positions,
+          ratings_json: ratingsToStore(ratings),
+          positions_json: positionsToStore(positions),
           terms_version: termsVersion,
           // Reset expires_at on re-submission so the 24h window is fresh
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),

@@ -10,6 +10,8 @@
  * - Hijack check: pending.user_id must match auth.uid() — mismatches → 403 + console.error.
  * - Idempotency: if delivery row already exists → return { ok: true } immediately.
  * - All response data comes from the server-side pending row (never from request body).
+ * - Only what belongs to the letter is written: a rating must name a story of the letter and a
+ *   position a point sealed into it (the letter's snapshot decides), each id once (own-entries.ts).
  * - ON CONFLICT DO NOTHING for terms_acceptances (idempotent across flows).
  *
  * Auth: This function IS auth-gated. The Authorization header carries the user JWT
@@ -26,6 +28,7 @@ import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { hashIp, extractClientIp } from '../_shared/hash-ip.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { lettersOwnEntries } from './own-entries.ts';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -187,20 +190,13 @@ serve(async (req: Request) => {
 
     const senderId = letter.sender_id as string;
 
-    // Fetch story snapshots to resolve version_id per story
-    const { data: snapshots, error: snapshotError } = await serviceClient
-      .from('letter_story_snapshots')
-      .select('story_id, version_id')
-      .eq('letter_id', letterId);
+    // The stored ratings and positions that belong to this letter, each with its sealed
+    // version (own-entries.ts reads the letter's snapshots; null when they could not be read).
+    const own = await lettersOwnEntries(serviceClient, letterId, pendingRow);
 
-    if (snapshotError) {
-      console.error('[confirm-letter-response] Snapshot lookup error:', snapshotError.message);
+    if (!own) {
       return jsonResponse({ error: 'Something went wrong. Please try again.' }, 500, corsHeaders);
     }
-
-    const snapshotMap = new Map<string, string>(
-      (snapshots ?? []).map((s: { story_id: string; version_id: string }) => [s.story_id, s.version_id]),
-    );
 
     // ── Step 7a: Insert letter_deliveries ─────────────────────────────────────
     // invitation_token has DEFAULT gen_random_uuid() so we omit it for one-to-many.
@@ -229,12 +225,12 @@ serve(async (req: Request) => {
     // ── Step 7b: Insert story_verifications from ratings_json ─────────────────
     // Mirrors submit_rating_by_token: source='letter', verified=false, session_id=NULL.
     // speaker_rating=0 (sender not rating in this flow).
-    const ratings = pendingRow.ratings_json as RatingEntry[];
+    const ratings = own.ratings;
 
     if (ratings.length > 0) {
       const verificationRows = ratings.map((r, idx) => ({
         story_id: r.storyId,
-        version_id: snapshotMap.get(r.storyId) ?? null,
+        version_id: r.versionId,
         speaker_id: senderId,
         listener_id: user.id,
         listener_rating: r.rating,
@@ -270,7 +266,7 @@ serve(async (req: Request) => {
       [3, 'strongly_agree'],
     ]);
 
-    const positions = pendingRow.positions_json as PositionEntry[];
+    const positions = own.positions;
 
     if (positions.length > 0) {
       const pointResponseRows = positions.map((p) => {

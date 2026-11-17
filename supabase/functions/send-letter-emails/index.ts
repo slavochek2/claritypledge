@@ -11,7 +11,9 @@
 import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { resolveLinkBase } from '../_shared/link-base.ts';
 import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
+import { deliveriesToMail } from './one-per-mailbox.ts';
 
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
@@ -115,13 +117,6 @@ interface LetterRow {
   status: string;
 }
 
-interface DeliveryRow {
-  id: string;
-  receiver_email: string | null;
-  receiver_name: string | null;
-  invitation_token: string | null;
-}
-
 interface ProfileRow {
   id: string;
   name: string | null;
@@ -152,11 +147,9 @@ serve(async (req: Request) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Derive app URL from request origin so local dev gets localhost links
-    const requestOrigin = req.headers.get('origin');
-    const appUrl = (requestOrigin && requestOrigin.startsWith('http://localhost'))
-      ? requestOrigin
-      : APP_URL;
+    // Links point at the configured app address; local development on a test project gets
+    // local links. The rule is shared: _shared/link-base.ts.
+    const appUrl = resolveLinkBase(req, APP_URL, supabaseUrl);
 
     // P884: caller authorization — both call sites (seal + add-recipient) run
     // with a signed-in sender, so supabase.functions.invoke forwards the user
@@ -199,17 +192,12 @@ serve(async (req: Request) => {
 
     const senderName = sender?.name ?? 'Someone';
 
-    // Fetch deliveries with receiver_email that have NOT been notified yet.
-    // P884: the notified_at filter is what makes repeat invokes (add-recipient,
-    // double-click seal, network retry) email only new deliveries.
-    const { data: deliveries } = await supabase
-      .from('letter_deliveries')
-      .select('id, receiver_email, receiver_name, invitation_token')
-      .eq('letter_id', letterId)
-      .not('receiver_email', 'is', null)
-      .is('notified_at', null) as { data: DeliveryRow[] | null };
+    // The un-notified deliveries to mail now, one per address (one-per-mailbox.ts). It throws
+    // when it cannot tell which addresses were already mailed; the catch below then answers
+    // with the generic failure and nothing is claimed.
+    const deliveries = await deliveriesToMail(supabase, letterId);
 
-    if (!deliveries || deliveries.length === 0) {
+    if (deliveries.length === 0) {
       return new Response(JSON.stringify({ ok: true, sent: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

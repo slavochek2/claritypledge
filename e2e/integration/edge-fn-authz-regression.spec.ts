@@ -493,48 +493,6 @@ test.describe('Edge-fn authz regression — create-and-sign already-processed gu
 });
 
 // ===========================================================================
-// 5. generate-event-banner — non-host ownership guard
-// ===========================================================================
-
-test.describe('Edge-fn authz regression — generate-event-banner host guard', () => {
-  test.describe.configure({ timeout: 60000 });
-
-  let host: TestUser;
-  let outsider: TestUser;
-  let eventId: string;
-
-  test.beforeAll(async () => {
-    host = await createTestUser({ name: 'AuthzReg EvtBanner Host' });
-    outsider = await createTestUser({ name: 'AuthzReg EvtBanner Outsider' });
-    const event = await createTestEvent(host.user.id, undefined, {
-      title: 'AuthzReg banner event',
-    });
-    eventId = event.id;
-  });
-
-  test.afterAll(async () => {
-    if (eventId) await deleteTestEvent(eventId);
-    if (outsider?.user?.id) await deleteTestUser(outsider.user.id);
-    if (host?.user?.id) await deleteTestUser(host.user.id);
-  });
-
-  test('rejects banner request from a user who is not the event host (403)', async () => {
-    const token = await getAccessToken(outsider.email);
-
-    const { status, body } = await callFn('generate-event-banner', token, {
-      eventId,
-      title: 'AuthzReg Test Event',
-      location: 'Nowhere',
-    });
-
-    // Guard: .eq('id', eventId).eq('host_id', userId).single() → no row for non-host
-    // → 403 "Event not found or you are not the host" (index.ts ~336-348)
-    expect(status, 'Non-host must be rejected with 403').toBe(403);
-    expect(body.error).toBe('Event not found or you are not the host');
-  });
-});
-
-// ===========================================================================
 // 6. generate-banner — entity ownership / service-key guards
 // ===========================================================================
 
