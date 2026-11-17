@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 346
 workstream: events
 created_date: '2026-11-17'
 tags: [events, rounds, host, mastermind]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 8f032b1446fe8c94cda53f6b853a95e14f4b054a99dc648b48097317f3ab7a92
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-17
 ---
 
 # P1699: The host can reset an event's rounds and start again from round 1
