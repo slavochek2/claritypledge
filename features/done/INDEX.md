@@ -414,6 +414,7 @@ Last updated: 2026-11-17
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
+- **P1698** (Nov 17) My events tab on /events/list — hidden events reach host and registered only via a per-viewer read; never fold it into the group-keyed list read
 - **P1686** (Nov 16) Next version reviewed and published in the event room — Publish only under the list of the exact revision read; mocked reads hid a wrong field name until a TEST walk
 - **P1595** (Oct 30) Room loader on the content column, one Back, the registered page names its organiser — a centred loader must centre on the shell's content column; the boot splash outside the shell cannot (INBOX-254)
 - **P1594** (Oct 30) Hike quotes: writing is the consent — two writers of one consent (box + words) contradicted each other; let the words be the only writer and make founder approve conditional on the exact words checked
