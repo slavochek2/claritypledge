@@ -1,37 +1,26 @@
 /**
  * FounderCredibility — the full, self-contained credibility SECTION ("Built by someone
- * who paid for the lesson", €398k) with the founder talk-clip facade. It owns its own
- * <section> chrome, container, scroll-reveal, and the clip constant, so every surface
- * renders BYTE-IDENTICAL markup. See features/p1005_founder_talk_video_credibility_section.md.
+ * who paid for the lesson", €398k) with the founder's photo. It owns its own <section>
+ * chrome, container and scroll-reveal, so every surface renders BYTE-IDENTICAL markup.
+ * See features/p1005_founder_talk_video_credibility_section.md.
  *
- * Used on the homepage (/), /coach, and /founder — each just drops `<FounderCredibility />`
- * with no wrapper of its own. Take-nothing, render-everything: that is what keeps the three
- * pages the same (P1005 change request: they had diverged because each page hand-rolled the
- * surrounding section chrome).
+ * Used on the six use-case pages (/builders, /change-managers, /hiring, /founder, /hospitals,
+ * /coach) — each just drops `<FounderCredibility />` with no wrapper of its own. Take-nothing,
+ * render-everything: that is what keeps the pages the same.
  *
- * Click-to-play facade: the <video> element mounts and loads only after the user clicks the
- * poster (no autoplay on render, no off-page YouTube embed). A Mixpanel event fires on first
- * play. The "Watch the full talk on YouTube" link-out sits under the clip.
+ * P1704 replaced the talk clip with the photo: each page now has one video, the product demo
+ * (HowItWorksDemoSection). The "Watch my talk on YouTube" link-out sits under the photo.
  */
 import { useRef, useState, useEffect } from "react";
 import { CheckIcon, Youtube } from "lucide-react";
 import { motion, useReducedMotion, useInView, animate } from "framer-motion";
-import { analytics } from "@/lib/mixpanel";
-import { Mp4VideoFacade } from "@/app/components/shared/mp4-video-facade";
 import { publicMediaUrl } from "@/lib/public-media";
 
-/** The full (unlisted) talk on YouTube — the link-out target under the clip. */
+/** The full (unlisted) talk on YouTube — the link-out target under the photo. */
 export const FOUNDER_FULL_TALK_URL = "https://www.youtube.com/watch?v=goFs8tuw1qc";
 
-/**
- * The talk clip, on the public media bucket under founder/ (not committed to the repo).
- * URLs come from publicMediaUrl — see src/lib/public-media.ts for why.
- */
-const FOUNDER_CLIP = {
-  src: publicMediaUrl("founder/founder-credibility-clip-v1.mp4"),
-  poster: publicMediaUrl("founder/founder-credibility-poster-v1.jpg"),
-  captions: publicMediaUrl("founder/founder-credibility-clip-v1.en.vtt"),
-} as const;
+/** The founder's photo (640×640), on the public media bucket under founder/. */
+const FOUNDER_PHOTO = publicMediaUrl("founder/founder-photo-640-v1.jpg");
 
 /** Founder credibility points (first-person, mirrors /presi + ladischenski.com About). */
 const CRED_POINTS = [
@@ -94,22 +83,23 @@ function FullTalkLink({ className }: { className?: string }) {
       className={`inline-flex items-center gap-1.5 text-sm text-foreground/70 hover:text-blue-600 underline underline-offset-2 decoration-blue-300 ${className ?? ""}`}
     >
       <Youtube className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
-      Watch the full talk on YouTube
+      {/* [FOUNDER DECISION: the link under the photo — draft "Watch my talk on YouTube", or remove it] */}
+      Watch my talk on YouTube
     </a>
   );
 }
 
-/** Click-to-play facade (the shared Mp4VideoFacade, landing look) + the full-talk link. */
-function VideoFacade() {
+/** The founder's photo + the talk link. */
+function FounderPhoto() {
   return (
     <div>
-      <Mp4VideoFacade
-        src={FOUNDER_CLIP.src}
-        poster={FOUNDER_CLIP.poster}
-        captions={FOUNDER_CLIP.captions}
-        posterAlt="Vyacheslav Ladischenski on stage, presenting the method"
-        playLabel="Play the founder talk clip"
-        onPlay={() => analytics.track("founder_clip_play", { location: "founder_credibility" })}
+      <img
+        src={FOUNDER_PHOTO}
+        alt="Vyacheslav Ladischenski, founder of Clarity Pledge"
+        width={640}
+        height={640}
+        loading="lazy"
+        className="aspect-square w-full max-w-[320px] rounded-2xl object-cover object-top lg:max-w-[360px]"
       />
       <FullTalkLink className="mt-3" />
     </div>
@@ -151,8 +141,8 @@ export function FounderCredibility() {
     <section className="px-4 py-20 lg:py-28 border-t border-border">
       <Reveal className="container mx-auto max-w-5xl">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-start">
-          {/* Video on top (mobile) / left (desktop) — mirrors the old photo placement. */}
-          <VideoFacade />
+          {/* Photo on top (mobile) / left (desktop). */}
+          <FounderPhoto />
           <CredText />
         </div>
       </Reveal>

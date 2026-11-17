@@ -27,6 +27,7 @@ import { FounderCredibility } from "@/app/components/landing/founder-credibility
 import { AGREED_HOSPITALS, CHANGE_REASONS, SHELL, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { RISE, STAGGER, VIEWPORT_ONCE } from "@/app/components/landing/fable/fable-motion";
 import { Indented, PercentBar, RefSup, Reveal, SectionHeading } from "@/app/components/landing/fable/fable-parts";
+import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
 import { CloseSection, ExchangeSection, FableHero, NormSection, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { FablePage } from "@/app/components/landing/fable/fable-use-case";
 import type { FableTracking } from "@/app/components/landing/fable/fable-tracking";
@@ -121,6 +122,7 @@ export function HospitalsPage() {
       <ReasonsSection index="01" reasons={REASONS} references={REFERENCES} />
       <ExchangeSection cast={HOSPITAL_CAST} muted />
       <ValueSection />
+      <HowItWorksDemoSection location="hospitals" />
       <PromiseSection index="03" title={<>Make it <span className="text-blue-400">normal</span> to ask how well we understand each other</>} />
       <NormSection index="04" maintainText={HOSPITAL_MAINTAIN_TEXT} />
       <FounderCredibility />

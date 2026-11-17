@@ -23,6 +23,7 @@ import { SectionHeader } from "@/app/components/landing/section-header";
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { AGREED_COACH, COACH_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { AuditCTA, OrLink } from "@/app/components/landing/fable/fable-parts";
+import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
 import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
 import { CoachHardTruthChat } from "./coach-partnership-chat";
@@ -138,6 +139,7 @@ export function CoachPartnershipPage() {
       </IllusionSection>
       <ReasonsSection index="03" reasons={REASONS} references={REFERENCES} muted />
       <ExchangeSection id="how" cast={COACH_CAST} />
+      <HowItWorksDemoSection location="coach" />
       <PromiseSection id="agreement" index="04" title="Role model a partnership that survives disagreement." specimen={<PartnerAgreementSpecimen />} />
       <FounderCredibility />
       <CoachClose />

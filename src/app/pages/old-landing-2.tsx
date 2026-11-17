@@ -30,6 +30,7 @@ import { PROGRAM_FAQS } from "@/app/content/faqs";
 import type { EventWithHost } from "@/app/types";
 import { AGREED_FOUNDER, FOUNDER_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { OrLink, PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
+import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
 import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, PlainSection, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
 import { WebinarCTA, WebinarDateLine } from "./old-landing-2-webinar";
@@ -161,6 +162,7 @@ export function OldLanding2Page() {
         <MisunderstandingVenn />
       </IllusionSection>
       <ExchangeSection cast={FOUNDER_CAST} muted />
+      <HowItWorksDemoSection location="founder" />
       <PromiseSection
         index="04"
         title={<>Protect your partnership so it <span className="text-blue-400">survives strong disagreements</span></>}

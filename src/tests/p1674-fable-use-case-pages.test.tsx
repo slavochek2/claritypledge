@@ -269,9 +269,11 @@ describe('P1674 the gap exchange on every page: its own view event, once, with n
   });
 });
 
-describe('P1674 the founder talk clip', () => {
-  it.each(['/hiring', '/coach', '/founder', '/hospitals'] as const)('%s sends founder_clip_play from the clip', (path) => {
-    expect(clickOn(path, (s) => s.getByRole('button', { name: /play the founder talk clip/i }))).toEqual([['founder_clip_play', { location: 'founder_credibility' }]]);
+describe('P1704 the founder photo replaces the talk clip', () => {
+  it.each(['/hiring', '/coach', '/founder', '/hospitals'] as const)('%s shows the founder photo and no founder clip', (path) => {
+    renderAt(path);
+    expect(screen.getByRole('img', { name: /founder of Clarity Pledge/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /play the founder talk clip/i })).toBeNull();
   });
 });
 

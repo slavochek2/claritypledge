@@ -3,6 +3,8 @@
  * /manifesto. Self-hosted click-to-play (no YouTube player on our pages); the narration is
  * burned into the picture as on-screen text, so no caption track is attached.
  */
+import { useRef } from "react";
+import { useSeenOnce } from "@/app/components/shared/use-seen-once";
 import { Mp4VideoFacade } from "@/app/components/shared/mp4-video-facade";
 import { publicMediaUrl } from "@/lib/public-media";
 import { analytics } from "@/lib/mixpanel";
@@ -15,14 +17,19 @@ const MANIFESTO_FILM = {
 
 /** `location` says which page showed the film (analytics): the manifesto page, or the /prepare success screen (P1685). */
 export function ManifestoFilm({ location = "manifesto" }: { location?: "manifesto" | "prepare_end" }) {
+  const ref = useRef<HTMLDivElement>(null);
+  // P1704: judged "by plays among people who saw it", so the film reports when it comes on screen too.
+  useSeenOnce(ref, () => analytics.track("manifesto_film_seen", { location }));
   return (
-    <Mp4VideoFacade
-      src={MANIFESTO_FILM.src}
-      poster={MANIFESTO_FILM.poster}
-      posterAlt="Two figures joined by a line of light: understanding wins over comfort, fear and ego"
-      playLabel="Play the manifesto film, The Clarity Tax"
-      durationSeconds={MANIFESTO_FILM.durationSeconds}
-      onPlay={() => analytics.track("manifesto_film_play", { location })}
-    />
+    <div ref={ref}>
+      <Mp4VideoFacade
+        src={MANIFESTO_FILM.src}
+        poster={MANIFESTO_FILM.poster}
+        posterAlt="Two figures joined by a line of light: understanding wins over comfort, fear and ego"
+        playLabel="Play the manifesto film, The Clarity Tax"
+        durationSeconds={MANIFESTO_FILM.durationSeconds}
+        onPlay={() => analytics.track("manifesto_film_play", { location })}
+      />
+    </div>
   );
 }

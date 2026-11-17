@@ -28,6 +28,7 @@ import { KeyHireCalculator } from "@/app/components/stakes/key-hire-calculator";
 import { KEY_HIRE_FAQS } from "@/app/content/faqs";
 import { AGREED_HIRING, HIRING_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
+import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
 import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
 import type { FableTracking } from "@/app/components/landing/fable/fable-tracking";
@@ -153,6 +154,7 @@ export function ProgramPage() {
         <MisunderstandingVenn />
       </IllusionSection>
       <ExchangeSection cast={HIRING_CAST} muted />
+      <HowItWorksDemoSection location="hiring" />
       <PromiseSection
         index="04"
         title={<>Protect the relationship before your interests <span className="text-blue-400">quietly diverge</span></>}

@@ -15,6 +15,7 @@ import { FounderCredibility } from "@/app/components/landing/founder-credibility
 import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
 import { AGREED_CHANGE, CHANGE_REASONS, CHANGE_REFERENCES } from "./fable-content";
 import { RefSup } from "./fable-parts";
+import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
 import { CloseSection, ExchangeSection, FableHero, NormSection, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "./fable-sections";
 import { FableTrackingProvider, type FableTracking } from "./fable-tracking";
 
@@ -70,6 +71,7 @@ export function ChangeFable({ seo, cast, tracking = {} }: { seo: ReactNode; cast
 
         <ReasonsSection index="01" reasons={CHANGE_REASONS} references={CHANGE_REFERENCES} />
         <ExchangeSection cast={cast} muted />
+        <HowItWorksDemoSection location="change-managers" />
         <PromiseSection index="02" title={<>Make it <span className="text-blue-400">normal</span> to ask how well we understand each other</>} />
         <NormSection index="03" />
         <FounderCredibility />

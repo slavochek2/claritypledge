@@ -18,6 +18,7 @@ import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
 import { AGREED_BUILDERS, ASSUMED_STATS, REASONS_NOBODY_CHECKS, REFERENCES, SHELL } from "./fable-content";
 import { STAGGER, VIEWPORT_ONCE } from "./fable-motion";
 import { DotStat, Indented, RefSup, Reveal, SectionHeading } from "./fable-parts";
+import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
 import { CloseSection, ExchangeSection, FableHero, NormSection, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "./fable-sections";
 import { FableTrackingProvider, type FableTracking } from "./fable-tracking";
 
@@ -116,6 +117,7 @@ export function BuildersFable({ seo, cast, tracking = {} }: { seo: ReactNode; ca
         <ReasonsSection index="02" reasons={REASONS_NOBODY_CHECKS} references={REFERENCES} muted />
         <RootCause />
         <ExchangeSection cast={cast} muted />
+        <HowItWorksDemoSection location="builders" />
         <PromiseSection
           index="04"
           // inline-block: the quoted phrase moves to the next line as one unit and is never split after "I".
