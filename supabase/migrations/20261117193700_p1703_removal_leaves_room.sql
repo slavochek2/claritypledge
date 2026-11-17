@@ -21,7 +21,11 @@
 --     the existing presence trigger (_transcribe_log_presence_change, 20261101183700_p1596_final_fixes.sql) logs the
 --     move off their table exactly as for a mark-out.
 --   * Open rooms only (now() < datetime + event_grace_interval(), the test join_event_room uses). The host can remove
---     people from a past event too (canvas access), and that must not rewrite who was in a room that has closed.
+--     people from a past event too (canvas access), and that must not rewrite who was in a room that has closed. The
+--     presence trigger also treats any unended round as open whatever its age, so a write past the window would log a
+--     seat move into a finished event's transcript.
+--   * No updated_at guard here, unlike the backfill: the removal is the host's latest act, made in this transaction.
+--     A "Back in" racing it is last-writer-wins, the same window a mark-out has (spec Risks).
 --   * The host can still press "Back in" for a removed person. That is the host's own explicit choice; the removal
 --     record still governs registration and admission.
 --

@@ -32,7 +32,7 @@ Blast radius: one host action. Reversibility: git revert plus a migration that r
 
 ## Solution
 
-`remove_event_attendee` also marks the person out of the room from now on: it sets `event_round_presence.left_at`, the column the host's "Mark out" (`host_set_round_presence`) writes, on the room member row whose `profile_id` is the removed person, while that event's room is open (`now() < datetime + event_grace_interval()`, the join's own test; a host can also remove people from a past event, and that must not rewrite who was in a closed room). It writes through an `INSERT ... SELECT` from `event_room_members`, so a person with no room row gets no presence row (calling `host_set_round_presence` would raise and roll the whole removal back). An existing `left_at` is kept and an already-out row is not touched; `sits_out_round` is left as it is (a person who has left is out of every pool whatever it says). If they are seated in a running round, the result is the state a mark-out of a seated person produces today: the seat stays in the round's record, the tile shows as out, and the presence trigger (`_transcribe_log_presence_change`) logs the move off their table. The room entry itself is kept (P1114: the record of who was there is never deleted).
+`remove_event_attendee` also marks the person out of the room from now on: it sets `event_round_presence.left_at`, the column the host's "Mark out" (`host_set_round_presence`) writes, on the room member row whose `profile_id` is the removed person, while that event's room is open (`now() < datetime + event_grace_interval()`, the join's own test; a host can also remove people from a past event, and that must not rewrite who was in a closed room; the presence trigger also treats any unended round as open whatever its age, so a write past the window would log a seat move into a finished event's transcript). It writes through an `INSERT ... SELECT` from `event_room_members`, so a person with no room row gets no presence row (calling `host_set_round_presence` would raise and roll the whole removal back). An existing `left_at` is kept and an already-out row is not touched; `sits_out_round` is left as it is (a person who has left is out of every pool whatever it says). If they are seated in a running round, the result is the state a mark-out of a seated person produces today: the seat stays in the round's record, the tile shows as out, and the presence trigger (`_transcribe_log_presence_change`) logs the move off their table. The room entry itself is kept (P1114: the record of who was there is never deleted).
 
 A one-off backfill marks out people removed before this ships, for events whose room is still open (`now() < datetime + event_grace_interval()`, the join's own test). It skips a member whose presence row was written after the removal (the host's own later "Back in" or mark-out), re-checked inside its `DO UPDATE` so a "Back in" racing the backfill still wins, since the Remove list shows registered people only and those earlier removals can never be redone.
 
@@ -76,15 +76,15 @@ Applies: a function called per request changes, and a backfill runs (`docs/techn
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | 0 new: removal stays 1 RPC per removal (1 x 1 = 1, as before); the host page's presence read is its existing poll | 0 new | Integration spec: 10 users x (1 create + 1 delete) = 20 admin calls; 5 sign-ins; about 30 fixture writes; about 25 reads; 2 raw-SQL calls over SSH plus up to 4 in cleanup, not the API: about 85. Unit tests: 0 |
-| Egress (bytes) | 0 new (the RPC returns void) | 0 | about 85 responses x about 1 KB = about 85 KB |
+| Requests | 0 new: removal stays 1 RPC per removal (1 x 1 = 1, as before); the host page's presence read is its existing poll | 0 new | Users: 10 x (up to 2 create + up to 4 delete) = up to 60. Host sign-in: 1. Events: 4. Tests: 8 + 5 + 4 + 4 + 6 + 17 = 44. Cleanup: 4 events x 8 = 32. API total: 60 + 1 + 4 + 44 + 32 = 141. Raw SQL over SSH to the TEST VM (not the API): 1 + 4 + 4 = 9. Unit tests: 0 |
+| Egress (bytes) | 0 new (the RPC returns void) | 0 | 141 responses x about 1 KB = about 141 KB |
 | Log lines | 0 on success; 1 WARNING per removal only if the presence trigger fails | 0 | 0 expected |
-| Service unit | Database rows per removal in an open room: at most 1 presence row + 2 transcription rows, about 100 B each = at most 300 B | 0 | Every fixture row deleted in `afterAll` |
+| Service unit | Database rows per removal in an open room: at most 1 presence row + 2 transcription rows x about 100 B = at most 300 B | 0 | Every fixture row deleted in `afterAll` |
 
-The backfill is one statement, run once at deploy, over removed people in still-open rooms.
+The backfill is one statement, run once at deploy: (removed people in still-open rooms) x at most 300 B, and no requests.
 
-1. **Fits the plan limit today?** Prod (registry row "Supabase, Free plan"): requests and egress unchanged; database growth = removals per month x 300 B against the 500 MB per-project limit. Fits. Tests run on self-hosted TEST (registry row "Compute Engine"), billed per VM-hour, not per request: runs per month x about 85 requests adds no billed unit. Fits.
-2. **Fits at 10x?** Yes: removals per month x 10 x 300 B is still far below 500 MB, and VM cost does not scale with requests.
+1. **Fits the plan limit today?** Prod's organisation is on the Pro plan (registry row "Supabase, Pro plan"; the usage page, read 2026-11-18, shows 8 GB of disk included per project and no disk overage in the current cycle). Growth = (removals per month + backfill rows) x 300 B on top of the current disk size, so it fits. Requests and egress are unchanged. Log lines are 0 on success, so log ingestion is unchanged. Tests run on self-hosted TEST (registry row "Compute Engine"), billed per VM-hour, not per request: runs per month x 141 requests adds no billed unit. Fits.
+2. **Fits at 10x?** Yes: (removals per month x 10) x 300 B is still far inside the included disk, and VM cost does not scale with requests.
 3. Not applicable.
 
 ## Related

@@ -38,6 +38,17 @@ async function clientFor(u: TestUser): Promise<SupabaseClient> {
   });
 }
 
+/** Replace the span from `start` through `end` with `put`; `start` must occur exactly once, so an edit to the migration
+ *  that moves or repeats it fails here instead of silently running a different (e.g. unscoped) statement. */
+function cutOnce(sql: string, start: string, end: string, put: string): string {
+  const i = sql.indexOf(start);
+  expect(i, `anchor not found: ${start}`).toBeGreaterThan(-1);
+  expect(sql.indexOf(start, i + 1), `anchor not unique: ${start}`).toBe(-1);
+  const j = sql.indexOf(end, i);
+  expect(j, `end not found: ${end}`).toBeGreaterThanOrEqual(i);
+  return sql.slice(0, i) + put + sql.slice(j + end.length);
+}
+
 const slug = () => `p1703-it-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 async function makeEvent(hostId: string, datetime: Date): Promise<string> {
@@ -86,9 +97,11 @@ test.describe('P1703: removal also leaves the room', () => {
   let openEvent: string;
   let closedEvent: string;
   const eventIds: string[] = [];
+  let h: SupabaseClient; // the host's JWT client, signed in once
 
   test.beforeAll(async () => {
     host = await createTestUser({ name: 'P1703 Host' });
+    h = await clientFor(host);
     inRoom = await createTestUser({ name: 'P1703 InRoom' });
     seated = await createTestUser({ name: 'P1703 Seated' });
     never = await createTestUser({ name: 'P1703 Never' });
@@ -131,7 +144,6 @@ test.describe('P1703: removal also leaves the room', () => {
     const { error: rErr } = await supabaseAdmin.from('event_rsvps').insert({ event_id: eventId, profile_id: inRoom.user.id });
     expect(rErr).toBeNull();
 
-    const h = await clientFor(host);
     const { error } = await h.rpc('remove_event_attendee', { p_event: eventId, p_user: inRoom.user.id });
     expect(error).toBeNull();
 
@@ -172,7 +184,6 @@ test.describe('P1703: removal also leaves the room', () => {
     expect(seatErr).toBeNull();
     await supabaseAdmin.from('event_rsvps').insert({ event_id: eventId, profile_id: seated.user.id });
 
-    const h = await clientFor(host);
     const { error } = await h.rpc('remove_event_attendee', { p_event: eventId, p_user: seated.user.id });
     expect(error).toBeNull();
 
@@ -188,7 +199,6 @@ test.describe('P1703: removal also leaves the room', () => {
 
   test('a person who never entered the room: no presence data changes', async () => {
     const before = await presence(eventId);
-    const h = await clientFor(host);
     const { error } = await h.rpc('remove_event_attendee', { p_event: eventId, p_user: never.user.id });
     expect(error).toBeNull();
     const after = await presence(eventId);
@@ -201,12 +211,12 @@ test.describe('P1703: removal also leaves the room', () => {
 
   test('an existing presence row (sitting out round 2) is marked out and keeps sits_out_round', async () => {
     const memberId = await makeMember(eventId, withRow.user.id, 'P1703 WithRow');
+    // The older updated_at is incidental: removal does not read it (a fresh removal is the latest host act).
     const { error: pErr } = await supabaseAdmin.from('event_round_presence').insert({
       event_id: eventId, room_member_id: memberId, left_at: null, sits_out_round: 2,
       updated_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     });
     expect(pErr).toBeNull();
-    const h = await clientFor(host);
     const { error } = await h.rpc('remove_event_attendee', { p_event: eventId, p_user: withRow.user.id });
     expect(error).toBeNull();
     const rows = await presence(eventId, memberId);
@@ -217,13 +227,20 @@ test.describe('P1703: removal also leaves the room', () => {
 
   test('a past event: the removal is recorded but its closed room is not touched', async () => {
     const memberId = await makeMember(pastEvent, pastUser.user.id, 'P1703 Past');
-    const h = await clientFor(host);
+    // An existing row (left_at NULL) so the update path, not only the insert, is shown to leave a closed room alone.
+    const { error: pErr } = await supabaseAdmin.from('event_round_presence').insert({
+      event_id: pastEvent, room_member_id: memberId, left_at: null, sits_out_round: 3,
+      updated_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    });
+    expect(pErr).toBeNull();
+    const before = await presence(pastEvent, memberId);
     const { error } = await h.rpc('remove_event_attendee', { p_event: pastEvent, p_user: pastUser.user.id });
     expect(error).toBeNull();
     const { count } = await supabaseAdmin.from('event_removals')
       .select('user_id', { count: 'exact', head: true }).eq('event_id', pastEvent).eq('user_id', pastUser.user.id);
     expect(count).toBe(1);
-    expect(await presence(pastEvent, memberId)).toHaveLength(0);
+    expect(await presence(pastEvent, memberId)).toEqual(before);
+    expect(before[0].left_at).toBeNull();
   });
 
   test('backfill: marks out an open room member, spares closed room and host-restored, idempotent', async () => {
@@ -252,9 +269,8 @@ test.describe('P1703: removal also leaves the room', () => {
     expect(dErr).toBeNull();
 
     // The migration's own SQL, scoped to this file's events so a run never touches another test's rows.
-    const anchor = 'WHERE now() < e.datetime';
-    expect(BACKFILL_SQL).toContain(anchor);
-    const scoped = BACKFILL_SQL.replace(anchor, `WHERE x.event_id IN ('${openEvent}', '${closedEvent}') AND now() < e.datetime`);
+    const scoped = cutOnce(BACKFILL_SQL, 'WHERE now() < e.datetime', 'WHERE now() < e.datetime',
+      `WHERE x.event_id IN ('${openEvent}', '${closedEvent}') AND now() < e.datetime`);
     await testDbSql(scoped + '\nSELECT 1 AS ok;');
 
     const a1 = await presence(openEvent, mA);
@@ -281,5 +297,17 @@ test.describe('P1703: removal also leaves the room', () => {
     const d2 = await presence(openEvent, mD);
     expect(d2[0].left_at).toBe(d1[0].left_at);
     expect(d2[0].updated_at).toBe(d1[0].updated_at);
+
+    // The DO UPDATE guard's rejecting branch, deterministically: strip the outer NOT EXISTS so mC (brought back after
+    // the removal) reaches DO UPDATE the way a racing "Back in" would. The guard alone must keep them in.
+    const noOuter = cutOnce(scoped, '   AND NOT EXISTS (', '\n   )\n', '');
+    await testDbSql(noOuter + '\nSELECT 1 AS ok;');
+    const c3 = await presence(openEvent, mC);
+    expect(c3[0].left_at).toBeNull();
+    expect(c3[0].updated_at).toBe(c1[0].updated_at);
+    // Control: without the guard the same run marks mC out, so the assertion above is the guard's doing.
+    const noGuard = cutOnce(noOuter, '\n    AND p.updated_at < (SELECT', 'x.event_id = p.event_id);', ';');
+    await testDbSql(noGuard + '\nSELECT 1 AS ok;');
+    expect((await presence(openEvent, mC))[0].left_at).not.toBeNull();
   });
 });
