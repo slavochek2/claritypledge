@@ -37,11 +37,14 @@ Blast radius: low — research, docs and a prototype route; no migration, auth, 
 Stage-gated; each stage's Decision Criteria decide whether the next one runs.
 
 0. **Record the bet.** Add H-VerificationBeatsForgiveness to `docs/hypotheses.md` (UNTESTED, n=0, falsifier = stage 2 result) via `/docs-strategy-update`.
-1. **Novelty check.** Targeted search: costly / imperfect private monitoring in repeated games, costly verification, intention recognition (Han, Pereira, Santos 2012 — unread), communication before moves in noisy PD. Verify the six citations from the first pass by reading the papers, not the search summaries: Wu & Axelrod 1995; Han et al. IJCAI 2013; Centola et al. Science 2018; Cardillo & Masuda 2020; arXiv 2307.08502 (authors/venue unconfirmed); Xie et al. PRE 2011.
-2. **Minimal model + headless simulation.** Repeated PD with *separate* perception-error and implementation-error rates. Checker-TFT pays cost c on a perceived defection to learn the true action with probability q, then responds to what happened. Compete against ALLD, TFT, GTFT, contrite TFT, WSLS in finite populations (low mutation, Fudenberg–Imhof style). Map the region in (ε_perception, ε_implementation, c, b/c) where Checker wins. Then fix a share f of committed visible checkers; find f* well-mixed and on at least one network. Reproducible: seeded, script-run, outputs committed as data. Reconcile with the P1687 engine — its known errors must be fixed or explicitly not inherited; one engine of record, not two.
-3. **Explorable.** Sliders for both noise types, check cost, checker share; built on the P1687 engine/route, not a second one.
-4. **Paper draft (preprint).** Model, results, honest limits (model-only, no human data), prior art.
-5. **Later, separate go:** blog article "a conjecture — come break it" with the improved film embedded; outreach to rationality-community organizers to run a real-room test.
+1. **Novelty check.** Targeted search: costly / imperfect private monitoring in repeated games, costly verification, intention recognition (Han, Pereira, Santos 2012 — unread), communication before moves in noisy PD, tag/greenbeard assortment. Verify by reading, not search summaries: Wu & Axelrod 1995; Han et al. IJCAI 2013; Centola et al. Science 2018; Cardillo & Masuda 2020; arXiv 2307.08502 (authors/venue unconfirmed); Xie et al. PRE 2011. Reviewer-suggested, all UNVERIFIED until read: Miyagawa, Miyahara & Sekiguchi 2008 (JET, observation costs); Ben-Porath & Kahneman 2003; Kandori & Obara 2006; Bhaskar & Obara 2002; Sekiguchi 1997; Boerlijst, Nowak & Sigmund 1997 (contrite TFT vs Pavlov, both noise types); Martinez-Vaquero et al. 2015 (apology and forgiveness); Jansen & van Baalen 2006 (greenbeards).
+2. **Minimal model + headless simulation.** Repeated PD with three error sources kept apart: implementation slips, perception errors, and *understanding* errors (the partner's intended move is misread before acting — the film's Friday-vs-Sunday case). Two distinct check placements, never merged:
+   - **Pre-move check** (what the P1687 askers do): both pay to confirm meaning before acting; lowers the understanding-error rate by q. Can be invaded by fakers/excusers, so model it as gameable.
+   - **Post-perception check**: on a perceived defection, pay c to learn the realized action w.p. q. This is costly monitoring — compare against the economics results named in Stage 1, do not present it as new.
+   Baselines: ALLC, ALLD, TFT, stochastic GTFT (Nowak & Sigmund 1992 — not TF2T), TF2T, contrite TFT, WSLS, and an apology/cheap-talk strategy. Dynamics: pairwise comparison (Fermi, selection strength β) with full Moran transitions when committed players are present — the low-mutation embedded chain is invalid with zealots. Then a fixed share f of committed visible checkers: report f* with degree k, β and zealot rules fixed, well-mixed and one network; separate the badge's effect (tag assortment) from the check's effect by running badge-without-check as a control. Reproducible: seeded, one command, data committed.
+3. **P1687 engine reconciliation note.** List where the toy engine departs from the model of record (implementation noise only; asker checks every round; forgiver is TF2T; 10-round finite games; `leader()` tie order) and send it to the P1687 session. The film/explorable copy stays theirs.
+
+**Stop after Stage 3.** Explorable, preprint and article/outreach are follow-up specs, filed only if Stage 2's criteria pass.
 
 ## Research Questions
 
@@ -52,9 +55,9 @@ Stage-gated; each stage's Decision Criteria decide whether the next one runs.
 
 ## Decision Criteria (pre-registered)
 
-1. **Novel?** → Not novel if a paper models a costly check of the partner's actual action before responding, under perception noise, *and* compares it to forgiveness strategies. If such a paper also gives a minority threshold → kill the paper track; go to the application article + real-room test. If it covers the strategy but not the threshold → paper scope narrows to the threshold.
-2. **Conjecture survives?** → Survives if Checker-TFT is the most abundant strategy in a non-empty region with c > 0 that lies at higher ε_perception than ε_implementation, robust to ±50% on q. Refuted if forgiveness strategies dominate wherever c > 0 — record the refutation in hypotheses.md and decisions.md, publish nothing claiming the opposite.
-3. **"A few pledgers turn the room"** → Only claimable with a computed f* and its conditions. No number from the toy world (e.g. "three") is stated publicly unless the model reproduces it.
+1. **Novel?** → Judged per mechanism, not by one paper covering everything. Post-perception check: presumed covered by costly-monitoring work unless Stage 1 shows otherwise. Pre-move understanding check: not novel if any paper models a costly pre-action check that lowers an error rate in a repeated PD and compares it to forgiveness. Committed-checker threshold: not novel if any paper derives a critical committed fraction for a check/verify strategy. If all three are covered → kill the paper track; go to the application article + real-room test.
+2. **Conjecture survives?** → Survives only if the checker is the most abundant strategy at a check cost no lower than the forgiver's expected loss to defectors under the same noise (c ≥ ε·b per encounter as the floor), across β ∈ {weak, strong}, robust to ±50% on q, *and* with fakers/excusers present. A win only as c → 0 counts as refuted. Refuted → record in hypotheses.md and decisions.md; publish nothing claiming the opposite.
+3. **"A few pledgers turn the room"** → Only claimable as f*(c/b, ε, k, β) with zealot rules stated, and only if f* differs between badge-with-check and badge-without-check. No toy-world number (e.g. "three") is stated publicly unless the model reproduces it.
 
 ## Deliverable
 
@@ -82,8 +85,8 @@ Hypothesis entry; a prior-art note (`docs/research/`); simulation code + data + 
 - [ ] Prior-art note lists every cited paper as read (or marked unread), and states criterion-1 verdict
 - [ ] Simulation reproduces from one command with a fixed seed; figures regenerate from committed data
 - [ ] Criterion-2 and criterion-3 verdicts written, with the numbers
-- [ ] Explorable lets a reader set both noise types, check cost and checker share, and matches the headless model on 3 named settings
-- [ ] Preprint draft exists, with limits and prior-art sections, awaiting founder review
+- [ ] Engine reconciliation note delivered to the P1687 session
+- [ ] Follow-up spec(s) for explorable / preprint filed only if criteria pass; otherwise refutation recorded
 
 ## Open Questions
 
