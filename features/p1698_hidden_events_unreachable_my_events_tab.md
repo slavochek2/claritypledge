@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: bug
 rank: 345
 severity: medium
@@ -117,7 +117,7 @@ Applies because this adds a per-user Supabase read on every signed-in `/events/l
 - [x] A group page (`/groups/<slug>` events tab) never shows a My events tab, even for a viewer who hosts events. *(e2e: group page test; unit: getMyEvents never called with orgId, embedded or ?series=)*
 - [x] After signing out, or switching to an account with no events, the previous person's events and the My events tab are gone, and the page shows Upcoming. *(unit: sign-out, A→B, session-moves-first, late answer for A, tab-reset effect (mutation-proven))*
 - [x] From My events, a hidden event's card opens its event page. *(e2e: "from My events, a hidden event's card opens its event page")*
-- [ ] The founder has seen screenshots at phone (375px and 320px) and desktop width before ship.
+- [x] The founder has seen screenshots at phone (375px and 320px) and desktop width before ship. *(sent 2026-11-17 with phone emulation at 375 and 320 plus desktop; founder also tested the branch on localhost and replied "looks good")*
 - [x] Regression test passes: `e2e/p1698-my-events-tab.spec.ts` *(final run 2026-11-17 with P1603 + P1060 specs, --retries=0, JSON reporter: 34 expected, 0 unexpected, 0 flaky; red before the fix: 6 of 10 failed for "no My events tab")*
 - [x] No console errors on `/events/list` in any of its three tabs. *(e2e smoke; the filter's only exemption, unresolvable banner hosts in TEST data, was proven not to swallow a real error by an injected-error control)*
 - [x] A past event (completed, or started) shows "You Hosted" / "You Went" instead of the present tense, on every list that uses the event card; cancelled keeps "You Were …". (Founder decision 2026-11-17.) *(unit: src/tests/p1698-event-card-badges.test.tsx, 10 cells, red 4 then green; e2e: past cards in My events read "You Hosted"; the change is inside EventCard, which every list renders; review round 4: Gemini + GLM, Codex missing)*
