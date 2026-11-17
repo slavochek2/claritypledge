@@ -117,7 +117,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   {
     tag: 'canvas:metrics', title: 'My next milestone',
     type: 'Target', voice: 'third person, marked as a target; no "I"',
-    definition: `The next result customers produce (pay, renew, refer), with a number and a date. What you will change if you miss it, only if the owner says.`,
+    definition: `The next result customers produce (pay, renew, refer), with a number and a date. What you will change if you miss it, only if stated.`,
     shape: `"<number> <customers> <action> by <date> (target)[; if missed, <change>]."`,
     good: `"10 cafés pay monthly by 31 March 2027 (target)."`,
     not: `"I aim for 10 cafés paying monthly by 31 March 2027." (about the owner's aim, which nobody can dispute) / "Launch the new website and grow."`,
@@ -135,7 +135,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   {
     tag: 'canvas:good-at', title: 'My current biggest challenge',
     type: `Owner's constraint`, voice: 'first person',
-    definition: `The obstacle you see as most likely to stop this working now: where you are (A, a number where the material has one), where you want to be (B), and what is in the way. Causes the material does not state are written as "I think".`,
+    definition: `The obstacle you see as most likely to stop this working now: where you are (A, with a number), where you want to be (B), and what is in the way. Causes the material does not state are written as "I think".`,
     shape: `"I'm at <A>, I want <B>, and the obstacle is <barrier>."`,
     good: `"I'm at 3 replies from my last 20 messages to café owners, I want 10 first calls this month, and I think strangers writing about money look like scams to them."`,
     not: `"Finding time." / a copy of the customer's Problem`,

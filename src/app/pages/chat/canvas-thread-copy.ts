@@ -35,21 +35,22 @@ export const CANVAS_REPLY_HINT = 'Reply, or upload a file';
  * order) and, under each heading, its definition and shape. Every box word comes from the shared definitions module.
  */
 export const CANVAS_OWN_AI_PROMPT = [
-  'Help me draft my Clarity Canvas: nine short sections about my business that other people can agree or disagree with.',
+  'Help me draft my Clarity Canvas: nine short sections about my business others can agree or disagree with.',
   '',
-  // P1658 founder test: an owner's AI that read one file asked five questions instead of looking. It looks first, then asks only about gaps.
-  'First look through what you can reach about my business: our past chats, your memory of me, files you can open. Not the web; where sources disagree, the newest wins. Ask me up to five questions only about what is still missing, wait for my answers, and write it.',
+  // P1658 founder test: an owner's AI that read one file asked five questions instead of looking. It looks first (own business only, this chat or
+  // project, never the web), and asks only when most headings would stay empty. The "Source:" line below names these sources, so rule 1 covers them.
+  `First read what you can reach about my own business (not clients' or employers'): our past chats, your memory of me, files in this chat or project; not the web. Where sources disagree, the newest is current. Only if most headings would stay empty, ask up to five questions (who I sell to, what I sell, for how much, what is hard now) and wait; then write it.`,
   '',
   'Rules:',
   globalRulesText('owner'),
   '',
-  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." naming the people it is for. If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in this order. The lines under each heading say what belongs there; do not copy them.',
+  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." naming who it is for. If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in order; the lines under each say what belongs there; do not copy them.',
   `- Under each heading write up to ${MAX_POINTS_PER_BOX} points, each one short sentence of at most ${MAX_STATEMENT_CHARS} characters, in the voice named under the heading.`,
   '- Examples inside a definition show the form only. Never reuse their businesses, numbers or claims.',
-  '- Under each point, add one line starting "Source:" with what I told you or shared that it comes from. Never invent a source; if there is none, leave the point out.',
-  '- Under a heading with nothing to go on, write only: Not known yet.',
+  '- Under each point, add one line starting "Source:" naming the chat, memory, file or message it comes from. Never invent a source; if there is none, leave the point out.',
+  '- Under an empty heading write only: Not known yet.',
   `- ${NAMING_RULE}`,
-  '- Return only the Markdown file, with no introduction or advice. If you can create files, attach it as clarity-canvas.md.',
+  '- Return only the Markdown file, no introduction or advice; if you can create files, attach it as clarity-canvas.md.',
   '',
   "In the definitions below, 'you' means me, the business owner.",
   '',
