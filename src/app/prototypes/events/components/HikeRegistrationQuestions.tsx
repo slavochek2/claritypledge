@@ -180,7 +180,7 @@ export function HikeRegistrationQuestions({
             <div className={ring('seats')} data-question="seats">
               <label htmlFor={`${id}-seats`} className="mb-2 block text-sm font-medium">{copy.HIKE_FREE_SEATS_QUESTION}</label>
               <Input
-                id={`${id}-seats`} type="number" inputMode="numeric" min={0} max={HIKE_MAX_FREE_SEATS} step={1} value={seatsText}
+                id={`${id}-seats`} className="h-10" type="number" inputMode="numeric" min={0} max={HIKE_MAX_FREE_SEATS} step={1} value={seatsText}
                 onChange={e => setSeatsText(e.target.value)} data-testid="hike-free-seats"
                 aria-invalid={bad('seats') ? true : undefined} aria-describedby={rowError('seats')}
               />

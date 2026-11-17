@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 336
 workstream: events
@@ -207,28 +207,28 @@ Per month, with V = hike page views per hike (V ≈ 50 assumed) and the registra
 
 ## Acceptance Criteria
 
-- [ ] On a hike, "Reserve a seat" opens the form with the lead line, the two "when" options and the transport question; no seat exists before the required answers are given.
-- [ ] A hike registration without the when-answer or the transport answer is refused by the server, through the RPC and through a direct insert of the person's own row.
-- [ ] Inside 24 hours of the start, the form offers only "do it now"; the server refuses "later" with `now_only` when now is not strictly before start minus 24 h 30 min, and the client then redraws the form with only "now", keeping the other answers.
-- [ ] "I'll do it now" lands in the short introduction right after the seat, including after signing in from logged out; "later" gives the seat.
-- [ ] Both times shown equal the hike introduction's computed length.
-- [ ] A hike's confirmation and 24-hour reminder emails contain the introduction link while the event's `preparation_enabled` is false, and the hike room stays ungated.
-- [ ] Car or Motorbike with 1 or more free seats shows the WhatsApp free-seats line in the form and in the confirmation email; 0 seats or other answers show neither.
-- [ ] Choosing a help role shows that role's approved instructions and puts them in the confirmation email once; no email contains driver phone numbers, "call another number below" or Other text.
-- [ ] Transport lead is offered only when the transport answer is "I need a ride", is cleared if that answer changes, and is refused by the server otherwise.
-- [ ] Other opens a free-text box with the approved examples; empty, over 280 characters, or free seats outside 0 to 20 are refused by the server.
-- [ ] The host's event page shows each person's when-answer, transport answer with free seats, help role and Other text (as plain text); another attendee and an anonymous caller read no hike answers.
-- [ ] Cancelling a hike registration deletes its hike answers; registering again asks again.
-- [ ] On a hike, the thank-you page's next-event offer opens the event page's form instead of registering in one tap.
-- [ ] The hike form shows no places-left line, no waiting list and no recording acceptance, and ends with "Only you and the host see these answers."
-- [ ] After a `now_only` refusal the form shows the notice, offers only "now" (not pre-selected) and keeps the other answers.
-- [ ] A hike draft saved while signed out survives the sign-up callback and is submitted by the event page on return.
-- [ ] On a hike with `preparation_enabled` false, the host's page shows the In / Out / Undecided groups with the merged server numbers.
-- [ ] A registered person who did not prepare opens the hike room and is not blocked.
-- [ ] For one hike with a walk-in, a registered person who has not opened the room, and a person who answered only in the preparation, the host page's Undecided count equals the host's room view; attendees see the room's own Undecided count plus "and {N} registered, not here yet" and never the merged count.
-- [ ] Clarity Night registration stays one tap, and the mastermind's step still asks its own questions and recording acceptance (P1529's e2e for registration, sign-in return and waiting list green).
-- [ ] The hike template's title prefix is "Clarity Hike" and its opening is the founder's new line; the app's visible series label reads "Clarity Hike".
-- [ ] `/hike`, `publish-run`, `re-create-event`, the group-chat mapping and `promote-all` handle both a "Social Hike: …" and a "Clarity Hike: …" event.
+- [x] On a hike, "Reserve a seat" opens the form with the lead line, the two "when" options and the transport question; no seat exists before the required answers are given.
+- [x] A hike registration without the when-answer or the transport answer is refused by the server, through the RPC and through a direct insert of the person's own row.
+- [x] Inside 24 hours of the start, the form offers only "do it now"; the server refuses "later" with `now_only` when now is not strictly before start minus 24 h 30 min, and the client then redraws the form with only "now", keeping the other answers.
+- [x] "I'll do it now" lands in the short introduction right after the seat, including after signing in from logged out; "later" gives the seat.
+- [x] Both times shown equal the hike introduction's computed length.
+- [x] A hike's confirmation and 24-hour reminder emails contain the introduction link while the event's `preparation_enabled` is false, and the hike room stays ungated.
+- [x] Car or Motorbike with 1 or more free seats shows the WhatsApp free-seats line in the form and in the confirmation email; 0 seats or other answers show neither.
+- [x] Choosing a help role shows that role's approved instructions and puts them in the confirmation email once; no email contains driver phone numbers, "call another number below" or Other text.
+- [x] Transport lead is offered only when the transport answer is "I need a ride", is cleared if that answer changes, and is refused by the server otherwise.
+- [x] Other opens a free-text box with the approved examples; empty, over 280 characters, or free seats outside 0 to 20 are refused by the server.
+- [x] The host's event page shows each person's when-answer, transport answer with free seats, help role and Other text (as plain text); another attendee and an anonymous caller read no hike answers.
+- [x] Cancelling a hike registration deletes its hike answers; registering again asks again.
+- [x] On a hike, the thank-you page's next-event offer opens the event page's form instead of registering in one tap.
+- [x] The hike form shows no places-left line, no waiting list and no recording acceptance, and ends with "Only you and the host see these answers."
+- [x] After a `now_only` refusal the form shows the notice, offers only "now" (not pre-selected) and keeps the other answers.
+- [x] A hike draft saved while signed out survives the sign-up callback and is submitted by the event page on return.
+- [x] On a hike with `preparation_enabled` false, the host's page shows the In / Out / Undecided groups with the merged server numbers.
+- [x] A registered person who did not prepare opens the hike room and is not blocked.
+- [x] For one hike with a walk-in, a registered person who has not opened the room, and a person who answered only in the preparation, the host page's Undecided count equals the host's room view; attendees see the room's own Undecided count plus "and {N} registered, not here yet" and never the merged count.
+- [x] Clarity Night registration stays one tap, and the mastermind's step still asks its own questions and recording acceptance (P1529's e2e for registration, sign-in return and waiting list green).
+- [x] The hike template's title prefix is "Clarity Hike" and its opening is the founder's new line; the app's visible series label reads "Clarity Hike".
+- [x] `/hike`, `publish-run`, `re-create-event`, the group-chat mapping and `promote-all` handle both a "Social Hike: …" and a "Clarity Hike: …" event.
 
 ## How the founder judges it (not a build gate)
 
