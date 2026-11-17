@@ -28,7 +28,7 @@
       "transcribe-slice": "0c77cf88720255029cdde24ceebaf22b48c8c6272a27eefe003ca7ff1d8c9660",
       "clarify-draft": "48c042dbcfa37a59c69be67392506c780fbfdd46bd16554d4d75748d323d108f"
     },
-    "functions_deployed_at": "2026-11-17T07:23:59Z",
+    "functions_deployed_at": "2026-11-17T12:55:48Z",
     "migrations": [
       "20250101",
       "20250117",
