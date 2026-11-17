@@ -64,6 +64,8 @@ For each returned row, verify the title starts with the **exact** `title_prefix`
 
 Same query as step 3, plus `&order=datetime.desc&limit=1`. Filter to the row whose title starts with the exact `title_prefix`.
 
+**Renamed series:** the `social-hike` series was renamed from "Social Hike" to "Clarity Hike" on 2026-11-17 (P1675). For it, run the query once more with `TITLE_PREFIX="Social Hike"` and take the newer of the two rows, so a series whose last event still carries the old prefix is found.
+
 - No rows → halt: *"No prior event in series `<slug>`. First event must be created manually via `scripts/create-event.ts`."*
 - Extract: `title`, `datetime`, `description`, `location`, `duration_minutes`, `org_id`.
   (`select=title,slug` in step 3 does not return these — widen it to `select=*` for this query.)

@@ -50,7 +50,7 @@ Use `mcp__claude-in-chrome__tabs_context_mcp` (createIfEmpty: true) to get a tab
 
 Auto-detect from AllTrails activity tags:
 - Tags include "Trail Running" → **Run** → title prefix "Clarity Run:", pace note in description
-- Tags include "Hiking" / no running tag → **Hike** → title prefix "Social Hike:", no pace note
+- Tags include "Hiking" / no running tag → **Hike** → title prefix "Clarity Hike:", no pace note (P1675, founder 2026-11-17; earlier hikes are titled "Social Hike:")
 - Tags include both → default to **Hike** unless user specified "run" in their request
 
 If ambiguous, ask once: "Is this a run or a hike?"
@@ -65,7 +65,9 @@ by title prefix, and all three fail SILENTLY when it drifts:
 
 Renaming the series from "Clarity Hike" to "Social Hike" on 2026-08-24 broke all
 three at once and none of them reported it. If you change a prefix, update those
-three in the same change.
+three in the same change. The 2026-11-17 rename back to "Clarity Hike" (P1675) was checked
+against all three: the `hike` alias matches `%Hike%`, and the group mapping already lists both
+"Social Hike" and "Clarity Hike".
 
 ### 4. Get the meeting point name from Google Maps
 
@@ -279,7 +281,7 @@ POST to `/rest/v1/events` using Python (not shell heredoc — interpolation fail
 import json, subprocess
 payload = {
     "slug": "...",
-    "title": "[Social Hike|Clarity Run]: [TRAIL NAME]",   # prefix per step 3
+    "title": "[Clarity Hike|Clarity Run]: [TRAIL NAME]",   # prefix per step 3
     "description": "...",
     "datetime": "[ISO 8601 UTC]",
     "duration_minutes": COMPUTED_DURATION,
