@@ -1,17 +1,17 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 342
 workstream: events
 created_date: '2026-11-17'
 tags: [listening-game, video, public-page, mobile]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-11-17
 ---
 
 # P1696: A public Listening Game page at /game
