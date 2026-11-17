@@ -166,7 +166,21 @@ export interface CardCounts {
   stake: number;
 }
 
+/**
+ * The founder's observed preparation time over the rule's estimate (15 minutes timed against the 8 the rule gave a new
+ * person on a hike). An observed timing over the model's estimate, to be replaced by measured completion times.
+ */
+export const OBSERVED_TIME_FACTOR = 15 / 8;
+
+/** Seconds for `n` statement decisions, with the observed-time factor (the one rule every list uses). */
+export const decisionSeconds = (n: number) => n * SECONDS_PER_DECISION * OBSERVED_TIME_FACTOR;
+
+/** Every modelled step is scaled by the factor; the canvas time is founder-set and is not. */
 export function stepSeconds(step: PlanStep, cards: CardCounts, withPrincipleIntro: boolean): number {
+  return step === 'canvas' ? CANVAS_STEP_SECONDS : OBSERVED_TIME_FACTOR * modelledSeconds(step, cards, withPrincipleIntro);
+}
+
+function modelledSeconds(step: PlanStep, cards: CardCounts, withPrincipleIntro: boolean): number {
   switch (step) {
     case 'welcome':
       return watchSeconds('welcome');
@@ -199,6 +213,14 @@ export const stepMinutes = (step: PlanStep, cards: CardCounts, withPrincipleIntr
 /** The question's N: the sum of the rows the person still has, so the two always agree. */
 export function minutesFor(steps: PlanStep[], cards: CardCounts, withPrincipleIntro: boolean): number {
   return steps.reduce((sum, s) => sum + stepMinutes(s, cards, withPrincipleIntro), 0);
+}
+
+/**
+ * A person's preparation minutes for an event: the rows they still have (all of them for a new person, `stepsDone`
+ * empty), summed. The registration form and the preparation page both call this, so they cannot drift.
+ */
+export function preparationMinutes(plan: PlanStep[], stepsDone: PrepStepKey[], cards: CardCounts, withPrincipleIntro: boolean): number {
+  return minutesFor(remainingSteps(plan, stepsDone), cards, withPrincipleIntro);
 }
 
 // ─── progress ──────────────────────────────────────────────────────────────────────────

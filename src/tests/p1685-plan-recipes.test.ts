@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { publicMediaUrl } from '@/lib/public-media';
 import {
   ALL_STEPS, buildPlan, CLIP_SECONDS, finishedSteps, minutesFor, PART_VERSIONS, PLAYBACK_RATE, STEP_LABELS, STEP_PART,
-  stepMinutes, stepSeconds, watchSeconds,
+  OBSERVED_TIME_FACTOR, stepMinutes, stepSeconds, watchSeconds,
 } from '@/app/prototypes/events/prep/prep-plan';
 import { prepareStepsFor } from '@/app/prototypes/events/prep/prep-timing';
 import { resumeScreenOf } from '@/app/prototypes/events/prep/prep-resume';
@@ -94,7 +94,7 @@ describe('P1685 minutes come from the step itself', () => {
   });
   it('stepSeconds(game) is the reading time of the written rules plus the watch time; the principle step no longer carries it', () => {
     const words = [LISTENING_GAME_COPY.heading, LISTENING_GAME_COPY.subtitle, LISTENING_GAME_COPY.rolesHeading, ...LISTENING_GAME_COPY.roles.flatMap((r) => [r.name, r.text]), LISTENING_GAME_COPY.closing].join(' ').split(/\s+/).filter(Boolean).length;
-    const expected = Math.round((words / 200) * 60) + watchSeconds('listeningGame');
+    const expected = (Math.round((words / 200) * 60) + watchSeconds('listeningGame')) * OBSERVED_TIME_FACTOR;
     expect(stepSeconds('game', cards, true)).toBe(expected);
     expect(stepSeconds('game', cards, false)).toBe(expected);
     expect(expected).toBeGreaterThan(watchSeconds('listeningGame'));

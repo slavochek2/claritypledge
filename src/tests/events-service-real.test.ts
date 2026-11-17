@@ -14,6 +14,9 @@ const mockFrom = vi.fn(() => ({
   delete: mockDelete,
 }));
 
+const mockInvokeEmails = vi.fn();
+vi.mock('@/lib/event-emails', () => ({ invokeEventEmails: (...a: unknown[]) => mockInvokeEmails(...a) }));
+
 vi.mock('@/app/prototypes/events/banner-utils', () => ({
   extractBannerKeywords: vi.fn().mockReturnValue(null),
   fetchUnsplashBanner: vi.fn().mockResolvedValue(null),
@@ -631,6 +634,73 @@ describe('realEventsService', () => {
       const success = await realEventsService.updateEvent('evt-1', { title: 'Updated Title' });
 
       expect(success).toBe(true);
+    });
+
+    describe('update email (P1675 UAT round 1: only a real change emails attendees)', () => {
+      const stored = { title: 'Same title', description: 'Same description', datetime: '2026-12-01T11:00:00+00:00', duration_minutes: 60, location: 'Somewhere', max_attendees: null };
+      const resend = { title: 'Same title', description: 'Same description', datetime: '2026-12-01T11:00:00.000Z', durationMinutes: 60, location: 'Somewhere' };
+
+      function hostUpdates(readResult: { data: unknown; error: unknown } | 'throws') {
+        mockGetUser.mockResolvedValue({ data: { user: { id: 'user-1' } } });
+        mockSelect.mockReturnValue({
+          eq: () => ({ maybeSingle: () => (readResult === 'throws' ? Promise.reject(new Error('boom')) : Promise.resolve(readResult)) }),
+        });
+        mockUpdate.mockReturnValue({
+          eq: () => ({ eq: () => ({ select: () => Promise.resolve({ data: [{ id: 'evt-1' }], error: null }) }) }),
+        });
+        mockInvokeEmails.mockClear();
+      }
+
+      it('an Edit that only flips hike_asks_* (other fields resent unchanged) sends no update email', async () => {
+        hostUpdates({ data: stored, error: null });
+        const ok = await realEventsService.updateEvent('evt-1', { ...resend, hikeAsksTransport: false, hikeAsksHelp: true });
+        expect(ok).toBe(true);
+        expect(mockInvokeEmails).not.toHaveBeenCalled();
+      });
+
+      it('a changed title sends one update email', async () => {
+        hostUpdates({ data: stored, error: null });
+        await realEventsService.updateEvent('evt-1', { ...resend, title: 'A new title' });
+        expect(mockInvokeEmails).toHaveBeenCalledTimes(1);
+        expect(mockInvokeEmails).toHaveBeenCalledWith('update', 'evt-1');
+      });
+
+      it('a failed read of the current values keeps today\'s behaviour: it sends', async () => {
+        hostUpdates({ data: null, error: { message: 'read failed' } });
+        await realEventsService.updateEvent('evt-1', { ...resend, hikeAsksTransport: false });
+        expect(mockInvokeEmails).toHaveBeenCalledTimes(1);
+        hostUpdates('throws');
+        await realEventsService.updateEvent('evt-1', { ...resend, hikeAsksTransport: false });
+        expect(mockInvokeEmails).toHaveBeenCalledTimes(1);
+      });
+
+      it('null, empty and undefined count as equal; a changed instant or number counts as changed', async () => {
+        hostUpdates({ data: { ...stored, location: null }, error: null });
+        await realEventsService.updateEvent('evt-1', { location: '' });
+        expect(mockInvokeEmails).not.toHaveBeenCalled();
+        await realEventsService.updateEvent('evt-1', { datetime: '2026-12-01T12:00:00.000Z' });
+        expect(mockInvokeEmails).toHaveBeenCalledTimes(1);
+        mockInvokeEmails.mockClear();
+        await realEventsService.updateEvent('evt-1', { durationMinutes: 90 });
+        expect(mockInvokeEmails).toHaveBeenCalledTimes(1);
+      });
+
+      it('a changed time is announced even when the group chat write then fails (a retry would find nothing changed)', async () => {
+        hostUpdates({ data: stored, error: null });
+        mockDelete.mockReturnValue({ eq: () => Promise.resolve({ error: { message: 'write failed' } }) });
+        const ok = await realEventsService.updateEvent('evt-1', { ...resend, datetime: '2026-12-01T13:00:00.000Z', groupChatUrl: '' });
+        expect(ok).toBe(false);
+        expect(mockInvokeEmails).toHaveBeenCalledTimes(1);
+        expect(mockInvokeEmails).toHaveBeenCalledWith('update', 'evt-1');
+      });
+
+      it('an update with no event columns (the group chat link alone) is still announced once, as before', async () => {
+        hostUpdates({ data: stored, error: null });
+        mockDelete.mockReturnValue({ eq: () => Promise.resolve({ error: null }) });
+        const ok = await realEventsService.updateEvent('evt-1', { groupChatUrl: '' });
+        expect(ok).toBe(true);
+        expect(mockInvokeEmails).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('returns false when not authenticated', async () => {

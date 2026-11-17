@@ -8,7 +8,7 @@ import { clearListReturnCache } from '@/lib/list-return-cache';
 import { invokeEventEmails } from '@/lib/event-emails';
 import { guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/lib/session-guard';
 import { logDbError } from './db-error-logger';
-import { normalizeHikeAnswers, type HikeAnswers } from './hike-answer-model';
+import { DEFAULT_HIKE_ASKS, normalizeHikeAnswers, type HikeAnswers, type HikeAsks } from './hike-answer-model';
 
 export type HikeRegisterResult = 'ok' | 'already' | 'full' | 'cancelled' | 'not_found' | 'now_only' | 'failed';
 
@@ -18,9 +18,11 @@ export async function registerForHike(
   event: { id: string; slug: string },
   profileId: string,
   answers: HikeAnswers,
+  asks: HikeAsks = DEFAULT_HIKE_ASKS,
 ): Promise<HikeRegisterResult> {
   if (!(await guardSeatWrite(profileId))) return 'failed';
-  const a = normalizeHikeAnswers(answers);
+  // Questions the event does not ask are sent as null (the server stores NULL for them whatever the client sends).
+  const a = normalizeHikeAnswers(answers, asks);
   let result;
   try {
     result = await supabase.rpc('register_for_hike', {

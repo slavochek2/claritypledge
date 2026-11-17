@@ -15,4 +15,20 @@ export const HIKE_ROLE_SWEEP = "You walk behind the last person, so nobody is le
 
 export const HIKE_ROLE_WELCOMER = 'You greet people as they arrive at the meeting point, so nobody stands around lost.';
 
+// UAT round 1 (founder, R2 and R4): the ride line, the role labels and the heading suffix ("Sweep: what you'll do").
+export const HIKE_NEED_RIDE_LINE = "After you register, you'll get the hike's WhatsApp group. Rides are arranged there.";
+
+export const HIKE_ROLE_HEADING_SUFFIX = ": what you'll do";
+
+export const HIKE_ROLE_LABEL_LEAD = 'Lead';
+
+export const HIKE_ROLE_LABEL_SWEEP = 'Sweep';
+
+export const HIKE_ROLE_LABEL_WELCOMER = 'Welcomer';
+
+export const HIKE_ROLE_LABEL_TRANSPORT_LEAD = 'Transport lead';
+
+// UAT round 1 R7, builder's wording (no founder text was given for the link's label): the line above the group chat link.
+export const HIKE_GROUP_CHAT_LINE = "Join the hike's WhatsApp group:";
+
 export const HIKE_ROLE_TRANSPORT_LEAD = "You help people who need a ride get there together. In the hike's WhatsApp group, say you're the transport lead and ask who wants a seat. Agree a price with a driver (ask whether waiting all day or coming back at the end is cheaper), post the pickup point, time and price in the group, and collect the money for both ways before anyone gets in. Slava sends you driver numbers if you need them.";

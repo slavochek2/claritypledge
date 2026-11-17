@@ -8,7 +8,7 @@
  * Every storage access is guarded: a browser without storage simply has no draft and the form opens as before.
  */
 import type { RegistrationAnswers } from './registration-answer-model';
-import { isValidHikeAnswers, normalizeHikeAnswers, type HikeAnswers } from './hike-answer-model';
+import { DEFAULT_HIKE_ASKS, isValidHikeAnswers, normalizeHikeAnswers, type HikeAnswers, type HikeAsks } from './hike-answer-model';
 
 /** P1675: which flow's answers a stored draft holds. A draft written before the discriminator has none and is a mastermind's. */
 export type DraftKind = 'mastermind' | 'hike';
@@ -65,27 +65,40 @@ export function readRegistrationDraft(slug: string, now = Date.now()): Registrat
 }
 
 /** P1675: a hike's answers kept across sign-up, same key, expiry and per-event binding; stored with kind 'hike'. */
-export function saveHikeDraft(slug: string, answers: HikeAnswers, now = Date.now()): boolean {
+export function saveHikeDraft(slug: string, answers: HikeAnswers, asks: HikeAsks = DEFAULT_HIKE_ASKS, now = Date.now()): boolean {
   try {
-    localStorage.setItem(key(slug), JSON.stringify({ slug, kind: 'hike' satisfies DraftKind, intent: 'register', answers: normalizeHikeAnswers(answers), savedAt: now }));
+    localStorage.setItem(key(slug), JSON.stringify({ slug, kind: 'hike' satisfies DraftKind, intent: 'register', answers: normalizeHikeAnswers(answers, asks), savedAt: now }));
     return true;
   } catch {
     return false;
   }
 }
 
+/** Enough of an object to hand to the normalizer without it throwing (the validator then judges the content). */
+function isHikeAnswersShape(a: unknown): a is HikeAnswers {
+  const o = a as Partial<HikeAnswers> | null;
+  return !!o && typeof o === 'object' && (o.helpOther === null || typeof o.helpOther === 'string');
+}
+
 /** The hike draft for this event, or null (none, expired, unreadable, another event's, or another kind's). An unusable one is removed. */
-export function readHikeDraft(slug: string, now = Date.now()): HikeAnswers | null {
+export function readHikeDraft(slug: string, asks: HikeAsks = DEFAULT_HIKE_ASKS, now = Date.now()): HikeAnswers | null {
   try {
     const raw = localStorage.getItem(key(slug));
     if (!raw) return null;
     const v = JSON.parse(raw) as { kind?: unknown; slug?: unknown; savedAt?: unknown; answers?: unknown } | null;
     if (v?.kind !== 'hike') return null; // a mastermind's draft is not ours to remove
-    if (v.slug !== slug || typeof v.savedAt !== 'number' || now - v.savedAt > DRAFT_TTL_MS || now < v.savedAt || !isValidHikeAnswers(v.answers)) {
+    if (v.slug !== slug || typeof v.savedAt !== 'number' || now - v.savedAt > DRAFT_TTL_MS || now < v.savedAt || !isHikeAnswersShape(v.answers)) {
       localStorage.removeItem(key(slug));
       return null;
     }
-    return v.answers;
+    // Normalized to the event's current settings first: a draft saved while a question was on survives the host turning it off.
+    // A draft missing an answer that is now required still fails the validator and is removed.
+    const answers = normalizeHikeAnswers(v.answers, asks);
+    if (!isValidHikeAnswers(answers, asks)) {
+      localStorage.removeItem(key(slug));
+      return null;
+    }
+    return answers;
   } catch {
     return null;
   }

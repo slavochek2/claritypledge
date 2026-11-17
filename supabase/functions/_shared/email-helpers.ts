@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { eventPageUrl, isOnlineLocation, onTimeLine, venueName } from './event-links.ts';
 import { linkBaseFor } from './link-base.ts';
-import { PREP_WHY_BODY, PREP_WHY_TITLE, prepPayoffOf, prepQuestionOf, prepReminderSubject, prepSubject } from './mastermind-prep-email.ts';
+import { PREP_WHY_BODY, PREP_WHY_TITLE, prepPayoffOf, prepQuestionOf, prepReminderQuestionOf, prepReminderSubject, prepSubject } from './mastermind-prep-email.ts';
 
 // ── Environment (callers pass these in via module-level constants) ─────────────
 // Callers must set these before calling any helper that uses Mailgun.
@@ -392,7 +392,7 @@ export function buildReminder(
       : started
         ? `Tomorrow ${at} · finish your preparation`
         : prepReminderSubject(event, at);
-    const question = done ? 'See you tomorrow' : started ? 'Finish your preparation' : prepQuestionOf(event);
+    const question = done ? 'See you tomorrow' : started ? 'Finish your preparation' : prepReminderQuestionOf(event);
     const label = started ? 'Continue your preparation' : 'Prepare now';
     const arriveNote = isOnlineLocation(event.location)
       ? null

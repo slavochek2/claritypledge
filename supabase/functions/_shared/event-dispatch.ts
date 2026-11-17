@@ -26,7 +26,7 @@ import {
   type ReminderPrep,
   type SupabaseClient,
 } from './email-helpers.ts';
-import { choseToObserve, withPreparationOffered, withSeriesBlock } from './series-email-block.ts';
+import { choseToObserve, isHike, loadGroupChatUrl, withHikeBlock, withPreparationOffered, withSeriesBlock } from './series-email-block.ts';
 import { mintEmailLink } from './event-links.ts';
 import { claimMessage, writeBackMessage } from './rsvp-message-ids.ts';
 
@@ -75,6 +75,7 @@ export type DispatchOutcome =
   | 'skipped:no-email'
   | 'skipped:not-scheduled'
   | 'skipped:host-not-gated'
+  | 'skipped:hike' // P1675 R7: hikes never send a feedback email
   | 'skipped:time-drift'
   | 'skipped:already-claimed'
   | 'skipped:already-sent' // a stuck claim whose send WAS recorded: id repaired, nothing re-sent
@@ -114,6 +115,32 @@ export function dueKinds(
   };
 }
 
+/** P1380: this person's preparation state for the reminder, and the link to finish it. A failed read degrades to no prep. */
+async function readReminderPrep(
+  supabase: SupabaseClient,
+  rsvp: RsvpRow,
+  preparationOn: boolean | null | undefined,
+  profileId: string | null | undefined,
+): Promise<{ prep: ReminderPrep | null; prepareUrl: string | null }> {
+  let prep: ReminderPrep | null = null;
+  let prepareUrl: string | null = null;
+  if (preparationOn && profileId) {
+    const { data: prepRow, error: prepErr } = await supabase
+      .from('event_preparations')
+      .select('started_at, completed_at')
+      .eq('event_id', rsvp.event_id)
+      .eq('profile_id', profileId)
+      .maybeSingle();
+    if (prepErr) {
+      console.warn(`reminder prep read failed for rsvp ${rsvp.id}: ${prepErr.message}`);
+    } else {
+      prep = prepRow?.completed_at ? 'complete' : prepRow?.started_at ? 'started' : 'not_started';
+      if (prep !== 'complete') prepareUrl = await mintEmailLink(supabase, rsvp.id, 'prepare', rsvp.events);
+    }
+  }
+  return { prep, prepareUrl };
+}
+
 export async function dispatchReminder(
   supabase: SupabaseClient,
   rsvp: RsvpRow,
@@ -142,26 +169,18 @@ export async function dispatchReminder(
   const deliverAt = new Date(rsvp.reminder_scheduled_at);
   // P1380: on a Preparation-on event the reminder is about the preparation if it is not done.
   // A failed read degrades to today's reminder rather than skipping the send.
-  let prep: ReminderPrep | null = null;
-  let prepareUrl: string | null = null;
   // P1675 3c: a hike offers preparation without the stored flag (a copy; the flag is never written).
   const offered = withPreparationOffered(event);
-  if (offered.preparation_enabled && profileId) {
-    const { data: prepRow, error: prepErr } = await supabase
-      .from('event_preparations')
-      .select('started_at, completed_at')
-      .eq('event_id', rsvp.event_id)
-      .eq('profile_id', profileId)
-      .maybeSingle();
-    if (prepErr) {
-      console.warn(`reminder prep read failed for rsvp ${rsvp.id}: ${prepErr.message}`);
-    } else {
-      prep = prepRow?.completed_at ? 'complete' : prepRow?.started_at ? 'started' : 'not_started';
-      if (prep !== 'complete') prepareUrl = await mintEmailLink(supabase, rsvp.id, 'prepare', event);
-    }
-  }
+  const { prep, prepareUrl } = await readReminderPrep(supabase, rsvp, offered.preparation_enabled, profileId);
   // P1529: the series block; an observer gets no laptop line. Other series: byte-identical.
-  const reminder = withSeriesBlock(buildReminder(offered, profileData?.name, { prep, prepareUrl }), event, { observer: await choseToObserve(supabase, rsvp.event_id, profileId) });
+  // P1675 R7: a hike's reminder carries the group chat line + link (read after this person's registration row is read).
+  // Only the group chat is added here; the answer-driven lines stay confirmation-only. Other flows: unchanged.
+  const reminder = withHikeBlock(
+    withSeriesBlock(buildReminder(offered, profileData?.name, { prep, prepareUrl }), event, { observer: await choseToObserve(supabase, rsvp.event_id, profileId) }),
+    event,
+    null,
+    isHike(event) ? await loadGroupChatUrl(supabase, rsvp.event_id, profileId) : null,
+  );
   const messageId = await sendEmail({ to: email, ...reminder, deliverAt });
 
   // Write the real id over OUR claim only (PENDING + our token). If handleUpdate reset the row
@@ -201,6 +220,9 @@ export async function dispatchFeedback(
   const email = profileData?.email;
   if (!email) return 'skipped:no-email';
   if (!rsvp.feedback_scheduled_at) return 'skipped:not-scheduled';
+
+  // P1675 R7: no hike gets a feedback email, including rows scheduled before the deploy. Returned before any claim or write.
+  if (isHike(event)) return 'skipped:hike';
 
   // Gate: only dispatch feedback for gated host
   if (event.host_id !== FEEDBACK_HOST_ID) return 'skipped:host-not-gated';

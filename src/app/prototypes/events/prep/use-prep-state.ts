@@ -25,9 +25,8 @@ import {
   isAnswered,
   CMP7_TAG,
   isNewPerson,
-  minutesFor,
+  preparationMinutes,
   progressOf,
-  remainingSteps,
   showsPrincipleIntro,
   type CardCounts,
   type PlanStep,
@@ -214,7 +213,7 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     const cards: CardCounts = { cmp7: count(cmp7Points), stake: count(eventPoints) };
     const pointsReady = cmp7Points !== null && eventPoints !== null;
     const computed = pointsReady
-      ? minutesFor(remainingSteps(plan, stepsDone), cards, withPrincipleIntro)
+      ? preparationMinutes(plan, stepsDone, cards, withPrincipleIntro)
       : null;
     // The mastermind says the real time by role before anything is done (founder, 2026-11-06); the role is unknown until read.
     const untouched = !startedAt && stepsDone.length === 0;

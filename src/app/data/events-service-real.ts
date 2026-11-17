@@ -11,7 +11,7 @@ import { slugifyName } from './api';
 import { orgIdOf, readEventOrganizer, readEventOrgFooterNote, readOrganizationById, readRsvpGate, selectEventRowBySlug } from './event-slug-and-group-reads';
 import { hiddenSlugEnding } from './event-hidden-slug';
 import { rsvpToHiddenEvent } from './event-hidden-rsvp';
-import { eventUpdateColumns } from './event-write-columns';
+import { columnsWithValuesBefore, updateNeedsEmail } from './event-update-changes';
 import { eventFlowFields, type EventFlowRow } from './event-flow-row';
 import { eventOptionalCreateColumns } from './event-create-columns';
 import { canvasTimingOf } from '@/app/types/event-fields';
@@ -635,7 +635,7 @@ export const realEventsService: EventsService = {
       return false;
     }
 
-    const updateData = eventUpdateColumns(data);
+    const { updateData, before } = await columnsWithValuesBefore(eventId, data); // UAT R1: read before the write, to email only on a real change
 
     // Only allow update if user is the host (authorization check)
     const { error, data: updated } = await supabase
@@ -656,6 +656,11 @@ export const realEventsService: EventsService = {
       return false;
     }
 
+    // UAT R1: a told field changed, so attendees are emailed now, before the group chat write below. If that write
+    // failed after this point, a retry would find the stored fields already equal and send nothing, so the change
+    // (a new time, say) would never be announced (code review, Codex).
+    if (updateNeedsEmail(updateData, before)) invokeEventEmails('update', eventId); // false when no told column is written
+
     // P1194: the group chat link is not a column on events — write it separately,
     // and only after the host check above has passed. A failure here must NOT be
     // swallowed: the host would be told "Event updated successfully" while the
@@ -671,9 +676,9 @@ export const realEventsService: EventsService = {
 
     // Fire-and-forget: send update emails — skip for banner-only changes
     // P1336: preparation settings change nothing an attendee was told, so they mail nobody either.
-    const SILENT_KEYS = ['banner_url', 'preparation_enabled', 'statement_tag', 'is_hidden', 'canvas_timing'];
-    const isBannerOnly = Object.keys(updateData).length > 0 && Object.keys(updateData).every(k => SILENT_KEYS.includes(k));
-    if (!isBannerOnly) {
+    // UAT R1: and skip it when the Edit form resent every told field unchanged (SILENT_KEYS live in event-update-changes.ts).
+    // A told change was already announced above; an update with no event columns (the link alone) is announced here, as before.
+    if (Object.keys(updateData).length === 0) {
       invokeEventEmails('update', eventId);
     }
 

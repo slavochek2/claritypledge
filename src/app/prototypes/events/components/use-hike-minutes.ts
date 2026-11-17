@@ -7,7 +7,7 @@
  */
 import { useEffect, useState } from 'react';
 import type { EventWithHost } from '@/app/types';
-import { buildPlan, minutesFor, type CardCounts } from '../prep/prep-plan';
+import { buildPlan, preparationMinutes, type CardCounts } from '../prep/prep-plan';
 import { prepareStepsFor, prepStatementTag } from '../prep/prep-timing';
 import { CMP7_TAG } from '../prep/prep-plan';
 import { loadTagPoints } from '../prep/use-prep-state';
@@ -24,7 +24,7 @@ export function hikeIntroductionMinutes(event: EventWithHost, cards: CardCounts)
     steps,
     keepFinished: !!recipeForEvent(event).prepare.keepFinished,
   });
-  return minutesFor(plan, cards, true);
+  return preparationMinutes(plan, [], cards, true);
 }
 
 export function useHikeMinutes(event: EventWithHost | null | undefined, enabled: boolean): number | null {

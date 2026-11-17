@@ -26,7 +26,7 @@ beforeEach(() => vi.clearAllMocks());
 describe('P1675 hike form: copy', () => {
   it('lead line, the two options and the privacy line, verbatim, with the computed minutes in both places', () => {
     open();
-    expect(screen.getByTestId('hike-lead-line').textContent).toBe('This hike is for people who take 9 minutes to learn a few shared words first, so we can have better conversations on the trail. When will you do it?');
+    expect(screen.getByTestId('hike-lead-line').textContent).toBe('Everyone does a short introduction before the hike. When will you do it?'); // UAT round 1 R1: no minutes
     expect(screen.getByLabelText("I have 9 minutes, I'll do it now")).toBeTruthy();
     expect(screen.getByLabelText("I'll do it later, remind me by email")).toBeTruthy();
     expect(screen.getByText('Only you and the host see these answers.')).toBeTruthy();
@@ -36,13 +36,14 @@ describe('P1675 hike form: copy', () => {
     open();
     expect(screen.getByText('How are you coming?')).toBeTruthy();
     for (const l of ['Car', 'Motorbike', 'Bicycle or on foot', 'I need a ride']) expect(screen.getByLabelText(l)).toBeTruthy();
-    expect(screen.getByText('How would you like to help?')).toBeTruthy();
-    for (const l of ['Lead', 'Sweep', 'Welcomer', 'Other']) expect(screen.getByLabelText(l)).toBeTruthy();
+    expect(screen.getByText('How would you like to take part?')).toBeTruthy(); // UAT round 1 R3
+    expect(screen.getByTestId('hike-help-line').textContent).toBe('This is a social, non-commercial hike: nobody is paid, so a few of us help run it.'); // R3 line
+    for (const l of ['Just attend as a participant', 'Lead', 'Sweep', 'Welcomer', 'Other']) expect(screen.getByLabelText(l)).toBeTruthy();
   });
 
-  it('the minutes are not a literal: another length prints another number', () => {
+  it('the minutes are not a literal: another length prints another number, in the "now" option only', () => {
     open({ minutes: 14 });
-    expect(screen.getByTestId('hike-lead-line').textContent).toContain('take 14 minutes');
+    expect(screen.getByTestId('hike-lead-line').textContent).not.toMatch(/\d/);
     expect(screen.getByLabelText("I have 14 minutes, I'll do it now")).toBeTruthy();
   });
 });
@@ -127,7 +128,7 @@ describe('P1675 hike form: transport, seats and roles', () => {
     expect(screen.getByTestId('hike-role-instructions').textContent).toContain('You set the pace at the front');
     expect(screen.getByTestId('hike-role-instructions').textContent).toContain('install AllTrails');
     pick('hike-help-welcomer');
-    expect(screen.getByTestId('hike-role-instructions').textContent).toBe('You greet people as they arrive at the meeting point, so nobody stands around lost.');
+    expect(screen.getByTestId('hike-role-instructions').textContent).toBe("Welcomer: what you'll do" + 'You greet people as they arrive at the meeting point, so nobody stands around lost.'); // UAT round 1 R4: heading above the text
     pick('hike-help-other');
     expect(screen.queryByTestId('hike-role-instructions')).toBeNull();
   });
@@ -140,13 +141,101 @@ describe('P1675 hike form: transport, seats and roles', () => {
     expect(box.maxLength).toBe(280);
   });
 
-  it('a chosen help role can be taken back (the question is optional)', () => {
+  it('R3: "Just attend" is selected on open and submits help null; a role is dropped by choosing it, not by tapping again', () => {
     open();
+    expect((screen.getByTestId('hike-help-none') as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByText('This is a social, non-commercial hike: nobody is paid, so a few of us help run it.')).toBeTruthy();
     pick('hike-transport-bike_or_foot'); pick('hike-when-now');
     pick('hike-help-sweep');
-    pick('hike-help-sweep');
+    pick('hike-help-sweep'); // no tap-to-uncheck: still Sweep
+    expect((screen.getByTestId('hike-help-sweep') as HTMLInputElement).checked).toBe(true);
+    pick('hike-help-none');
     submit();
     expect(onSubmit).toHaveBeenCalledWith({ when: 'now', transport: 'bike_or_foot', freeSeats: null, help: null, helpOther: null });
+  });
+
+  it('R3: a cleared Transport lead falls back to "Just attend"', () => {
+    open();
+    pick('hike-transport-need_ride'); pick('hike-help-transport_lead');
+    pick('hike-transport-car');
+    expect((screen.getByTestId('hike-help-none') as HTMLInputElement).checked).toBe(true);
+  });
+
+  it('R4: each role shows its heading with the display label above its text', () => {
+    open();
+    pick('hike-transport-need_ride');
+    for (const [id, label] of [['lead', 'Lead'], ['sweep', 'Sweep'], ['welcomer', 'Welcomer'], ['transport_lead', 'Transport lead']]) {
+      pick(`hike-help-${id}`);
+      expect(screen.getByTestId('hike-role-heading').textContent).toBe(`${label}: what you'll do`);
+    }
+    pick('hike-help-other');
+    expect(screen.queryByTestId('hike-role-heading')).toBeNull();
+  });
+
+  it('R2: "I need a ride" shows the ride line; no other transport does', () => {
+    open();
+    expect(screen.queryByTestId('hike-ride-line')).toBeNull();
+    pick('hike-transport-need_ride');
+    expect(screen.getByTestId('hike-ride-line').textContent).toBe("After you register, you'll get the hike's WhatsApp group. Rides are arranged there.");
+    pick('hike-transport-car');
+    expect(screen.queryByTestId('hike-ride-line')).toBeNull();
+    pick('hike-transport-bike_or_foot');
+    expect(screen.queryByTestId('hike-ride-line')).toBeNull();
+  });
+});
+
+describe('P1675 hike form: R6 questions per event', () => {
+  it('transport off: no transport question, seats, ride line or Transport lead; submits transport null', () => {
+    open({ asks: { transport: false, help: true } });
+    expect(screen.queryByText('How are you coming?')).toBeNull();
+    expect(screen.queryByTestId('hike-transport-car')).toBeNull();
+    expect(screen.queryByTestId('hike-free-seats')).toBeNull();
+    expect(screen.queryByTestId('hike-ride-line')).toBeNull();
+    expect(screen.queryByTestId('hike-help-transport_lead')).toBeNull();
+    pick('hike-when-now');
+    submit();
+    expect(onSubmit).toHaveBeenCalledWith({ when: 'now', transport: null, freeSeats: null, help: null, helpOther: null });
+  });
+
+  it('help off: no help question; submits help null even for kept answers', () => {
+    open({ asks: { transport: true, help: false }, initial: { when: 'now', transport: 'bike_or_foot', freeSeats: null, help: null, helpOther: null } });
+    expect(screen.queryByTestId('hike-help-none')).toBeNull();
+    expect(screen.queryByText('How would you like to take part?')).toBeNull();
+    submit();
+    expect(onSubmit).toHaveBeenCalledWith({ when: 'now', transport: 'bike_or_foot', freeSeats: null, help: null, helpOther: null });
+  });
+
+  it('both off: only the "when" question is asked and a seat can be requested', () => {
+    open({ asks: { transport: false, help: false } });
+    submit();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByTestId('missing-when')).toBeTruthy();
+    pick('hike-when-later'); submit();
+    expect(onSubmit).toHaveBeenCalledWith({ when: 'later', transport: null, freeSeats: null, help: null, helpOther: null });
+  });
+
+  it('transport off keeps the other answers when redrawn after now_only', () => {
+    const kept: HikeAnswers = { when: 'later', transport: null, freeSeats: null, help: 'welcomer', helpOther: null };
+    open({ asks: { transport: false, help: true }, nowOnly: true, initial: kept });
+    expect(screen.queryByTestId('hike-when-later')).toBeNull();
+    expect((screen.getByTestId('hike-help-welcomer') as HTMLInputElement).checked).toBe(true);
+    pick('hike-when-now'); submit();
+    expect(onSubmit).toHaveBeenCalledWith({ when: 'now', transport: null, freeSeats: null, help: 'welcomer', helpOther: null });
+  });
+
+  it('stale kept answers (a ride and Transport lead, then transport turned off) are normalised: submit sends transport null and help null', () => {
+    const stale: HikeAnswers = { when: 'now', transport: 'need_ride', freeSeats: null, help: 'transport_lead', helpOther: null };
+    open({ asks: { transport: false, help: true }, initial: stale });
+    expect(screen.queryByTestId('hike-help-transport_lead')).toBeNull();
+    submit();
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith({ when: 'now', transport: null, freeSeats: null, help: null, helpOther: null });
+  });
+
+  it('hikeMissingKeys skips unasked questions', () => {
+    expect(hikeMissingKeys('now', null, '', null, '', { transport: false, help: true })).toEqual([]);
+    expect(hikeMissingKeys('now', null, '', null, '')).toEqual(['transport']);
+    expect(hikeMissingKeys(null, null, '', 'other', '', { transport: false, help: false })).toEqual(['when']);
   });
 });
 

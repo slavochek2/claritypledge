@@ -6,13 +6,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { escapeHtml, type EventRow } from './email-helpers.ts';
 import {
+  HIKE_GROUP_CHAT_LINE,
+  HIKE_NEED_RIDE_LINE,
   HIKE_OFFLINE_MAPS_LINE,
+  HIKE_ROLE_HEADING_SUFFIX,
+  HIKE_ROLE_LABEL_LEAD,
+  HIKE_ROLE_LABEL_SWEEP,
+  HIKE_ROLE_LABEL_TRANSPORT_LEAD,
+  HIKE_ROLE_LABEL_WELCOMER,
   HIKE_ROLE_LEAD,
   HIKE_ROLE_SWEEP,
   HIKE_ROLE_TRANSPORT_LEAD,
   HIKE_ROLE_WELCOMER,
   HIKE_WHATSAPP_FREE_SEATS_LINE,
 } from './hike-copy.ts';
+import { eventFlow, isHike } from './event-flow.ts';
 import { MM_CANVAS_LINE, MM_CANVAS_LINE_OBSERVER, mastermindPrepAtEvent } from './mastermind-prep-email.ts';
 
 /** The event columns that choose the block; selected by the senders. */
@@ -42,12 +50,8 @@ export async function choseToObserve(
   return data?.participation === 'observer';
 }
 
-/** P1675: the flow an event runs, as the edge functions resolve it everywhere. */
-export function eventFlow(event: SeriesEventRow): string {
-  return event.flow ?? (['social-hike', 'sales-mastermind'].includes(event.series_slug ?? '') ? (event.series_slug as string) : 'clarity-night');
-}
-
-export const isHike = (event: SeriesEventRow): boolean => eventFlow(event) === 'social-hike';
+// P1675: the flow rule lives in the leaf event-flow.ts (shared with mastermind-prep-email.ts); re-exported for existing callers.
+export { eventFlow, isHike };
 
 /**
  * P1675 3c: "offers preparation" for emails = the stored flag OR a hike. Returns the same object when nothing
@@ -81,32 +85,112 @@ const HIKE_ROLE_LINES: Record<string, string[]> = {
   transport_lead: [HIKE_ROLE_TRANSPORT_LEAD],
 };
 
-/** P1675 3c: the lines a hike confirmation adds. 'other' and an unknown help value add nothing. */
-export function hikeEmailLines(a: HikeEmailAnswers): string[] {
-  const motor = a.transport === 'car' || a.transport === 'motorbike';
-  return [
-    ...(motor && typeof a.free_seats === 'number' && a.free_seats >= 1 ? [HIKE_WHATSAPP_FREE_SEATS_LINE] : []),
-    ...(a.help && Object.hasOwn(HIKE_ROLE_LINES, a.help) ? HIKE_ROLE_LINES[a.help] : []),
-  ];
+const HIKE_ROLE_LABELS: Record<string, string> = {
+  lead: HIKE_ROLE_LABEL_LEAD,
+  sweep: HIKE_ROLE_LABEL_SWEEP,
+  welcomer: HIKE_ROLE_LABEL_WELCOMER,
+  transport_lead: HIKE_ROLE_LABEL_TRANSPORT_LEAD,
+};
+
+/** P1675 R7: a group chat link is shown only when it parses and its protocol is exactly http: or https:. */
+export function safeHttpUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw.trim());
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.href : null;
+  } catch {
+    return null;
+  }
 }
 
-/** P1675: the hike's answer-driven lines, same placement as the series block. Non-hike or nothing to add: returned as is. */
+/**
+ * P1675 R7: the hike's group chat link for one recipient. Reads the recipient's active registration first; only when
+ * that row is found is event_private_info read (service role). Any miss or failed read means no link (the email is still sent).
+ */
+export async function loadGroupChatUrl(
+  supabase: SupabaseClient,
+  eventId: string,
+  profileId: string | null,
+): Promise<string | null> {
+  if (!profileId) return null;
+  try {
+    const { data: rsvp, error: rsvpErr } = await supabase.from('event_rsvps').select('id')
+      .eq('event_id', eventId).eq('profile_id', profileId).maybeSingle();
+    if (rsvpErr) {
+      console.warn(`group chat: registration read failed for event ${eventId}: ${rsvpErr.message}`);
+      return null;
+    }
+    if (!rsvp) return null;
+    const { data, error } = await supabase.from('event_private_info').select('group_chat_url')
+      .eq('event_id', eventId).maybeSingle();
+    if (error) {
+      console.warn(`group chat link read failed for event ${eventId}: ${error.message}`);
+      return null;
+    }
+    return safeHttpUrl((data as { group_chat_url: string | null } | null)?.group_chat_url);
+  } catch (e) {
+    // A thrown read must cost only the link, never the email it belongs to (R7; code review, Codex).
+    console.warn(`group chat link lookup threw for event ${eventId}: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
+/** The answer-driven pieces of a hike email: bullets (ride, free seats), then a chosen role's heading and text. */
+export function hikeEmailParts(a: HikeEmailAnswers): { top: string[]; role: { heading: string; lines: string[] } | null } {
+  const motor = a.transport === 'car' || a.transport === 'motorbike';
+  const known = !!a.help && Object.hasOwn(HIKE_ROLE_LINES, a.help);
+  return {
+    top: [
+      ...(a.transport === 'need_ride' ? [HIKE_NEED_RIDE_LINE] : []),
+      ...(motor && typeof a.free_seats === 'number' && a.free_seats >= 1 ? [HIKE_WHATSAPP_FREE_SEATS_LINE] : []),
+    ],
+    role: known ? { heading: `${HIKE_ROLE_LABELS[a.help as string]}${HIKE_ROLE_HEADING_SUFFIX}`, lines: HIKE_ROLE_LINES[a.help as string] } : null,
+  };
+}
+
+/** P1675 3c: the lines a hike confirmation adds, without the role heading. 'other' and an unknown help value add nothing. */
+export function hikeEmailLines(a: HikeEmailAnswers): string[] {
+  const p = hikeEmailParts(a);
+  return [...p.top, ...(p.role?.lines ?? [])];
+}
+
+/**
+ * P1675: the hike's answer-driven lines, same placement as the series block. Non-hike or nothing to add: returned as is.
+ * `groupChatUrl` (already checked by loadGroupChatUrl, re-checked here) adds the group chat line and link, with or without answers.
+ */
 export function withHikeBlock<T extends { html: string; text: string }>(
   email: T,
   event: SeriesEventRow,
   answers: HikeEmailAnswers | null,
+  groupChatUrl: string | null = null,
 ): T {
-  if (!isHike(event) || !answers) return email;
-  const lines = hikeEmailLines(answers);
-  if (lines.length === 0) return email;
-  const items = lines.map((l) => `<li style="margin:0 0 4px;">${escapeHtml(l)}</li>`).join('');
-  const block = `<ul style="margin:16px 0 0;padding-left:20px;font-size:14px;color:#4b5563;">${items}</ul>`;
+  if (!isHike(event)) return email;
+  const parts = answers ? hikeEmailParts(answers) : { top: [], role: null };
+  const url = safeHttpUrl(groupChatUrl);
+  if (parts.top.length === 0 && !parts.role && !url) return email;
+  const li = (l: string) => `<li style="margin:0 0 4px;">${escapeHtml(l)}</li>`;
+  const ul = (ls: string[]) => `<ul style="margin:8px 0 0;padding-left:20px;font-size:14px;color:#4b5563;">${ls.map(li).join('')}</ul>`;
+  const htmlParts: string[] = [];
+  const textParts: string[] = [];
+  if (parts.top.length) {
+    htmlParts.push(ul(parts.top));
+    textParts.push(parts.top.join('\n'));
+  }
+  if (parts.role) {
+    htmlParts.push(`<p style="margin:16px 0 0;font-size:15px;font-weight:600;color:#111827;">${escapeHtml(parts.role.heading)}</p>${ul(parts.role.lines)}`);
+    textParts.push(`${parts.role.heading}\n${parts.role.lines.join('\n')}`);
+  }
+  if (url) {
+    htmlParts.push(`<p style="margin:16px 0 0;font-size:14px;color:#4b5563;">${escapeHtml(HIKE_GROUP_CHAT_LINE)} <a href="${escapeHtml(url)}">${escapeHtml(url)}</a></p>`);
+    textParts.push(`${HIKE_GROUP_CHAT_LINE} ${url}`);
+  }
+  const block = htmlParts.join('');
   const marker = '<!-- Footer -->';
   const at = email.html.indexOf(marker);
   const html = at < 0
     ? email.html + block
     : `${email.html.slice(0, at)}<tr><td style="padding:0 40px 24px;">${block}</td></tr>${email.html.slice(at)}`;
-  return { ...email, html, text: `${email.text}\n\n${lines.join('\n')}` };
+  return { ...email, html, text: `${email.text}\n\n${textParts.join('\n\n')}` };
 }
 
 export function withSeriesBlock<T extends { html: string; text: string }>(

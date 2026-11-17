@@ -56,7 +56,7 @@ Tapping the hike's Reserve button ("Reserve a seat", unchanged) opens the regist
 
 Founder-approved text (2026-11-13), verbatim:
 
-- Lead line: "This hike is for people who take 10 minutes to learn a few shared words first, so we can have better conversations on the trail. When will you do it?"
+- Lead line (superseded by UAT round 1, R1): "This hike is for people who take 10 minutes to learn a few shared words first, so we can have better conversations on the trail. When will you do it?"
 - Two options (required, one of them):
   - "I have 10 minutes, I'll do it now" → after the seat, goes straight into the short introduction.
   - "I'll do it later, remind me by email" → seat, then a reminder email before the hike.
@@ -193,22 +193,24 @@ Why a timed read and not realtime (rule 2): the count joins registrations, room 
 
 Per month, with V = hike page views per hike (V ≈ 50 assumed) and the registration call itself counted as +0 net (it replaces the one-tap insert): hikes per month × (R answers reads + 2 × 120 host-page count reads + A × 120 room count reads + 2 × V minutes reads + 2 host answers reads) = 4 × (25 + 240 + 2,400 + 100 + 2) ≈ 11,100 requests, and about 5.5 MB egress (≈ 0.5 KB each).
 
-1. **Fits the plan limit today?** Fits. Against the tighter Supabase Free plan row (5 GB egress, 500,000 edge function invocations, no request cap): 5.5 MB per month is about 0.1% of the egress allowance, and no edge function invocations are added. Current usage is read from the row's "Where usage is read"; this change adds the amounts above.
-2. **Fits at 10x?** Fits: about 111,000 requests and 55 MB egress per month.
+UAT round 1 adds, inside the existing confirmation and reminder edge-function runs (no new invocation, no new email): the group chat link costs one registration read and one private-info read per hike email, so R × 2 emails × 2 reads = 25 × 2 × 2 = 100 reads per hike, 4 × 100 = 400 a month (≈ 0.5 KB each, ≈ 0.2 MB); a failed read logs one warning line, at most 2 per email, so at most 400 log lines a month in the worst case and 0 normally. Hikes stop sending the feedback email, which removes one email send per hike registration (≈ 100 a month at R = 25). Revised totals: ≈ 11,500 requests and ≈ 5.7 MB egress a month.
+
+1. **Fits the plan limit today?** Fits. Against the tighter Supabase Free plan row (5 GB egress, 500,000 edge function invocations, no request cap): 5.7 MB per month is about 0.1% of the egress allowance, and no edge function invocations are added. Current usage is read from the row's "Where usage is read"; this change adds the amounts above.
+2. **Fits at 10x?** Fits: about 115,000 requests and 57 MB egress per month.
 3. No upgrade needed.
 
 ## Invariants
 
 - The hike room never stops an unprepared or late person (P1542; this spec section 5).
 - Driver phone numbers never leave the private driver list through the app (P1571, `social-hike-roles.md` Message 3).
-- A hike seat created after the deploy exists only with the required hike answers (when, and how you're coming), enforced by the server on every path that creates a registration: the hike RPC, a direct insert, the sign-in return, hidden links and the thank-you page's next-event offer.
+- A hike seat created after the deploy exists only with the required hike answers (when, and how you're coming when the event asks it, UAT round 1 R6), enforced by the server on every path that creates a registration: the hike RPC, a direct insert, the sign-in return, hidden links and the thank-you page's next-event offer.
 - Hikes never ask for recording acceptance.
 - Only the person and the event's host can read a person's hike answers.
 
 ## Acceptance Criteria
 
 - [x] On a hike, "Reserve a seat" opens the form with the lead line, the two "when" options and the transport question; no seat exists before the required answers are given.
-- [x] A hike registration without the when-answer or the transport answer is refused by the server, through the RPC and through a direct insert of the person's own row.
+- [x] A hike registration without the when-answer or (when the event asks it, UAT round 1 R6) the transport answer is refused by the server, through the RPC and through a direct insert of the person's own row.
 - [x] Inside 24 hours of the start, the form offers only "do it now"; the server refuses "later" with `now_only` when now is not strictly before start minus 24 h 30 min, and the client then redraws the form with only "now", keeping the other answers.
 - [x] "I'll do it now" lands in the short introduction right after the seat, including after signing in from logged out; "later" gives the seat.
 - [x] Both times shown equal the hike introduction's computed length.
@@ -230,18 +232,22 @@ Per month, with V = hike page views per hike (V ≈ 50 assumed) and the registra
 - [x] The hike template's title prefix is "Clarity Hike" and its opening is the founder's new line; the app's visible series label reads "Clarity Hike".
 - [x] `/hike`, `publish-run`, `re-create-event`, the group-chat mapping and `promote-all` handle both a "Social Hike: …" and a "Clarity Hike: …" event.
 
-UAT round 1 (R1 to R8 below):
+UAT round 1 (R1 to R8 below; R5 keeps the privacy line, covered by the existing criterion above):
 
 - [ ] R1: the hike form's lead line is "Everyone does a short introduction before the hike. When will you do it?" and shows no minutes; the "now" option shows the computed minutes.
 - [ ] R2: choosing "I need a ride" shows the ride line in the form, and the confirmation email of a need-ride registration contains it; other transport answers show neither.
-- [ ] R3: the help question reads R3's question and line, "Just attend as a participant" is selected when the form opens, and submitting with it stores no help role.
+- [ ] R3: the help question reads "How would you like to take part?" with the line "This is a social, non-commercial hike: nobody is paid, so a few of us help run it.", "Just attend as a participant" is selected when the form opens, and submitting with it stores no help role.
 - [ ] R4: a chosen role shows the heading "{Role}: what you'll do" above its text, in the form and in the confirmation email.
-- [ ] R6: Create and Edit event show the two checkboxes for hikes only, on by default; a non-hike event shows neither.
+- [ ] R6: Edit event shows the two checkboxes for hikes only, on by default; a non-hike event shows neither.
 - [ ] R6: with transport off, the form has no transport question, the server stores transport and seats NULL even when the client sends values, and the seat is created; with help off, the same for help and Other. With both on, behaviour is unchanged (P1675's existing tests green).
-- [ ] R6: the host page shows a dash for an answer the event did not ask.
-- [ ] R7: a hike's confirmation and reminder emails contain the group chat link when one is set and no group chat line when none is; Clarity Night's emails are unchanged.
-- [ ] R7: a hike registration made after the deploy schedules no feedback email; a Clarity Night registration still does.
-- [ ] R8: for a new person on the same hike, the form's minutes equal the preparation page's minutes and `/prepare`'s total for the same steps, all from one shared function; the factor is not applied to the canvas step; a test pins that the hike's number is the factor applied to the modelled seconds, not a typed total.
+- [ ] R6: the host page shows a dash for a transport answer not stored and for help on an event that does not ask it, and "Participant" for "Just attend" on an event that asks it.
+- [ ] R6: a hike with transport off can be registered signed out, survives sign-in, and is redrawn after a `now_only` refusal with its other answers kept.
+- [ ] R6: the database refuses `transport_lead` with NULL transport, and NULL transport with a seats number. (The server half of R6 is proven against the TEST database by a rolled-back run as a signed-in caller, recorded in the build notes; the unit tests pin the SQL source.)
+- [ ] R7: a hike's confirmation and reminder emails contain the group chat link when one is set and the recipient's registration is active, and no group chat line when none is set, when the registration row cannot be read, or when the link is not `http(s)`; Clarity Night's emails are unchanged.
+- [ ] R7: no hike gets a feedback email: a registration and an edit schedule none, and the dispatcher skips a hike before claiming one already scheduled; a Clarity Night registration and edit by the gated host still do.
+- [ ] R7: no hike email states how long the preparation takes (the confirmation subject and the preparation question and reminder lines have a hike wording with no number); event-timing lines such as "starts in 15 minutes" are unchanged.
+- [ ] R7: a hike registration sends no kind of email it did not send before (confirmation, 24-hour reminder and the host's update notices only; the feedback email is gone).
+- [ ] R8: for a new person on the same hike, the form's minutes equal the preparation page's minutes, from one shared function; each `/prepare` row equals the same step's row on the preparation page and the misunderstanding row uses the same factor; the factor is not applied to the canvas step; a test pins that the hike's number is the factor applied to the modelled seconds, not a typed total.
 
 ## UAT round 1 (founder, 2026-11-17, localhost)
 
@@ -251,26 +257,33 @@ Founder feedback after trying the form on the Wat Pha Lat hike. Every founder de
 
 **R2. "I need a ride" says what happens next.** Choosing it shows, under the option: "After you register, you'll get the hike's WhatsApp group. Rides are arranged there." The same line goes in that person's confirmation email (as the free-seats line does for drivers).
 
-**R3. The help question has a default.** Question: "How would you like to take part?" One line under it: "This is a social, non-commercial hike: nobody is paid, so a few of us help run it." First option, selected by default: "Just attend as a participant" (stored as no help role, `help` NULL). Then Lead, Sweep, Welcomer, Transport lead (only with "I need a ride"), Other.
+**R3. The help question has a default.** Question: "How would you like to take part?" One line under it: "This is a social, non-commercial hike: nobody is paid, so a few of us help run it." First option, selected by default: "Just attend as a participant" (stored as no help role, `help` NULL). Then Lead, Sweep, Welcomer, Transport lead (only with "I need a ride"), Other. "Just attend" is a real option, so tapping a chosen role no longer un-chooses it; choosing "Just attend" is how a role is dropped, and a cleared Transport lead falls back to it.
 
-**R4. A chosen role's text reads as instructions.** A heading above it: "{Role}: what you'll do" (e.g. "Sweep: what you'll do", "Transport lead: what you'll do"). The confirmation email uses the same heading above the same text.
+**R4. A chosen role's text reads as instructions.** A heading above it: "{Role}: what you'll do" (e.g. "Sweep: what you'll do", "Transport lead: what you'll do"). The confirmation email uses the same heading above the same text, as a heading (not one more bullet), with the role's display label ("Transport lead", never the stored value).
 
 **R5. Privacy line kept as is:** "Only you and the host see these answers."
 
 **R6. Questions per event, not per series.** Founder's example: the in-city collab needs neither help nor transport. Design (founder chose two checkboxes):
 - `events` gets two booleans, `hike_asks_transport` and `hike_asks_help`, `NOT NULL DEFAULT true`, so every existing hike keeps asking both. They are ordinary public event settings (not personal data), written by the host through the existing event update path.
-- Create and Edit event show, for hike events only, under a heading "Questions before the seat": "Ask how they're coming" and "Ask if they'd like to help", both on by default. The "when" question is always asked and has no checkbox.
+- Edit event shows, for hike events only, under a heading "Questions before the seat": "Ask how they're coming" and "Ask if they'd like to help", both on by default. The "when" question is always asked and has no checkbox. Not on Create: the Create form has no series, and a host cannot set `series_slug` (P1403 lock; hikes are published by `publish-run` with the service role), so a hike is recognisable only once it exists (spec review, Opus). The host publishes, then unticks on Edit before sharing the link. Letting `publish-run` take the two settings is a skill edit on main (INBOX-370).
+- A host who turns the transport question on while someone's form is open gets that person a refusal and a generic retry toast; turning the help question on stores that person as "Just attend", since help is optional (spec review and code review, Codex). Both ACCEPT: the host sets the questions before sharing the link, and reloading the page redraws the form.
 - With transport off, the form hides the transport question (and with it the free-seats answer, the ride line and the Transport lead option). With help off, it hides the help question.
-- `event_hike_answers.transport` becomes nullable: NULL exactly when not asked. The free-seats check accepts NULL transport with NULL seats; the Transport lead check already refuses `transport_lead` without `need_ride`.
+- `event_hike_answers.transport` becomes nullable: NULL exactly when not asked. One new migration after `20261117130000`, applied before any client sends NULL, does all of it atomically: the two columns, `DROP NOT NULL`, the free-seats check rewritten so NULL transport requires NULL seats, and the Transport lead check rewritten as `help IS DISTINCT FROM 'transport_lead' OR transport IS NOT DISTINCT FROM 'need_ride'` (today's `transport = 'need_ride'` evaluates UNKNOWN on NULL and would let the row through; spec review, Codex).
 - `register_for_hike` reads the event's two settings: when transport is asked it stays required as today; when it is not, transport and seats are stored NULL whatever the client sends. When help is not asked, help and Other are stored NULL.
-- A host who changes a setting after people registered keeps their answers as they are; the host page shows a missing answer as a dash.
+- The client's answer model, its validator (which also validates the signed-out draft), the missing-answers check and the `now_only` redraw take the event's two settings, so a form without the transport question can be submitted, saved across sign-in and redrawn.
+- A host who changes a setting after people registered keeps their answers as they are. Each answers row records whether help was asked (`asked_help boolean NOT NULL DEFAULT true`, written by the RPC from the event's setting), because a NULL help means both "Just attend" and "not asked" (spec review, Opus). The host page shows a dash for a transport answer that is not stored (transport is required whenever it is asked, so NULL means not asked); for help it shows "Participant" when `asked_help` and help is NULL, and a dash when not `asked_help`.
 - Members-only hikes (INBOX-361, out of scope) will be a separate "who can register" setting beside these, not a third checkbox here.
+- Saving Edit event emails registrants "event updated" only when something they were told actually changed (title, description, time, duration, time zone, location, place limit), compared with what is stored. Edit event resends every field, so before this, ticking one of these boxes, or changing only the group chat link, emailed everyone (code review, Sonnet and Opus). This applies to every event, not only hikes. The email for a real change is sent before the group chat link is saved, so a failed link save cannot swallow it (code review, Codex).
 
 **R7. Emails: the WhatsApp group link, and no feedback email for hikes** (founder: "confirmation and reminder - the feedback email we can skip - because i direct them to feedback at end of the event").
-- A hike's confirmation and 24-hour reminder carry the event's group chat link when the host has set one (P1193's private event info; the recipient holds a registration, which is who may read it). No new email is added.
-- Hike registrations made after the deploy get no after-event feedback email. Clarity Night and the mastermind keep theirs; whether to drop feedback emails for every event is a separate founder decision (filed).
+- A hike's confirmation and 24-hour reminder carry the event's group chat link when the host has set one (P1193's private event info). The sender reads it with the service role only after reading that recipient's active registration row for the event; the confirmation is otherwise sent without the link (today it is sent even when that row cannot be read). The link is shown only if it is `http:` or `https:`, and is escaped in the HTML and plain in the text part. No new email is added.
+- The ride line (R2) is sent whether or not a link is set: the founder adds riders to the group by hand when there is no link.
+- No hike gets an after-event feedback email: neither the registration nor an event edit (`handleUpdate`, which re-sets the feedback time today) schedules one, and the dispatcher's feedback step skips a hike before it claims a row, which also covers rows scheduled before the deploy (spec review, Opus).
+- The preparation emails a hike now receives (section 3c) ask "Do you have 10 minutes to prepare…?" in the subject and body, a fixed number that contradicts the form. Hikes get their own wording with no number, as the lead line has (R1); builder's wording, shown to the founder at UAT.
+- The group chat link appears in a reminder only if it was set before that reminder is built (the dispatcher builds it when it claims the row).
+- Clarity Night and the mastermind keep their feedback email; whether to drop it for every event is a separate founder decision (INBOX-371).
 
-**R8. The minutes match the real time.** Finding (verified in code, 2026-11-17): the form and the preparation page already compute the same number, from the same plan and the same rule, and for a new person both say 8 for this hike; there was no mismatch between them. The rule undercounts real time: it assumes videos at 1.15x, reading at 200 words a minute, 20 seconds per statement, and nothing for thinking or moving between screens. The founder timed the hike introduction at about 15 minutes. Fix (founder: "update now, and later we can change"): one correction factor in the time rule, the founder's observed time over the rule's estimate (15 / 8), applied to every modelled step (videos, reading, statements) and not to the founder-set canvas time. It stays a computed number: adding or removing a step still changes it, and the form, the preparation page and `/prepare` keep agreeing. Because the rule is shared, Clarity Night's and the mastermind's preparation estimates rise by the same factor: a deliberate exception to the Non-Goal "do not change Clarity Night's preparation", shown to the founder before ship. Replacing the factor with measured completion times is filed as a follow-up.
+**R8. The minutes match the real time.** Finding (verified in code, 2026-11-17): the form and the preparation page already compute the same number, from the same plan and the same rule, and for a new person both say 8 for this hike; there was no mismatch between them. The rule undercounts real time: it assumes videos at 1.15x, reading at 200 words a minute, 20 seconds per statement, and nothing for thinking or moving between screens. The founder timed the hike introduction at about 15 minutes. Fix (founder: "update now, and later we can change"): one correction factor in the time rule, the founder's observed time over the rule's estimate (15 / 8), applied inside the per-step seconds to every modelled step (videos, reading, statements, including `/prepare`'s misunderstanding row, which today computes its own seconds) and not to the founder-set canvas time. Rows stay rounded per row, as today, and the total stays the sum of the rows, so every list and its total agree; for this hike's card count that gives about 15 (14 or 15 depending on the count), and the test pins the computed value, not a typed one. The clip badges keep showing each video's real length (the factor is not applied to the per-clip watch time). It stays a computed number: adding or removing a step still changes it, and the form, the preparation page and `/prepare` keep agreeing. With rows rounded one by one, the hike shows 14 with 8 statements and 15 with 9 (spec review, Opus); the founder is told the number the live statement count gives. Because the rule is shared, every computed estimate rises by the same factor (spec review, Opus, computed with 5 statements: Clarity Night about 12 to 21, the membership join page about 7 to 12, the mastermind's computed time after starting about 9 to 16): a deliberate exception to the Non-Goal "do not change Clarity Night's preparation", shown to the founder before ship. The mastermind's founder-set role minutes (15, 25 and 10 before starting) and its email line are not computed and do not change. Replacing the factor with measured completion times is INBOX-372.
 
 **R9. Members-only hikes** later need to be told apart from open ones (INBOX-361). Out of scope; R6 is designed to sit beside it.
 

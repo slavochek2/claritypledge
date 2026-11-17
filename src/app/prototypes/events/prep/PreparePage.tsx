@@ -41,7 +41,7 @@ import { getProfileBySlug } from '@/app/data/api';
 import { LETTER_FOUNDER_SLUG } from '@/app/data/offline-reads-letters';
 import { getMyPrepParts, markPrepPart, type PrepPart, type PrepPartRow } from '@/app/data/event-prep-service';
 import type { PointWithUserPosition, Profile } from '@/app/types';
-import { CMP7_TAG, isPartDone, PART_VERSIONS, PRINCIPLE_LEVEL, SECONDS_PER_DECISION, STEP_LABELS, stepMinutes } from './prep-plan';
+import { CMP7_TAG, isPartDone, PART_VERSIONS, PRINCIPLE_LEVEL, decisionSeconds, STEP_LABELS, stepMinutes } from './prep-plan';
 import { trackPrepFinished, trackPrepStep, type PrepContext } from './prep-analytics';
 import { localPartRows, markLocalPart, readLocalParts, syncLocalPrepParts } from './prep-local-parts';
 import { ListeningGameScreen } from './ListeningGameScreen';
@@ -479,7 +479,7 @@ function PrepareFlow({
                   const last = i === steps.length - 1;
                   const cards = { cmp7: points.cmp7?.length ?? 0, stake: 0 };
                   const minutes = s === 'misunderstanding'
-                    ? Math.max(1, Math.round(((points.misunderstanding?.length ?? 0) * SECONDS_PER_DECISION) / 60))
+                    ? Math.max(1, Math.round(decisionSeconds(points.misunderstanding?.length ?? 0) / 60))
                     : stepMinutes(s, cards, true);
                   return (
                     <li key={s} className="flex gap-3" data-testid={`agenda-step-${s}`} data-done={done ? 'true' : 'false'}>

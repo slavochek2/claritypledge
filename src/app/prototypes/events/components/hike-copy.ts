@@ -15,13 +15,28 @@ export const HIKE_ROLE_SWEEP = "You walk behind the last person, so nobody is le
 
 export const HIKE_ROLE_WELCOMER = 'You greet people as they arrive at the meeting point, so nobody stands around lost.';
 
+// UAT round 1 (founder, R2 and R4): the ride line, the role labels and the heading suffix ("Sweep: what you'll do").
+export const HIKE_NEED_RIDE_LINE = "After you register, you'll get the hike's WhatsApp group. Rides are arranged there.";
+
+export const HIKE_ROLE_HEADING_SUFFIX = ": what you'll do";
+
+export const HIKE_ROLE_LABEL_LEAD = 'Lead';
+
+export const HIKE_ROLE_LABEL_SWEEP = 'Sweep';
+
+export const HIKE_ROLE_LABEL_WELCOMER = 'Welcomer';
+
+export const HIKE_ROLE_LABEL_TRANSPORT_LEAD = 'Transport lead';
+
+// UAT round 1 R7, builder's wording (no founder text was given for the link's label): the line above the group chat link.
+export const HIKE_GROUP_CHAT_LINE = "Join the hike's WhatsApp group:";
+
 export const HIKE_ROLE_TRANSPORT_LEAD = "You help people who need a ride get there together. In the hike's WhatsApp group, say you're the transport lead and ask who wants a seat. Agree a price with a driver (ask whether waiting all day or coming back at the end is cheaper), post the pickup point, time and price in the group, and collect the money for both ways before anyone gets in. Slava sends you driver numbers if you need them.";
 
 // ─── Client-only: the registration form (P1675, sections 1 to 3b). Spec text verbatim; lines marked PROPOSED are not in the spec. ───
 
-/** The lead line. N is the hike introduction's computed length, never a literal. */
-export const hikeLeadLine = (minutes: string): string =>
-  `This hike is for people who take ${minutes} minutes to learn a few shared words first, so we can have better conversations on the trail. When will you do it?`;
+/** UAT round 1 R1 (founder): the lead line carries no minutes; they stay in the "now" option. */
+export const HIKE_LEAD_LINE = 'Everyone does a short introduction before the hike. When will you do it?';
 export const hikeNowOption = (minutes: string): string => `I have ${minutes} minutes, I'll do it now`;
 export const HIKE_LATER_OPTION = "I'll do it later, remind me by email";
 
@@ -35,14 +50,24 @@ export const HIKE_TRANSPORT_OPTIONS = [
 /** PROPOSED: the spec names the free-seats answer but not its question. */
 export const HIKE_FREE_SEATS_QUESTION = 'How many free seats do you have?';
 
-export const HIKE_HELP_QUESTION = 'How would you like to help?';
+/** UAT round 1 R3 (founder): the question, the line under it, and the default option (stored as no help role). */
+export const HIKE_HELP_QUESTION = 'How would you like to take part?';
+export const HIKE_HELP_LINE = 'This is a social, non-commercial hike: nobody is paid, so a few of us help run it.';
+export const HIKE_JUST_ATTEND_OPTION = 'Just attend as a participant';
 export const HIKE_HELP_OPTIONS = [
-  { value: 'lead', label: 'Lead' },
-  { value: 'sweep', label: 'Sweep' },
-  { value: 'welcomer', label: 'Welcomer' },
-  { value: 'transport_lead', label: 'Transport lead' },
+  { value: 'lead', label: HIKE_ROLE_LABEL_LEAD },
+  { value: 'sweep', label: HIKE_ROLE_LABEL_SWEEP },
+  { value: 'welcomer', label: HIKE_ROLE_LABEL_WELCOMER },
+  { value: 'transport_lead', label: HIKE_ROLE_LABEL_TRANSPORT_LEAD },
   { value: 'other', label: 'Other' },
 ] as const;
+/** R4: the heading above a chosen role's text, e.g. "Sweep: what you'll do". */
+export const hikeRoleHeading = (label: string): string => `${label}${HIKE_ROLE_HEADING_SUFFIX}`;
+
+/** R6: the host settings block on Edit event (hikes only). */
+export const HIKE_QUESTIONS_HEADING = 'Questions before the seat';
+export const HIKE_ASKS_TRANSPORT_LABEL = "Ask how they're coming";
+export const HIKE_ASKS_HELP_LABEL = "Ask if they'd like to help";
 export const HIKE_HELP_OTHER_PLACEHOLDER = 'For example: dog food for the trail dogs, sweets to share, a bag to collect rubbish on the way';
 
 export const HIKE_PRIVACY_LINE = 'Only you and the host see these answers.';
@@ -71,3 +96,7 @@ export const HIKE_HOST_NEEDS_RIDE = 'Needs a ride';
 export const hikeHostSeats = (n: number): string => `${n} free seat${n === 1 ? '' : 's'}`;
 /** PROPOSED (founder decision): prefix of the Other text in the host line. */
 export const HIKE_HOST_OTHER_PREFIX = 'Other: ';
+/** R6: an answer that is not stored, or a question the event does not ask. */
+export const HIKE_HOST_DASH = '—';
+/** R6: "Just attend" on an event that asks the help question. */
+export const HIKE_HOST_PARTICIPANT = 'Participant';

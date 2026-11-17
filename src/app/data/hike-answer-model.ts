@@ -14,9 +14,26 @@ export const HIKE_HELPS: readonly HikeHelp[] = ['lead', 'sweep', 'welcomer', 'tr
 export const HIKE_MAX_FREE_SEATS = 20;
 export const HIKE_HELP_OTHER_MAX = 280;
 
+/** UAT round 1 R6: which optional questions the event asks. Both default to true (every existing hike asks both). */
+export interface HikeAsks {
+  transport: boolean;
+  help: boolean;
+}
+export const DEFAULT_HIKE_ASKS: HikeAsks = { transport: true, help: true };
+
+/** "Absent means asked": a question is on unless it is explicitly false (null, undefined and a missing column all mean asked). */
+export const isAsked = (v: boolean | null | undefined): boolean => v !== false;
+
+/** The event's two settings as a HikeAsks (absent means asked). */
+export const hikeAsksOf = (e: { hikeAsksTransport?: boolean | null; hikeAsksHelp?: boolean | null } | null | undefined): HikeAsks => ({
+  transport: isAsked(e?.hikeAsksTransport),
+  help: isAsked(e?.hikeAsksHelp),
+});
+
 export interface HikeAnswers {
   when: HikeWhen;
-  transport: HikeTransport;
+  /** Null exactly when the event does not ask how people are coming. */
+  transport: HikeTransport | null;
   /** A whole number 0..20 for car and motorbike, null for every other transport. */
   freeSeats: number | null;
   help: HikeHelp | null;
@@ -35,21 +52,31 @@ export function laterAllowed(eventDatetimeIso: string, nowMs: number): boolean {
 export const drivesCar = (t: HikeTransport | null): boolean => t === 'car' || t === 'motorbike';
 
 /** The answers as the server stores them: seats only for a driver, Transport lead only with "I need a ride", Other text only with Other. */
-export function normalizeHikeAnswers(a: HikeAnswers): HikeAnswers {
-  const freeSeats = drivesCar(a.transport) ? a.freeSeats : null;
-  const help = a.help === 'transport_lead' && a.transport !== 'need_ride' ? null : a.help;
+export function normalizeHikeAnswers(a: HikeAnswers, asks: HikeAsks = DEFAULT_HIKE_ASKS): HikeAnswers {
+  const transport = asks.transport ? a.transport : null;
+  const freeSeats = drivesCar(transport) ? a.freeSeats : null;
+  const wanted = asks.help ? a.help : null;
+  const help = wanted === 'transport_lead' && transport !== 'need_ride' ? null : wanted;
   const other = a.helpOther?.trim() ?? '';
-  return { ...a, freeSeats, help, helpOther: help === 'other' ? other : null };
+  return { ...a, transport, freeSeats, help, helpOther: help === 'other' ? other : null };
+}
+
+/** The transport answer and its free seats are consistent with what the event asks. */
+function validTransportAndSeats(a: Partial<HikeAnswers>, asks: HikeAsks): boolean {
+  if (asks.transport ? !HIKE_TRANSPORTS.includes(a.transport as HikeTransport) : a.transport !== null) return false;
+  if (drivesCar(a.transport ?? null)) {
+    return Number.isInteger(a.freeSeats) && (a.freeSeats as number) >= 0 && (a.freeSeats as number) <= HIKE_MAX_FREE_SEATS;
+  }
+  return a.freeSeats === null;
 }
 
 /** Whether the answers are complete and inside every rule (the form's submit gate and the draft's validator). */
-export function isValidHikeAnswers(v: unknown): v is HikeAnswers {
+export function isValidHikeAnswers(v: unknown, asks: HikeAsks = DEFAULT_HIKE_ASKS): v is HikeAnswers {
   const a = v as Partial<HikeAnswers> | null;
   if (!a || typeof a !== 'object') return false;
-  if (!HIKE_WHEN.includes(a.when as HikeWhen) || !HIKE_TRANSPORTS.includes(a.transport as HikeTransport)) return false;
-  if (drivesCar(a.transport as HikeTransport)) {
-    if (!Number.isInteger(a.freeSeats) || (a.freeSeats as number) < 0 || (a.freeSeats as number) > HIKE_MAX_FREE_SEATS) return false;
-  } else if (a.freeSeats !== null) return false;
+  if (!HIKE_WHEN.includes(a.when as HikeWhen)) return false;
+  if (!validTransportAndSeats(a, asks)) return false;
+  if (!asks.help && a.help !== null) return false;
   if (a.help !== null && !HIKE_HELPS.includes(a.help as HikeHelp)) return false;
   if (a.help === 'transport_lead' && a.transport !== 'need_ride') return false;
   if (a.help === 'other') return typeof a.helpOther === 'string' && a.helpOther.trim().length >= 1 && a.helpOther.trim().length <= HIKE_HELP_OTHER_MAX;

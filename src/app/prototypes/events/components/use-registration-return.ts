@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { eventsService } from '@/app/data/events-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { readHikeDraft, readRegistrationDraft } from '@/app/data/registration-draft';
+import { hikeAsksOf } from '@/app/data/hike-answer-model';
 import { recipeForEvent } from '../series-recipes';
 import type { EventWithHost } from '@/app/types';
 import type { useRegistrationStep } from './use-registration-step';
@@ -40,7 +41,7 @@ export function useRegistrationReturn(a: {
     if (!open) { toast.success('Account created! Click "Reserve a seat" to confirm your spot.'); return; }
     if (recipeForEvent(event).registration === 'hike') {
       // P1675: a hike has no waiting list. Saved answers register without asking again (a retry reopens the form with them).
-      const saved = readHikeDraft(event.slug);
+      const saved = readHikeDraft(event.slug, hikeAsksOf(event));
       if (!saved) { registration.askHike(); return; }
       registration.keepHikeAnswers(saved);
       void registration.submitHike(saved).then(sent => { if (!sent) registration.askHike(saved); });

@@ -83,7 +83,7 @@ describe('hike draft across sign-in', () => {
     localStorage.setItem('cp:registration-draft:walk', JSON.stringify({ slug: 'walk', kind: 'hike', intent: 'register', answers: ANSWERS, savedAt: Date.now() }));
     expect(readHikeDraft('walk')).toEqual(ANSWERS);
     expect(readHikeDraft('other')).toBeNull();
-    expect(readHikeDraft('walk', Date.now() + DRAFT_TTL_MS + 1)).toBeNull();
+    expect(readHikeDraft('walk', undefined, Date.now() + DRAFT_TTL_MS + 1)).toBeNull();
     localStorage.setItem('cp:registration-draft:walk', JSON.stringify({ slug: 'walk', kind: 'hike', intent: 'register', answers: { ...ANSWERS, freeSeats: 99 }, savedAt: Date.now() }));
     expect(readHikeDraft('walk')).toBeNull();
     expect(localStorage.getItem('cp:registration-draft:walk')).toBeNull();

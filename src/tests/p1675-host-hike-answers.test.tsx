@@ -19,14 +19,25 @@ import { getHikeAnswersForHost, type HikeAnswerRow } from '@/app/data/hike-answe
 
 const base: HikeAnswerRow = { profileId: 'p1', when: 'later', transport: 'car', freeSeats: 2, help: 'sweep', helpOther: null };
 
+describe('hikeHostLine R6', () => {
+  it('a transport answer not stored reads as a dash', () => {
+    expect(hikeHostLine({ ...base, transport: null, freeSeats: null, help: 'sweep' })).toBe('Later · — · Sweep');
+  });
+  it('help null is "Participant" when the row says help was asked and a dash when it was not', () => {
+    expect(hikeHostLine({ ...base, help: null })).toBe('Later · Car, 2 free seats · Participant');
+    expect(hikeHostLine({ ...base, help: null, askedHelp: true })).toBe('Later · Car, 2 free seats · Participant');
+    expect(hikeHostLine({ ...base, help: null, askedHelp: false })).toBe('Later · Car, 2 free seats · —');
+  });
+});
+
 describe('hikeHostLine', () => {
   it('formats each transport and help combination', () => {
     expect(hikeHostLine(base)).toBe('Later · Car, 2 free seats · Sweep');
     expect(hikeHostLine({ ...base, freeSeats: 1, transport: 'motorbike', help: 'lead' })).toBe('Later · Motorbike, 1 free seat · Lead');
     expect(hikeHostLine({ ...base, when: 'now', transport: 'bike_or_foot', freeSeats: null, help: 'welcomer' })).toBe('Now · Bicycle or on foot · Welcomer');
     expect(hikeHostLine({ ...base, when: 'now', transport: 'need_ride', freeSeats: null, help: 'transport_lead' })).toBe('Now · Needs a ride · Transport lead');
-    expect(hikeHostLine({ ...base, transport: 'need_ride', freeSeats: null, help: null })).toBe('Later · Needs a ride');
-    expect(hikeHostLine({ ...base, freeSeats: 0, help: null })).toBe('Later · Car, 0 free seats');
+    expect(hikeHostLine({ ...base, transport: 'need_ride', freeSeats: null, help: null })).toBe('Later · Needs a ride · Participant'); // UAT round 1 R6: "Just attend" on an event that asks help
+    expect(hikeHostLine({ ...base, freeSeats: 0, help: null })).toBe('Later · Car, 0 free seats · Participant'); // UAT round 1 R6
     expect(hikeHostLine({ ...base, when: 'now', transport: 'need_ride', freeSeats: null, help: 'other', helpOther: 'dog food' })).toBe('Now · Needs a ride · Other: dog food');
   });
 
@@ -42,11 +53,16 @@ describe('hikeHostLine', () => {
 describe('getHikeAnswersForHost', () => {
   it('maps rows, and returns [] (never throws) on an error or a thrown client', async () => {
     const eq = vi.fn().mockResolvedValue({
-      data: [{ profile_id: 'p9', when_choice: 'now', transport: 'car', free_seats: 3, help: 'other', help_other: 'x' }],
+      data: [{ profile_id: 'p9', when_choice: 'now', transport: 'car', free_seats: 3, help: 'other', help_other: 'x' }, { profile_id: 'p8', when_choice: 'now', transport: null, free_seats: null, help: null, help_other: null, asked_help: false }],
       error: null,
     });
-    h.from.mockReturnValue({ select: () => ({ eq }) });
-    expect(await getHikeAnswersForHost('e1')).toEqual([{ profileId: 'p9', when: 'now', transport: 'car', freeSeats: 3, help: 'other', helpOther: 'x' }]);
+    const select = vi.fn(() => ({ eq }));
+    h.from.mockReturnValue({ select });
+    expect(await getHikeAnswersForHost('e1')).toEqual([
+      { profileId: 'p9', when: 'now', transport: 'car', freeSeats: 3, help: 'other', helpOther: 'x', askedHelp: true }, // absent asked_help means asked
+      { profileId: 'p8', when: 'now', transport: null, freeSeats: null, help: null, helpOther: null, askedHelp: false },
+    ]);
+    expect(select).toHaveBeenCalledWith(expect.stringContaining('asked_help'));
     expect(h.from).toHaveBeenCalledWith('event_hike_answers');
     expect(eq).toHaveBeenCalledWith('event_id', 'e1');
     eq.mockResolvedValue({ data: null, error: { message: 'denied', code: '42501' } });

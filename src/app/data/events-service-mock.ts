@@ -1,6 +1,7 @@
-import type { EventsService, CreateEventInput } from './events-service.interface';
+import type { EventsService, CreateEventInput, UpdateEventInput } from './events-service.interface';
 import type { MyEvents } from './event-list-reads';
 import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent } from '@/app/types';
+import { isAsked } from './hike-answer-model';
 // Mock data archived after P61.1 production backend implementation
 import {
   getUpcomingEvents as mockGetUpcoming,
@@ -32,6 +33,9 @@ export function mockHasGroupChat(eventId: string): boolean {
   return mockGroupChatUrls.has(eventId);
 }
 
+// P1675 R6: the hike question settings an edit saved, per event (a Map for the same reason as the group chat link).
+const mockHikeAsks = new Map<string, { transport?: boolean; help?: boolean }>();
+
 // Transform MockEvent to EventWithHost (same shape, just type alignment)
 function toEventWithHost(mock: MockEvent): EventWithHost {
   return {
@@ -44,6 +48,8 @@ function toEventWithHost(mock: MockEvent): EventWithHost {
     timezone: mock.timezone,
     location: mock.location,
     hasGroupChat: mockGroupChatUrls.has(mock.id), // P1194
+    hikeAsksTransport: isAsked(mockHikeAsks.get(mock.id)?.transport), // P1675 R6: absent means asked
+    hikeAsksHelp: isAsked(mockHikeAsks.get(mock.id)?.help),
     hostId: mock.hostId,
     hostName: mock.hostName,
     hostSlug: mock.hostSlug,
@@ -198,7 +204,7 @@ export const mockEventsService: EventsService = {
     return toEventWithHost(newEvent);
   },
 
-  async updateEvent(eventId: string, data: Partial<CreateEventInput>): Promise<boolean> {
+  async updateEvent(eventId: string, data: UpdateEventInput): Promise<boolean> {
     const event = mockEvents.find(e => e.id === eventId);
     if (!event || event.hostId !== mockCurrentUser.id) return false;
 
@@ -210,6 +216,13 @@ export const mockEventsService: EventsService = {
     if (data.location) event.location = data.location;
     if (data.maxAttendees !== undefined) event.maxAttendees = data.maxAttendees ?? undefined;
     if (data.groupChatUrl !== undefined) setMockGroupChatUrl(eventId, data.groupChatUrl);
+    if (data.hikeAsksTransport !== undefined || data.hikeAsksHelp !== undefined) {
+      const prev = mockHikeAsks.get(eventId) ?? {};
+      mockHikeAsks.set(eventId, {
+        transport: data.hikeAsksTransport ?? prev.transport,
+        help: data.hikeAsksHelp ?? prev.help,
+      });
+    }
 
     return true;
   },

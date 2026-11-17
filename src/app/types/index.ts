@@ -1,6 +1,6 @@
 import type { StoryVideoQuotesData } from '@/lib/video';
 import type { BannerCredit } from '@/lib/banner-credit';
-import type { EventGroupFields } from './event-fields';
+import type { EventGroupFields, HikeAsksFields, DbHikeAsksFields } from './event-fields';
 /**
  * Core TypeScript interfaces for the Clarity Pledge application
  */
@@ -911,7 +911,7 @@ export function ratingLabelToValue(label: LiveRatingLabel): number {
 export type EventStatus = 'upcoming' | 'completed' | 'cancelled';
 
 // seriesSlug and orgId: see ./event-fields.ts
-export interface Event extends EventGroupFields {
+export interface Event extends EventGroupFields, HikeAsksFields {
   id: string;
   slug: string;
   title: string;
@@ -1025,7 +1025,7 @@ export interface EventAttendee {
   earCount: number;
 }
 
-export interface DbEvent {
+export interface DbEvent extends DbHikeAsksFields {
   id: string;
   slug: string;
   title: string;

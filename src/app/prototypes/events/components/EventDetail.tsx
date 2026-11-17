@@ -61,6 +61,7 @@ import { useHikeMinutes } from './use-hike-minutes';
 import { useEventRoomCounts } from './use-event-room-counts';
 import { useHikeAnswersForHost } from './use-hike-answers-for-host';
 import { hikeHostLine } from './hike-host-line';
+import { hikeAsksOf } from '@/app/data/hike-answer-model';
 import { refusalMessage, useRegistrationStep } from './use-registration-step';
 import { useRegistrationReturn } from './use-registration-return';
 import { classifyGroupChat } from '../group-chat-utils';
@@ -476,6 +477,7 @@ export function EventDetail() {
     onRegistered: () => { setIsRsvpd(true); navigate(`/events/${slug}/confirm`, { state: { fromEvent: true } }); },
     onRefused: showRefusal,
     onSessionLost: () => { if (event) signInAgain(event.slug); },
+    hikeAsks: hikeAsksOf(event), // P1675 R6
     // D24: full means the same form joins the waiting list; signed out, the form ends in Continue and sign-up comes next.
     full: registrationFull,
     readsWaitlist: asksMastermind && !isRsvpd,
@@ -1443,6 +1445,7 @@ export function EventDetail() {
           signedIn={isLoggedIn}
           initial={registration.hikePrefill}
           nowOnly={registration.nowOnly}
+          asks={hikeAsksOf(event)}
           onCancel={registration.cancel}
           onSubmit={registration.submitHike}
         />

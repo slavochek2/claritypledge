@@ -14,7 +14,7 @@ import {
   SENT_NO_ID,
   type SupabaseClient,
 } from '../_shared/email-helpers.ts';
-import { choseToObserve, isHike, loadHikeAnswers, withHikeBlock, withPreparationOffered, withSeriesBlock } from '../_shared/series-email-block.ts';
+import { choseToObserve, isHike, loadGroupChatUrl, loadHikeAnswers, withHikeBlock, withPreparationOffered, withSeriesBlock } from '../_shared/series-email-block.ts';
 import { mintEmailLink } from '../_shared/event-links.ts';
 import { linkBaseFor } from '../_shared/link-base.ts';
 import {
@@ -108,6 +108,8 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
       withSeriesBlock(buildConfirmation(offered, profileName, prepareUrl, linkBaseFor(req)), event, { observer: await choseToObserve(supabase, eventId, userId) }),
       event,
       isHike(event) ? await loadHikeAnswers(supabase, eventId, userId) : null,
+      // P1675 R7: the group chat link, only after this person's active registration row is read (whatever the preparation flag).
+      isHike(event) ? await loadGroupChatUrl(supabase, eventId, userId) : null,
     );
     const confirmationId = await sendEmail({ to: email, ...confirmation });
     await logEmailSend(supabase, {
@@ -143,8 +145,9 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
     }
   }
 
-  // 3. Feedback — store scheduled time for gated host only; cron dispatches
-  if (event.host_id === FEEDBACK_HOST_ID) {
+  // 3. Feedback — store scheduled time for gated host only; cron dispatches.
+  // P1675 R7: a hike never schedules a feedback email (the host points people to feedback at the end of the event).
+  if (event.host_id === FEEDBACK_HOST_ID && !isHike(event)) {
     const feedbackScheduledAt = new Date(
       eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000,
     );
@@ -247,10 +250,15 @@ async function handleUncancel(supabase: SupabaseClient, eventId: string, req: Re
   }));
 }
 
+/** An ISO time to store for a scheduled send, or null when that moment has already passed. */
+function isoIfFuture(at: Date, now: Date): string | null {
+  return at > now ? at.toISOString() : null;
+}
+
 async function handleUpdate(supabase: SupabaseClient, eventId: string, req: Request) {
   const { data: event } = await supabase
     .from('events')
-    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
+    .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, series_slug, flow')
     .eq('id', eventId)
     .single();
 
@@ -268,7 +276,9 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string, req: Requ
 
   // Recompute scheduled times for the new event datetime
   const reminderScheduledAt = new Date(eventDatetime.getTime() - 24 * 60 * 60 * 1000);
-  const feedbackScheduledAt = event.host_id === FEEDBACK_HOST_ID
+  // P1675 R7: for a hike feedback_scheduled_at is left untouched below (never re-set, existing rows not nulled).
+  const hikeEvent = isHike(event);
+  const feedbackScheduledAt = event.host_id === FEEDBACK_HOST_ID && !hikeEvent
     ? new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000)
     : null;
 
@@ -312,16 +322,14 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string, req: Requ
     // under the old times, and once they are cleared it schedules the new ones.
     const updatePayload: Record<string, unknown> = {};
 
-    if (reminderScheduledAt > now) {
-      updatePayload.reminder_scheduled_at = reminderScheduledAt.toISOString();
-    } else {
-      updatePayload.reminder_scheduled_at = null;
-    }
+    updatePayload.reminder_scheduled_at = isoIfFuture(reminderScheduledAt, now);
 
-    if (feedbackScheduledAt && feedbackScheduledAt > now) {
-      updatePayload.feedback_scheduled_at = feedbackScheduledAt.toISOString();
-    } else {
-      updatePayload.feedback_scheduled_at = null;
+    if (!hikeEvent) {
+      if (feedbackScheduledAt && feedbackScheduledAt > now) {
+        updatePayload.feedback_scheduled_at = feedbackScheduledAt.toISOString();
+      } else {
+        updatePayload.feedback_scheduled_at = null;
+      }
     }
 
     // P1425: the schedule write is checked. Resetting the ids after a FAILED schedule write would

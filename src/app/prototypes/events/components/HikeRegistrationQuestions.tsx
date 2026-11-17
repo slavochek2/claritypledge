@@ -13,8 +13,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import {
-  drivesCar, HIKE_HELP_OTHER_MAX, HIKE_MAX_FREE_SEATS, isValidHikeAnswers, laterAllowed,
-  type HikeAnswers, type HikeHelp, type HikeTransport, type HikeWhen,
+  DEFAULT_HIKE_ASKS, drivesCar, HIKE_HELP_OTHER_MAX, HIKE_MAX_FREE_SEATS, isValidHikeAnswers, laterAllowed, normalizeHikeAnswers,
+  type HikeAnswers, type HikeAsks, type HikeHelp, type HikeTransport, type HikeWhen,
 } from '@/app/data/hike-answer-model';
 import { CONTINUE_LABEL, SIGN_IN_LINE } from './registration-copy';
 import * as copy from './hike-copy';
@@ -31,13 +31,20 @@ const ROLE_TEXT: Partial<Record<HikeHelp, string[]>> = {
   transport_lead: [copy.HIKE_ROLE_TRANSPORT_LEAD],
 };
 
-function ChoiceRow({ name, checked, label, onSelect, onClickChecked, testId, errorId }: {
-  name: string; checked: boolean; label: string; onSelect: () => void; onClickChecked?: () => void; testId?: string; errorId?: string;
+const ROLE_LABEL: Partial<Record<HikeHelp, string>> = {
+  lead: copy.HIKE_ROLE_LABEL_LEAD,
+  sweep: copy.HIKE_ROLE_LABEL_SWEEP,
+  welcomer: copy.HIKE_ROLE_LABEL_WELCOMER,
+  transport_lead: copy.HIKE_ROLE_LABEL_TRANSPORT_LEAD,
+};
+
+function ChoiceRow({ name, checked, label, onSelect, testId, errorId }: {
+  name: string; checked: boolean; label: string; onSelect: () => void; testId?: string; errorId?: string;
 }) {
   return (
     <label className="flex min-h-10 cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm has-[:checked]:border-foreground">
       <input
-        type="radio" name={name} checked={checked} onChange={onSelect} onClick={checked ? onClickChecked : undefined}
+        type="radio" name={name} checked={checked} onChange={onSelect}
         className="mt-0.5" data-testid={testId} aria-invalid={errorId ? true : undefined} aria-describedby={errorId}
       />
       <span>{label}</span>
@@ -53,18 +60,25 @@ export function seatsOf(text: string): number | null {
 }
 
 /** Which required questions are unanswered, in the form's order. */
-export function hikeMissingKeys(when: HikeWhen | null, transport: HikeTransport | null, seatsText: string, help: HikeHelp | null, other: string): QuestionKey[] {
+export function hikeMissingKeys(
+  when: HikeWhen | null, transport: HikeTransport | null, seatsText: string, help: HikeHelp | null, other: string,
+  asks: HikeAsks = DEFAULT_HIKE_ASKS,
+): QuestionKey[] {
   const out: QuestionKey[] = [];
   if (!when) out.push('when');
-  if (!transport) out.push('transport');
-  else if (drivesCar(transport) && seatsOf(seatsText) === null) out.push('seats');
-  if (help === 'other' && (other.trim().length === 0 || other.trim().length > HIKE_HELP_OTHER_MAX)) out.push('other');
+  if (asks.transport) {
+    if (!transport) out.push('transport');
+    else if (drivesCar(transport) && seatsOf(seatsText) === null) out.push('seats');
+  }
+  if (asks.help && help === 'other' && (other.trim().length === 0 || other.trim().length > HIKE_HELP_OTHER_MAX)) out.push('other');
   return out;
 }
 
 export function HikeRegistrationQuestions({
-  open, datetime, minutes, busy, onCancel, onSubmit, signedIn = true, initial = null, nowOnly = false,
+  open, datetime, minutes, busy, onCancel, onSubmit, signedIn = true, initial = null, nowOnly = false, asks = DEFAULT_HIKE_ASKS,
 }: {
+  /** UAT round 1 R6: which optional questions this event asks (both by default). */
+  asks?: HikeAsks;
   open: boolean;
   datetime: string;
   /** The introduction's computed length; null while it is being read (the number then shows as "…", never a guess). */
@@ -90,6 +104,8 @@ export function HikeRegistrationQuestions({
   // "Later" is offered strictly before start minus 24 h 30 min; read once per opening so the form does not shift while it is used.
   const [later, setLater] = useState(() => laterAllowed(datetime, Date.now()));
   useEffect(() => { if (open) { setAttempt(null); setLater(laterAllowed(datetime, Date.now())); } }, [open, datetime]);
+  const asksTransport = asks.transport;
+  const asksHelp = asks.help;
   const laterOffered = later && !nowOnly;
   useEffect(() => { if (!laterOffered && when === 'later') setWhen(null); }, [laterOffered, when]);
 
@@ -98,12 +114,16 @@ export function HikeRegistrationQuestions({
     // A kept "later" is dropped here when "later" is not offered (inside the cutoff, or after a now_only refusal): the clearing
     // effect above runs before this one in the same commit, so it cannot undo a "later" set here (review 2026-11-17).
     const laterOk = laterAllowed(datetime, Date.now()) && !nowOnly;
-    setWhen(initial.when === 'later' && !laterOk ? null : initial.when); setTransport(initial.transport);
-    setSeatsText(initial.freeSeats === null ? '' : String(initial.freeSeats));
-    setHelp(initial.help); setOther(initial.helpOther ?? '');
-  }, [initial]);
+    // Stored answers pass through the event's current settings: an answer to a question now off (or a Transport lead without a
+    // ride) is dropped here, so the form never holds what it cannot show or submit. Primitives in the deps: the caller may
+    // build `asks` anew each render, and a fresh object must not re-fill the form over what the person typed.
+    const kept = normalizeHikeAnswers(initial, { transport: asksTransport, help: asksHelp });
+    setWhen(kept.when === 'later' && !laterOk ? null : kept.when); setTransport(kept.transport);
+    setSeatsText(kept.freeSeats === null ? '' : String(kept.freeSeats));
+    setHelp(kept.help); setOther(kept.helpOther ?? '');
+  }, [initial, asksTransport, asksHelp]);
 
-  const missing = hikeMissingKeys(when, transport, seatsText, help, other);
+  const missing = hikeMissingKeys(when, transport, seatsText, help, other, asks);
   const bad = (k: QuestionKey) => !!attempt?.includes(k) && missing.includes(k);
   const errorId = (k: QuestionKey) => `${id}-err-${k}`;
   const ring = (k: QuestionKey) => `rounded-lg border-2 p-3 ${bad(k) ? 'border-destructive' : 'border-transparent'}`;
@@ -135,12 +155,13 @@ export function HikeRegistrationQuestions({
   };
   const submit = () => {
     setAttempt(missing);
-    if (missing.length > 0 || !when || !transport) return;
-    const answers: HikeAnswers = {
+    if (missing.length > 0 || !when || (asks.transport && !transport)) return;
+    // Built through the same normalizer the server's rules come from, so a stale Transport lead or ride never dead-ends the submit.
+    const answers = normalizeHikeAnswers({
       when, transport, freeSeats: drivesCar(transport) ? seatsOf(seatsText) : null, help,
       helpOther: help === 'other' ? other.trim() : null,
-    };
-    if (isValidHikeAnswers(answers)) onSubmit(answers);
+    }, asks);
+    if (isValidHikeAnswers(answers, asks)) onSubmit(answers);
   };
 
   const n = minutes === null ? '…' : String(minutes);
@@ -152,7 +173,7 @@ export function HikeRegistrationQuestions({
       <DialogContent className="max-h-[90dvh] overflow-y-auto" data-testid="hike-registration-questions">
         <DialogHeader>
           <DialogTitle>{FORM_TITLE}</DialogTitle>
-          <DialogDescription data-testid="hike-lead-line">{copy.hikeLeadLine(n)}</DialogDescription>
+          <DialogDescription data-testid="hike-lead-line">{copy.HIKE_LEAD_LINE}</DialogDescription>
         </DialogHeader>
         <div className="space-y-5" ref={form}>
           <fieldset className={ring('when')} data-question="when">
@@ -166,17 +187,22 @@ export function HikeRegistrationQuestions({
             </div>
           </fieldset>
 
+          {asks.transport && (
           <fieldset className={ring('transport')} data-question="transport">
             <legend className="float-left mb-3 w-full p-0 text-sm font-medium">{copy.HIKE_TRANSPORT_QUESTION}</legend>
             <div className="clear-both space-y-2">
               {copy.HIKE_TRANSPORT_OPTIONS.map(o => (
                 <ChoiceRow key={o.value} name={`${id}-t`} checked={transport === o.value} label={o.label} onSelect={() => chooseTransport(o.value)} testId={`hike-transport-${o.value}`} errorId={rowError('transport')} />
               ))}
+              {transport === 'need_ride' && (
+                <p className="text-sm text-muted-foreground" data-testid="hike-ride-line">{copy.HIKE_NEED_RIDE_LINE}</p>
+              )}
               {errorLine('transport', copy.HIKE_MISSING.transport)}
             </div>
           </fieldset>
+          )}
 
-          {drivesCar(transport) && (
+          {asks.transport && drivesCar(transport) && (
             <div className={ring('seats')} data-question="seats">
               <label htmlFor={`${id}-seats`} className="mb-2 block text-sm font-medium">{copy.HIKE_FREE_SEATS_QUESTION}</label>
               <Input
@@ -191,24 +217,32 @@ export function HikeRegistrationQuestions({
             </div>
           )}
 
+          {asks.help && (
           <fieldset className="rounded-lg border-2 border-transparent p-3" data-question="help">
-            <legend className="float-left mb-3 w-full p-0 text-sm font-medium">{copy.HIKE_HELP_QUESTION}</legend>
-            <div className="clear-both space-y-2">
-              {copy.HIKE_HELP_OPTIONS.filter(o => o.value !== 'transport_lead' || transport === 'need_ride').map(o => (
+            <legend className="float-left mb-1 w-full p-0 text-sm font-medium">{copy.HIKE_HELP_QUESTION}</legend>
+            <p className="clear-both mb-3 text-sm text-muted-foreground" data-testid="hike-help-line">{copy.HIKE_HELP_LINE}</p>
+            <div className="space-y-2">
+              <ChoiceRow
+                name={`${id}-h`} checked={help === null} label={copy.HIKE_JUST_ATTEND_OPTION}
+                onSelect={() => { setHelp(null); setOther(''); }} testId="hike-help-none"
+              />
+              {copy.HIKE_HELP_OPTIONS.filter(o => o.value !== 'transport_lead' || (asks.transport && transport === 'need_ride')).map(o => (
                 <ChoiceRow
                   key={o.value} name={`${id}-h`} checked={help === o.value} label={o.label}
-                  onSelect={() => chooseHelp(o.value)} onClickChecked={() => { setHelp(null); setOther(''); }} testId={`hike-help-${o.value}`}
+                  onSelect={() => chooseHelp(o.value)} testId={`hike-help-${o.value}`}
                 />
               ))}
               {help && ROLE_TEXT[help] && (
                 <div className="space-y-2 text-sm text-muted-foreground" data-testid="hike-role-instructions">
+                  <p className="font-medium text-foreground" data-testid="hike-role-heading">{copy.hikeRoleHeading(ROLE_LABEL[help] ?? '')}</p>
                   {ROLE_TEXT[help]?.map(line => <p key={line}>{line}</p>)}
                 </div>
               )}
             </div>
           </fieldset>
+          )}
 
-          {help === 'other' && (
+          {asks.help && help === 'other' && (
             <div className={ring('other')} data-question="other">
               <Textarea
                 value={other} maxLength={HIKE_HELP_OTHER_MAX} onChange={e => setOther(e.target.value)} placeholder={copy.HIKE_HELP_OTHER_PLACEHOLDER}

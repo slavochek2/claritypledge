@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { registerForEvent } from '@/app/data/event-registration';
 import { joinWaitlist } from '@/app/data/event-waitlist';
 import { registerForHike } from '@/app/data/hike-registration';
-import type { HikeAnswers, HikeWhen } from '@/app/data/hike-answer-model';
+import { DEFAULT_HIKE_ASKS, type HikeAnswers, type HikeAsks, type HikeWhen } from '@/app/data/hike-answer-model';
 import { HIKE_NOW_ONLY_NOTICE } from './hike-copy';
 import { clearRegistrationDraft, saveHikeDraft, saveRegistrationDraft } from '@/app/data/registration-draft';
 import type { RegistrationAnswers } from '@/app/data/registration-answer-model';
@@ -41,7 +41,10 @@ export function useRegistrationStep(opts: {
   onSignIn?: () => void;
   /** P1675: a hike has a seat (new or already held); `when` is the person's answer, 'now' goes straight into the introduction. */
   onHikeRegistered?: (when: HikeWhen) => void;
+  /** P1675 R6: which optional hike questions the event asks (both when absent). */
+  hikeAsks?: HikeAsks;
 }) {
+  const hikeAsks = opts.hikeAsks ?? DEFAULT_HIKE_ASKS;
   const [asking, setAsking] = useState(false);
   const [hikePrefill, setHikePrefill] = useState<HikeAnswers | null>(null);
   const [nowOnly, setNowOnly] = useState(false);
@@ -113,14 +116,14 @@ export function useRegistrationStep(opts: {
   const submitHike = async (answers: HikeAnswers): Promise<boolean> => {
     if (!opts.event || !slug) return false;
     if (!opts.userId) {
-      saveHikeDraft(slug, answers);
+      saveHikeDraft(slug, answers, hikeAsks);
       setAsking(false);
       opts.onSignIn?.();
       return true;
     }
     setBusy(true);
     try {
-      const result = await registerForHike(opts.event, opts.userId, answers);
+      const result = await registerForHike(opts.event, opts.userId, answers, hikeAsks);
       if (result === 'ok' || result === 'already') {
         clearRegistrationDraft(slug);
         setAsking(false);
