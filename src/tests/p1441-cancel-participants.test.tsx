@@ -57,6 +57,12 @@ vi.mock('@/app/data/events-service', () => ({
 vi.mock('@/app/data/canvas-service', () => ({
   canvasService: { listSharedWithEvent: vi.fn().mockResolvedValue([]) },
 }));
+// P1700: EventDetail also asks whether the viewer was removed (getMyEventRemoval). Same reason as above: an unstubbed
+// real request fails in jsdom, marks the network unreachable, and the next test's cancel is refused as offline.
+vi.mock('@/app/data/event-waitlist', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/app/data/event-waitlist')>()),
+  getMyEventRemoval: vi.fn().mockResolvedValue(false),
+}));
 
 // ── Analytics ─────────────────────────────────────────────────────────────────
 vi.mock('@/lib/mixpanel', () => ({
