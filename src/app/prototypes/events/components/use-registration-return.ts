@@ -11,7 +11,8 @@ import type { SetURLSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { eventsService } from '@/app/data/events-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
-import { readRegistrationDraft } from '@/app/data/registration-draft';
+import { readHikeDraft, readRegistrationDraft } from '@/app/data/registration-draft';
+import { recipeForEvent } from '../series-recipes';
 import type { EventWithHost } from '@/app/types';
 import type { useRegistrationStep } from './use-registration-step';
 
@@ -37,6 +38,14 @@ export function useRegistrationReturn(a: {
     const open = asksBeforeSeat && !isRsvpd && !isHostOfEvent && event.status !== 'cancelled' && Date.now() < new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000;
     if (asksBeforeSeat && isRsvpd) return; // already registered: nothing to ask, nothing to announce
     if (!open) { toast.success('Account created! Click "Reserve a seat" to confirm your spot.'); return; }
+    if (recipeForEvent(event).registration === 'hike') {
+      // P1675: a hike has no waiting list. Saved answers register without asking again (a retry reopens the form with them).
+      const saved = readHikeDraft(event.slug);
+      if (!saved) { registration.askHike(); return; }
+      registration.keepHikeAnswers(saved);
+      void registration.submitHike(saved).then(sent => { if (!sent) registration.askHike(saved); });
+      return;
+    }
     const full = eventsService.isEventFull(event);
     const draft = readRegistrationDraft(event.slug);
     if (!draft) { registration.ask(); return; }

@@ -14,7 +14,7 @@ import {
   SENT_NO_ID,
   type SupabaseClient,
 } from '../_shared/email-helpers.ts';
-import { choseToObserve, withSeriesBlock } from '../_shared/series-email-block.ts';
+import { choseToObserve, isHike, loadHikeAnswers, withHikeBlock, withPreparationOffered, withSeriesBlock } from '../_shared/series-email-block.ts';
 import { mintEmailLink } from '../_shared/event-links.ts';
 import { linkBaseFor } from '../_shared/link-base.ts';
 import {
@@ -90,7 +90,9 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
     // preparation). No ticket (RSVP row unreadable, insert failed) → no button, still sent.
     let prepareUrl: string | null = null;
     let rsvpId: string | null = null;
-    if (event.preparation_enabled) {
+    // P1675 3c: a hike offers preparation without the stored flag (a copy; the flag is never written).
+    const offered = withPreparationOffered(event);
+    if (offered.preparation_enabled) {
       const { data: rsvpRow } = await supabase
         .from('event_rsvps')
         .select('id')
@@ -101,7 +103,12 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
       if (rsvpId) prepareUrl = await mintEmailLink(supabase, rsvpId, 'prepare', event, req);
     }
     // P1529: the series block; an observer gets no laptop line. Other series: byte-identical.
-    const confirmation = withSeriesBlock(buildConfirmation(event, profileName, prepareUrl, linkBaseFor(req)), event, { observer: await choseToObserve(supabase, eventId, userId) });
+    // P1675: a hike adds its answer-driven lines (WhatsApp free seats, the chosen role); never help_other.
+    const confirmation = withHikeBlock(
+      withSeriesBlock(buildConfirmation(offered, profileName, prepareUrl, linkBaseFor(req)), event, { observer: await choseToObserve(supabase, eventId, userId) }),
+      event,
+      isHike(event) ? await loadHikeAnswers(supabase, eventId, userId) : null,
+    );
     const confirmationId = await sendEmail({ to: email, ...confirmation });
     await logEmailSend(supabase, {
       eventId,

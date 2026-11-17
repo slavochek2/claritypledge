@@ -744,6 +744,15 @@ An event's flow is `events.flow` (`clarity-night` | `social-hike` | `sales-maste
 
 **Round material.** `make_my_next_version` copies the round thread's lines the owner can read into the draft's thread as owner-authored `forward` copies. `forward_author_id` keeps the original author, so account erasure reaches the copy. One copy per line: a 24-minute round is about 192 rows.
 
+### Hikes ask before the seat (P1675, migration `20261117120000`)
+
+| Table / function | Purpose |
+|-------|---------|
+| `event_hike_answers` | `(event_id, profile_id)`: `when_choice` (`now` \| `later`), `transport` (`car` \| `motorbike` \| `bike_or_foot` \| `need_ride`), `free_seats` (0..20, only for car and motorbike), `help` (`lead` \| `sweep` \| `welcomer` \| `transport_lead` \| `other` \| NULL; transport lead only with `need_ride`), `help_other` (1..280 trimmed characters, only with `other`). Read by the person and the event's host; no client writes. Deleted when the registration is deleted (trigger `event_rsvps_clear_hike_answers`), so registering again asks again. |
+| `register_for_hike(p_slug, p_when, p_transport, p_free_seats, p_help, p_help_other)` | The only writer. Hike flow only; returns `ok` \| `already` (answers unchanged) \| `full` \| `cancelled` \| `not_found` \| `now_only` ("later" is valid only while now is strictly before the start minus 24 hours 30 minutes, so the 30-minute reminder cron still picks the reminder up). Already registered is answered first. No waiting list. |
+| `_event_rsvps_need_answers` | Also refuses a hike registration without an answers row, on every insert path; the event's host is exempt. |
+| `get_event_room_counts(p_event)` | Signed-in caller who can see the event (`app_private.viewer_sees_event`, migration `20261117130000`): `not_here` (registered, no room member row, host excluded). The host also gets `in` / `out` / `undecided` over registered people and room members, each once (room answer, then preparation answer). Numbers only. |
+
 ### chat_message_reactions (P1652, migration `20261109120000`)
 
 One emoji reaction per (message, person, emoji). Columns: `id uuid` PK (generated), `message_id` (FK `chat_messages`, `CASCADE`), `profile_id` (FK `profiles`, `CASCADE`, so account erasure removes a person's reactions), `emoji text` (CHECK: one of `👍 ❤️ 😂 😮 😢 🙏`; the client constant is `REACTION_EMOJI`), `created_at`. `UNIQUE (message_id, profile_id, emoji)`; index on `profile_id`.

@@ -929,6 +929,9 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
                     label="Reserve my place"
                     disabled={saving}
                     onClick={async () => {
+                      // P1675 section 4b: an event that asks before the seat (a hike, the mastermind) is registered for on its own
+                      // page, where the form is; a one-tap seat here would be refused by the server.
+                      if (recipeForEvent(nextEvent).registration) return navigate(`/events/${nextEvent.slug}?action=rsvp`); // the page opens the form for a signed-in person
                       let ok: boolean | undefined;
                       try {
                         ok = await once(() => eventsService.rsvpToEvent(nextEvent.id, viewerId, nextEvent.slug));

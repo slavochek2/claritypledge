@@ -26,7 +26,7 @@ import {
   type ReminderPrep,
   type SupabaseClient,
 } from './email-helpers.ts';
-import { choseToObserve, withSeriesBlock } from './series-email-block.ts';
+import { choseToObserve, withPreparationOffered, withSeriesBlock } from './series-email-block.ts';
 import { mintEmailLink } from './event-links.ts';
 import { claimMessage, writeBackMessage } from './rsvp-message-ids.ts';
 
@@ -144,7 +144,9 @@ export async function dispatchReminder(
   // A failed read degrades to today's reminder rather than skipping the send.
   let prep: ReminderPrep | null = null;
   let prepareUrl: string | null = null;
-  if (event.preparation_enabled && profileId) {
+  // P1675 3c: a hike offers preparation without the stored flag (a copy; the flag is never written).
+  const offered = withPreparationOffered(event);
+  if (offered.preparation_enabled && profileId) {
     const { data: prepRow, error: prepErr } = await supabase
       .from('event_preparations')
       .select('started_at, completed_at')
@@ -159,7 +161,7 @@ export async function dispatchReminder(
     }
   }
   // P1529: the series block; an observer gets no laptop line. Other series: byte-identical.
-  const reminder = withSeriesBlock(buildReminder(event, profileData?.name, { prep, prepareUrl }), event, { observer: await choseToObserve(supabase, rsvp.event_id, profileId) });
+  const reminder = withSeriesBlock(buildReminder(offered, profileData?.name, { prep, prepareUrl }), event, { observer: await choseToObserve(supabase, rsvp.event_id, profileId) });
   const messageId = await sendEmail({ to: email, ...reminder, deliverAt });
 
   // Write the real id over OUR claim only (PENDING + our token). If handleUpdate reset the row

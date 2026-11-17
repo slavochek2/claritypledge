@@ -38,7 +38,7 @@ export function useMyRegistrationArrivalRead(
   enabled = true,
 ): MyArrivalRead {
   const eventId = event?.id ?? null;
-  const asks = !!event && !!recipeForEvent(event).registrationQuestions;
+  const asks = !!event && recipeForEvent(event).registration === 'mastermind';
   const key = eventId && viewerId && asks && enabled ? `${eventId}:${viewerId}` : null;
   const [read, setRead] = useState<{ key: string; arrival: MyArrival | null; failed: boolean } | null>(null);
   const [attempt, setAttempt] = useState(0);

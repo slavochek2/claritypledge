@@ -11,7 +11,10 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { registerForEvent } from '@/app/data/event-registration';
 import { joinWaitlist } from '@/app/data/event-waitlist';
-import { clearRegistrationDraft, saveRegistrationDraft } from '@/app/data/registration-draft';
+import { registerForHike } from '@/app/data/hike-registration';
+import type { HikeAnswers, HikeWhen } from '@/app/data/hike-answer-model';
+import { HIKE_NOW_ONLY_NOTICE } from './hike-copy';
+import { clearRegistrationDraft, saveHikeDraft, saveRegistrationDraft } from '@/app/data/registration-draft';
 import type { RegistrationAnswers } from '@/app/data/registration-answer-model';
 import { isSessionMismatch } from '@/lib/session-guard';
 import { useWaitlistState } from './use-waitlist-state';
@@ -36,8 +39,12 @@ export function useRegistrationStep(opts: {
   readsWaitlist?: boolean;
   /** Signed out: the answers are kept and the person goes to the normal sign-up. */
   onSignIn?: () => void;
+  /** P1675: a hike has a seat (new or already held); `when` is the person's answer, 'now' goes straight into the introduction. */
+  onHikeRegistered?: (when: HikeWhen) => void;
 }) {
   const [asking, setAsking] = useState(false);
+  const [hikePrefill, setHikePrefill] = useState<HikeAnswers | null>(null);
+  const [nowOnly, setNowOnly] = useState(false);
   const [busy, setBusy] = useState(false);
   const [filled, setFilled] = useState(false);
   const [prefill, setPrefill] = useState<RegistrationAnswers | null>(null);
@@ -102,7 +109,55 @@ export function useRegistrationStep(opts: {
     }
   };
 
+  /** P1675: the hike's form. Same contract as `submit`: true when the answers went somewhere or the page says why not. */
+  const submitHike = async (answers: HikeAnswers): Promise<boolean> => {
+    if (!opts.event || !slug) return false;
+    if (!opts.userId) {
+      saveHikeDraft(slug, answers);
+      setAsking(false);
+      opts.onSignIn?.();
+      return true;
+    }
+    setBusy(true);
+    try {
+      const result = await registerForHike(opts.event, opts.userId, answers);
+      if (result === 'ok' || result === 'already') {
+        clearRegistrationDraft(slug);
+        setAsking(false);
+        opts.onHikeRegistered?.(answers.when);
+        return true;
+      }
+      if (result === 'now_only') {
+        // The form opened before the cutoff and was sent after it: it reopens with only "now", every other answer kept.
+        // "later" is kept so the form clears it (later is no longer offered): the person picks "now" themselves.
+        setHikePrefill(answers);
+        setNowOnly(true);
+        setAsking(true);
+        toast(HIKE_NOW_ONLY_NOTICE);
+        return true;
+      }
+      if (result === 'full' || result === 'cancelled') {
+        setAsking(false);
+        opts.onRefused(result);
+        return true;
+      }
+      toast.error(result === 'not_found' ? "Couldn't find this hike." : "Couldn't register you. Please try again.");
+      return false;
+    } catch (err) {
+      if (isSessionMismatch(err)) { opts.onSessionLost(); return true; }
+      toast.error("Couldn't register you. Please try again.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return {
+    submitHike,
+    hikePrefill,
+    nowOnly,
+    keepHikeAnswers: (saved: HikeAnswers) => setHikePrefill(saved),
+    askHike: (saved?: HikeAnswers | null) => { if (saved) setHikePrefill(saved); setAsking(true); },
     asking, busy, submit,
     /** Answers saved before sign-up, filling the form. */
     prefill: prefill ?? waitlist.entry,

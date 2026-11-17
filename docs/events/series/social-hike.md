@@ -1,6 +1,7 @@
 ---
 slug: social-hike
-title_prefix: "Social Hike"
+# P1675, founder 2026-11-17: events before it are titled "Social Hike: …"
+title_prefix: "Clarity Hike"
 title_format: "{prefix}: {trail_name}"
 cadence: weekly
 day_of_week: sunday
@@ -17,7 +18,8 @@ register_cta: "RSVP:"
 # OLDER hike on any platform that caches by posted URL (observed: Telegram). See promote-all.md § "Short-link cache-buster".
 # Only "first" was dropped from the original wording: keeping it measures 141, one char over.
 # Do not re-lengthen without re-measuring the RESOLVED string.
-promo_summary: "Morning hike near Chiang Mai. Coffee at the meeting point, then a relaxed walk. Everyone welcome. RSVP: {short_url}"
+# P1675: "Everyone welcome." (17) became "Short intro first." (18): 136 with the resolved link.
+promo_summary: "Morning hike near Chiang Mai. Coffee at the meeting point, then a relaxed walk. Short intro first. RSVP: {short_url}"
 todo_today_join_type: walk-in
 todo_today_exchange: free
 todo_today_tags: ["Hiking", "Nature Walk", "Community", "Coffee"]
@@ -59,7 +61,7 @@ runs into the afternoon. Walking time is the AllTrails estimate; breaks and the 
 the "Plan for up to …" sentence, not the stats.
 
 ```
-Everyone welcome. Bring your friends and family.
+A hike for people who do a short introduction first, so we have better conversations on the trail. Children welcome with a registered adult.
 
 **[TRAIL NAME]**, [PARK NAME]
 [2-3 HIGHLIGHTS: where it starts, what you see]. "[BEST TRAIL QUOTE]" — one recent hiker ([RATING]★, [N] reviews).
@@ -100,7 +102,7 @@ The hike itself takes about [QUOTED]. Plan for up to [OUTER] in total and to fin
 - **Gallery videos carry background music instead of their original audio**, old and new, faded out at the end. Upload under a new file name. Founder, 2026-11-01.
 - **Every video gets its own newly generated track that fits its mood, never reused across videos.** Generate it with Lyria (`lyria-3-clip-preview`, Gemini API key, an instrumental prompt describing the clip). Founder, 2026-11-10: *"each time its new track generated that fits ... otherwise boring always hear same part of same track under any video"*.
 - **Dog food is on every bring list.** Founder, 2026-11-11: *"dog food always because there are often dogs there"*.
-- **The opening is one line: "Everyone welcome. Bring your friends and family."** No "Sunday day hike" (the page shows the date) and no "Hosted by the Clarity Practice Community" or intro-call sentence (the page already says "Organized by"). Founder, 2026-11-11.
+- **The opening is: "A hike for people who do a short introduction first, so we have better conversations on the trail. Children welcome with a registered adult."** No minutes in it (the registration form shows the computed length). Founder, 2026-11-17 (P1675), replacing the 2026-11-11 "Everyone welcome. Bring your friends and family." Still no "Sunday day hike" (the page shows the date) and no "Hosted by the Clarity Practice Community" or intro-call sentence (the page already says "Organized by"). Founder, 2026-11-11.
 - **"What to bring" is a tick-box list (`- [x]`), shortest wording, apps first, dog food second, the obvious last.** One app line, not a "Before Sunday, on wifi" paragraph that repeats itself; a power bank, not "a charged phone". Founder, 2026-11-11: *"Redundant, can we shorten to minimum?"*
 - **The dinner place gets a quote too**, with its Google rating and review count, exactly like the trail and the cafe. Founder, 2026-11-11: *"for the dinner maybe we should also say stars ... like we did for cafe"*.
 - **Few near-duplicates in the gallery.** One or two shots per scene, never several of the same waterfall. Founder, 2026-11-11.
@@ -290,7 +292,7 @@ Keep it plain text (no markdown) — the most restrictive platform wins.
 ```
 {register_cta} {short_url}
 
-Morning hike this Sunday, {date}. Everyone welcome, no experience needed.
+Morning hike this Sunday, {date}. For people who do a short introduction first, no hiking experience needed.
 
 {trail_name}, in {park}
 Meet {meet_time} at {cafe_name}, {area}. Coffee first, then we walk to the trailhead. Plan for about {duration} total.
@@ -314,9 +316,13 @@ month's trail. A stale blurb has zero unresolved placeholders and passes every o
 `{short_url}` (which resolves to `claritypledge.com/hike?d=<YYMMDD>`) is the only
 destination, and it appears twice — once at the top,
 once as the closing CTA. The short link auto-redirects to the newest hike, so never hardcode
-a per-event slug in saved copy. Three things match this series by its exact title prefix
-(`/hike` resolution, the group-chat mapping, and the short-link redirect) and all three fail
-silently if the prefix drifts. Renaming "Clarity Hike" to "Social Hike" on 2026-08-24 broke
+a per-event slug in saved copy. Since P1649, `/hike` and the short-link redirect resolve through
+`resolve_series_alias`, whose hike rule is `%Hike%`, so they survive a prefix change; the
+group-chat mapping (`.private/event-channels.json`) and `promote-all` match both "Social Hike" and
+"Clarity Hike", and `publish-run` and `re-create-event` carry the prefix themselves (P1675, the
+2026-11-17 rename back to "Clarity Hike"). Before P1649, three things matched this series by its
+exact title prefix (`/hike` resolution, the group-chat mapping, and the short-link redirect) and all
+three failed silently if the prefix drifted. Renaming "Clarity Hike" to "Social Hike" on 2026-08-24 broke
 all three at once with no error.
 
 ## Cancellation playbook

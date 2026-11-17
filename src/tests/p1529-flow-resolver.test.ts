@@ -16,8 +16,10 @@ describe('P1529 one flow resolver', () => {
     expect(recipeForEvent({ seriesSlug: null })).toBe(CLARITY_NIGHT_RECIPE);
     expect(recipeForEvent({ seriesSlug: 'social-hike' })).toBe(SOCIAL_HIKE_RECIPE);
     expect(recipeForEvent({ seriesSlug: 'sales-mastermind' })).toBe(SALES_MASTERMIND_RECIPE);
-    expect(CLARITY_NIGHT_RECIPE.registrationQuestions).toBeUndefined();
-    expect(SOCIAL_HIKE_RECIPE.registrationQuestions).toBeUndefined();
+    expect(CLARITY_NIGHT_RECIPE.registration).toBeUndefined();
+    // P1675 (spec section 1): a hike asks before the seat, so its recipe carries the 'hike' kind (was undefined, one tap).
+    expect(SOCIAL_HIKE_RECIPE.registration).toBe('hike');
+    expect(SALES_MASTERMIND_RECIPE.registration).toBe('mastermind');
   });
 
   it('quote consent follows the series, as the server rule does, whatever the flow', () => {

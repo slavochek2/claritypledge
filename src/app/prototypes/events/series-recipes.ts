@@ -85,8 +85,8 @@ export interface SeriesRecipe {
   /** The start-time line: "We start at 18:30 sharp." or, for a hike, "We meet at 13:22 at <meeting point>." */
   timeLine: 'start-sharp' | 'meet';
   /** What the attendee's event room has. A hike room is the principle opt-in, the roster, the optional preparation and Feedback. */
-  /** P1529 D16: registering asks its questions before the seat. Absent = one tap, as today. */
-  registrationQuestions?: boolean;
+  /** P1529 D16, P1675: registering asks its questions before the seat, and which questions. Absent = one tap, as today. */
+  registration?: 'mastermind' | 'hike';
   /** P1529: tables are about one canvas; seating, round words and host screen follow the mastermind's rules. */
   mastermind?: boolean;
   room: {
@@ -174,6 +174,8 @@ export const SOCIAL_HIKE_RECIPE: SeriesRecipe = {
   // Founder 2026-10-26 (round 9): two lines.
   afterChatCaption: 'Share photos from this hike\nGet info about the next one',
   smartOffers: true,
+  // P1675: a hike asks when the person will do the short introduction, how they are coming and how they would help, before the seat.
+  registration: 'hike',
   // Optional, and shorter (founder, 2026-10-22): no "how this event is different", no R&D volunteering.
   // UAT 2026-10-23: for a hike it is not preparation, it is learning what this community is: one quiet link.
   prepare: {
@@ -238,7 +240,7 @@ export const SALES_MASTERMIND_RECIPE: SeriesRecipe = {
   prepare: { ...CLARITY_NIGHT_RECIPE.prepare, steps: ['story', 'game', 'principle', 'cmp7', 'canvas'], optional: true, keepFinished: true },
   // Founder UAT round 1: "Learn and prepare" stays in the room's step bar for everyone, done or not, as on the hikes (their pattern).
   room: { ...CLARITY_NIGHT_RECIPE.room, readiness: false, feedbackAnytime: true, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Feedback' } },
-  registrationQuestions: true,
+  registration: 'mastermind',
   mastermind: true,
 };
 

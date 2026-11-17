@@ -86,6 +86,8 @@ import { RoomTranscribeIdleBar } from '@/app/components/session/room-capture-bar
 import { RoomHeadCapture, RoomHeadRow, RoomStickyHead } from './RoomChrome';
 import { useRoomWrite } from './use-room-write';
 import { useRoomRoster } from './use-room-roster';
+import { useEventRoomCounts } from './use-event-room-counts';
+import { hikeNotHereLine } from './hike-copy';
 import { useRoomBack } from './use-room-back';
 import { FixedBottomBar } from '@/app/components/shared/fixed-bottom-bar';
 import { PersonRow } from '@/app/components/shared/PersonRow';
@@ -234,17 +236,20 @@ export function RosterGroup({
   testId,
   members,
   showEarBadge = true,
+  count,
 }: {
   title: string;
   testId: string;
   members: EventRoomMember[];
   /** P1336: false hides each row's ear badge (registration roster). Default true: the room. */
   showEarBadge?: boolean;
+  /** P1675: the host's merged server number for a hike's Undecided group; replaces the member count in the heading. */
+  count?: number;
 }) {
-  if (members.length === 0) return null;
+  if (members.length === 0 && !count) return null;
   return (
     <div data-testid={testId} className="space-y-2">
-      <h3 className="text-sm font-semibold text-foreground">{title} ({members.length})</h3>
+      <h3 className="text-sm font-semibold text-foreground">{count === undefined ? <>{title} ({members.length})</> : <>{title} ({count})</>}</h3>
       <div className="space-y-2">
         {members.map((member) => (
           <div key={member.id} data-testid="room-roster-item">
@@ -416,6 +421,12 @@ export function EventRoomMeet() {
   const inMembers = roster.filter((m) => m.optedIn === true);
   const outMembers = roster.filter((m) => m.optedIn === false);
   const undecidedMembers = roster.filter((m) => m.optedIn == null);
+  // P1675 section 6 (hikes only, so Clarity Night's room is unchanged): the count RPC every 30 s while the room is open.
+  // Attendees get only notHere; the host also gets the merged undecided number (never shown to attendees).
+  const roomCounts = useEventRoomCounts(event?.id, granted && recipeForEvent(event).registration === 'hike');
+  // P1675 section 6: the host alone sees the merged In / Out / Undecided (the server returns them only to the host).
+  const hostMerged = event && user && event.hostId === user.id ? roomCounts : null;
+  const hostMergedUndecided = hostMerged?.undecided;
 
   // Derived from server state alone: no answer -> choosing; an answer with no number yet ->
   // rating; both -> answered. The same person answering on another device reaches here too,
@@ -746,10 +757,10 @@ export function EventRoomMeet() {
               <RosterWait status={rosterStatus} />
             ) : (
               <>
-                <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} />
-                <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} />
-                <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} />
-                {undecidedMembers.length === 0 && (
+                <RosterGroup title="Opted in" testId="room-roster-in" members={inMembers} count={hostMerged?.in} />
+                <RosterGroup title="Opted out" testId="room-roster-out" members={outMembers} count={hostMerged?.out} />
+                <RosterGroup title="Undecided" testId="room-roster-undecided" members={undecidedMembers} count={hostMergedUndecided} />
+                {undecidedMembers.length === 0 && !hostMergedUndecided && (
                   /* Empty-Undecided is the payoff of this whole feature, not a nothing —
                      it is the moment the facilitator's "move yourself out of undecided" has
                      landed for everyone. Hiding the group per the founder's instruction and
@@ -760,6 +771,9 @@ export function EventRoomMeet() {
                   </p>
                 )}
               </>
+            )}
+            {roomCounts && roomCounts.notHere >= 1 && (
+              <p data-testid="room-not-here-line" className="text-sm text-muted-foreground">{hikeNotHereLine(roomCounts.notHere)}</p>
             )}
           </div>
           )}

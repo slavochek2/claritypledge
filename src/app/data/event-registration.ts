@@ -57,5 +57,5 @@ export async function eventAsksBeforeSeat(slug: string): Promise<boolean> {
     import('@/app/prototypes/events/series-recipes'),
   ]);
   const event = await eventsService.getEventBySlug(slug, { attendees: false });
-  return !!event && !!recipeForEvent(event).registrationQuestions;
+  return !!event && !!recipeForEvent(event).registration;
 }

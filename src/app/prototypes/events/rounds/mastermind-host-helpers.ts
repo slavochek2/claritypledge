@@ -18,7 +18,7 @@ export const MASTERMIND_FLOW: EventFlow = 'sales-mastermind';
 export const FLOW_ROW_LABEL = 'Event flow';
 export const FLOW_NAMES: Record<EventFlow, string> = {
   'clarity-night': 'Clarity Night',
-  'social-hike': 'Social Hike',
+  'social-hike': 'Clarity Hike',
   'sales-mastermind': 'Sales Mastermind',
 };
 

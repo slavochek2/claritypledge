@@ -63,7 +63,7 @@ Founder-approved text (2026-11-13), verbatim:
 
 Both "10 minutes" (lead line and first option) are the hike introduction's computed length over the hike's own steps (P1549 decision 7: computed, never a literal); the approved wording is the template around that number. Since P1685 (2026-11-16) every preparation, hikes included, carries the Listening Game step, so the computed length is larger than when this text was approved; the template absorbs it.
 
-**Registering inside 24 hours (founder, 2026-11-17):** only "I have N minutes, I'll do it now" is offered. "Later" is valid only when the server's current time is strictly earlier than the event start minus 24 hours, the same instant the reminder needs (`send-event-emails/index.ts`, `reminderScheduledAt > now`). The client hides "later" by the same rule; the server is the authority. A form opened before the cutoff and submitted after it is refused with a distinct code (`now_only`), and the client redraws the form with only "now", keeping the other answers.
+**Registering inside 24 hours (founder, 2026-11-17):** only "I have N minutes, I'll do it now" is offered. "Later" is valid only when the server's current time is strictly earlier than the event start minus 24 hours 30 minutes. The reminder is due at start minus 24 hours (`send-event-emails/index.ts`, `reminderScheduledAt > now`), and the dispatcher runs every 30 minutes and only picks up reminders still ahead (`dispatch-event-emails`), so the extra 30 minutes is what makes the promised reminder certain (build review, 2026-11-17). The client hides "later" by the same rule; the server is the authority. A form opened before the cutoff and submitted after it is refused with a distinct code (`now_only`), and the client redraws the form with only "now", keeping the other answers.
 
 **Hike behaviour of the form, not the mastermind's:** the recipe's registration field becomes a kind (`'mastermind' | 'hike'`), so a hike gets only what this spec lists. A hike gets: the form, its answers' draft across sign-in, "now" landing in the introduction after the seat, and the button label "Reserve a seat". A hike does not get: the places-left line, the waiting list, the mastermind arrival read, recording acceptance, canvas or phone questions.
 
@@ -143,7 +143,7 @@ Today the room's Undecided counts room members (people who opened the room, walk
 ### Not built: host practice (recorded here so the hike runs the same way each time)
 
 - **Arrival:** the founder or welcomer glances at the list privately. To someone who has not finished: "This is for people who finish it. You can still do it today, ideally before dinner, because we might talk about it. For the next one, you really need to." No ban, no assigned partner.
-- **One-minute circle** at the meeting point, before walking: hands up for who did the introduction. Game among them only: each gets one armband. Find a real disagreement first, then ask "How well do you think you understood me, 0 to 10?" The person asked gives their armband to the asker. Most armbands at dinner wins. `[FOUNDER DECISION: question wording, checked against the principle. Not a build input.]`
+- **One-minute circle** at the meeting point, before walking: hands up for who did the introduction. Game among them only: each gets one armband. Find a real disagreement first, then ask "How well do you think you understood me, 0 to 10?" The person asked gives their armband to the asker. Most armbands at dinner wins. The founder words the question himself on the day, checked against the principle; it is not a build input.
 - **Feedback:** no on-the-spot ask. The host sends the event's room link that evening or the next day; after the end, it opens on feedback.
 - **Cards:** not on the trail; optionally at dinner.
 
@@ -175,6 +175,28 @@ Today the room's Undecided counts room members (people who opened the room, walk
 - Do NOT build members-only events (who may register). The app has no such setting today, only hidden (link-only) events; the founder's direction of 2026-11-17 (visible to everyone, only members can register, non-members invited to become members) is a separate spec.
 - Do NOT rename the internal series id `social-hike`, change `events.preparation_enabled` on any row, or retitle published events.
 
+## Cost Budget
+
+Applies because the migration adds a trigger and per-request functions, and the room reads a count on a timer ([metered-services.md](../docs/technical/metered-services.md)). Supabase only; no Gemini, no new edge function, no new email.
+
+Assumptions: R = registrations per hike (11-08: 20; 10-25: 29, so R ≈ 25 is used below); A = attendees with the room open, about 1 hour on the hike day (A ≈ 20); the host page open about 2 hours; counts re-read every 30 s (same cadence as the host's existing opt-in read, `useHostOptIns`).
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | `register_for_hike` 1 per registration, replacing the 1 direct insert it supersedes = +0 net; confirmation's answers read +1 per hike registration (inside the existing send-event-emails call); room count 3600 s / 30 s = 120 per user-hour open | hike day: A × 120 = 20 × 120 = 2,400 (room) + 120 (host page) ≈ 2,520 | unit tests mock Supabase = 0; one TEST dry run ≈ 10 calls inside one SQL session |
+| Egress (bytes) | count response ≈ 0.5 KB incl. headers × 120 = 60 KB per user-hour | 2,520 × 0.5 KB ≈ 1.3 MB per hike-day hour | ≈ 0 |
+| Log lines | one API log line per request, as requests | ≈ 2,520 | ≈ 10 |
+| Page reads | the hike page computes the introduction's minutes for the form: 2 point reads (`loadTagPoints` ×2) per hike page view; the host's page reads the hike answers once per open and once per change of the registered people | ≈ page views × 2 + host opens; at 10× page views (say 500 a week) about 1,000 small reads a week | 0 |
+| Service unit | edge function invocations: +0 (the confirmation and reminder already run per registration); the delete trigger and the seat-guard branch run inside Postgres, 0 requests | 0 | 0 |
+
+Why a timed read and not realtime (rule 2): the count joins registrations, room members and preparation answers, and only room members reach the room by realtime today; a registration or a preparation answer made elsewhere would never move the number. The read runs every 30 s only while the tab is visible (rule 3, `startVisiblePoll`), on hikes only, and only for a signed-in viewer the room has let in or the host's own event page.
+
+Per month, with V = hike page views per hike (V ≈ 50 assumed) and the registration call itself counted as +0 net (it replaces the one-tap insert): hikes per month × (R answers reads + 2 × 120 host-page count reads + A × 120 room count reads + 2 × V minutes reads + 2 host answers reads) = 4 × (25 + 240 + 2,400 + 100 + 2) ≈ 11,100 requests, and about 5.5 MB egress (≈ 0.5 KB each).
+
+1. **Fits the plan limit today?** Fits. Against the tighter Supabase Free plan row (5 GB egress, 500,000 edge function invocations, no request cap): 5.5 MB per month is about 0.1% of the egress allowance, and no edge function invocations are added. Current usage is read from the row's "Where usage is read"; this change adds the amounts above.
+2. **Fits at 10x?** Fits: about 111,000 requests and 55 MB egress per month.
+3. No upgrade needed.
+
 ## Invariants
 
 - The hike room never stops an unprepared or late person (P1542; this spec section 5).
@@ -187,7 +209,7 @@ Today the room's Undecided counts room members (people who opened the room, walk
 
 - [ ] On a hike, "Reserve a seat" opens the form with the lead line, the two "when" options and the transport question; no seat exists before the required answers are given.
 - [ ] A hike registration without the when-answer or the transport answer is refused by the server, through the RPC and through a direct insert of the person's own row.
-- [ ] Inside 24 hours of the start, the form offers only "do it now"; the server refuses "later" with `now_only` when now is not strictly before start minus 24 h, and the client then redraws the form with only "now", keeping the other answers.
+- [ ] Inside 24 hours of the start, the form offers only "do it now"; the server refuses "later" with `now_only` when now is not strictly before start minus 24 h 30 min, and the client then redraws the form with only "now", keeping the other answers.
 - [ ] "I'll do it now" lands in the short introduction right after the seat, including after signing in from logged out; "later" gives the seat.
 - [ ] Both times shown equal the hike introduction's computed length.
 - [ ] A hike's confirmation and 24-hour reminder emails contain the introduction link while the event's `preparation_enabled` is false, and the hike room stays ungated.
@@ -198,6 +220,10 @@ Today the room's Undecided counts room members (people who opened the room, walk
 - [ ] The host's event page shows each person's when-answer, transport answer with free seats, help role and Other text (as plain text); another attendee and an anonymous caller read no hike answers.
 - [ ] Cancelling a hike registration deletes its hike answers; registering again asks again.
 - [ ] On a hike, the thank-you page's next-event offer opens the event page's form instead of registering in one tap.
+- [ ] The hike form shows no places-left line, no waiting list and no recording acceptance, and ends with "Only you and the host see these answers."
+- [ ] After a `now_only` refusal the form shows the notice, offers only "now" (not pre-selected) and keeps the other answers.
+- [ ] A hike draft saved while signed out survives the sign-up callback and is submitted by the event page on return.
+- [ ] On a hike with `preparation_enabled` false, the host's page shows the In / Out / Undecided groups with the merged server numbers.
 - [ ] A registered person who did not prepare opens the hike room and is not blocked.
 - [ ] For one hike with a walk-in, a registered person who has not opened the room, and a person who answered only in the preparation, the host page's Undecided count equals the host's room view; attendees see the room's own Undecided count plus "and {N} registered, not here yet" and never the merged count.
 - [ ] Clarity Night registration stays one tap, and the mastermind's step still asks its own questions and recording acceptance (P1529's e2e for registration, sign-in return and waiting list green).

@@ -56,6 +56,11 @@ import { recipeForEvent } from '../series-recipes';
 import { RsvpButton } from './RsvpButton';
 import { EventWaitlistList } from './EventWaitlistList';
 import { RegistrationQuestions } from './RegistrationQuestions';
+import { HikeRegistrationQuestions } from './HikeRegistrationQuestions';
+import { useHikeMinutes } from './use-hike-minutes';
+import { useEventRoomCounts } from './use-event-room-counts';
+import { useHikeAnswersForHost } from './use-hike-answers-for-host';
+import { hikeHostLine } from './hike-host-line';
 import { refusalMessage, useRegistrationStep } from './use-registration-step';
 import { useRegistrationReturn } from './use-registration-return';
 import { classifyGroupChat } from '../group-chat-utils';
@@ -375,9 +380,18 @@ export function EventDetail() {
   const isHost = isLoggedIn && user && event?.hostId === user.id;
 
   // P1386: the host's ✓ prepared / 🎙 mic marks in Participants (replaces P1336's Preparation card).
-  const hostPrepMarks = useHostPrepMarks(event?.id, !!isHost && !!event?.preparationEnabled);
+  // P1675: a hike has the host's groups too, though its preparation is optional (preparation_enabled can be false).
+  // Not offersPreparation(): that is also true for the mastermind recipe, whose host page must not change.
+  const isHikeEvent = recipeForEvent(event).registration === 'hike';
+  const hostGroupsOn = !!isHost && (!!event?.preparationEnabled || isHikeEvent);
+  const hostPrepMarks = useHostPrepMarks(event?.id, hostGroupsOn);
   const hostMicLine = micLine(hostPrepMarks);
-  const hostOptIns = useHostOptIns(event?.id, !!isHost && !!event?.preparationEnabled);
+  const hostOptIns = useHostOptIns(event?.id, hostGroupsOn);
+  // P1675 section 6: the merged Undecided number (registered or in the room), host only, read every 30 s.
+  const hostRoomCounts = useEventRoomCounts(event?.id, !!isHost && isHikeEvent);
+  // P1675 section 3b: each registrant's hike answers, for the host's participant rows.
+  // Re-read when the people change, not only their number (a cancel plus a new registration keeps the length).
+  const hikeAnswers = useHikeAnswersForHost(event?.id, !!isHost && isHikeEvent, event?.attendees?.map(a => a.profileId).sort().join(','));
 
   // Close calendar menu when clicking outside
   useEffect(() => {
@@ -414,14 +428,18 @@ export function EventDetail() {
   const smartChat = !!event && recipeForEvent(event).smartOffers;
   const chatOpen = useGroupChatOpened(event?.id, smartChat ? groupChatUrl : null, user?.id);
 
-  // P1529 D16: this flow asks before the seat; `asksBeforeSeat` is false for Clarity Night and Social Hike.
-  const asksBeforeSeat = !!recipeForEvent(event).registrationQuestions;
+  // P1529 D16, P1675: `asksBeforeSeat` is true for the mastermind and for hikes (the form comes first); `asksMastermind` keeps what
+  // only the mastermind has (places left, waiting list, its own form). False for both on Clarity Night.
+  const registrationKind = recipeForEvent(event).registration;
+  const asksBeforeSeat = !!registrationKind;
+  const asksMastermind = registrationKind === 'mastermind';
+  const hikeMinutes = useHikeMinutes(event, registrationKind === 'hike');
   const myArrival = useMyRegistrationArrival(event, user?.id);
   // P1586: nothing of the page is drawn yet, so the one page loader.
   const showRefusal = (refusal: 'full' | 'cancelled') => {
     setEvent(e => (e ? (refusal === 'full' ? { ...e, attendeeCount: e.maxAttendees ?? e.attendeeCount } : { ...e, status: 'cancelled' }) : e));
     // D24: in a flow that asks, "full" is the page's own line with the waiting list under it, not a toast.
-    if (!(refusal === 'full' && asksBeforeSeat)) toast.error(refusalMessage(refusal));
+    if (!(refusal === 'full' && asksMastermind)) toast.error(refusalMessage(refusal));
   };
   // P1700: the host removed this signed-in, unregistered viewer. Read once per event; the notice replaces the Register action.
   // The result is keyed by (event, viewer): a different viewer's answer is never read as this viewer's.
@@ -446,7 +464,7 @@ export function EventDetail() {
     if (v) setRemovalRead({ key: removalKey, removed: true });
     return v;
   };
-  const registrationFull = asksBeforeSeat && !!event && !isRsvpd && eventsService.isEventFull(event);
+  const registrationFull = asksMastermind && !!event && !isRsvpd && eventsService.isEventFull(event);
   const registration = useRegistrationStep({
     onClosed: () => {
       void checkRemovedAfterRefusal().then(v => {
@@ -460,8 +478,13 @@ export function EventDetail() {
     onSessionLost: () => { if (event) signInAgain(event.slug); },
     // D24: full means the same form joins the waiting list; signed out, the form ends in Continue and sign-up comes next.
     full: registrationFull,
-    readsWaitlist: asksBeforeSeat && !isRsvpd,
+    readsWaitlist: asksMastermind && !isRsvpd,
     onSignIn: () => navigate('/signup?redirect=/events/' + slug + '&action=rsvp'),
+    // P1675: "now" goes straight into the short introduction; "later" ends on the confirmation as before.
+    onHikeRegistered: when => {
+      setIsRsvpd(true);
+      navigate(when === 'now' ? `/events/${slug}/prepare` : `/events/${slug}/confirm`, { state: { fromEvent: true } });
+    },
   });
   // Just signed up and sent back here: saved answers register them, or the form opens (use-registration-return.ts).
   useRegistrationReturn({ searchParams, setSearchParams, isLoggedIn, event, loading, asksBeforeSeat, isRsvpd, isHostOfEvent, registration });
@@ -532,17 +555,18 @@ export function EventDetail() {
     !isPast && Date.now() >= eventDate.getTime() - ROOM_JOIN_WINDOW_MS ? 'Join now' : 'Event Room';
   const isFull = eventsService.isEventFull(event);
 
+  const askForm = () => (registrationKind === 'hike' ? registration.askHike() : registration.ask());
   const handleRsvp = async (trigger: RsvpTrigger) => {
-    if (!event || isPast || (isFull && !isRsvpd && !asksBeforeSeat)) return;
+    if (!event || isPast || (isFull && !isRsvpd && !asksMastermind)) return;
     analytics.track('event_rsvp_initiated', { event_id: event.id, event_type: eventTypeOf(event), trigger });
 
     if (!isLoggedIn || !user) {
-      if (asksBeforeSeat) return registration.ask(); // D24: the form first, sign-up after it
+      if (asksBeforeSeat) return askForm(); // D24: the form first, sign-up after it
       navigate('/signup?redirect=/events/' + slug + '&action=rsvp');
       return;
     }
     if (!canWrite()) return;
-    if (asksBeforeSeat) return registration.ask();
+    if (asksBeforeSeat) return askForm();
 
     setIsActionLoading(true);
     const sentAt = networkMark();
@@ -708,10 +732,10 @@ export function EventDetail() {
       isFull={isFull && !isRsvpd}
       loading={isActionLoading}
       onRsvp={handleRsvp}
-      asksBeforeSeat={asksBeforeSeat}
-      placesLeft={asksBeforeSeat ? eventsService.getSpotsRemaining(event) : null}
-      placesLimit={asksBeforeSeat ? (event.maxAttendees ?? null) : null}
-      waitlist={asksBeforeSeat ? { onList: registration.onWaitlist, filled: registration.filled, leaving: registration.leaving, onLeave: registration.leaveWaitlist } : undefined}
+      asksBeforeSeat={asksMastermind}
+      placesLeft={asksMastermind ? eventsService.getSpotsRemaining(event) : null}
+      placesLimit={asksMastermind ? (event.maxAttendees ?? null) : null}
+      waitlist={asksMastermind ? { onList: registration.onWaitlist, filled: registration.filled, leaving: registration.leaving, onLeave: registration.leaveWaitlist } : undefined}
     />
   );
 
@@ -1289,7 +1313,7 @@ export function EventDetail() {
                 const attendees = event.attendees ?? [];
                 // Host only, and never the host's own row.
                 const canRemoveAttendee = (profileId: string) => !!isHost && profileId !== event.hostId;
-                const row = (attendee: (typeof attendees)[number], rating?: number | null, hostGrouped = false) => (
+                const personRow = (attendee: (typeof attendees)[number], rating?: number | null, hostGrouped = false) => (
                   <PersonRow
                     key={attendee.profileId}
                     profileId={attendee.profileId}
@@ -1333,27 +1357,46 @@ export function EventDetail() {
                     }
                   />
                 );
+                // P1675 section 3b: on a hike the host also reads each person's answers, one short plain-text line
+                // (a React text node, cut with CSS only; the Other text is free text and never HTML).
+                const row = (attendee: (typeof attendees)[number], rating?: number | null, hostGrouped = false) => {
+                  const answers = isHost && isHikeEvent ? hikeAnswers.get(attendee.profileId) : undefined;
+                  if (!answers) return personRow(attendee, rating, hostGrouped);
+                  return (
+                    <div key={attendee.profileId} className="space-y-1">
+                      {personRow(attendee, rating, hostGrouped)}
+                      {/* Wraps, not truncated: the host reads a 280-character Other text on a phone (review 2026-11-17). */}
+                      <p className="break-words [overflow-wrap:anywhere] px-1 text-xs text-muted-foreground" data-testid="host-hike-answers">
+                        {hikeHostLine(answers)}
+                      </p>
+                    </div>
+                  );
+                };
                 // P1337 walkthrough 9 (founder): host only — grouped like the room's roster, with the
                 // host's own marks; everyone else sees the plain list.
-                if (!isHost || !event.preparationEnabled) {
+                if (!hostGroupsOn) {
                   return <div className="space-y-2">{attendees.map(a => row(a))}</div>;
                 }
                 return (
                   <div className="space-y-5" data-testid="host-opt-in-groups">
-                    {groupByOptIn(attendees, hostOptIns).map(g =>
-                      g.people.length === 0 ? null : (
+                    {groupByOptIn(attendees, hostOptIns).map(g => {
+                      // P1675 section 6: on a hike every heading is the merged server number (registered or in the room), the one
+                      // result the host's room view reads too.
+                      const merged = isHikeEvent ? hostRoomCounts?.[g.key] : undefined;
+                      const shown = merged != null ? merged : g.people.length;
+                      return g.people.length === 0 && shown === 0 ? null : (
                         <div key={g.key} className="space-y-2" data-testid={`host-opt-in-${g.key}`}>
-                          <h3 className="text-sm font-semibold text-foreground">{g.title} ({g.people.length})</h3>
+                          <h3 className="text-sm font-semibold text-foreground">{g.title} ({shown})</h3>
                           <div className="space-y-2">{g.people.map(a => row(a, hostOptIns.get(a.profileId)?.rating, true))}</div>
                         </div>
-                      ),
-                    )}
+                      );
+                    })}
                   </div>
                 );
               })()}
             </div>
             {/* P1529 (founder, UAT round 1): the waiting list just below the participants, to the same people; the host adds with one tap. */}
-            {asksBeforeSeat && (isHost || isRsvpd) && (
+            {asksMastermind && (isHost || isRsvpd) && (
               <EventWaitlistList
                 eventId={event.id}
                 isHost={!!isHost}
@@ -1391,7 +1434,20 @@ export function EventDetail() {
       )}
 
       {/* Cancel RSVP Confirmation Dialog */}
-      {asksBeforeSeat && (
+      {registrationKind === 'hike' && (
+        <HikeRegistrationQuestions
+          open={registration.asking}
+          datetime={event.datetime}
+          minutes={hikeMinutes}
+          busy={registration.busy}
+          signedIn={isLoggedIn}
+          initial={registration.hikePrefill}
+          nowOnly={registration.nowOnly}
+          onCancel={registration.cancel}
+          onSubmit={registration.submitHike}
+        />
+      )}
+      {asksMastermind && (
         <RegistrationQuestions
           open={registration.asking}
           datetime={event.datetime}
