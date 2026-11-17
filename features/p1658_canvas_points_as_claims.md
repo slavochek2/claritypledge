@@ -80,11 +80,18 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
 - Do NOT add scoring (P1656) or the publish review (P1657).
 - Do NOT change the number of boxes in this spec; a repurposed falsified box is a decision recorded here and built separately if it changes the schema.
 
+**Known limitations of the test build** (found in code review, 2026-11-17; to build only if the rules are adopted)
+- A "not" half the owner never stated passes every engine check when the rest of the point matches its quote. Only the prompt guards it ("the owner named"). A post-model check would split the clause off and require it to share a word with the owner's material.
+- `canvas-price.ts` strips the stated unit and cadence when a price contrast sits in the same clause ("per shop per month rather than per receipt"). The Offers & Pricing shape no longer asks for a contrast, so this only fires when the model writes one anyway.
+- "(target)" alone marks a milestone as not yet reached. Nothing checks it is there.
+- Best guesses (P1625) are refused more often under the new shapes: a Problem guess unless the owner typed "problem", a Guiding values guess with ", even when", and a Segments guess with a "not" half. Deliberate for Problem: exempting the word let a guess call something a problem the owner called easy.
+- The model can still write a Segments point with no "not" half, which reads close to a description ("… are the customers").
+
 ## Done-When
 
 - [ ] New box rules drafted, shown to the founder side by side with the current ones.
 - [ ] The founder has run the new Copy prompt on his own material; his output is saved in `.private/canvas-rules-test/` next to his current canvas.
-- [ ] At least two real canvases drafted with old and new rules, each side run twice; both runs of a side saved in one file, `.private/canvas-rules-test/<canvas>-old.md` and `-new.md`, and one side-by-side summary there that counts kept and dropped points per side.
+- [x] At least two real canvases drafted with old and new rules, each side run twice; both runs of a side saved in one file, `.private/canvas-rules-test/<canvas>-old.md` and `-new.md`, and one side-by-side summary there that counts kept and dropped points per side.
 - [ ] The founder's decision recorded in `docs/decisions.md`: adopt, revise or drop; keep or move the reason in Solution and Guiding values; and what the falsified box becomes.
 - [ ] If adopted, the drafting prompt, the Copy prompt and the empty-box questions all show the new rules (one text), and the canvas tests pass (including `src/tests/p1536-box-definitions.test.ts`, with its wording pins moved to the new wording).
 
