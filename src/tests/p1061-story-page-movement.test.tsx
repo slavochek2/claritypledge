@@ -11,6 +11,10 @@ import type { StoryMovement } from '@/lib/position-movement';
 import { QuotedPointTags, StoryDetailFigures, StoryMovementPoints } from '@/app/components/social/story-detail-movement';
 import { HolderStoryFigures } from '@/app/components/social/holder-story-badges';
 import { PointStoryArrowsContext } from '@/app/components/movement/point-story-arrows-context';
+import { StoryMovementPanel } from '@/app/components/movement/story-movement-panel';
+import { PointChangesPeople } from '@/app/components/movement/point-changes-people';
+import type { PointMovementRows } from '@/app/data/movement-service';
+import { readingsOf } from '@/lib/position-movement';
 
 const movement: StoryMovement = {
   storyId: 'story-id-0001', verifiedCount: 2, moved: 1,
@@ -34,6 +38,43 @@ describe('P1061 the story page figures row', () => {
     expect(screen.queryByTestId('count-chip')).toBeNull();
     rerender(<MemoryRouter><StoryDetailFigures story={plain} isAgent={false} identityPending={false} points={[point]} className="row"><span /></StoryDetailFigures></MemoryRouter>);
     expect(screen.queryByTestId('count-chip')).toBeNull();
+  });
+});
+
+describe('P1061 the story panel lists only counted points', () => {
+  it('a point the story page shows but did not count (history not readable whole) gets no "no one changed" line', () => {
+    const shown = [point, { id: 'point-id-0002', statement: 'Not counted', tags: [] } as unknown as PointSummary];
+    render(<MemoryRouter><StoryMovementPanel movement={movement} authorName="Test Author" points={shown.map(p => ({ id: p.id, statement: p.statement }))} defaultOpen /></MemoryRouter>);
+    expect(screen.getByTestId('panel-point-point-id-0001')).toBeTruthy();
+    expect(screen.queryByTestId('panel-point-point-id-0002')).toBeNull();
+  });
+});
+
+describe('P1061 a person\'s graph inside dates', () => {
+  it('shows only the verifications inside the dates', () => {
+    const P = 'point-id-0001';
+    const row = (n: number, position: 'agree' | 'disagree' | 'unsure', day: string) => ({ id: `row-id-000${n}`, pointId: P, userId: 'user-id-0002', position, changedAt: `2026-09-${day}T12:00:00.000Z` });
+    const data = {
+      pointId: P, agentIds: [], events: [], groups: [],
+      stories: [{ id: 'story-id-0001', authorId: 'user-id-0001' }, { id: 'story-id-0002', authorId: 'user-id-0003' }],
+      verifications: [
+        { id: 'verification-id-0001', storyId: 'story-id-0001', listenerId: 'user-id-0002', accuracyAchieved: true, createdAt: '2026-09-01T12:00:00.000Z' },
+        { id: 'verification-id-0002', storyId: 'story-id-0002', listenerId: 'user-id-0002', accuracyAchieved: true, createdAt: '2026-09-15T12:00:00.000Z' },
+      ],
+      history: [row(1, 'disagree', '10'), row(2, 'unsure', '14'), row(3, 'agree', '20')],
+      current: [{ pointId: P, userId: 'user-id-0002', position: 'agree' as const }],
+      people: new Map([
+        ['user-id-0001', { id: 'user-id-0001', name: 'Author One', slug: null, avatarUrl: null, avatarColor: null, hasPledged: false }],
+        ['user-id-0002', { id: 'user-id-0002', name: 'Test Person', slug: null, avatarUrl: null, avatarColor: null, hasPledged: false }],
+        ['user-id-0003', { id: 'user-id-0003', name: 'Author Three', slug: null, avatarUrl: null, avatarColor: null, hasPledged: false }],
+      ]),
+    } as unknown as PointMovementRows;
+    const readings = readingsOf(data.history, data.current, data.agentIds, { from: '2026-09-10', to: '2026-09-20' }, at => at.slice(0, 10));
+    render(<MemoryRouter><PointChangesPeople readings={readings} data={data} range={{ from: '2026-09-10', to: '2026-09-20' }} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { expanded: false }));
+    const lines = screen.getAllByTestId('verification').map(l => l.textContent);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('Author Three');
   });
 });
 

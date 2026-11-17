@@ -29,7 +29,7 @@ export function StoryDetailFigures({ story, isAgent, identityPending, points, cl
   return (
     <div className={className}>
       {children}
-      {movement && (
+      {movement && movement.moved > 0 && (
         <span className="ml-2 inline-flex">
           <StoryMovementPanel movement={movement} authorName={story.authorName} points={points.map(p => ({ id: p.id, statement: p.statement }))} />
         </span>

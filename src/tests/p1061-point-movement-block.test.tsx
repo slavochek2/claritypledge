@@ -19,6 +19,7 @@ vi.mock('@/app/components/social/point-positions-block', () => ({
 }));
 
 import { PointCardSpread, PointPositionsWithChanges } from '@/app/components/movement/point-movement-block';
+import { readsAllHistory } from '@/app/components/movement/use-point-movement';
 
 const POINT = 'point-id-0001';
 const counts = { strongly_agree: 0, agree: 1, somewhat_agree: 0, unsure: 0, somewhat_disagree: 0, disagree: 1, strongly_disagree: 0 };
@@ -77,6 +78,13 @@ describe('P1061 the positions block on the point page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(screen.getByTestId('changes-block')).toBeTruthy());
     expect(getPointMovement).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('P1061 who reads all history fails closed', () => {
+  it('a point object without its visibility is not public', () => {
+    expect(readsAllHistory({ firstValidatorId: 'user-id-0001' }, 'user-id-0002')).toBe(false);
+    expect(readsAllHistory({ visibility: null, firstValidatorId: 'user-id-0001' }, undefined)).toBe(false);
   });
 });
 

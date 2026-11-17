@@ -101,8 +101,11 @@ export function PointPositionsWithChanges({ point, signedIn, ...block }: BlockPr
   const movement = usePointMovement(point.id, block.viewerId, JSON.stringify(block.counts), canChange);
   const arrowsFor = useStoryArrows(movement.data, point.id);
   const [view, setView] = useViewParam(canChange);
-  // Whose positions Changes counts: kept while Positions is looked at.
-  const [scope, setScope] = useState<MovementScope>(EVERYONE);
+  // Whose positions Changes counts: kept while Positions is looked at, and belonging to this point only (the version
+  // banner and history open another point on the same page, which must start unfiltered).
+  const [held, setHeld] = useState<{ pointId: string; scope: MovementScope }>({ pointId: point.id, scope: EVERYONE });
+  const scope = held.pointId === point.id ? held.scope : EVERYONE;
+  const setScope = (next: MovementScope) => setHeld({ pointId: point.id, scope: next });
   // Each view draws the switch inside its own frame, so a switch made from the keyboard would lose the focus with
   // the view it left: hand it to the tab now active.
   const root = useRef<HTMLDivElement>(null);

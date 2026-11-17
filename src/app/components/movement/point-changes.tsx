@@ -7,7 +7,7 @@
 import { useState, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import type { PointMovementRows } from '@/app/data/movement-service';
-import { arrowsOf, changeOf, chosenPeople, directionOf, hasDates, isEveryone, readingsOf, type Arrows, type Direction, type MovementScope, type Reading } from '@/lib/position-movement';
+import { arrowsOf, changeOf, chosenPeople, directionOf, hasDates, isEveryone, readingsOf, type Arrows, type DayRange, type Direction, type MovementScope, type Reading } from '@/lib/position-movement';
 import { BeforeAfterChart } from './movement-charts';
 import { describeScope } from './movement-scope';
 import { PointChangesPeople } from './point-changes-people';
@@ -55,17 +55,18 @@ export function PointChangesView({ data, scope }: { data: PointMovementRows; sco
         <BeforeAfterChart readings={changes} dated={hasDates(scope)} label="Where everyone counted stood, first and latest" />
       </div>
       {/* Nobody to list: the chart's one sentence says so; no tabs of zeros, no second "nobody". */}
-      {readings.length > 0 && <ChangesList filter={filter} onFilter={setFilter} arrows={arrows} listed={listed} data={data} />}
+      {readings.length > 0 && <ChangesList filter={filter} onFilter={setFilter} arrows={arrows} listed={listed} data={data} range={{ from: scope.from, to: scope.to }} />}
     </div>
   );
 }
 
-function ChangesList({ filter, onFilter, arrows, listed, data }: {
+function ChangesList({ filter, onFilter, arrows, listed, data, range }: {
   filter: Direction | 'all';
   onFilter: (next: Direction | 'all') => void;
   arrows: Arrows;
   listed: Reading[];
   data: PointMovementRows;
+  range: DayRange;
 }) {
   return (
     <>
@@ -80,7 +81,7 @@ function ChangesList({ filter, onFilter, arrows, listed, data }: {
       />
       <div className="space-y-3 p-4">
         {/* A new list for every filter by change, so an open log or "show all" never carries over to other people. */}
-        <PointChangesPeople key={filter} readings={listed} data={data} />
+        <PointChangesPeople key={filter} readings={listed} data={data} range={range} />
       </div>
     </>
   );

@@ -53,6 +53,9 @@ export function StoryMovementPanel({ movement, authorName, points, defaultOpen =
 }) {
   if (movement.moved === 0) return null;
   const share = { verified: movement.verifiedCount, moved: movement.moved };
+  // Only the points that were counted: a point whose history the viewer cannot read whole is not counted, and the
+  // panel must not say "no one changed" about it.
+  const counted = points.filter(point => movement.points.some(p => p.pointId === point.id));
   return (
     <Dialog defaultOpen={defaultOpen}>
       <DialogTrigger asChild>
@@ -64,12 +67,12 @@ export function StoryMovementPanel({ movement, authorName, points, defaultOpen =
       <DialogContent {...QUIET_DIALOG} data-testid="story-panel">
         <DialogHeader className={DIALOG_HEAD}>
           <DialogTitle>{share.moved} moved</DialogTitle>
-          <Hint label="What this counts">{storyHint(share, authorName, points.length)}</Hint>
+          <Hint label="What this counts">{storyHint(share, authorName, counted.length)}</Hint>
         </DialogHeader>
         <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
           {/* The key comes first, so the colours are named before the first bar. */}
           <StrengthKey hint={<Hint label="How to read these bars">{strengthHint(authorName)}</Hint>} />
-          {points.map(point => (
+          {counted.map(point => (
             <PanelPoint key={point.id} pointId={point.id} statement={point.statement} movement={movement.points.find(p => p.pointId === point.id)} />
           ))}
         </div>

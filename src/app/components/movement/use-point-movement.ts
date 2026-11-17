@@ -64,5 +64,6 @@ export function usePointMovement(pointId: string | undefined, viewerId: string |
 
 /** Only where the viewer can read every holder's history today: a public point, or a non-public point's first validator. */
 export function readsAllHistory(point: { visibility?: string | null; firstValidatorId?: string | null }, viewerId: string | undefined): boolean {
-  return (point.visibility ?? 'public') === 'public' || (!!viewerId && point.firstValidatorId === viewerId);
+  // Fails closed: a point without its visibility (never from the database, where the column is NOT NULL) is not public.
+  return point.visibility === 'public' || (!!viewerId && point.firstValidatorId === viewerId);
 }

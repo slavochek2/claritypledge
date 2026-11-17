@@ -10,7 +10,7 @@ import { POSITION_LABELS } from '@/app/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
 import type { PointMovementRows } from '@/app/data/movement-service';
-import { positionOfLevel, verificationsOf, type Reading } from '@/lib/position-movement';
+import { hasDates, inRange, NO_DATES, positionOfLevel, verificationsOf, type DayRange, type Reading } from '@/lib/position-movement';
 import { PersonLog } from './movement-charts';
 
 const ROWS_SHOWN = 6;
@@ -18,11 +18,14 @@ const ROWS_SHOWN = 6;
 const said = (level: number) => POSITION_LABELS[positionOfLevel(level)];
 
 /** One person: the first position, the latest one, and their whole graph and log behind the row. */
-function PersonRow({ reading, data, open, onToggle }: { reading: Reading; data: PointMovementRows; open: boolean; onToggle: () => void }) {
+function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading; data: PointMovementRows; range: DayRange; open: boolean; onToggle: () => void }) {
   const person = data.people.get(reading.userId);
   const name = person?.name ?? 'Someone';
   const { first, latest } = reading;
-  const verifications = verificationsOf(reading.userId, data.stories, data.verifications, data.agentIds).map(v => ({
+  // With dates set the graph draws only the positions inside them, so only the verifications inside them belong on it:
+  // one from outside would be drawn beside the first or last dot, as if it had happened then.
+  const verifications = verificationsOf(reading.userId, data.stories, data.verifications, data.agentIds)
+    .filter(v => !hasDates(range) || inRange(v.at, range)).map(v => ({
     storyId: v.storyId,
     authorName: data.people.get(v.authorId)?.name ?? 'Someone',
     at: v.at,
@@ -68,7 +71,7 @@ function PersonRow({ reading, data, open, onToggle }: { reading: Reading; data: 
 }
 
 /** The people behind the chart, largest change first. Six at a time. */
-export function PointChangesPeople({ readings, data }: { readings: Reading[]; data: PointMovementRows }) {
+export function PointChangesPeople({ readings, data, range = NO_DATES }: { readings: Reading[]; data: PointMovementRows; range?: DayRange }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [all, setAll] = useState(false);
   const nameOf = (r: Reading) => data.people.get(r.userId)?.name ?? 'Someone';
@@ -78,7 +81,7 @@ export function PointChangesPeople({ readings, data }: { readings: Reading[]; da
   return (
     <div className="space-y-3">
       {shown.map(r => (
-        <PersonRow key={r.userId} reading={r} data={data} open={openId === r.userId} onToggle={() => setOpenId(openId === r.userId ? null : r.userId)} />
+        <PersonRow key={r.userId} reading={r} data={data} range={range} open={openId === r.userId} onToggle={() => setOpenId(openId === r.userId ? null : r.userId)} />
       ))}
       {sorted.length > ROWS_SHOWN && (
         <Button variant="outline" className="min-h-11 w-full" onClick={() => setAll(!all)}>

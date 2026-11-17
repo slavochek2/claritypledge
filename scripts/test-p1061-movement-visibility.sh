@@ -56,8 +56,8 @@ INSERT INTO public.point_position_history (point_id, user_id, position, changed_
 SELECT set_config('p1061.story_private', COALESCE((SELECT sp.story_id::text FROM public.story_points sp JOIN public.points p ON p.id = sp.point_id WHERE p.visibility <> 'public' ORDER BY sp.story_id LIMIT 1), ''), true);
 -- Computed as the owner: a probe that joined points as the caller could not see the very rows it looks for.
 SELECT set_config('p1061.private_points', COALESCE((SELECT string_agg(id::text, ',') FROM public.points WHERE visibility <> 'public'), ''), true);
-SELECT set_config('p1061.letter_story', (SELECT story_id::text FROM public.story_verifications WHERE source = 'letter' ORDER BY id LIMIT 1), true);
-SELECT set_config('p1061.letter_speaker', (SELECT speaker_id::text FROM public.story_verifications WHERE source = 'letter' AND story_id = current_setting('p1061.letter_story')::uuid ORDER BY id LIMIT 1), true);
+SELECT set_config('p1061.letter_story', COALESCE((SELECT story_id::text FROM public.story_verifications WHERE source = 'letter' AND story_id IS NOT NULL ORDER BY id LIMIT 1), ''), true);
+SELECT set_config('p1061.letter_speaker', COALESCE((SELECT speaker_id::text FROM public.story_verifications WHERE source = 'letter' AND story_id::text = current_setting('p1061.letter_story') ORDER BY id LIMIT 1), ''), true);
 -- A member of a private group who holds a position somewhere, and that point.
 SELECT set_config('p1061.private_member', COALESCE((
   SELECT m.user_id::text FROM public.membership m JOIN public.organization o ON o.id = m.org_id
@@ -168,12 +168,12 @@ RESET ROLE;
 
 -- letter speaker: the letter row never appears
 SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claims', json_build_object('sub', current_setting('p1061.letter_speaker'), 'role', 'authenticated')::text, true);
+SELECT set_config('request.jwt.claims', json_build_object('sub', NULLIF(current_setting('p1061.letter_speaker'), ''), 'role', 'authenticated')::text, true);
 SELECT set_config('p1061.letter', (
-  SELECT (NOT EXISTS (
+  SELECT CASE WHEN current_setting('p1061.letter_story') = '' THEN 'skip' ELSE (NOT EXISTS (
     SELECT 1 FROM jsonb_array_elements(r->'verifications') e
-     JOIN public.story_verifications sv ON sv.id = (e->>'id')::uuid WHERE sv.source = 'letter'))::text
-    FROM (SELECT public.get_story_movement_rows(ARRAY[current_setting('p1061.letter_story')::uuid]) r) x), true);
+     JOIN public.story_verifications sv ON sv.id = (e->>'id')::uuid WHERE sv.source = 'letter'))::text END
+    FROM (SELECT public.get_story_movement_rows(ARRAY[NULLIF(current_setting('p1061.letter_story'), '')::uuid]) r) x), true);
 RESET ROLE;
 
 -- private group member: their private group is never offered
