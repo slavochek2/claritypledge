@@ -99,7 +99,7 @@ Applies because this adds a per-user Supabase read on every signed-in `/events/l
 2. **Fits at 10x?** Fits: the per-visit cost is linear in a person's own events (single digits to tens), not in the global list, and 10x visits stays far under 5 GB at the read sizes measured.
 3. **If either answer is no:** not applicable. The next step up would be the Supabase Pro plan, from $25/month with 250 GB egress (registry row).
 
-- **Worst case:** a person with more than 100 events adds one counts request per further 100 (the same batching the global lists use), so decision 9's "at most 3" holds for E ≤ 100. Both personal reads are ordered newest first (hosted by `datetime`, registered by `rsvped_at`) with no limit, so rows beyond the server's max-rows cap (PostgREST default 1000) are the oldest ones; that is a known limitation.
+- **Worst case:** a person with more than 100 events adds one counts request per further 100 (the same batching the global lists use), so decision 9's "at most 3" holds for E ≤ 100. Both personal reads are ordered newest first with no limit, so rows beyond the server's max-rows cap (PostgREST default 1000) are dropped from the old end: for the hosted read, the events with the oldest `datetime`; for the registered read, the registrations made earliest (ordered by `rsvped_at`), which in a rare case could include an event far in the future that was registered for long ago. Known limitation, accepted at current scale.
 - **Guard:** the "requests:" test fails if a signed-in visit makes other than 3 personal reads or a signed-out visit makes any; the P1532 ledger reports users created and deleted per run.
 
 ## Acceptance Criteria

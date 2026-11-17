@@ -90,6 +90,9 @@ export function EventsList({
   const [attempt, setAttempt] = useState(0);
   const [marksRead, setMarksRead] = useState<MarksRead | null>(null);
   const [myRead, setMyRead] = useState<MyEventsRead | null>(null);
+  // P1698: bumped only by a Retry click while there is no answered personal read, so Retry also recovers My events.
+  // Setting `myRead` never changes it, so an answer cannot set off another read.
+  const [myAttempt, setMyAttempt] = useState(0);
   // P1560: a person is accepted only while the SESSION says so. AuthContext keeps the previous
   // person's profile while it fetches the next one, so `user.id` alone would read, and show, account
   // A's marks for account B. A mismatch means nobody.
@@ -183,7 +186,7 @@ export function EventsList({
 
   // P1698: the viewer's own events, one read per verified person (zero for a signed-out visitor). Independent of the
   // global lists: it neither waits for them nor holds them. A failure is reported by the service (throwOnError logs
-  // through logDbError) and leaves no tab, which is today's page; nothing retries it.
+  // through logDbError) and leaves no tab, which is today's page; nothing retries it on its own, only a Retry click.
   useEffect(() => {
     if (!personalAllowed || !viewerId) return;
     let live = true;
@@ -200,11 +203,14 @@ export function EventsList({
       live = false;
       gaveUp.abort();
     };
-  }, [personalAllowed, viewerId]);
+  }, [personalAllowed, viewerId, myAttempt]);
 
   const retry = () => {
     setRead(null);
     setAttempt((n) => n + 1);
+    // Only a person's click re-reads (decision 7: nothing retries on its own), and only when My events is not
+    // already known for this viewer, so a Retry after a good personal read costs no request.
+    if (!mine) setMyAttempt((n) => n + 1);
   };
 
   const seriesEvents = filterWebinarSeries(upcomingEvents);

@@ -241,6 +241,42 @@ describe('P1698 My events: loading and failure (decision 7)', () => {
     expect(screen.getAllByRole('link', { name: /Host Event/ })).toHaveLength(1);
   });
 
+  it('both reads failed: Retry re-reads the lists AND the personal read, and My events appears', async () => {
+    mocks.user = USER_A;
+    mocks.getUpcomingEvents.mockRejectedValueOnce(new Error('offline'));
+    mocks.getMyEvents.mockRejectedValueOnce(new Error('offline'));
+    render(ui());
+    const retryButton = await screen.findByRole('button', { name: 'Retry' });
+    await act(async () => {});
+    expect(screen.queryByRole('tab', { name: MY_TAB })).not.toBeInTheDocument();
+    expect(mocks.getMyEvents).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(retryButton);
+    expect(await screen.findByRole('tab', { name: MY_TAB })).toBeInTheDocument();
+    expect(await screen.findByText(PUBLIC_EVENT.title)).toBeInTheDocument();
+    expect(mocks.getUpcomingEvents).toHaveBeenCalledTimes(2);
+    // Exactly one re-read: the answer landing does not set off another.
+    await act(async () => {});
+    await act(async () => {});
+    expect(mocks.getMyEvents).toHaveBeenCalledTimes(2);
+  });
+
+  it('personal read answered, global read failed: Retry re-reads only the lists, not getMyEvents', async () => {
+    mocks.user = USER_A;
+    mocks.getUpcomingEvents.mockRejectedValueOnce(new Error('offline'));
+    render(ui());
+    const retryButton = await screen.findByRole('button', { name: 'Retry' });
+    expect(await screen.findByRole('tab', { name: MY_TAB })).toBeInTheDocument();
+    expect(mocks.getMyEvents).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(retryButton);
+    expect(await screen.findByText(PUBLIC_EVENT.title)).toBeInTheDocument();
+    await act(async () => {});
+    expect(mocks.getUpcomingEvents).toHaveBeenCalledTimes(2);
+    expect(mocks.getMyEvents).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('tab', { name: MY_TAB })).toBeInTheDocument();
+  });
+
   it('the main lists failing does not take My events away', async () => {
     mocks.user = USER_A;
     mocks.getUpcomingEvents.mockRejectedValue(new Error('boom'));
