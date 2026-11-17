@@ -82,13 +82,13 @@ Blast radius: six public landing pages and one shared section; no data, auth or 
 
 ## Acceptance Criteria
 
-- [ ] On /builders, /change-managers, /hiring, /founder, /hospitals and /coach, a "How it works" section (anchor `#how-it-works`) sits immediately before the Group Terms section, with a heading, a 16:9 video frame and 3-4 numbered steps.
-- [ ] With the demo constant unset, the frame shows the placeholder, with no play button. Setting it to a bucket file shows a click-to-play poster on all six pages, and a failed load after Play shows the error frame, not a black box.
+- [x] On /builders, /change-managers, /hiring, /founder, /hospitals and /coach, a "How it works" section (anchor `#how-it-works`) sits immediately before the Group Terms section, with a heading, a 16:9 video frame and 3-4 numbered steps.
+- [x] With the demo constant unset, the frame shows the placeholder, with no play button. Setting it to a bucket file shows a click-to-play poster on all six pages, and a failed load after Play shows the error frame, not a black box.
 - [ ] On those six pages the founder section shows the founder's photo where the clip was, square and no wider than 360px, with the same credibility text and the founder's chosen link (or none); no founder clip plays anywhere.
-- [ ] Each of the six pages renders at most one video player (exactly one with the constant set).
-- [ ] /communities renders exactly as before (no new section, no founder section).
-- [ ] On each of the six pages (one test per page, analytics spied): playing the demo sends `demo_video_play` with that page's location once, the frame coming on screen sends `demo_video_seen` with that location once, and with the placeholder shown neither fires.
-- [ ] `manifesto_film_seen` fires once when the film comes on screen, with `location` `manifesto` on /manifesto and `prepare_end` on the /prepare end screen; `manifesto_film_play` still fires as before.
+- [x] Each of the six pages renders at most one video player (exactly one with the constant set).
+- [x] /communities renders exactly as before (no new section, no founder section).
+- [x] On each of the six pages (one test per page, analytics spied): playing the demo sends `demo_video_play` with that page's location once, the frame coming on screen sends `demo_video_seen` with that location once, and with the placeholder shown neither fires.
+- [x] `manifesto_film_seen` fires once when the film comes on screen, with `location` `manifesto` on /manifesto and `prepare_end` on the /prepare end screen; `manifesto_film_play` still fires as before.
 - [ ] Screenshots at 375, 320 and desktop of /change-managers, /hospitals (value section before the new one) and /coach (unmuted exchange before it), plus desktop of /builders, /hiring and /founder, pass the visual QA checklist, reviewed by a separate agent; the founder photo is checked at the same widths.
 - [ ] No `[FOUNDER DECISION` text appears in the production build: heading, steps, placeholder, error line and link are the founder's wording before `/ship` (verified by a grep of `dist/` after `npm run build`).
 
@@ -115,7 +115,7 @@ Blast radius: six public landing pages and one shared section; no data, auth or 
 
 ## Pre-deploy Checklist
 
-- [ ] Upload the 640×640 founder photo to `gs://claritypledge-story-images/founder/founder-photo-640-v1.jpg` (founder approves the upload) and confirm its public URL returns 200 with `image/jpeg`.
+- [x] Upload the 640×640 founder photo to `gs://claritypledge-story-images/founder/founder-photo-640-v1.jpg` (founder approves the upload) and confirm its public URL returns 200 with `image/jpeg`.
 - [ ] If the demo is ready: upload it and its poster under `demo/`, set the constant, confirm both URLs return 200 with `video/mp4` and `image/jpeg`.
 
 ## Cost Budget
@@ -132,6 +132,14 @@ The demo is served from the GCS media bucket (registry row "Google Cloud Storage
 1. **Fits?** Monthly cost = (landing visitors per month × 0.14 MB + plays per month × video MB) / 1024 × the registry's egress price per GB. At the founder clip's play rate (5 plays in 180 days), and even at the P1701 falsifier's 1-in-20 play rate, the result is negligible (figure kept private). Verdict: fits. There is no cap, and the clip it replaces cost about the same per play.
 2. **Failure mode:** a failed load costs nothing further (no retry loop).
 3. **Guard:** click-to-play only; no autoplay or preload.
+
+## Build Notes
+
+- Founder photo uploaded 2026-11-18 to `founder/founder-photo-640-v1.jpg`: HTTP 200, `image/jpeg`, 39,040 bytes (same bytes as the ladischenski.com file).
+- Changed assertions in existing tests: `founder-credibility.test.tsx`: link name "Watch the full talk on YouTube" → "Watch my talk on YouTube"; the two clip tests (facade button, `founder_clip_play`) → one photo test (alt text, bucket URL, no play button, no video, no event). `p1674-fable-use-case-pages.test.tsx`: "founder talk clip sends founder_clip_play" (4 pages) → "founder photo present, no founder-clip button". `p1682-manifesto-film.test.tsx`: added `manifesto_film_seen` tests; play tests unchanged.
+- New tests: `p1704-how-it-works-demo.test.tsx` (placement on six pages, placeholder, error frame, /communities untouched, section events per location) and `p1704-demo-page-events.test.tsx` (each real page sends both events with its own location; control: /hiring set to "coach" fails it).
+- Review: Gemini, GLM, Codex and a criteria reviewer (4 of 4). Fixed: page-level event tests. Set aside, listed to the founder: placeholder copy (blocks ship by design, criterion 9); no retry button on the error frame; `demo_video_play` fires on the Play click rather than on playback (same as `manifesto_film_play`, so the comparison stays like for like); heading not using SectionHeading (it requires a section number, which the spec rules out). Dropped as false: photo not uploaded; unused imports.
+- Visual QA (separate agent, 8 screenshots): no overflow at 320/375; issues surfaced to the founder: the desktop demo frame (max-w-3xl) leaves white space beside it next to the full-width steps row; the photo cap (360px desktop, 320px phone) leaves gutters. Older issues outside this change: founder block inset, the YouTube link's touch target, the eyebrow orphan word on phones.
 
 ## Open Questions
 
