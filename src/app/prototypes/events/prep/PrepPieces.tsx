@@ -469,9 +469,12 @@ export function PrepBlock({
   onPrepare,
   onRemind,
   required = false,
+  pendingMinutes = 10,
 }: {
   /** P1529 E4: the mastermind's preparation is required, not asked about; its words say so. */
   required?: boolean;
+  /** The number the question shows until `minutes` is known: the series' stated length, else 10 (P1675 R10). */
+  pendingMinutes?: number;
   progress: Progress;
   minutes: number | null;
   reminded: boolean;
@@ -505,9 +508,9 @@ export function PrepBlock({
       <section className="space-y-2 pt-2 text-center" data-testid="prep-block">
         {notStarted ? (
           <>
-            {/* Rendered at once: 10 stands in until the points load. */}
+            {/* Rendered at once: the series' stated length (P1675 R10: Clarity Night and hikes, 15), else 10, stands in until the points load. */}
             <h1 className="text-2xl font-bold leading-tight text-foreground" data-testid="prep-question" data-ready={minutes !== null}>
-              {required ? `Do your ${minutes ?? 15}-minute preparation` : `Do you have ${minutes ?? 10} minutes to prepare for the event?`}
+              {required ? `Do your ${minutes ?? 15}-minute preparation` : `Do you have ${minutes ?? pendingMinutes} minutes to prepare for the event?`}
             </h1>
           </>
         ) : (

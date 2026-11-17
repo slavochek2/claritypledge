@@ -366,7 +366,7 @@ export function buildConfirmation(
 /**
  * The 24h reminder. Preparation off (or unknown) → today's reminder, unchanged.
  * P1380, Preparation on — the same layout and question as the registration email:
- *   - not started → "Do you have 10 minutes to prepare for the event?" + Prepare now
+ *   - not started → "Do you have 15 minutes to prepare for the event?" + Prepare now
  *   - started → "Finish your preparation" + Continue your preparation (the app's label)
  *   - prepared → "See you tomorrow", status "You're prepared ✓", no button
  * No button without a link: if the ticket could not be minted, it points at the event page.

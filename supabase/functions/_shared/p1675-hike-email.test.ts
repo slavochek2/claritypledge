@@ -238,10 +238,10 @@ Deno.test('R7: hike preparation emails state no minute count; Clarity Night and 
   // control: the same regex does catch Clarity Night's number
   const nightOn = { ...night, preparation_enabled: true };
   assert(MINUTES.test(allText(buildConfirmation(nightOn, 'A', PREP_URL))));
-  assert(buildConfirmation(nightOn, 'A', PREP_URL).subject.startsWith('10 minutes to prepare for'));
-  assert(buildReminder(nightOn, 'A', { prep: 'not_started', prepareUrl: PREP_URL }).subject.includes('10 minutes to prepare?'));
-  assert(buildConfirmation(nightOn, 'A', PREP_URL).text.includes('Do you have 10 minutes to prepare for the event?'));
-  assert(buildReminder(nightOn, 'A', { prep: 'not_started', prepareUrl: PREP_URL }).text.includes('Do you have 10 minutes to prepare for the event?'));
+  assert(buildConfirmation(nightOn, 'A', PREP_URL).subject.startsWith('15 minutes to prepare for'));
+  assert(buildReminder(nightOn, 'A', { prep: 'not_started', prepareUrl: PREP_URL }).subject.includes('15 minutes to prepare?'));
+  assert(buildConfirmation(nightOn, 'A', PREP_URL).text.includes('Do you have 15 minutes to prepare for the event?'));
+  assert(buildReminder(nightOn, 'A', { prep: 'not_started', prepareUrl: PREP_URL }).text.includes('Do you have 15 minutes to prepare for the event?'));
   const mmOn = { ...mm, preparation_enabled: true };
   assert(buildConfirmation(mmOn, 'A', PREP_URL).subject.startsWith('Your 15-minute preparation for'));
   assert(buildReminder(mmOn, 'A', { prep: 'not_started', prepareUrl: PREP_URL }).text.includes('Do your 15-minute preparation'));

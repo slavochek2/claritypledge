@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { EventWithHost } from '@/app/types';
-import { hikeIntroductionMinutes } from '@/app/prototypes/events/components/use-hike-minutes';
 import {
   buildPlan,
   CANVAS_STEP_SECONDS,
@@ -37,14 +36,10 @@ function preparationPageMinutes(event: EventWithHost, cards: CardCounts): number
   return preparationMinutes(plan, [], cards, true);
 }
 
+// R10: the form no longer computes (it prints the recipe's stated 15); the computed rule below still sets a started person's
+// remaining time and the per-step rows, and is tested through the preparation page's own computation.
 describe('P1675 R8: the minutes match the real time', () => {
-  it('(a) the form and the preparation page return the same number for a new person', () => {
-    for (let n = 6; n <= 12; n++) {
-      const cards = { cmp7: n, stake: 0 };
-      expect(hikeIntroductionMinutes(hike, cards)).toBe(preparationPageMinutes(hike, cards));
-    }
-  });
-
+  // (a), a function compared with itself, was deleted: (b) already asserts the same computed rule against an independent oracle.
   it('(b) the number is the sum of per-row rounded (unscaled seconds x factor); 8 and 9 cards give 14 or 15', () => {
     for (const n of [7, 8, 9]) {
       const cards = { cmp7: n, stake: 0 };
@@ -66,7 +61,7 @@ describe('P1675 R8: the minutes match the real time', () => {
         }
       };
       const expected = plan.reduce((sum, s) => sum + Math.max(1, Math.round((unscaled(s) * OBSERVED_TIME_FACTOR) / 60)), 0);
-      const actual = hikeIntroductionMinutes(hike, cards);
+      const actual = preparationPageMinutes(hike, cards);
       expect(actual).toBe(expected);
       if (n === 8 || n === 9) expect([14, 15]).toContain(actual);
     }

@@ -61,7 +61,7 @@ describe('P1542 recipes: Clarity Night is unchanged', () => {
   });
 
   it('keeps preparation required by the flag, with every step', () => {
-    expect(CLARITY_NIGHT_RECIPE.prepare).toEqual({ steps: ALL_STEPS, listeningGame: true, optional: false, offer: null, words: null });
+    expect(CLARITY_NIGHT_RECIPE.prepare).toEqual({ steps: ALL_STEPS, listeningGame: true, statedMinutes: 15, optional: false, offer: null, words: null });
     expect(offersPreparation({ preparationEnabled: false, seriesSlug: 'clarity-night' })).toBe(false);
     expect(offersPreparation({ preparationEnabled: true, seriesSlug: 'clarity-night' })).toBe(true);
     expect(gatesRoomOnPreparation({ preparationEnabled: true, seriesSlug: 'clarity-night' })).toBe(true);

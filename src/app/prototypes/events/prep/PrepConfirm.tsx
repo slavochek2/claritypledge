@@ -72,6 +72,7 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
         <PrepBlock
           progress={state.progress}
           minutes={state.minutes}
+          pendingMinutes={recipeForEvent(event).prepare.statedMinutes ?? 10}
           required={canvasAtEvent(event)}
           reminded={reminded}
           proof={{ line: proofLine, people: proof?.preparedPeople ?? [] }}

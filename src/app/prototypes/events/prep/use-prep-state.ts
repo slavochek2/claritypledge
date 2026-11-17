@@ -37,7 +37,7 @@ import { shareInFlight } from '@/lib/share-in-flight';
 import { whenVisible } from '../when-visible';
 import { offersPreparation, recipeForEvent } from '../series-recipes';
 import { useMyRegistrationArrivalRead, type MyArrival } from '../use-my-arrival';
-import { planTotalMinutes } from './prep-resume';
+import { planTotalMinutes, planTotalOnly } from './prep-resume';
 import { canvasAtEvent, prepareStepsFor, prepStatementTag } from './prep-timing';
 import { OBSERVER_PREP_MINUTES, OWNER_PREP_MINUTES, PREP_MINUTES } from '../components/registration-copy';
 
@@ -218,14 +218,21 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     // The mastermind says the real time by role before anything is done (founder, 2026-11-06); the role is unknown until read.
     const untouched = !startedAt && stepsDone.length === 0;
     // Sales mastermind, one rule: before starting, one total for the role and no row minutes; once started, neither (founder, 2026-11-09).
-    const minutes = planTotalMinutes({ mastermind, untouched, roleMinutes: arrival ? (canvasAtEvent(event) ? PREP_MINUTES : arrival.owner ? OWNER_PREP_MINUTES : OBSERVER_PREP_MINUTES) : null, computed });
-    return { plan, stepsDone, progress, withPrincipleIntro, cards, minutes, totalOnly: mastermind, learned: hasLearned(parts, prep?.completedAt) };
+    const statedMinutes = recipeForEvent(event).prepare.statedMinutes;
+    // A series with a stated length shows min(computed remaining, stated): never above it, only shrinking. Mastermind: `untouched`.
+    // A brand-new person (nothing learned anywhere, no step of this event done) is told the stated length itself.
+    const brandNew = isNewPerson(parts) && progress.done === 0;
+    const minutes = planTotalMinutes({ mastermind, untouched, roleMinutes: arrival ? (canvasAtEvent(event) ? PREP_MINUTES : arrival.owner ? OWNER_PREP_MINUTES : OBSERVER_PREP_MINUTES) : null, computed, statedMinutes, brandNew });
+    // When the stated number is the one shown, the rows' computed minutes (which would not sum to it) are hidden with it.
+    const totalOnly = planTotalOnly({ mastermind, computed, statedMinutes, brandNew });
+    return { plan, stepsDone, progress, withPrincipleIntro, cards, minutes, totalOnly, learned: hasLearned(parts, prep?.completedAt) };
   }, [parts, prep, tag, eventPoints, cmp7Points, event?.seriesSlug, event?.flow, event?.canvasTiming, arrival, arrivalError]);
 
+  // Disabled inputs (no event, no viewer, preparation off) answer "idle" on the same render — never one extra
+  // "loading" render; otherwise loading until the read for exactly these inputs has finished.
+  const isLoading = idle ? false : loading || answeredKey !== inputKey || arrival === undefined;
   return {
-    // Disabled inputs (no event, no viewer, preparation off) answer "idle" on the same render — never one extra
-    // "loading" render; otherwise loading until the read for exactly these inputs has finished.
-    loading: idle ? false : loading || answeredKey !== inputKey || arrival === undefined,
+    loading: isLoading,
     error,
     prep,
     parts,
@@ -236,6 +243,8 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     arrivalError,
     retryArrival,
     ...derived,
+    // No number before the read is in: the stated value must not show for a returning person whose progress has not loaded.
+    minutes: isLoading ? null : derived.minutes,
     reload,
     setPrep,
     setParts,

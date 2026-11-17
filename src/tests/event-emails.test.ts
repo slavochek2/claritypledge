@@ -29,7 +29,20 @@ describe('invokeEventEmails', () => {
     await invokeEventEmails('rsvp', 'event-456');
 
     expect(mockInvoke).toHaveBeenCalledWith('send-event-emails', {
-      body: { action: 'rsvp', eventId: 'event-456', userId: undefined },
+      body: { action: 'rsvp', eventId: 'event-456', userId: undefined, origin: window.location.origin },
+    });
+  });
+
+  it('P1675 R11: sends the page origin so TEST links follow the registering page', async () => {
+    mockInvoke.mockResolvedValue({ error: null });
+    vi.stubGlobal('window', { location: { origin: 'http://localhost:7100' } });
+    try {
+      await invokeEventEmails('rsvp', 'event-456');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(mockInvoke).toHaveBeenCalledWith('send-event-emails', {
+      body: { action: 'rsvp', eventId: 'event-456', userId: undefined, origin: 'http://localhost:7100' },
     });
   });
 
@@ -39,7 +52,7 @@ describe('invokeEventEmails', () => {
     await invokeEventEmails('cancel', 'event-789', 'user-1');
 
     expect(mockInvoke).toHaveBeenCalledWith('send-event-emails', {
-      body: { action: 'cancel', eventId: 'event-789', userId: 'user-1' },
+      body: { action: 'cancel', eventId: 'event-789', userId: 'user-1', origin: window.location.origin },
     });
   });
 

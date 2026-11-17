@@ -89,9 +89,9 @@ Deno.test('purposePath: destination fixed by purpose', () => {
 
 Deno.test('confirmation: the question is the subject and the headline; registered is small; one box', () => {
   const m = buildConfirmation(night, 'Anna Lee', 'https://x/l?t=1');
-  assertEquals(m.subject, '10 minutes to prepare for Clarity Night?');
+  assertEquals(m.subject, '15 minutes to prepare for Clarity Night?');
   assertStringIncludes(m.html, "✓ You're registered for Clarity Night");
-  assertStringIncludes(m.html, 'Do you have 10 minutes to prepare for the event?');
+  assertStringIncludes(m.html, 'Do you have 15 minutes to prepare for the event?');
   assert(m.html.indexOf('Our events are different') < m.html.indexOf('Prepare now'));
   assertStringIncludes(m.html, 'We start at 18:30 sharp.');
   assertStringIncludes(m.html, 'display:none'); // preheader
@@ -108,8 +108,8 @@ Deno.test('reminder: Preparation off → today\'s reminder, unchanged', () => {
 });
 Deno.test('reminder: not started → the same question, Prepare now', () => {
   const r = buildReminder(night, 'Anna', { prep: 'not_started', prepareUrl: 'https://x/l?t=1' });
-  assertEquals(r.subject, 'Tomorrow 18:30 · 10 minutes to prepare?');
-  assertStringIncludes(r.html, 'Do you have 10 minutes to prepare for the event?');
+  assertEquals(r.subject, 'Tomorrow 18:30 · 15 minutes to prepare?');
+  assertStringIncludes(r.html, 'Do you have 15 minutes to prepare for the event?');
   assertStringIncludes(r.html, 'Prepare now');
   assertStringIncludes(r.html, 'We start at 18:30 sharp.');
 });
@@ -166,4 +166,6 @@ Deno.test('mastermind confirmation and reminder: required 15-minute preparation,
   assertEquals(r.html.includes('10 minutes'), false);
   const before = buildConfirmation({ ...mm, canvas_timing: 'before' }, 'Ann', 'https://x/p');
   assertStringIncludes(before.html, 'Do you have 10 minutes to prepare for the event?');
+  assertEquals(before.subject, '10 minutes to prepare for Clarity Night?');
+  assertEquals(buildReminder({ ...mm, canvas_timing: 'before' }, 'Ann', { prep: 'not_started', prepareUrl: 'https://x/p' }).subject, 'Tomorrow 18:30 · 10 minutes to prepare?');
 });

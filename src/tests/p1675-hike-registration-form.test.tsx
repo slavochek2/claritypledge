@@ -11,6 +11,7 @@ const toastFn = vi.hoisted(() => vi.fn());
 vi.mock('sonner', () => ({ toast: toastFn }));
 
 import { HikeRegistrationQuestions, hikeMissingKeys, seatsOf } from '@/app/prototypes/events/components/HikeRegistrationQuestions';
+import { SOCIAL_HIKE_RECIPE } from '@/app/prototypes/events/series-recipes';
 import { laterAllowed, type HikeAnswers } from '@/app/data/hike-answer-model';
 
 const FAR = new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString();
@@ -41,7 +42,14 @@ describe('P1675 hike form: copy', () => {
     for (const l of ['Just attend as a participant', 'Lead', 'Sweep', 'Welcomer', 'Other']) expect(screen.getByLabelText(l)).toBeTruthy();
   });
 
-  it('the minutes are not a literal: another length prints another number, in the "now" option only', () => {
+  it('R10: the "now" option says the recipe\'s stated minutes', () => {
+    const stated = SOCIAL_HIKE_RECIPE.prepare.statedMinutes;
+    open({ minutes: stated });
+    expect(screen.getByLabelText(`I have ${stated} minutes, I'll do it now`)).toBeTruthy();
+    expect(stated).toBe(15);
+  });
+
+  it('the lead line carries no number; the "now" option prints the minutes it is given', () => {
     open({ minutes: 14 });
     expect(screen.getByTestId('hike-lead-line').textContent).not.toMatch(/\d/);
     expect(screen.getByLabelText("I have 14 minutes, I'll do it now")).toBeTruthy();

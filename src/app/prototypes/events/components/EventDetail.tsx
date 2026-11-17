@@ -57,7 +57,7 @@ import { RsvpButton } from './RsvpButton';
 import { EventWaitlistList } from './EventWaitlistList';
 import { RegistrationQuestions } from './RegistrationQuestions';
 import { HikeRegistrationQuestions } from './HikeRegistrationQuestions';
-import { useHikeMinutes } from './use-hike-minutes';
+import { hikeStatedMinutes } from './use-hike-minutes';
 import { useEventRoomCounts } from './use-event-room-counts';
 import { useHikeAnswersForHost } from './use-hike-answers-for-host';
 import { hikeHostLine } from './hike-host-line';
@@ -434,7 +434,7 @@ export function EventDetail() {
   const registrationKind = recipeForEvent(event).registration;
   const asksBeforeSeat = !!registrationKind;
   const asksMastermind = registrationKind === 'mastermind';
-  const hikeMinutes = useHikeMinutes(event, registrationKind === 'hike');
+  const hikeMinutes = hikeStatedMinutes(event, registrationKind === 'hike');
   const myArrival = useMyRegistrationArrival(event, user?.id);
   // P1586: nothing of the page is drawn yet, so the one page loader.
   const showRefusal = (refusal: 'full' | 'cancelled') => {

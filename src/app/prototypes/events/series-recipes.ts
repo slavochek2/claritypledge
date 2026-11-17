@@ -64,6 +64,8 @@ export interface SeriesRecipe {
     steps: PlanStep[];
     /** P1685: the series has the `game` step. Off removes it from the plan (prepareStepsFor). */
     listeningGame: boolean;
+    /** R10: the whole introduction's length said before a person starts ("15 minutes", not a computed number). Absent = computed. */
+    statedMinutes?: number;
     /** Offered from the event room, never required: no room gate, no `preparation_enabled` needed. */
     optional: boolean;
     /** P1549: this series' own why above the steps. Absent = the shared community text (prep-why.ts). */
@@ -130,7 +132,7 @@ export const CLARITY_NIGHT_RECIPE: SeriesRecipe = {
   joinOffer: { named: false },
   afterChatCaption: null,
   smartOffers: false,
-  prepare: { steps: ALL_STEPS, listeningGame: true, optional: false, offer: null, words: null },
+  prepare: { steps: ALL_STEPS, listeningGame: true, statedMinutes: 15, optional: false, offer: null, words: null },
   timeLine: 'start-sharp',
   room: {
     readiness: true,
@@ -181,6 +183,7 @@ export const SOCIAL_HIKE_RECIPE: SeriesRecipe = {
   prepare: {
     steps: ALL_STEPS.filter((s) => s !== 'welcome' && s !== 'research'),
     listeningGame: true,
+    statedMinutes: 15,
     optional: true,
     keepFinished: true,
     offer: {
@@ -237,7 +240,8 @@ export const SALES_MASTERMIND_RECIPE: SeriesRecipe = {
   roomClose: { title: null, body: 'Takes 2 minutes', heading: 'How was the evening?', cta: 'Start now', finished: 'Thanks, your feedback is in.' },
   // The thank-you's next-event invitation is Clarity Night's ("Join the next Clarity Night"): not offered here.
   next: null,
-  prepare: { ...CLARITY_NIGHT_RECIPE.prepare, steps: ['story', 'game', 'principle', 'cmp7', 'canvas'], optional: true, keepFinished: true },
+  // statedMinutes is reset on purpose: the spread would inherit Clarity Night's 15, and the mastermind says its own role minutes.
+  prepare: { ...CLARITY_NIGHT_RECIPE.prepare, statedMinutes: undefined, steps: ['story', 'game', 'principle', 'cmp7', 'canvas'], optional: true, keepFinished: true },
   // Founder UAT round 1: "Learn and prepare" stays in the room's step bar for everyone, done or not, as on the hikes (their pattern).
   room: { ...CLARITY_NIGHT_RECIPE.room, readiness: false, feedbackAnytime: true, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Feedback' } },
   registration: 'mastermind',

@@ -1,10 +1,12 @@
 import type { EventRow } from './email-helpers.ts';
-import { isHike } from './event-flow.ts';
+import { eventFlow, isHike } from './event-flow.ts';
 
 /** The app's own words for why we ask (src/app/prototypes/events/prep/PrepPieces.tsx PrepBlock). */
 export const PREP_WHY_TITLE = 'Our events are different';
 export const PREP_WHY_BODY = 'We use a special structure, and we ask every participant to prepare.';
-const PREP_QUESTION = 'Do you have 10 minutes to prepare for the event?';
+/** Clarity Night says 15 (the app's stated length); any other flow that reaches the default wording (a mastermind with its canvas before) keeps its 10. */
+const defaultPrepMinutes = (e: EventRow) => (eventFlow(e) === 'clarity-night' ? 15 : 10);
+const prepQuestionDefault = (e: EventRow) => `Do you have ${defaultPrepMinutes(e)} minutes to prepare for the event?`;
 const PREP_PAYOFF = 'Your short preparation will make the event discussions more meaningful.';
 
 /**
@@ -28,11 +30,11 @@ const MM_PREP_PAYOFF = `Preparation is required: at home before the event, or 15
  */
 const HIKE_PREP_QUESTION = 'Do the short introduction before the hike';
 const HIKE_PREP_REMINDER_QUESTION = 'Have you done the short introduction for the hike?';
-export const prepQuestionOf = (e: EventRow) => (mastermindPrepAtEvent(e) ? MM_PREP_QUESTION : isHike(e) ? HIKE_PREP_QUESTION : PREP_QUESTION);
+export const prepQuestionOf = (e: EventRow) => (mastermindPrepAtEvent(e) ? MM_PREP_QUESTION : isHike(e) ? HIKE_PREP_QUESTION : prepQuestionDefault(e));
 /** The reminder's question while the preparation is not started; same as the confirmation's except for a hike. */
 export const prepReminderQuestionOf = (e: EventRow) => (isHike(e) ? HIKE_PREP_REMINDER_QUESTION : prepQuestionOf(e));
 export const prepPayoffOf = (e: EventRow) => (mastermindPrepAtEvent(e) ? MM_PREP_PAYOFF : PREP_PAYOFF);
 export const prepSubject = (e: EventRow) =>
-  mastermindPrepAtEvent(e) ? `Your 15-minute preparation for ${e.title}` : isHike(e) ? `Do the short introduction before ${e.title}` : `10 minutes to prepare for ${e.title}?`;
+  mastermindPrepAtEvent(e) ? `Your 15-minute preparation for ${e.title}` : isHike(e) ? `Do the short introduction before ${e.title}` : `${defaultPrepMinutes(e)} minutes to prepare for ${e.title}?`;
 export const prepReminderSubject = (e: EventRow, at: string) =>
-  mastermindPrepAtEvent(e) ? `Tomorrow ${at} · your 15-minute preparation` : isHike(e) ? `Tomorrow ${at} · the short introduction` : `Tomorrow ${at} · 10 minutes to prepare?`;
+  mastermindPrepAtEvent(e) ? `Tomorrow ${at} · your 15-minute preparation` : isHike(e) ? `Tomorrow ${at} · the short introduction` : `Tomorrow ${at} · ${defaultPrepMinutes(e)} minutes to prepare?`;

@@ -72,6 +72,12 @@ export function useRoomPrepGate(event: EventWithHost | null, granted: boolean): 
   return { gate: !hasBypassedPrep(event.id, viewerId) };
 }
 
+/** P1675 R10: a series that states its introduction's length says it here too; every other flow keeps "Ten minutes". */
+export function roomGatePrepLine(event: EventWithHost): string {
+  const stated = recipeForEvent(event).prepare.statedMinutes;
+  return stated ? `${stated} minutes of preparation lets you take part fully.` : 'Ten minutes of preparation lets you take part fully.';
+}
+
 export function PrepRoomGate({ event, onJoin }: { event: EventWithHost; onJoin: () => void }) {
   const navigate = useNavigate();
   const viewerId = useViewerId();
@@ -83,7 +89,7 @@ export function PrepRoomGate({ event, onJoin }: { event: EventWithHost; onJoin: 
       {/* [DRAFT] */}
       <h1 className="text-2xl font-bold leading-snug text-foreground">You haven&apos;t prepared yet</h1>
       <p className="text-base leading-relaxed text-muted-foreground">
-        The discussion uses a special structure. Ten minutes of preparation lets you take part fully.
+        The discussion uses a special structure. {roomGatePrepLine(event)}
       </p>
       <div className="flex flex-col items-center gap-1">
         <LetterPrimaryCta label="Prepare now" onClick={() => navigate(`/events/${event.slug}/prepare?from=room`)} />
