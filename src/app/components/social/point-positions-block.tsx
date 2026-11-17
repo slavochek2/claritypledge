@@ -10,7 +10,7 @@
  * keeps both in component state, per point, and never writes the address.
  */
 import { AgentByline } from '@/app/components/shared/agent-byline';
-import { useEffect, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import type { PointPositionWithUser, PositionType, PositionButtonGroup, StoryWithAuthor, Story as AppStory } from '@/app/types';
@@ -72,6 +72,8 @@ interface PointPositionsBlockProps {
   collapseOnEscape?: boolean;
   /** P1515: set only by the canvas page. */
   canvas?: PointPositionsBlockCanvas;
+  /** P1061: a line above the filter tabs, inside the block's frame (the point page's Positions | Changes switch). */
+  header?: ReactNode;
 }
 
 export function PointPositionsBlock({
@@ -88,6 +90,7 @@ export function PointPositionsBlock({
   storyShownAbove,
   collapseOnEscape = false,
   canvas,
+  header,
 }: PointPositionsBlockProps) {
   const navigate = useNavigate();
 
@@ -157,6 +160,7 @@ export function PointPositionsBlock({
     <div role="presentation" onKeyDown={onKeyDown} data-testid="point-positions-block">
       {/* Positions section */}
       <div className="bg-card border border-border rounded-lg overflow-hidden">
+        {header}
         {/* Filter tabs */}
         <FilterTabs
           activeFilter={positionFilter}

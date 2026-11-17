@@ -27,7 +27,7 @@ import { StoryCardWithLinks, type StoryAuthor } from '@/app/components/social/st
 import type { Story as ProtoStory, Point as ProtoPoint } from '@/app/components/shared/prototype-types';
 import { useAuth } from '@/auth';
 import { storiesService } from '@/app/data/stories-service';
-import { resolveStorySlug } from '@/app/data/stories-service-real';
+import { getStoryPageStory, resolveStorySlug } from '@/app/data/story-page-reads';
 import { pointsService } from '@/app/data/points-service';
 import { useVerificationGate } from '@/app/hooks/useVerificationGate';
 import { StoryCardDetail } from '@/app/components/social/StoryCardDetail';
@@ -798,7 +798,7 @@ export function StoryDetailPage() {
         }
         };
 
-        const read = await readThrough('story', storyId, () => storiesService.getStoryWithPoints(storyId), {
+        const read = await readThrough('story', storyId, () => getStoryPageStory(storyId), {
           // P1337: a slow network's late answer replaces the saved copy.
           onLate: late => {
             if (cancelled) return;

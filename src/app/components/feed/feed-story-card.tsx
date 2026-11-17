@@ -13,6 +13,7 @@ import { stripHashtags } from '@/lib/utils';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
+import { FeedStoryFigures } from './feed-story-badges';
 import { linkifyText } from '@/app/utils/linkify';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { storyTextForDisplay } from '@/lib/story-quotes';
@@ -424,9 +425,9 @@ function FullFeedStoryCard({
                 `empty:hidden` — the share control used to share this row; with it moved out (the
                 `⋯` menu since P1366), an agent story leaves the row empty and must not keep its
                 margin. */}
-            <div className="mt-2 flex items-center gap-2 empty:hidden">
+            <FeedStoryFigures story={story} isAgent={isAgent} identityPending={identityPending} className="mt-2 flex items-center gap-2 empty:hidden">
               {!isAgent && !identityPending && <UnderstoodBadge count={story.understoodCount} size="xs" />}
-            </div>
+            </FeedStoryFigures>
           </div>
         </div>
       </div>

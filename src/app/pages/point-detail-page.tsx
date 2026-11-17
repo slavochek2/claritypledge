@@ -28,8 +28,7 @@ import {
 } from '@/app/components/shared';
 import { RemovePositionDialog, useRemovePositionGuard } from '@/app/components/shared/remove-position-dialog';
 import { PointCardWithLinks, type PointProfileOwner } from '@/app/components/social/point-card-with-links';
-import { PointPositionsBlock } from '@/app/components/social/point-positions-block';
-import { PointSpreadRow } from '@/app/components/shared/position-spread';
+import { PointCardSpread, PointPositionsWithChanges } from '@/app/components/movement/point-movement-block';
 import type { Point as ProtoPoint, Story as ProtoStory } from '@/app/components/shared/prototype-types';
 import { linkifyText } from '@/app/utils/linkify';
 import { InlineVisibilityIcon } from '@/app/components/shared';
@@ -573,7 +572,7 @@ export function PointDetailPage() {
 
               {/* P1508 R3–R5: how everyone stands, then the reader's own position; the buttons carry
                   no counts (the "Filter by position" tabs below keep them). */}
-              <PointSpreadRow counts={buttonCounts} withInfo className="mb-2" />
+              <PointCardSpread point={point} viewer={user} counts={buttonCounts} />
 
               {/* Position buttons (interactive) */}
               <PositionButtons
@@ -605,8 +604,11 @@ export function PointDetailPage() {
       </div>
 
 
-      {/* P1508 D6: the "Filter by position" block, shared with the canvas's open point. */}
-      <PointPositionsBlock
+      {/* P1508 D6: the "Filter by position" block, shared with the canvas's open point; P1061: with its
+          "Positions | Changes" switch, here only. */}
+      <PointPositionsWithChanges
+        point={point}
+        signedIn={!!user}
         positions={positions}
         counts={buttonCounts}
         stories={linkedStories.get(id ?? '') ?? []}

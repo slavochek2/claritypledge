@@ -173,6 +173,11 @@ const gateFixtures = [
     description: 'The canvas page header and boxes in each draft state (?phase=)'
   },
   {
+    path: '/tree/_gate/position-movement',
+    label: 'Gate fixture: position movement',
+    description: 'The story chip, the story panel and the point page Changes view with its filter (?phase=)'
+  },
+  {
     path: '/tree/_gate/clarify-thread',
     label: 'Gate fixture: Clarify thread',
     description: 'A Clarify thread in the Mirror and its draft cards in each state (?phase=)'

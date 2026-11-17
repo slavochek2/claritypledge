@@ -1,0 +1,90 @@
+/**
+ * @file point-changes-people.tsx
+ * @description P1061: the people behind the Changes chart, largest change first, six at a time, each opening
+ * into their own graph and verifications.
+ */
+import { useState } from 'react';
+import { ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
+import { PositionBadge } from '@/app/components/shared/PositionBadge';
+import { POSITION_LABELS } from '@/app/types';
+import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
+import { Button } from '@/components/ui/button';
+import type { PointMovementRows } from '@/app/data/movement-service';
+import { positionOfLevel, verificationsOf, type Reading } from '@/lib/position-movement';
+import { PersonLog } from './movement-charts';
+
+const ROWS_SHOWN = 6;
+
+const said = (level: number) => POSITION_LABELS[positionOfLevel(level)];
+
+/** One person: the first position, the latest one, and their whole graph and log behind the row. */
+function PersonRow({ reading, data, open, onToggle }: { reading: Reading; data: PointMovementRows; open: boolean; onToggle: () => void }) {
+  const person = data.people.get(reading.userId);
+  const name = person?.name ?? 'Someone';
+  const { first, latest } = reading;
+  const verifications = verificationsOf(reading.userId, data.stories, data.verifications, data.agentIds).map(v => ({
+    storyId: v.storyId,
+    authorName: data.people.get(v.authorId)?.name ?? 'Someone',
+    at: v.at,
+  }));
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-label={`${name}’s positions over time: ${said(first)}${latest !== first ? `, then ${said(latest)}` : ', unchanged'}`}
+        onClick={onToggle}
+        className="flex min-h-11 w-full items-start gap-3 rounded-lg border border-border bg-muted p-3 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:items-center"
+      >
+        <GravatarAvatar
+          name={name}
+          size="sm"
+          photoUrl={person?.avatarUrl ?? undefined}
+          avatarColor={person?.avatarColor ?? undefined}
+          isPledger={person?.hasPledged ?? false}
+          showRing={false}
+          className="!h-5 !w-5 !text-[10px]"
+        />
+        {/* Phone: the name and the arrow share the first line, the change takes the whole width under them. */}
+        <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_auto]">
+          <span className="truncate text-sm font-medium text-foreground">{name}</span>
+          <span className="sm:order-3">
+            {open ? <ChevronDown size={14} className="shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight size={14} className="shrink-0 text-muted-foreground" aria-hidden />}
+          </span>
+          <span className="col-span-2 inline-flex min-w-0 items-center gap-1.5 sm:order-2 sm:col-span-1" data-testid="row-change">
+            <PositionBadge position={positionOfLevel(first)} />
+            <ArrowRight size={12} className="shrink-0 text-muted-foreground" aria-hidden />
+            <PositionBadge position={positionOfLevel(latest)} />
+          </span>
+        </span>
+      </button>
+      {open && (
+        <div className="ml-2 mt-2 border-l-2 border-gray-200 pb-1 pl-4">
+          <PersonLog entries={reading.entries} verifications={verifications} name={name} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The people behind the chart, largest change first. Six at a time. */
+export function PointChangesPeople({ readings, data }: { readings: Reading[]; data: PointMovementRows }) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
+  const nameOf = (r: Reading) => data.people.get(r.userId)?.name ?? 'Someone';
+  const sorted = [...readings].sort((a, b) => Math.abs(b.latest - b.first) - Math.abs(a.latest - a.first) || nameOf(a).localeCompare(nameOf(b)));
+  const shown = all ? sorted : sorted.slice(0, ROWS_SHOWN);
+  if (sorted.length === 0) return <p className="py-3 text-center text-sm text-muted-foreground">(nobody here)</p>;
+  return (
+    <div className="space-y-3">
+      {shown.map(r => (
+        <PersonRow key={r.userId} reading={r} data={data} open={openId === r.userId} onToggle={() => setOpenId(openId === r.userId ? null : r.userId)} />
+      ))}
+      {sorted.length > ROWS_SHOWN && (
+        <Button variant="outline" className="min-h-11 w-full" onClick={() => setAll(!all)}>
+          {all ? `Show ${ROWS_SHOWN}` : `Show all ${sorted.length}`}
+        </Button>
+      )}
+    </div>
+  );
+}

@@ -131,23 +131,23 @@ Other words, unchanged, include "N moved", "Verified", "Not verified", "switched
 
 ## Acceptance Criteria
 
-- [ ] A story with at least one verified person who moved on one of its points shows "N moved" with the right N, on the feed, the stake page, a pinned story and the story page.
-- [ ] A story with none shows no chip; an agent-authored story never shows one.
-- [ ] On the story page, "N moved" opens the panel; each point shows the Verified bar with its parts, including people who kept their position as "same"; the Not verified bar appears only for 5 or more people, otherwise the withheld line.
-- [ ] Story points on the story page look and link as before; the arrows chip appears only when someone moved.
-- [ ] On a public point page, Changes lists the holders with at least two positions, never an agent account, and never anyone absent from Positions; on a non-public point, only its first validator sees Changes.
-- [ ] Opening a person in Changes shows their graph and one line per story that verified them, each linking to that story; a story the viewer cannot open has no line.
-- [ ] The Filter pill shows only while Changes is open; choosing people, an event, a group or dates narrows the list as defined and is spelled out under the switch; Reset clears it.
-- [ ] A private group is never offered in the filter; a signed-out visitor is offered people and dates only.
-- [ ] The three corrected sentences read as in the UI Contract.
-- [ ] Returning to the feed with Back shows the chips at once, without a new count request.
+- [x] A story with at least one verified person who moved on one of its points shows "N moved" with the right N, on the feed, the stake page, a pinned story and the story page.
+- [x] A story with none shows no chip; an agent-authored story never shows one.
+- [x] On the story page, "N moved" opens the panel; each point shows the Verified bar with its parts, including people who kept their position as "same"; the Not verified bar appears only for 5 or more people, otherwise the withheld line.
+- [x] Story points on the story page look and link as before; the arrows chip appears only when someone moved.
+- [x] On a public point page, Changes lists the holders with at least two positions, never an agent account, and never anyone absent from Positions; on a non-public point, only its first validator sees Changes.
+- [x] Opening a person in Changes shows their graph and one line per story that verified them, each linking to that story; a story the viewer cannot open has no line.
+- [x] The Filter pill shows only while Changes is open; choosing people, an event, a group or dates narrows the list as defined and is spelled out under the switch; Reset clears it.
+- [x] A private group is never offered in the filter; a signed-out visitor is offered people and dates only.
+- [x] The three corrected sentences read as in the UI Contract.
+- [x] Returning to the feed with Back shows the chips at once, without a new count request.
 
 ## Done-When
 
-- [ ] Every rule in Definitions has a unit test with its expected result, including: two verifications by the same story (counted once, earliest); a verification by someone other than the author (not counted); the author as listener (not counted); a letter row (not counted); a person with no position before the verification (not counted on that point); a removal before the verification (no before); a person who removed their position after it (not counted); a reasoning-only history row (not a change); removing and re-taking the same position (not a change); a person who changed and came back (Same); a person who never changed since (Same); an unrated explain-back (not verified); an agent account (excluded); a story by an agent account (no count); dates that leave one position, or that fall inside a removal (person not listed in the dated view).
-- [ ] The read is checked against today's visibility: as a signed-out visitor, as a signed-in account that is neither the point's first validator nor a holder, and as a former holder of a non-public point, no history, explain-back or membership beyond today's appears.
-- [ ] Browser check at 320, 375 and 1280 on a `/tree/_gate/` fixture rendering the real components with fixture data (`.claude/rules/src.md`, P955 gate fixtures), plus one test-database story with a seeded live 10-rated verification: no overflow, no control under 40px, panel and filter dialog open, fit and close.
-- [ ] The feed makes at most one more request per page of stories than before (counted in the browser's network panel), and a feed page with 1000+ history rows behind it still returns complete counts.
+- [x] Every rule in Definitions has a unit test with its expected result, including: two verifications by the same story (counted once, earliest); a verification by someone other than the author (not counted); the author as listener (not counted); a letter row (not counted); a person with no position before the verification (not counted on that point); a removal before the verification (no before); a person who removed their position after it (not counted); a reasoning-only history row (not a change); removing and re-taking the same position (not a change); a person who changed and came back (Same); a person who never changed since (Same); an unrated explain-back (not verified); an agent account (excluded); a story by an agent account (no count); dates that leave one position, or that fall inside a removal (person not listed in the dated view).
+- [x] The read is checked against today's visibility: as a signed-out visitor, as a signed-in account that is neither the point's first validator nor a holder, and as a former holder of a non-public point, no history, explain-back or membership beyond today's appears.
+- [x] Browser check at 320, 375 and 1280 on a `/tree/_gate/` fixture rendering the real components with fixture data (`.claude/rules/src.md`, P955 gate fixtures), plus one test-database story with a seeded live 10-rated verification: no overflow, no control under 40px, panel and filter dialog open, fit and close.
+- [x] The feed makes at most one more request per page of stories than before (counted in the browser's network panel), and a feed page with 1000+ history rows behind it still returns complete counts.
 
 ## References
 

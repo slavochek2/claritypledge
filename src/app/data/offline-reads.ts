@@ -16,6 +16,7 @@ import { STANDARD_STAKE_TAGS } from '@/app/data/event-links';
 import type { OfflineResourceType, ReadOptions } from '@/lib/offline-read-cache';
 import type { EventWithHost, PointWithUserPosition, StoryWithAuthor } from '@/app/types';
 import type { Organization, OrgEventSummary, OrgParticipation } from '@/app/data/organizations-service.interface';
+import { withMovement } from '@/app/data/movement-for-list';
 
 export interface OfflineRead<T> {
   type: OfflineResourceType;
@@ -53,7 +54,8 @@ export function stakeRead(tag: string, viewerUserId: string | undefined): Offlin
         pointsService.getPublicPointsFeed(STAKE_LIMIT, 0, tag, viewerUserId, true, keepsUnstaked(tag), true), // P1376: current versions only
         storiesService.getPublicStoriesFeed(STAKE_LIMIT, 0, tag, true),
       ]);
-      return { points, stories };
+      // P1061: the stories' "N moved" counts come with them, in one request for the whole list.
+      return { points, stories: await withMovement(stories) };
     },
   };
 }
@@ -91,13 +93,15 @@ export function feedRead(
           storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
           pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending, undefined, ALL_VERSIONS),
         ]);
-        return { stories, points, cloudStories, cloudPoints };
+        // P1061: the listed stories' "N moved" counts come with them, in one request for the whole list.
+        return { stories: await withMovement(stories), points, cloudStories, cloudPoints };
       }
       const [stories, points] = await Promise.all([
         storiesService.getPublicStoriesFeed(FEED_LIMIT, 0, undefined, ascending),
         pointsService.getPublicPointsFeed(FEED_LIMIT, 0, undefined, viewerUserId, ascending, undefined, ALL_VERSIONS),
       ]);
-      return { stories, points, cloudStories: stories, cloudPoints: points };
+      const counted = await withMovement(stories);
+      return { stories: counted, points, cloudStories: counted, cloudPoints: points };
     },
   };
 }

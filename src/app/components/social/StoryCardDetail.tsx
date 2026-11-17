@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
+import { QuotedPointTags, StoryDetailFigures, StoryMovementPoints } from './story-detail-movement';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { useAgentAccountIds } from '@/app/contexts/agent-accounts-context';
 import {
@@ -396,13 +397,13 @@ export function StoryCardDetail({
 
             {/* Stats row - icon-only style */}
             <div className="flex items-center justify-between mt-3">
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <StoryDetailFigures story={story} isAgent={isAgent} identityPending={identityPending} points={displayPoints} className="flex items-center gap-1 text-sm text-muted-foreground">
                 {/* P1141: gate on identityPending, not on isAgent alone. useAgentAccountIds()
                     keeps isLoading true forever on fetch failure — deliberately fail-closed —
                     and reading isAgent while the registry loads renders an agent story as a
                     human one, complete with the count this spec removes. */}
               {!isAgent && !identityPending && <UnderstoodBadge count={story.understoodCount} />}
-              </div>
+              </StoryDetailFigures>
               {showVerifyButton && !isAgent && !identityPending && (
                 <button
                   onClick={onVerify}
@@ -534,7 +535,7 @@ export function StoryCardDetail({
               };
 
               return (
-                <div className="pl-4 sm:pl-[68px] pr-4 pb-4">
+                <StoryMovementPoints story={story} className="pl-4 sm:pl-[68px] pr-4 pb-4">
                   {displayPoints.length === 1 ? (
                     // Single point - no thread lines
                     renderPoint(displayPoints[0])
@@ -551,7 +552,7 @@ export function StoryCardDetail({
                       ))}
                     </ThreadLineGroup>
                   )}
-                </div>
+                </StoryMovementPoints>
               );
             })()}
         </>
@@ -736,7 +737,7 @@ function QuotedPoint({
           <div className="flex-1 min-w-0">
             {/* Point text */}
             <p className="text-sm text-gray-800 break-words"><InlineVisibilityIcon visibility={point.visibility} />{' '}{linkifyText(stripHashtags(point.statement, point.tags))}</p>
-            {((point.tags?.length ?? 0) > 0 || ((point as { systemTags?: string[] }).systemTags?.length ?? 0) > 0) && <TagPills tags={point.tags} systemTags={(point as { systemTags?: string[] }).systemTags} context="detail" className="mt-1" />}
+            <QuotedPointTags point={point} />
 
             {/* Position buttons - scaled to 85% to fit within quoted card width while keeping button proportions */}
             <div role="presentation" className="mt-2" onClick={e => e.stopPropagation()}>

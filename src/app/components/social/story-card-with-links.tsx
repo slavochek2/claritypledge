@@ -9,6 +9,7 @@ import { MessageCircle, ChevronDown, ChevronRight, ExternalLink, Pin, Unlink2 } 
 import { linkifyText } from '@/app/utils/linkify';
 import { EarBadge } from '@/components/ui/ear-badge';
 import { UnderstoodBadge } from '@/components/ui/understood-badge';
+import { HolderStoryFigures } from './holder-story-badges';
 import { useEmbedNavigation } from '@/app/hooks/useEmbedNavigation';
 import { MobileTooltip } from '@/app/components/shared/mobile-tooltip';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
@@ -447,11 +448,11 @@ export function StoryCardWithLinks({
 
             {/* Stats row - icon-only style */}
             <div className="flex items-center justify-between mt-3">
-              <div className="flex items-center gap-1 text-sm text-gray-600">
+              <HolderStoryFigures storyId={story.id} isAgent={isAgent} identityPending={identityPending} className="flex items-center gap-1 text-sm text-gray-600">
                 {/* P1141: gated on identityPending too — the registry fails closed, and reading
                     isAgent while it loads renders an agent story as a human one. */}
                 {!isAgent && !identityPending && <UnderstoodBadge count={story.understoodCount} />}
-              </div>
+              </HolderStoryFigures>
               <div className="flex items-center gap-1">
                 {showVerifyButton && onVerify && !isAgent && !identityPending && (
                   <button
