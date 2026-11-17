@@ -38,8 +38,8 @@ export const CANVAS_OWN_AI_PROMPT = [
   'Help me draft my Clarity Canvas: nine short sections about my business others can agree or disagree with.',
   '',
   // P1658 founder test: an owner's AI that read one file asked five questions instead of looking. It looks first (own business only, this chat or
-  // project, never the web), and asks only when most headings would stay empty. The "Source:" line below names these sources, so rule 1 covers them.
-  `First read what you can reach about my own business (not clients' or employers'): our past chats, your memory of me, files in this chat or project; not the web. Where sources disagree, the newest is current. Only if most headings would stay empty, ask up to five questions (who I sell to, what I sell, for how much, what is hard now) and wait; then write it.`,
+  // project, never the web), and asks only when most headings would stay empty. No "newest wins": rule 7 keeps dropped directions. The "Source:" line below names these sources, so rule 1 covers them.
+  `First read what you can reach about my own business (not clients' or employers'): our past chats, your memory of me, files in this chat or project; not the web. Only if most headings would stay empty, ask up to five questions (who I sell to, what I sell, for how much, what is hard now) and wait; then write it.`,
   '',
   'Rules:',
   globalRulesText('owner'),

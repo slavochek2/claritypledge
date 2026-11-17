@@ -135,7 +135,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   {
     tag: 'canvas:good-at', title: 'My current biggest challenge',
     type: `Owner's constraint`, voice: 'first person',
-    definition: `The obstacle you see as most likely to stop this working now: where you are (A, with a number), where you want to be (B), and what is in the way. Causes the material does not state are written as "I think".`,
+    definition: `The obstacle you see as most likely to stop this working now: where you are (A, with a number if you have one), where you want to be (B), and what is in the way. Causes the material does not state are written as "I think".`,
     shape: `"I'm at <A>, I want <B>, and the obstacle is <barrier>."`,
     good: `"I'm at 3 replies from my last 20 messages to café owners, I want 10 first calls this month, and I think strangers writing about money look like scams to them."`,
     not: `"Finding time." / a copy of the customer's Problem`,
