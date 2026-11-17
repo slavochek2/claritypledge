@@ -8,6 +8,19 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [product]: Position movement is built now for stories and points, ahead of the recognition chain; the four open P1683 questions are settled (P1061)
+
+**Context:** The founder viewed round 6 of the P1683 exploration and asked to build it for real stories and points now ("I do like it a lot ... I want to implement it now for our stories and points"). The 2026-11-01 entry had placed P1061 after the session 2 opener, built together with P1574's canvas link. The four questions the 2026-11-16 entry left open were put to the founder the same day with production counts.
+**Decision:**
+(1) **P1061 builds the story and point surfaces now.** The canvas half stays with P1574's link and the 2026-11-01 sequence: what the canvas shows when an owner's position moves after a partner's reason is not part of this build.
+(2) **"Moved" means any change of position**, by any amount. Production, public points, people still holding a position: 36 points have at least one person who changed, 74 changes by 26 people, 10 of them across sides (may include agent accounts; the founder was shown 75, which counted one removed position).
+(3) **The point page names who changed**, with each person's graph and verification lines, the same openness as today's position list (history is already readable for public points).
+(4) **The verified against not-verified comparison stays**, behind the story's count, with the not-verified bar held back under 5 people. Only 1 public point has 5 or more people who changed today.
+(5) **The prototype's words ship as seen:** "switched sides", "other change", "same", "Verified", "Not verified", "N moved", and "A verified B's understanding of A's story".
+**Alternatives rejected:** only switching sides counts (arrows on very few points, smaller shifts unseen); counts only on the point page (drops the per-person graph and verification lines); dropping the comparison (no way to tell whether being understood made the difference); waiting for new wording.
+**Consequences:** The story count and arrows will be empty at launch (no verified person has a position before and after yet) and are hidden at zero; the point page's Changes view has real data on 36 points. UNTESTED; falsifier as in 2026-11-16. Still not part of this build: the Contested rule (INBOX-340) and the definitions.md threshold wording (INBOX-345).
+**References:** [P1061](../features/p1061_point_position_movement_analytics.md) · amends 2026-11-16 [product] "A story carries one count..." (its open list) · narrows 2026-11-01 [product] (3)
+
 ## 2026-11-17 [process]: A package with no valid Gemini or Codex run is held, never waived by the agent (2026-11-16 improvement run)
 
 **Context:** In the 2026-11-16/17 autonomous improvement run, the Gemini wrapper's credential-shape scan refused the review payloads of P1691 and P1689, because their test fixtures look like secrets. The review standard's fallback is Codex, and Codex was out of quota until 2026-11-18 14:00. GLM ran but counts only alongside Gemini or Codex. Both packages were built and adversary-reviewed (0 open high or medium findings) and still had no evidence reviewer. The same scan already left P1628 with Codex as its only outside reviewer (2026-11-05 [technical], P1628).
@@ -117,6 +130,35 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Alternatives rejected:** (a) Embed it on every success screen: two videos back to back in onboarding, plus a competing primary action. (b) A YouTube embed: rejected by the earlier ruling that a YouTube player at rest pulls people off the site. (c) Put it on the landing pages now: deferred until /manifesto shows people actually play it (`manifesto_film_play`).
 **Consequences:** The narration is burned into the picture as on-screen text, so no caption track is attached. Attaching one would show every line twice, because the facade shows captions by default. A poster for a centred play button must not have text in its centre. The 0:24 title frame put the button over "Clarity", so the poster is the 1:18 two-figures frame, and YouTube uses the title frame, where nothing covers it. The embed is capped at `max-w-2xl` so the first paragraph shows above the fold at 1440px. Falsifier: if `manifesto_film_play` stays near zero relative to `article_page_viewed` over a month, the film is not earning its position.
 **References:** [p1682 spec](../features/done/2026-06-10/p1682_manifesto_film_embed.md) · [manifesto-film.tsx](../src/app/components/manifesto/manifesto-film.tsx)
+
+---
+
+## 2026-11-16 [product]: A story carries one count of verified people who moved; where and how they moved belongs to the point (P1683 exploration)
+
+**Context:** P1683 is a dev-only design exploration (`/tree/story-positions`, five rounds on invented data) for the backlog spec [P1061](../features/p1061_point_position_movement_analytics.md), which asks how position movement should appear on a story and on a point. No spec exists for P1683. These are the founder's rulings after viewing round 5, recorded so a later spec starts from them. Nothing here is built in the product. UNTESTED with real people: only the founder has seen the prototype. Falsifier: people shown the story page ask who moved or which way before they open a point.
+
+**Decision:**
+- **Story against point.** A story is a summary of how strong it is. Where and how people moved belongs to the point. The story page names nobody and lists nobody.
+- **A story's own mark is one count** ("17 moved"): verified people who changed position on any of its points, by any amount. Arrows (toward disagree, toward agree) appear only on a single point.
+- **"Verified" means the author rated the explain-back exactly 10.** This matches the stored column (`accuracy_achieved`, generated from `speaker_rating = 10`, P272).
+- **A person can be verified on several stories.** Each verification is an event in that person's log, in the form "A verified B's understanding of A's story", with the story linked. No narrated notes and no ratings in the log.
+- **Least text on screen.** Explanations live behind info hints. No "one position" counts or lines.
+- **One word for people: "people"**, never "readers".
+- **Filter.** People, events and groups (an event or a group stands for its people), plus when the positions were taken. No filter by place: the product has no place for a person. It opens as a dialog with Done and Reset.
+- **Layout.** One column, with the block under the card. No "beside" layout.
+- **Linked points on the story page keep the look and the links the product gives them.**
+- **No white buttons**, per the existing rule in [visual-qa.md](../.claude/rules/visual-qa.md): actions are filled blue or the blue-bordered pill (`src/app/components/layout/bottom-back-button.tsx`).
+- **Contested rule change approved, not built:** at least two people on each side and the smaller side at least a quarter. Filed as INBOX-340 in [process-learnings.md](process-learnings.md), to be filed with `/change-request` against P1508.
+
+**Settled 2026-11-17, see "Position movement is built now for stories and points".** **Open (the founder has not decided; do not fill these in):** the words "switched sides / other change / Not verified" and the verification sentence; whether to keep the not-verified group at all; whether "moved" means any change or only switching sides; names or counts only for who changed; whether to turn the exploration into a spec.
+
+**Measured on production the same day (read-only):** 41 rated explain-backs, 2 of them at exactly 10. No person yet has a position both before and after a verified explain-back, so every real mark would be empty today. 30 stories link one current point, 9 link two, none more. Superseded points are already hidden by the product.
+
+**Alternatives rejected:** arrows on the story's mark; a list of people on the story page; a filter by place; a layout with the block beside the card; narrated notes or ratings in a person's log; "one position" counts.
+
+**Consequences:** A P1061 spec starts from these rulings and must design the empty state first, because every real mark is empty today. `docs/definitions.md` §Verification Threshold still says 8 or more out of 10 counts as verified, which differs from the exactly-10 rule above; reconciling it belongs to `/slava:maintain:docs-strategy-update` and is not done here.
+
+**References:** [p1061](../features/p1061_point_position_movement_analytics.md) · `src/app/tree/story-positions/` on branch `feature/p1683-story-fitness-mockups` · [visual-qa.md](../.claude/rules/visual-qa.md)
 
 ---
 
@@ -1117,6 +1159,8 @@ Every other route still requires `/record`, so a recorder that loads but never r
 **References:** [P1557](../features/done/2026-06-10/p1557_self_hosted_supabase_test_database.md) · `src/lib/markdown.ts` (P1352 own-storage image rule)
 
 ## 2026-11-01 [product]: The recognition chain's readout is a founder-only report first, and position movement (P1061) is built alongside the canvas link (P1390, P1574, P1061, P1458, P1559)
+
+**Reversed in part 2026-11-17, see "Position movement is built now for stories and points".** Still in force: (1) and (4) whole; (2) and (3) for everything except P1061's story and point surfaces, so the canvas half of P1061 still comes with P1574's link.
 
 **Context:** Following up 2026-10-30 [product] "Recognising reasons that changed a canvas". Two points were still open: where the founder reads P1390's numbers and error list, and whether the canvas link can claim a changed mind without showing the position move. The founder also asked for the five specs to be grouped as one piece of work.
 **Decision:**
