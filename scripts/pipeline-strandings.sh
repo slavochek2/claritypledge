@@ -375,7 +375,10 @@ while IFS= read -r br; do
   # P1519: a branch set aside by `git-ops.sh park` is deliberate, not lost.
   _pk="$WORKTREES_DIR/.parked/${br//\//__}"
   if [[ -f "$_pk" && "$(sed -n 's/^HEAD=//p' "$_pk" | head -1)" == "$(git rev-parse -q --verify "$br" 2>/dev/null)" ]]; then
-    inflight+=("PARKED            ${br}  — parked $(sed -n 's/^PARKED_AT=//p' "$WORKTREES_DIR/.parked/${br//\//__}" | head -1); spec on main, branch kept")
+    # P1689: park withholds a disclosure: embargo spec and says so in the marker.
+    _pk_spec="spec on main"
+    if $GREP -qx 'SPEC_WITHHELD=1' "$_pk"; then _pk_spec="spec withheld (embargo), on the branch only"; fi
+    inflight+=("PARKED            ${br}  — parked $(sed -n 's/^PARKED_AT=//p' "$WORKTREES_DIR/.parked/${br//\//__}" | head -1); ${_pk_spec}, branch kept")
     continue
   fi
   findings+=("BRANCH, NO SLOT   ${br}  — a feature branch with no worktree (P781); commits here are easy to lose")

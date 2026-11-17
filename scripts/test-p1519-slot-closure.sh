@@ -5,11 +5,14 @@
 # against a throwaway repo with a bare origin. Slots are claimed the way an agent claims
 # them — no CP_SESSION_ID, so the lock carries the PID fallback (git-ops.sh claim).
 # Usage: bash scripts/test-p1519-slot-closure.sh   (exit 0 = all pass)
+#   P1519_GIT_OPS=<path> runs the suite against another git-ops.sh (epistemic gate 7:
+#   point it at a pre-fix copy and watch section [9] fail).
 set -euo pipefail
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR CP_SESSION_ID
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STOP_HOOK="${P1519_STOP_HOOK:-$SCRIPT_DIR/../.claude/hooks/verify-before-stop.py}"
+GIT_OPS_SRC="${P1519_GIT_OPS:-$SCRIPT_DIR/git-ops.sh}"
 
 TMP="$(mktemp -d)"
 trap '[[ -n "${KEEP:-}" ]] || rm -rf "$TMP"' EXIT
@@ -20,7 +23,8 @@ REPO="$TMP/repo"
 git clone -q "$TMP/origin.git" "$REPO" 2>/dev/null
 git -C "$REPO" checkout -q -b main 2>/dev/null || true
 mkdir -p "$REPO/scripts/lib" "$REPO/features/done/2026-10" "$REPO/src"
-cp "$SCRIPT_DIR/git-ops.sh" "$SCRIPT_DIR/pipeline-strandings.sh" "$REPO/scripts/"
+cp "$GIT_OPS_SRC" "$REPO/scripts/git-ops.sh"
+cp "$SCRIPT_DIR/pipeline-strandings.sh" "$REPO/scripts/"
 cp "$SCRIPT_DIR/lib/worktree-changes.sh" "$REPO/scripts/lib/"
 printf '.claude/worktrees/\n.activity\n.hold\n.hold.*\n' > "$REPO/.gitignore"
 echo "export const base = 1" > "$REPO/src/base.ts"
@@ -310,6 +314,148 @@ check "branch kept" "0" "$(rc git -C "$REPO" rev-parse --verify -q feature/p9006
 check "spec committed on main" "1" "$(git -C "$REPO" log main --format=%s -- features/p9006_decide.md | grep -c 'parked')"
 check "startup report shows it PARKED, not lost" "1" "$( ( cd "$REPO" && bash scripts/pipeline-strandings.sh --all ) | grep -c "PARKED            feature/p9006-decide")"
 check "the session then passes" "0" "$(run_hook "$T6" s8)"
+
+echo "[9] P1689: park never puts a disclosure: embargo spec on main"
+spec_fm() { # <disclosure> <title> [body line] — a spec with real frontmatter
+  printf -- '---\nstatus: week\ntype: task\nrank: 1\ntags: []\ndisclosure: %s\n---\n# %s\n\n%s\n' "$1" "$2" "${3:-Body.}"
+}
+on_main_ever() { [[ -n "$(git -C "$REPO" log main --format=%H -- "$1")" ]] && echo yes || echo no; }
+: > "$TMP/park9.all"
+park9() { # <slot> — exit code; this park's transcript in $TMP/park9.log, appended to park9.all
+  local s="$1" a=0
+  gitops park "$s" --nonce "$(nonce_of "$s")" > "$TMP/park9.log" 2>&1 || a=$?
+  cat "$TMP/park9.log" >> "$TMP/park9.all"
+  echo "$a"
+}
+said_withheld() { grep -qi "withheld" "$TMP/park9.log" && echo yes || echo no; }
+# main's commit, its index and its features/ working files, as one comparable string:
+# "no commit on main" alone would pass a park that wrote or staged the spec and cleaned up.
+main_state() {
+  printf '%s / staged: %s / features: %s' "$(git -C "$REPO" rev-parse main)" \
+    "$(git -C "$REPO" diff --cached --name-only | tr '\n' ' ')" "$(git -C "$REPO" status --porcelain -- features | tr '\n' ' ')"
+}
+# A commit hook on the main checkout that records being run, then runs <command> (default: allow).
+# Install it AFTER the fixture's own commits: worktrees share the hooks directory.
+sentinel_hook() {
+  rm -f "$TMP/hook.ran"
+  printf '#!/usr/bin/env bash\n: > "%s/hook.ran"\n%s\n' "$TMP" "${1:-exit 0}" > "$REPO/.git/hooks/pre-commit"
+  chmod +x "$REPO/.git/hooks/pre-commit"
+}
+hook_ran() { [[ -e "$TMP/hook.ran" ]] && echo yes || echo no; }
+# Park finished its job: the worktree is gone and the branch is still there. Without
+# this, a park that REFUSED would satisfy every "is in no commit on main" check below.
+torn_down() { # <worktree dir> <branch>
+  if [[ ! -d "$1" ]] && git -C "$REPO" rev-parse -q --verify "$2" >/dev/null; then echo yes; else echo no; fi
+}
+unhook() { rm -f "$REPO/.git/hooks/pre-commit" "$TMP/hook.ran"; }
+
+echo "[9a] control: a disclosure: public spec still parks onto main"
+S20="$(claim p9020 pubpark)"; W20="$REPO/.claude/worktrees/$S20"
+commit_in "$W20" features/p9020_pubpark.md "$(spec_fm public 'P9020')" "spec: p9020"
+check "a public spec's slot parks" "0" "$(park9 "$S20")"
+check "  and the spec is committed on main with the branch's content" "$(git -C "$REPO" rev-parse feature/p9020-pubpark:features/p9020_pubpark.md)" "$(git -C "$REPO" rev-parse -q --verify main:features/p9020_pubpark.md || echo missing)"
+check "  and park does not call it withheld" "no" "$(said_withheld)"
+
+echo "[9b] a branch-born embargoed spec: the slot parks, the spec stays on the branch"
+S21="$(claim p9021 secret)"; W21="$REPO/.claude/worktrees/$S21"
+commit_in "$W21" features/p9021_secret.md "$(spec_fm embargo 'P9021' 'Sensitive detail.')" "spec: p9021"
+M21="$(main_state)"; sentinel_hook
+check "an embargoed slot parks" "0" "$(park9 "$S21")"
+check "  no commit was even attempted on main (the commit hook never ran)" "no" "$(hook_ran)"
+unhook
+check "  the spec is in no commit on main" "no" "$(on_main_ever features/p9021_secret.md)"
+check "  main's commit, index and features files are untouched" "$M21" "$(main_state)"
+check "  worktree removed" "no" "$([[ -d "$W21" ]] && echo yes || echo no)"
+check "  the branch still holds the spec" "0" "$(rc git -C "$REPO" cat-file -e feature/p9021-secret:features/p9021_secret.md)"
+check "  park says the spec was withheld" "yes" "$(said_withheld)"
+PK21="$( ( cd "$REPO" && bash scripts/pipeline-strandings.sh --all ) | grep "PARKED            feature/p9021-secret" || true )"
+check "  startup report shows it PARKED" "1" "$(printf '%s\n' "$PK21" | grep -c "PARKED" || true)"
+check "  and does not claim the spec is on main" "0" "$(printf '%s\n' "$PK21" | grep -c "spec on main" || true)"
+
+echo "[9c] a spec public on main, reclassified embargo on the branch"
+S23="$(claim p9023 flip)"; W23="$REPO/.claude/worktrees/$S23"
+commit_in "$REPO" features/p9023_flip.md "$(spec_fm public 'P9023' 'Public text.')" "spec: p9023"
+git -C "$W23" merge -q --ff-only main
+commit_in "$W23" features/p9023_flip.md "$(spec_fm embargo 'P9023' 'Sensitive detail added on the branch.')" "spec: p9023 reclassified"
+M23="$(main_state)"
+check "the slot parks" "0" "$(park9 "$S23")"
+check "  worktree removed, branch kept" "yes" "$(torn_down "$W23" feature/p9023-flip)"
+check "  main's commit (so its public copy), index and features files are untouched" "$M23" "$(main_state)"
+check "  park says the spec was withheld" "yes" "$(said_withheld)"
+check "  and that main keeps the copy it already had" "yes" "$(grep -qi "main keeps" "$TMP/park9.log" && echo yes || echo no)"
+
+echo "[9d] embargo content under the neutral stub's file name"
+S24="$(claim p9024 stubname)"; W24="$REPO/.claude/worktrees/$S24"
+commit_in "$W24" features/p9024_security-review-pending.md "$(spec_fm embargo 'P9024' 'Sensitive detail.')" "spec: p9024"
+M24="$(main_state)"
+check "the slot parks" "0" "$(park9 "$S24")"
+check "  worktree removed, branch kept" "yes" "$(torn_down "$W24" feature/p9024-stubname)"
+check "  the file is in no commit on main" "no" "$(on_main_ever features/p9024_security-review-pending.md)"
+check "  main's commit, index and features files are untouched" "$M24" "$(main_state)"
+
+echo "[9e] a legacy stub on main, the real embargoed spec on the branch"
+S25="$(claim p9025 legacy)"; W25="$REPO/.claude/worktrees/$S25"
+commit_in "$REPO" features/p9025_security-review-pending.md "$(spec_fm public 'P9025: reserved' 'Reserved.')" "spec(p9025): reserve number"
+git -C "$W25" merge -q --ff-only main
+commit_in "$W25" features/p9025_demo.md "$(spec_fm embargo 'P9025' 'Sensitive detail.')" "spec: p9025"
+M25="$(main_state)"
+check "the slot parks (not refused as a renamed spec)" "0" "$(park9 "$S25")"
+check "  worktree removed, branch kept" "yes" "$(torn_down "$W25" feature/p9025-legacy)"
+check "  the real spec is in no commit on main" "no" "$(on_main_ever features/p9025_demo.md)"
+check "  main's commit (only the stub for p9025), index and features files are untouched" "$M25" "$(main_state)"
+
+echo "[9f] two specs for one P-number that disagree on disclosure: neither is published"
+S26="$(claim p9026 disagree)"; W26="$REPO/.claude/worktrees/$S26"
+commit_in "$W26" features/p9026_aaa.md "$(spec_fm public 'P9026 a')" "spec: p9026 a"
+commit_in "$W26" features/p9026_zzz.md "$(spec_fm embargo 'P9026 z' 'Sensitive detail.')" "spec: p9026 z"
+M26="$(main_state)"
+check "the slot parks" "0" "$(park9 "$S26")"
+check "  worktree removed, branch kept" "yes" "$(torn_down "$W26" feature/p9026-disagree)"
+check "  the public-labelled one is not published either (default closed)" "no" "$(on_main_ever features/p9026_aaa.md)"
+check "  the embargoed one is in no commit on main" "no" "$(on_main_ever features/p9026_zzz.md)"
+check "  main's commit, index and features files are untouched" "$M26" "$(main_state)"
+
+echo "[9g] with the commit hook that refuses embargo content on main (P1507) installed"
+S22="$(claim p9022 hooked)"; W22="$REPO/.claude/worktrees/$S22"
+commit_in "$W22" features/p9022_hooked.md "$(spec_fm embargo 'P9022' 'Sensitive detail.')" "spec: p9022"
+M22="$(main_state)"; sentinel_hook "exec bash \"$SCRIPT_DIR/check-disclosure.sh\""
+check "the slot parks" "0" "$(park9 "$S22")"
+check "  worktree removed, branch kept" "yes" "$(torn_down "$W22" feature/p9022-hooked)"
+check "  nothing was offered to the hook (it never ran)" "no" "$(hook_ran)"
+unhook
+check "  main's commit, index and features files are untouched" "$M22" "$(main_state)"
+git -C "$REPO" rm -q --cached --ignore-unmatch -- features/p9022_hooked.md   # hermetic cleanup, so a failure here cannot cascade
+
+echo "[9h] embargo in an early commit, public at the tip: the verdict is not downgraded"
+S27="$(claim p9027 corrected)"; W27="$REPO/.claude/worktrees/$S27"
+commit_in "$W27" features/p9027_corrected.md "$(spec_fm embargo 'P9027' 'Sensitive detail.')" "spec: p9027"
+commit_in "$W27" features/p9027_corrected.md "$(spec_fm public 'P9027' 'Corrected.')" "spec: p9027 corrected"
+M27="$(main_state)"
+check "the slot parks" "0" "$(park9 "$S27")"
+check "  worktree removed, branch kept" "yes" "$(torn_down "$W27" feature/p9027-corrected)"
+check "  the spec is in no commit on main" "no" "$(on_main_ever features/p9027_corrected.md)"
+check "  main's commit, index and features files are untouched" "$M27" "$(main_state)"
+check "  park says the spec was withheld" "yes" "$(said_withheld)"
+
+echo "[9i] control: an embargoed spec already closed on main has nothing to withhold"
+S28="$(claim p9028 closedemb)"; W28="$REPO/.claude/worktrees/$S28"
+commit_in "$W28" features/p9028_closedemb.md "$(spec_fm embargo 'P9028' 'Sensitive detail.')" "spec: p9028"
+commit_in "$REPO" features/done/2026-10/p9028_closedemb.md "closed copy" "chore: close p9028"
+check "the slot parks" "0" "$(park9 "$S28")"
+check "  the open copy is not on main" "no" "$(on_main_ever features/p9028_closedemb.md)"
+check "  and park does not claim to have withheld anything" "no" "$(said_withheld)"
+
+echo "[9j] control: the legacy stub sorts BEFORE the real embargoed spec (the reverse of [9e])"
+S29="$(claim p9029 stubfirst)"; W29="$REPO/.claude/worktrees/$S29"
+commit_in "$REPO" features/p9029_security-review-pending.md "$(spec_fm public 'P9029: reserved' 'Reserved.')" "spec(p9029): reserve number"
+git -C "$W29" merge -q --ff-only main
+commit_in "$W29" features/p9029_zzz.md "$(spec_fm embargo 'P9029' 'Sensitive detail.')" "spec: p9029"
+M29="$(main_state)"
+check "the slot parks" "0" "$(park9 "$S29")"
+check "  the real spec is in no commit on main" "no" "$(on_main_ever features/p9029_zzz.md)"
+check "  main's commit (only the stub for p9029), index and features files are untouched" "$M29" "$(main_state)"
+
+check "park output carries no redirect-parseable tokens (shell-safety)" "0" "$(grep -cE '[<>|]' "$TMP/park9.all" || true)"
 
 echo ""
 echo "P1519 canaries: $PASS passed, $FAIL failed"

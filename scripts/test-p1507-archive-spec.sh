@@ -385,6 +385,91 @@ if [[ $rc -ne 0 ]] && unchanged "$d" "$i0" "$h0" && grep -q "merge commits" "$SC
   pass "R21: a merge commit on the branch refuses (exit $rc), nothing written"
 else fail "R21: merge on branch (exit $rc)"; show "$SCRATCH/out.log"; fi
 
+# R22 (P1689) — the spec was renamed on the branch. The withheld commits touch its
+# earlier name, which is the same document, so Half 1 must not call that "unshipped
+# changes outside the archived spec" and leave the branch with no exit.
+d="$(mk r22)"
+( cd "$d" && git checkout -q -b feature/p9142-x \
+  && echo code > src-p9142.ts && git add src-p9142.ts && git commit -qm "fix(p9142): code" \
+  && spec_body p9142 embargo > features/p9142_first_name.md && git add features && git commit -qm "spec(p9142): add" \
+  && git mv features/p9142_first_name.md features/p9142_neutral.md && git commit -qm "spec(p9142): rename" \
+  && git checkout -q main ) >/dev/null 2>&1
+review_stamp "$d" p9142
+run "$d" ship p9142 || { echo "FIXTURE: ship p9142 failed" >&2; show "$SCRATCH/out.log"; }
+h0="$(git -C "$d" rev-parse main)"
+run "$d" archive-spec p9142 --yes --skip-smoke; rc=$?
+if [[ $rc -eq 0 && "$(git -C "$d" rev-parse main)" == "$h0" ]] \
+   && [[ "$(git -C "$d/.private" rev-parse "HEAD:${SPRINT}/p9142_neutral.md" 2>/dev/null)" == "$(git -C "$d" rev-parse feature/p9142-x:features/p9142_neutral.md)" ]] \
+   && [[ -z "$(git -C "$d" log main --format=%H -- features/p9142_first_name.md features/p9142_neutral.md)" ]]; then
+  pass "R22: a spec renamed on its branch archives under its final name (exit 0); neither name is on main"
+else fail "R22: renamed spec (exit $rc)"; show "$SCRATCH/out.log"; fi
+
+# R23 (P1689) — committed public under one name, then renamed and reclassified by
+# one commit: ship withholds both names, and the branch can still be archived.
+d="$(mk r23)"
+( cd "$d" && git checkout -q -b feature/p9143-x \
+  && echo code > src-p9143.ts && git add src-p9143.ts && git commit -qm "fix(p9143): code" \
+  && spec_body p9143 public > features/p9143_first_name.md && git add features && git commit -qm "spec(p9143): add" \
+  && git mv features/p9143_first_name.md features/p9143_neutral.md \
+  && spec_body p9143 embargo > features/p9143_neutral.md && git add features && git commit -qm "spec(p9143): rename and reclassify" \
+  && git checkout -q main ) >/dev/null 2>&1
+review_stamp "$d" p9143
+run "$d" ship p9143; rcs=$?
+run "$d" archive-spec p9143 --yes --skip-smoke; rc=$?
+if [[ $rcs -eq 0 && $rc -eq 0 ]] \
+   && [[ "$(git -C "$d/.private" rev-parse "HEAD:${SPRINT}/p9143_neutral.md" 2>/dev/null)" == "$(git -C "$d" rev-parse feature/p9143-x:features/p9143_neutral.md)" ]] \
+   && [[ -z "$(git -C "$d" log main --format=%H -- features/p9143_first_name.md features/p9143_neutral.md)" ]]; then
+  pass "R23: public first, then renamed and reclassified: withheld by ship, archived under its final name (ship 0, archive 0)"
+else fail "R23: renamed-and-reclassified spec (ship $rcs, archive $rc)"; show "$SCRATCH/out.log"; fi
+
+# R24 (P1689) — the whole exit for a renamed embargoed spec, through a real slot:
+# claim, commit, ship (spec withheld), park (spec withheld, worktree removed), then
+# archive from the branch park left behind.
+d="$(mk r24)"
+( cd "$d" && env -u CP_SESSION_ID bash scripts/git-ops.sh claim p9144 x </dev/null ) >"$SCRATCH/claim.log" 2>&1
+slot="$(sed -n 's/^git-ops: claimed \(w[0-9]*\) for .*/\1/p' "$SCRATCH/claim.log")"; wt="$d/.claude/worktrees/$slot"
+if [[ -z "$slot" || ! -d "$wt" ]]; then
+  fail "R24: fixture — claim did not produce a slot; not evidence"; show "$SCRATCH/claim.log"
+else
+  ( cd "$wt" && echo code > src-p9144.ts && git add src-p9144.ts && git commit -qm "fix(p9144): code" \
+    && spec_body p9144 embargo > features/p9144_first_name.md && git add features && git commit -qm "spec(p9144): add" \
+    && git mv features/p9144_first_name.md features/p9144_neutral.md && git commit -qm "spec(p9144): rename" ) >/dev/null 2>&1
+  review_stamp "$d" p9144
+  run "$d" ship p9144; rcs=$?
+  run "$d" park "$slot" --nonce "$(sed -n 's/^NONCE=//p' "$wt/.lock" 2>/dev/null)"; rcp=$?; cp "$SCRATCH/out.log" "$SCRATCH/r24-park.log"
+  run "$d" archive-spec p9144 --yes --skip-smoke; rca=$?
+  if [[ $rcs -eq 0 && $rcp -eq 0 && $rca -eq 0 ]] && [[ ! -d "$wt" ]] \
+     && git -C "$d" rev-parse --verify -q feature/p9144-x >/dev/null \
+     && grep -qi "withheld" "$SCRATCH/r24-park.log" \
+     && [[ "$(git -C "$d/.private" rev-parse "HEAD:${SPRINT}/p9144_neutral.md" 2>/dev/null)" == "$(git -C "$d" rev-parse feature/p9144-x:features/p9144_neutral.md)" ]] \
+     && [[ -z "$(git -C "$d" log main --format=%H -- features/p9144_first_name.md features/p9144_neutral.md)" ]]; then
+    pass "R24: a renamed embargoed spec goes claim, ship, park, archive: withheld twice, archived under its final name (exits 0 0 0); neither name is on main"
+  else fail "R24: ship, park, archive chain (ship $rcs, park $rcp, archive $rca)"; show "$SCRATCH/r24-park.log"; show "$SCRATCH/out.log"; fi
+fi
+
+# R25 (P1689) — R17 with a rename link. The first draft of the spec is moved to a
+# note that is KEPT, and a fresh spec is written under the old name. The note is a
+# second embargoed document: deleting the branch would lose it, so Half 1 refuses.
+# Accepting "an earlier name of the spec" must not let a file that still exists
+# at the branch tip through.
+d="$(mk r25)"
+( cd "$d" && git checkout -q -b feature/p9145-x && mkdir -p features/notes \
+  && echo code > src-p9145.ts && git add src-p9145.ts && git commit -qm "fix(p9145): code" \
+  && spec_body p9145 embargo > features/p9145_demo.md && git add features && git commit -qm "spec(p9145): add" \
+  && git mv features/p9145_demo.md features/notes/research.md && git commit -qm "notes: keep the first draft" \
+  && spec_body p9145 embargo "Rewritten." > features/p9145_demo.md && git add features && git commit -qm "spec(p9145): rewrite" \
+  && git checkout -q main ) >/dev/null 2>&1
+review_stamp "$d" p9145
+run "$d" ship p9145 || { echo "FIXTURE: ship p9145 failed" >&2; show "$SCRATCH/out.log"; }
+if [[ -z "$(git -C "$d" ls-tree --name-only feature/p9145-x -- features/notes/research.md)" ]]; then
+  fail "R25: fixture — the kept note is not at the branch tip; not evidence"
+fi
+i0="$(git -C "$d/.private" rev-parse HEAD)"; h0="$(git -C "$d" rev-parse main)"
+run "$d" archive-spec p9145 --yes --skip-smoke; rc=$?
+if [[ $rc -ne 0 ]] && unchanged "$d" "$i0" "$h0" && grep -q "research.md" "$SCRATCH/out.log"; then
+  pass "R25: a second embargoed document that a rename links to the spec, still at the tip, refuses (exit $rc), nothing written"
+else fail "R25: rename-linked second document (exit $rc)"; show "$SCRATCH/out.log"; fi
+
 # Z — no redirect-parseable tokens in output.
 if bad="$(sed '/^#CP_DIAGNOSTIC_BEGIN$/,/^#CP_DIAGNOSTIC_END$/d' "$SCRATCH/all.log" | grep -nE '[<>|]')"; then
   fail "Z: output carries > < | tokens:"; printf '%s\n' "$bad" | sed 's/^/    /' >&2

@@ -18,6 +18,25 @@
 #   Codex round 3: H1 CRLF, H2 BOM, H3 indented YAML, H4 .markdown, H5 .MD,
 #   H6 close commit on --resume refuses a staged embargoed spec
 #   Codex round 4: I1 quoted keys, I2 bare pX.md UAT pairing, (I3 removed with publish-spec, P1507)
+#   P1689 (a spec reclassified on the branch): J1 public first then embargo,
+#   J2 the public-first commit also carries code, J3 renamed before the
+#   reclassification, J4 reclassified then deleted at the tip, J5 renamed and
+#   reclassified in one commit, J6 the same after an interrupted ship and --resume,
+#   J3b two renames, J3c a rename between names that share nothing,
+#   J7 an embargoed document renamed and declared public,
+#   J7b the marker reversed, then renamed to another P-number's name,
+#   J8 a staged conflict resolution carrying the public-first version,
+#   J6c a pre-fix journal that had not reached the spec commits (needs GIT_OPS_BASELINE),
+#   J6b a ship whose pre-fix half already landed the spec (needs GIT_OPS_BASELINE),
+#   C2 a public branch with those shapes ships exactly as the pre-fix tool does,
+#   K1 / K2 another session's commit to main's public copy does not stop the ship,
+#   J9 a once-embargoed note renamed to the ship's own spec name is never seeded
+#   Codex review of P1689: L1a/L1b/L1d/L1e a failed git read (change list, blob,
+#   commit, staged blob) stops the ship, L1c an unreadable landed commit stops the
+#   end-of-ship check, L2a the UAT pair of a spec protected only by a rename is
+#   withheld, L2b and the end-of-ship check covers it, L3 a P1694 empty pick
+#   recorded at another session's tip is not judged, L4a/L4b refusals print no
+#   commit subject, L5 the staged-resolution refusal advises only git reset HEAD --
 #
 # Usage: scripts/test-p1464-ship-embargo.sh [path/to/git-ops.sh]
 #   The optional argument runs the suite against another git-ops.sh (gate 7:
@@ -598,6 +617,709 @@ else
 fi
 
 # ════════════════════════════════════════════════════════════════════════════
+# P1689: a spec reclassified on the branch. The content rule judges each commit
+# by the disclosure the file carried AT that commit, so a spec first committed
+# `disclosure: public` and marked embargo later had its early commits picked.
+# Once any commit of the range (or the tip) says embargo for a file, every
+# commit touching that file, under any name it had in the range, is protected.
+# ════════════════════════════════════════════════════════════════════════════
+
+# Fixture control: a fixture whose commits did not all land would let the
+# "never on main" checks below pass with nothing to withhold.
+fixture_commits() {  # <repo> <branch> <expected commits ahead of main's fork point> <case>
+  local n; n="$(git -C "$1" rev-list --count "$(git -C "$1" merge-base main "$2")..$2" 2>/dev/null || echo 0)"
+  [[ "$n" == "$3" ]] || fail "$4: fixture built $n commit(s) on $2, expected $3 — the result below is not evidence"
+}
+# After a ship nothing may be left at any features/ path of the main checkout or
+# its index: "in no commit on main" alone would pass a file written and cleaned up.
+features_clean() { [[ -z "$(git -C "$1" status --porcelain -- features 2>/dev/null)" ]]; }
+SKIPPED=0
+
+# J1 — spec-only commits: added public, reclassified embargo by a later commit.
+d="$(mk j1)"
+( cd "$d" && git checkout -q -b feature/p9401-x \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9401): code" \
+  && spec_body p9401 public > features/p9401_demo.md && git add features && git commit -qm "spec(p9401): add" \
+  && spec_body p9401 embargo "Reclassified." > features/p9401_demo.md && git add features && git commit -qm "spec(p9401): reclassify" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9401-x 3 J1
+review_stamp "$d" p9401
+run "$d" ship p9401; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && ! in_main_history "$d" features/p9401_demo.md \
+   && [[ "$(grep -c "withheld from main (embargoed spec only)" "$SCRATCH/out.log")" == "2" ]]; then
+  pass "J1: a spec committed public, then reclassified embargo: both spec commits withheld, code shipped (exit 0)"
+else
+  fail "J1: public-first spec reached main or ship failed (exit $rc; on main: $(git -C "$d" log main --format=%s -- features/p9401_demo.md | tr '\n' ';'))"; show "$SCRATCH/out.log"
+fi
+
+# J2 — the public-first commit also carries code: refuse before any pick.
+d="$(mk j2)"
+( cd "$d" && git checkout -q -b feature/p9402-x \
+  && echo code > src.ts && spec_body p9402 public > features/p9402_demo.md \
+  && git add src.ts features && git commit -qm "fix(p9402): code and spec" \
+  && spec_body p9402 embargo "Reclassified." > features/p9402_demo.md && git add features && git commit -qm "spec(p9402): reclassify" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9402-x 2 J2
+review_stamp "$d" p9402; h0="$(git -C "$d" rev-parse main)"
+mixed_sha="$(git -C "$d" rev-parse feature/p9402-x~1)"
+run "$d" ship p9402; rc=$?
+if [[ $rc -ne 0 && "$(git -C "$d" rev-parse main)" == "$h0" ]] && features_clean "$d" \
+   && ! in_main_history "$d" features/p9402_demo.md \
+   && grep -q "$mixed_sha" "$SCRATCH/out.log" && grep -qi "split" "$SCRATCH/out.log" \
+   && [[ ! -f "$(journal_of "$d" p9402)" ]]; then
+  pass "J2: a public-first commit carrying code AND the later-embargoed spec is refused before any pick (exit $rc), sha named"
+else
+  fail "J2: public-first mixed commit (exit $rc; main moved: $([[ "$(git -C "$d" rev-parse main)" == "$h0" ]] && echo no || echo yes))"; show "$SCRATCH/out.log"
+fi
+
+# J3 — renamed while still public, reclassified afterwards: the old name is
+# the same spec and must not reach main either.
+d="$(mk j3)"
+( cd "$d" && git checkout -q -b feature/p9403-x \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9403): code" \
+  && spec_body p9403 public > features/p9403_first_name.md && git add features && git commit -qm "spec(p9403): add" \
+  && git mv features/p9403_first_name.md features/p9403_neutral.md && git commit -qm "spec(p9403): rename" \
+  && spec_body p9403 embargo "Reclassified." > features/p9403_neutral.md && git add features && git commit -qm "spec(p9403): reclassify" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9403-x 4 J3
+review_stamp "$d" p9403
+run "$d" ship p9403; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && ! in_main_history "$d" features/p9403_first_name.md && ! in_main_history "$d" features/p9403_neutral.md; then
+  pass "J3: a spec renamed while public and reclassified later: neither name reaches main (exit 0)"
+else
+  fail "J3: renamed-then-reclassified spec (exit $rc; old name on main: $(in_main_history "$d" features/p9403_first_name.md && echo yes || echo no), new name on main: $(in_main_history "$d" features/p9403_neutral.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# J4 — added public, reclassified, then deleted at the tip: the tip shows nothing.
+d="$(mk j4)"; public_spec_on_main "$d" p9404
+( cd "$d" && git checkout -q -b feature/p9404-x \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9404): code" \
+  && spec_body p9404 public "Second document." > features/p9404_secret.md && git add features && git commit -qm "spec(p9404): second doc" \
+  && spec_body p9404 embargo "Second document." > features/p9404_secret.md && git add features && git commit -qm "spec(p9404): reclassify" \
+  && git rm -q features/p9404_secret.md && git commit -qm "spec(p9404): drop" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9404-x 4 J4
+review_stamp "$d" p9404
+run "$d" ship p9404; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && ! in_main_history "$d" features/p9404_secret.md; then
+  pass "J4: public first, reclassified, deleted at the tip: never reaches main (exit 0)"
+else
+  fail "J4: public-first spec deleted at the tip (exit $rc; on main: $(git -C "$d" log main --format=%s -- features/p9404_secret.md | tr '\n' ';'))"; show "$SCRATCH/out.log"
+fi
+
+# J5 — renamed AND reclassified by one commit. That commit holds only spec
+# changes, so it is withheld, not refused as "spec and other files".
+d="$(mk j5)"
+( cd "$d" && git checkout -q -b feature/p9405-x \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9405): code" \
+  && spec_body p9405 public > features/p9405_first_name.md && git add features && git commit -qm "spec(p9405): add" \
+  && git mv features/p9405_first_name.md features/p9405_neutral.md \
+  && spec_body p9405 embargo > features/p9405_neutral.md && git add features && git commit -qm "spec(p9405): rename and reclassify" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9405-x 3 J5
+review_stamp "$d" p9405
+run "$d" ship p9405; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && ! in_main_history "$d" features/p9405_first_name.md && ! in_main_history "$d" features/p9405_neutral.md; then
+  pass "J5: renamed and reclassified in one commit: withheld under both names, code shipped (exit 0)"
+else
+  fail "J5: rename-and-reclassify commit (exit $rc; old name on main: $(in_main_history "$d" features/p9405_first_name.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# J6 — J1's shape behind a code conflict: the interrupted ship and its --resume
+# must not land the public-first commit either.
+d="$(mk j6)"
+( cd "$d" && echo base > src.ts && git add src.ts && git commit -qm base \
+  && git checkout -q -b feature/p9406-x \
+  && echo branch > src.ts && git add src.ts && git commit -qm "fix(p9406): code" \
+  && spec_body p9406 public > features/p9406_demo.md && git add features && git commit -qm "spec(p9406): add" \
+  && spec_body p9406 embargo "Reclassified." > features/p9406_demo.md && git add features && git commit -qm "spec(p9406): reclassify" \
+  && git checkout -q main && echo main > src.ts && git add src.ts && git commit -qm "main moves" ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9406-x 3 J6
+review_stamp "$d" p9406
+run "$d" ship p9406; rc1=$?
+( cd "$d" && echo resolved > src.ts && git add src.ts ) >/dev/null 2>&1
+run "$d" ship p9406 --resume; rc2=$?
+if [[ $rc1 -ne 0 && $rc2 -eq 0 ]] && [[ "$(git -C "$d" show main:src.ts)" == "resolved" ]] \
+   && ! in_main_history "$d" features/p9406_demo.md; then
+  pass "J6: interrupted ship then --resume: the public-first spec commit is never picked (first exit $rc1, resume exit 0)"
+else
+  fail "J6: public-first spec across --resume (first $rc1, resume $rc2; on main: $(git -C "$d" log main --format=%s -- features/p9406_demo.md | tr '\n' ';'))"; show "$SCRATCH/out.log"
+fi
+
+# J3b — two renames while public, then reclassified: every earlier name is the
+# same spec (the rename links are followed to a fixpoint, not one hop).
+d="$(mk j3b)"
+( cd "$d" && git checkout -q -b feature/p9410-x \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9410): code" \
+  && spec_body p9410 public > features/p9410_name_a.md && git add features && git commit -qm "spec(p9410): add" \
+  && git mv features/p9410_name_a.md features/p9410_name_b.md && git commit -qm "spec(p9410): rename" \
+  && git mv features/p9410_name_b.md features/p9410_name_c.md && git commit -qm "spec(p9410): rename again" \
+  && spec_body p9410 embargo "Reclassified." > features/p9410_name_c.md && git add features && git commit -qm "spec(p9410): reclassify" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9410-x 5 J3b
+review_stamp "$d" p9410
+run "$d" ship p9410; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && ! in_main_history "$d" features/p9410_name_a.md && ! in_main_history "$d" features/p9410_name_b.md \
+   && ! in_main_history "$d" features/p9410_name_c.md; then
+  pass "J3b: renamed twice while public, then reclassified: none of the three names reaches main (exit 0)"
+else
+  fail "J3b: two-hop rename (exit $rc; a/b/c on main: $(in_main_history "$d" features/p9410_name_a.md && echo yes || echo no)/$(in_main_history "$d" features/p9410_name_b.md && echo yes || echo no)/$(in_main_history "$d" features/p9410_name_c.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# J3c — J3 with names that share nothing: no P-number, another directory, another
+# base name. Only the rename link can connect them.
+d="$(mk j3c)"; public_spec_on_main "$d" p9418
+( cd "$d" && git checkout -q -b feature/p9418-x && mkdir -p features/notes features/archive \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9418): code" \
+  && spec_body p9499 public > features/notes/alpha.md && git add features && git commit -qm "notes: add" \
+  && git mv features/notes/alpha.md features/archive/omega.md && git commit -qm "notes: move" \
+  && spec_body p9499 embargo "Reclassified." > features/archive/omega.md && git add features && git commit -qm "notes: reclassify" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9418-x 4 J3c
+review_stamp "$d" p9418
+run "$d" ship p9418; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && ! in_main_history "$d" features/notes/alpha.md && ! in_main_history "$d" features/archive/omega.md; then
+  pass "J3c: renamed between names that share nothing, then reclassified: neither name reaches main (exit 0)"
+else
+  fail "J3c: rename between unrelated names (exit $rc; old/new name on main: $(in_main_history "$d" features/notes/alpha.md && echo yes || echo no)/$(in_main_history "$d" features/archive/omega.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# J7 — the other direction: an embargoed document renamed AND declared public
+# by one commit. The verdict is never downgraded, so the new name is withheld
+# too; pre-fix this was refused as "spec and other files" with a split advised.
+d="$(mk j7)"; public_spec_on_main "$d" p9411
+( cd "$d" && git checkout -q -b feature/p9411-x && mkdir -p features/notes \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9411): code" \
+  && spec_body p9499 embargo > features/notes/first.md && git add features && git commit -qm "notes: add" \
+  && git mv features/notes/first.md features/notes/second.md \
+  && spec_body p9499 public > features/notes/second.md && git add features && git commit -qm "notes: rename and declassify" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9411-x 3 J7
+review_stamp "$d" p9411
+run "$d" ship p9411; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && ! in_main_history "$d" features/notes/first.md && ! in_main_history "$d" features/notes/second.md; then
+  pass "J7: an embargoed document renamed and declared public in one commit stays withheld under both names (exit 0)"
+else
+  fail "J7: rename-and-declassify commit (exit $rc; new name on main: $(in_main_history "$d" features/notes/second.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# J7b — the marker reversed first, the file renamed by a LATER commit, and to a
+# name that carries another P-number: no file-name rule can link the two, only
+# the rename link followed forward from the once-embargoed path.
+d="$(mk j7b)"; public_spec_on_main "$d" p9415
+( cd "$d" && git checkout -q -b feature/p9415-x \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9415): code" \
+  && spec_body p9413 embargo > features/p9413_a.md && git add features && git commit -qm "notes: add" \
+  && spec_body p9413 public > features/p9413_a.md && git add features && git commit -qm "notes: declassify" \
+  && git mv features/p9413_a.md features/p9414_b.md && git commit -qm "notes: rename" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9415-x 4 J7b
+review_stamp "$d" p9415
+run "$d" ship p9415; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && ! in_main_history "$d" features/p9413_a.md && ! in_main_history "$d" features/p9414_b.md; then
+  pass "J7b: embargoed, declared public, then renamed to another P-number's name: withheld under both names (exit 0)"
+else
+  fail "J7b: marker reversed then renamed (exit $rc; old/new name on main: $(in_main_history "$d" features/p9413_a.md && echo yes || echo no)/$(in_main_history "$d" features/p9414_b.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# J8 — F4's guard for the public-first version: an operator's conflict resolution
+# that stages the spec as it was BEFORE it was reclassified is refused on --resume.
+d="$(mk j8)"
+( cd "$d" && echo base > src.ts && git add src.ts && git commit -qm base \
+  && git checkout -q -b feature/p9412-x \
+  && echo branch > src.ts && git add src.ts && git commit -qm "fix(p9412): code" \
+  && spec_body p9412 public > features/p9412_demo.md && git add features && git commit -qm "spec(p9412): add" \
+  && spec_body p9412 embargo "Reclassified." > features/p9412_demo.md && git add features && git commit -qm "spec(p9412): reclassify" \
+  && git checkout -q main && echo main > src.ts && git add src.ts && git commit -qm "main moves" ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9412-x 3 J8
+review_stamp "$d" p9412
+run "$d" ship p9412; rc1=$?
+( cd "$d" && echo resolved > src.ts && git show feature/p9412-x~1:features/p9412_demo.md > features/p9412_demo.md \
+  && git add src.ts features/p9412_demo.md ) >/dev/null 2>&1
+h0="$(git -C "$d" rev-parse main)"
+run "$d" ship p9412 --resume; rc2=$?
+if [[ $rc1 -ne 0 && $rc2 -ne 0 && "$(git -C "$d" rev-parse main)" == "$h0" ]] \
+   && ! in_main_history "$d" features/p9412_demo.md \
+   && grep -q "staged resolution adds or modifies an embargoed spec" "$SCRATCH/out.log"; then
+  pass "J8: --resume refuses a staged resolution carrying the spec's public-first version (exit $rc2), nothing committed"
+else
+  fail "J8: staged public-first version on --resume (first $rc1, resume $rc2; on main: $(in_main_history "$d" features/p9412_demo.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# J6b — the first half of the ship ran on the PRE-FIX tool and landed the
+# public-first commit before a code conflict stopped it; the resume runs on the
+# tool under test. It cannot take the commit back, so it must refuse to report
+# success: non-zero, the path and the landed commit named, no "Ready to push".
+if [[ -n "${GIT_OPS_BASELINE:-}" ]]; then
+  d="$(mk j6b "$GIT_OPS_BASELINE")"
+  ( cd "$d" && echo base > src.ts && git add src.ts && git commit -qm base \
+    && git checkout -q -b feature/p9409-x \
+    && spec_body p9409 public > features/p9409_demo.md && git add features && git commit -qm "spec(p9409): add" \
+    && spec_body p9409 embargo "Reclassified." > features/p9409_demo.md && git add features && git commit -qm "spec(p9409): reclassify" \
+    && echo branch > src.ts && git add src.ts && git commit -qm "fix(p9409): code" \
+    && git checkout -q main && echo main > src.ts && git add src.ts && git commit -qm "main moves" ) >/dev/null 2>&1
+  fixture_commits "$d" feature/p9409-x 3 J6b
+  review_stamp "$d" p9409
+  run "$d" ship p9409; rc1=$?
+  leaked="$(git -C "$d" log main --format=%H -- features/p9409_demo.md | sed -n '1p')"
+  if [[ $rc1 -eq 0 || -z "$leaked" ]]; then
+    fail "J6b: fixture — the pre-fix half was meant to land the public-first commit and stop on a conflict (exit $rc1, landed: ${leaked:-none}); the result below is not evidence"
+  fi
+  ( cd "$d" && echo resolved > src.ts && git add src.ts ) >/dev/null 2>&1
+  rc2=0; ( cd "$d" && bash "$GIT_OPS_SRC" ship p9409 --resume </dev/null ) >"$SCRATCH/out.log" 2>&1 || rc2=$?
+  cat "$SCRATCH/out.log" >> "$SCRATCH/all.log"
+  if [[ $rc2 -ne 0 ]] && grep -q "features/p9409_demo.md" "$SCRATCH/out.log" \
+     && grep -q "${leaked:0:12}" "$SCRATCH/out.log" && ! grep -q "Ready to push" "$SCRATCH/out.log" \
+     && [[ -f "$(journal_of "$d" p9409)" ]]; then
+    pass "J6b: resuming a ship whose pre-fix half already landed the spec refuses to report success (exit $rc2), names the path and the commit, keeps the journal"
+  else
+    fail "J6b: resume after a pre-fix leak (first $rc1, resume $rc2; said Ready to push: $(grep -q "Ready to push" "$SCRATCH/out.log" && echo yes || echo no))"; show "$SCRATCH/out.log"
+  fi
+else
+  SKIPPED=$((SKIPPED + 1)); echo "SKIP: J6b needs the pre-fix tool — set GIT_OPS_BASELINE=<pre-fix git-ops.sh> (not run, not a pass)"
+fi
+
+# J6c — the pre-fix half stopped on a code conflict BEFORE it reached the spec
+# commits, and its journal already marks the reclassifying commit withheld. The
+# resume on the tool under test sees only the public-first commit as pending, so
+# it withholds it only if discovery reads the whole range, not the pending list.
+if [[ -n "${GIT_OPS_BASELINE:-}" ]]; then
+  d="$(mk j6c "$GIT_OPS_BASELINE")"
+  ( cd "$d" && echo base > src.ts && git add src.ts && git commit -qm base \
+    && git checkout -q -b feature/p9416-x \
+    && echo branch > src.ts && git add src.ts && git commit -qm "fix(p9416): code" \
+    && spec_body p9416 public > features/p9416_demo.md && git add features && git commit -qm "spec(p9416): add" \
+    && spec_body p9416 embargo "Reclassified." > features/p9416_demo.md && git add features && git commit -qm "spec(p9416): reclassify" \
+    && git checkout -q main && echo main > src.ts && git add src.ts && git commit -qm "main moves" ) >/dev/null 2>&1
+  fixture_commits "$d" feature/p9416-x 3 J6c
+  review_stamp "$d" p9416
+  run "$d" ship p9416; rc1=$?
+  if [[ $rc1 -eq 0 ]] || in_main_history "$d" features/p9416_demo.md || [[ ! -f "$(journal_of "$d" p9416)" ]]; then
+    fail "J6c: fixture — the pre-fix half was meant to stop on the code conflict with nothing landed and a journal left (exit $rc1); the result below is not evidence"
+  fi
+  ( cd "$d" && echo resolved > src.ts && git add src.ts ) >/dev/null 2>&1
+  rc2=0; ( cd "$d" && bash "$GIT_OPS_SRC" ship p9416 --resume </dev/null ) >"$SCRATCH/out.log" 2>&1 || rc2=$?
+  cat "$SCRATCH/out.log" >> "$SCRATCH/all.log"
+  if [[ $rc2 -eq 0 ]] && [[ "$(git -C "$d" show main:src.ts)" == "resolved" ]] \
+     && ! in_main_history "$d" features/p9416_demo.md; then
+    pass "J6c: resuming a pre-fix journal that had not reached the spec yet withholds the public-first commit (first exit $rc1, resume exit 0)"
+  else
+    fail "J6c: resume of a pre-fix journal (first $rc1, resume $rc2; on main: $(git -C "$d" log main --format=%s -- features/p9416_demo.md | tr '\n' ';'))"; show "$SCRATCH/out.log"
+  fi
+else
+  SKIPPED=$((SKIPPED + 1)); echo "SKIP: J6c needs the pre-fix tool — set GIT_OPS_BASELINE=<pre-fix git-ops.sh> (not run, not a pass)"
+fi
+
+# K1 / K2 — epistemic gate 7c for the end-of-ship check: it answers only for
+# commits THIS ship landed (the journal's landed_sha entries). The spec is public
+# on main and embargoed by the branch, and another session commits an edit to
+# main's public copy after the ship's start point. That commit is correct, was
+# not landed by this ship, and must not stop it.
+# The journals are written by hand, as F5 and H6 do: K1 is a ship interrupted
+# after its first code pick, K2 a ship whose start point predates the edit with
+# nothing landed yet (the window between planning the journal and taking the lock).
+k_run() {  # k_run <name> <pN> <land the first code commit: 1|0>
+  local name="$1" pn="$2" land="$3" d start c1 c2 c3 landed="" cot rc
+  d="$(mk "$name")"; public_spec_on_main "$d" "$pn"
+  ( cd "$d" && git checkout -q -b "feature/${pn}-x" \
+    && echo a > a.ts && git add a.ts && git commit -qm "fix(${pn}): code a" \
+    && echo b > b.ts && git add b.ts && git commit -qm "fix(${pn}): code b" \
+    && spec_body "$pn" embargo "Reclassified." > "features/${pn}_demo.md" && git add features && git commit -qm "spec(${pn}): reclassify" \
+    && git checkout -q main ) >/dev/null 2>&1
+  fixture_commits "$d" "feature/${pn}-x" 3 "$name"
+  review_stamp "$d" "$pn"
+  start="$(git -C "$d" rev-parse main)"
+  c1="$(git -C "$d" rev-parse "feature/${pn}-x~2")"; c2="$(git -C "$d" rev-parse "feature/${pn}-x~1")"; c3="$(git -C "$d" rev-parse "feature/${pn}-x")"
+  if [[ "$land" == "1" ]]; then ( cd "$d" && git cherry-pick "$c1" ) >/dev/null 2>&1; landed="$(git -C "$d" rev-parse main)"; fi
+  ( cd "$d" && spec_body "$pn" public "Rank changed on main." > "features/${pn}_demo.md" \
+    && git add features && git commit -qm "spec(${pn}): rank" ) >/dev/null 2>&1
+  cot="$(git -C "$d" rev-parse main)"
+  mkdir -p "$d/.claude/worktrees/.ship-journal"
+  python3 - "$(journal_of "$d" "$pn")" "$pn" "$start" "$c1" "$c2" "$c3" "$landed" <<'PY'
+import json, sys
+path, pn, start, c1, c2, c3, landed = sys.argv[1:]
+first = {"source_sha": c1, "landed_sha": landed or None, "landed_at": "t" if landed else None,
+         "pre_pick_head": start if landed else None}
+rest = [{"source_sha": c, "landed_sha": None, "landed_at": None, "pre_pick_head": None} for c in (c2, c3)]
+json.dump({"p_number": pn, "started_at": "t", "session_id": "s", "source_branch": "feature/%s-x" % pn,
+           "spec_file": "features/%s_demo.md" % pn, "start_head": start, "commits": [first] + rest,
+           "spec_closed": False, "branch_deleted": False}, open(path, "w"), indent=2)
+PY
+  run "$d" ship "$pn" --resume; rc=$?
+  if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:a.ts 2>/dev/null && git -C "$d" cat-file -e main:b.ts 2>/dev/null \
+     && [[ "$(git -C "$d" rev-parse "main:features/${pn}_demo.md")" == "$(git -C "$d" rev-parse "${cot}:features/${pn}_demo.md")" ]] \
+     && grep -q "Ready to push" "$SCRATCH/out.log" && ! grep -q "STOP" "$SCRATCH/out.log" && features_clean "$d"; then
+    pass "$name: another session's commit to main's public copy does not stop the ship (exit 0): code landed, main keeps that copy, embargoed version withheld"
+  else
+    fail "$name: the end-of-ship check stopped on a commit this ship did not land (exit $rc; b.ts on main: $(git -C "$d" cat-file -e main:b.ts 2>/dev/null && echo yes || echo no))"; show "$SCRATCH/out.log"
+  fi
+}
+k_run k1 p9420 1
+k_run k2 p9422 0
+
+# J9 — a note once marked embargo, then declared public, then renamed to the
+# ship's own spec name. The seed step must not write it into the main checkout
+# or stage it: the whole ship is embargoed, the code lands, the spec is withheld.
+d="$(mk j9)"
+( cd "$d" && git checkout -q -b feature/p9421-x && mkdir -p features/notes \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9421): code" \
+  && spec_body p9421 embargo > features/notes/draft.md && git add features && git commit -qm "notes: add" \
+  && spec_body p9421 public > features/notes/draft.md && git add features && git commit -qm "notes: declassify" \
+  && git mv features/notes/draft.md features/p9421_x.md && git commit -qm "notes: becomes the spec" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9421-x 4 J9
+review_stamp "$d" p9421
+run "$d" ship p9421; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && [[ -z "$(git -C "$d" diff --cached --name-only)" ]] \
+   && ! in_main_history "$d" features/p9421_x.md && ! in_main_history "$d" features/notes/draft.md; then
+  pass "J9: a once-embargoed note renamed to the ship's own spec name is never seeded: nothing written or staged on main, code shipped (exit 0)"
+else
+  fail "J9: once-embargoed note as the ship's spec (exit $rc; main status: $(git -C "$d" status --porcelain -- features | tr '\n' ';'))"; show "$SCRATCH/out.log"
+fi
+
+# C2 — epistemic gate 7c: a branch with NO embargo content anywhere, but with
+# the shapes the new discovery looks at (a renamed document, a heavy rewrite,
+# a second document added then deleted), ships exactly as the pre-fix tool does.
+c2_run() {  # c2_run <name> <git-ops source> — prints "rc tree-id subjects-id"
+  local d; d="$(mk "$1" "$2")"; public_spec_on_main "$d" p9408
+  ( cd "$d" && git checkout -q -b feature/p9408-x \
+    && echo code > src.ts && git add src.ts && git commit -qm "fix(p9408): code" \
+    && { printf -- '---\ndisclosure: public\n---\n# Notes\n\n'; seq 1 40; } > features/notes_draft.md \
+    && echo scratch > features/scratch.md && git add features && git commit -qm "docs: notes" \
+    && git mv features/notes_draft.md features/notes_final.md && git commit -qm "docs: rename notes" \
+    && { printf -- '---\ndisclosure: public\n---\n# Notes, rewritten\n\n'; seq 100 170; } > features/notes_final.md \
+    && git add features && git commit -qm "docs: rewrite notes" \
+    && git rm -q features/scratch.md && git commit -qm "docs: drop scratch" \
+    && spec_body p9408 public "Stamped." > features/p9408_demo.md && git add features && git commit -qm "spec(p9408): stamp" \
+    && git checkout -q main ) >/dev/null 2>&1
+  [[ "$(git -C "$d" rev-list --count main..feature/p9408-x 2>/dev/null)" == "6" ]] || echo "FIXTURE-BROKEN"
+  review_stamp "$d" p9408
+  run "$d" ship p9408 >/dev/null 2>&1; local rc=$?
+  echo "$rc $(git -C "$d" ls-tree -r main | grep -v '	scripts/' | git hash-object --stdin) $(git -C "$d" log --format=%s main | git hash-object --stdin)"
+}
+new_c2="$(c2_run c2new "$GIT_OPS_SRC")"; cp "$SCRATCH/out.log" "$SCRATCH/c2new.log"
+d="$SCRATCH/c2new"
+if [[ "$new_c2" == *FIXTURE-BROKEN* ]]; then
+  fail "C2: fixture did not build its six commits — not evidence"
+elif [[ "${new_c2%% *}" != "0" ]] || grep -q withheld "$SCRATCH/c2new.log" \
+     || ! git -C "$d" cat-file -e main:features/notes_final.md 2>/dev/null \
+     || ! in_main_history "$d" features/notes_draft.md || ! in_main_history "$d" features/scratch.md \
+     || ! git -C "$d" cat-file -e "main:$SPRINT/p9408_demo.md" 2>/dev/null; then
+  fail "C2: a public branch with a rename, a rewrite and a deleted document did not ship whole (result $new_c2)"; show "$SCRATCH/c2new.log"
+elif [[ -n "${GIT_OPS_BASELINE:-}" ]]; then
+  base_c2="$(c2_run c2base "$GIT_OPS_BASELINE")"
+  if [[ "$new_c2" == "$base_c2" ]]; then
+    pass "C2: a public branch with a rename, a rewrite and a deleted document ships identically to the pre-fix tool (rc tree subjects: $new_c2)"
+  else
+    fail "C2: public ship diverged from the pre-fix tool (new: $new_c2, baseline: $base_c2)"; show "$SCRATCH/c2new.log"
+  fi
+else
+  pass "C2: a public branch with a rename, a rewrite and a deleted document ships whole, nothing withheld (no baseline given)"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
+# Codex review of P1689 (L1 to L5). L1: a git read that fails must stop the
+# ship, never read as "nothing embargoed here". The failure is injected by a git
+# wrapper on PATH that fails exactly one read and passes everything else through.
+# ════════════════════════════════════════════════════════════════════════════
+REAL_GIT="$(command -v git)"
+mkdir -p "$SCRATCH/fakegit"
+cat > "$SCRATCH/fakegit/git" <<EOF
+#!/bin/bash
+# Fails one read: the subcommand GITFAIL_SUB given an argument containing
+# GITFAIL_ARG (and the argument GITFAIL_FLAG, when set). Everything else is git.
+if [[ -n "\${GITFAIL_SUB:-}" ]]; then
+  _sub=0; _arg=0; _flag=0
+  for _a in "\$@"; do
+    [[ "\$_a" == "\$GITFAIL_SUB" ]] && _sub=1
+    [[ "\$_a" == *"\$GITFAIL_ARG"* ]] && _arg=1
+    [[ -z "\${GITFAIL_FLAG:-}" || "\$_a" == "\$GITFAIL_FLAG" ]] && _flag=1
+  done
+  if (( _sub == 1 && _arg == 1 && _flag == 1 )); then
+    echo "fatal: injected read failure" >&2
+    [[ -n "\${GITFAIL_LOG:-}" ]] && echo hit >> "\$GITFAIL_LOG"
+    exit 128
+  fi
+fi
+exec "$REAL_GIT" "\$@"
+EOF
+chmod +x "$SCRATCH/fakegit/git"
+run_failing() {  # run_failing <repo> <subcommand> <argument substring> <flag or ""> <git-ops args...>
+  local d="$1" sub="$2" arg="$3" flag="$4" rc=0; shift 4
+  : > "$SCRATCH/gitfail.hits"
+  ( cd "$d" && PATH="$SCRATCH/fakegit:$PATH" GITFAIL_SUB="$sub" GITFAIL_ARG="$arg" GITFAIL_FLAG="$flag" \
+      GITFAIL_LOG="$SCRATCH/gitfail.hits" bash scripts/git-ops.sh "$@" </dev/null ) >"$SCRATCH/out.log" 2>&1 || rc=$?
+  cat "$SCRATCH/out.log" >> "$SCRATCH/all.log"
+  return $rc
+}
+injected() { [[ -s "$SCRATCH/gitfail.hits" ]]; }   # did the wrapper fire at all?
+
+# j1_shape <repo> <pN> — J1's branch: code, the spec added public, then reclassified.
+j1_shape() {
+  ( cd "$1" && git checkout -q -b "feature/$2-x" \
+    && echo code > src.ts && git add src.ts && git commit -qm "fix($2): code" \
+    && spec_body "$2" public > "features/$2_demo.md" && git add features && git commit -qm "spec($2): add" \
+    && spec_body "$2" embargo "Reclassified." > "features/$2_demo.md" && git add features && git commit -qm "spec($2): reclassify" \
+    && git checkout -q main ) >/dev/null 2>&1
+}
+# l1_case <name> <pN> <subcommand> <argument template> <flag> — the template's
+# @S@ is the reclassifying commit's sha. A failed read must stop the ship.
+l1_case() {
+  local name="$1" pn="$2" sub="$3" tmpl="$4" flag="$5" d h0 s3 arg rc
+  d="$(mk "$name")"; j1_shape "$d" "$pn"
+  fixture_commits "$d" "feature/${pn}-x" 3 "$name"
+  review_stamp "$d" "$pn"; h0="$(git -C "$d" rev-parse main)"
+  s3="$(git -C "$d" rev-parse "feature/${pn}-x")"; arg="${tmpl//@S@/$s3}"
+  run_failing "$d" "$sub" "$arg" "$flag" ship "$pn"; rc=$?
+  if ! injected; then
+    fail "$name: fixture — the injected failure never fired, so the result is not evidence"; show "$SCRATCH/out.log"
+  elif [[ $rc -ne 0 && "$(git -C "$d" rev-parse main)" == "$h0" ]] && features_clean "$d" \
+     && ! in_main_history "$d" "features/${pn}_demo.md" && grep -q "embargo check: cannot read" "$SCRATCH/out.log"; then
+    pass "$name: a failed git read ($sub) during the embargo check stops the ship (exit $rc), main unchanged"
+  else
+    fail "$name: a failed git read ($sub) was taken as no embargo (exit $rc; spec on main: $(in_main_history "$d" "features/${pn}_demo.md" && echo yes || echo no))"; show "$SCRATCH/out.log"
+  fi
+}
+l1_case L1a p9441 diff-tree "@S@" --name-status          # the commit's change list
+l1_case L1b p9443 cat-file "@S@:features/p9443_demo.md" -p   # the spec blob
+l1_case L1d p9444 cat-file "@S@^{commit}" -e              # the commit itself
+
+# L1e — a conflict resolution's staged documents are read blob by blob; a read
+# that fails must refuse the --resume, not let a staged embargoed document ride
+# into the pick's commit.
+d="$(mk l1e)"
+( cd "$d" && echo base > src.ts && git add src.ts && git commit -qm base \
+  && git checkout -q -b feature/p9446-x \
+  && echo branch > src.ts && git add src.ts && git commit -qm "fix(p9446): code" \
+  && spec_body p9446 embargo > features/p9446_demo.md && git add features && git commit -qm "spec(p9446): add" \
+  && git checkout -q main && echo main > src.ts && git add src.ts && git commit -qm "main moves" ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9446-x 2 L1e
+review_stamp "$d" p9446
+run "$d" ship p9446; rc1=$?
+( cd "$d" && echo resolved > src.ts && spec_body p9446 embargo "Extra." > features/p9446_extra.md \
+  && git add src.ts features/p9446_extra.md ) >/dev/null 2>&1
+h0="$(git -C "$d" rev-parse main)"
+run_failing "$d" cat-file ":features/p9446_extra.md" -p ship p9446 --resume; rc2=$?
+if ! injected; then
+  fail "L1e: fixture — the injected failure never fired (first exit $rc1), so the result is not evidence"; show "$SCRATCH/out.log"
+elif [[ $rc1 -ne 0 && $rc2 -ne 0 && "$(git -C "$d" rev-parse main)" == "$h0" ]] \
+   && ! in_main_history "$d" features/p9446_extra.md && grep -q "embargo check: cannot read" "$SCRATCH/out.log"; then
+  pass "L1e: a staged document whose blob cannot be read refuses the --resume (exit $rc2), nothing committed"
+else
+  fail "L1e: an unreadable staged document was taken as public (first $rc1, resume $rc2; on main: $(in_main_history "$d" features/p9446_extra.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# L1f — on --resume the pending list comes from the journal, and the branch's
+# history is read only for the embargo check. A failed read of that history must
+# stop the resume, not shrink the check to the pending commits.
+d="$(mk l1f)"
+( cd "$d" && echo base > src.ts && git add src.ts && git commit -qm base \
+  && git checkout -q -b feature/p9447-x \
+  && echo branch > src.ts && git add src.ts && git commit -qm "fix(p9447): code" \
+  && spec_body p9447 embargo > features/p9447_demo.md && git add features && git commit -qm "spec(p9447): add" \
+  && git checkout -q main && echo main > src.ts && git add src.ts && git commit -qm "main moves" ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9447-x 2 L1f
+review_stamp "$d" p9447
+run "$d" ship p9447; rc1=$?
+( cd "$d" && echo resolved > src.ts && git add src.ts ) >/dev/null 2>&1
+h0="$(git -C "$d" rev-parse main)"
+run_failing "$d" rev-list "main..feature/p9447-x" --reverse ship p9447 --resume; rc2=$?
+if ! injected; then
+  fail "L1f: fixture — the injected failure never fired (first exit $rc1), so the result is not evidence"; show "$SCRATCH/out.log"
+elif [[ $rc1 -ne 0 && $rc2 -ne 0 && "$(git -C "$d" rev-parse main)" == "$h0" ]] \
+   && ! in_main_history "$d" features/p9447_demo.md && grep -q "embargo check: cannot read the commits of" "$SCRATCH/out.log"; then
+  pass "L1f: a branch history that cannot be read stops the --resume (exit $rc2), nothing committed"
+else
+  fail "L1f: an unreadable branch history was taken as no history (first $rc1, resume $rc2; on main: $(in_main_history "$d" features/p9447_demo.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# hand_journal <path> <pN> <start> <entry>... — entry is source:landed:pre_pick
+# (empty landed / pre_pick = null). Same shape as k_run's journal.
+hand_journal() {
+  local path="$1"; shift
+  mkdir -p "$(dirname "$path")"
+  python3 - "$path" "$@" <<'PY'
+import json, sys
+path, pn, start, *entries = sys.argv[1:]
+commits = []
+for e in entries:
+    s, l, p = e.split(":")
+    commits.append({"source_sha": s, "landed_sha": l or None, "landed_at": "t" if l else None, "pre_pick_head": p or None})
+json.dump({"p_number": pn, "started_at": "t", "session_id": "s", "source_branch": "feature/%s-x" % pn,
+           "spec_file": "features/%s_demo.md" % pn, "start_head": start, "commits": commits,
+           "spec_closed": False, "branch_deleted": False}, open(path, "w"), indent=2)
+PY
+}
+# k_shape <repo> <pN> — K's branch over main's public spec: two code commits,
+# then the spec reclassified embargo.
+k_shape() {
+  public_spec_on_main "$1" "$2"
+  ( cd "$1" && git checkout -q -b "feature/$2-x" \
+    && echo a > a.ts && git add a.ts && git commit -qm "fix($2): code a" \
+    && echo b > b.ts && git add b.ts && git commit -qm "fix($2): code b" \
+    && spec_body "$2" embargo "Reclassified." > "features/$2_demo.md" && git add features && git commit -qm "spec($2): reclassify" \
+    && git checkout -q main ) >/dev/null 2>&1
+}
+
+# L1c — the end-of-ship check must not skip a landed commit it cannot read. An
+# earlier half of this ship landed the reclassifying commit (as J6b's pre-fix
+# tool did); the resume runs with that commit's read failing.
+d="$(mk l1c)"; k_shape "$d" p9445
+fixture_commits "$d" feature/p9445-x 3 L1c
+review_stamp "$d" p9445
+start="$(git -C "$d" rev-parse main)"
+c1="$(git -C "$d" rev-parse feature/p9445-x~2)"; c2="$(git -C "$d" rev-parse feature/p9445-x~1)"; c3="$(git -C "$d" rev-parse feature/p9445-x)"
+( cd "$d" && git cherry-pick "$c3" ) >/dev/null 2>&1; leaked="$(git -C "$d" rev-parse main)"
+hand_journal "$(journal_of "$d" p9445)" p9445 "$start" "$c3:$leaked:$start" "$c1::" "$c2::"
+run_failing "$d" cat-file "${leaked}^{commit}" -e ship p9445 --resume; rc=$?
+if ! injected || [[ "$leaked" == "$start" ]]; then
+  fail "L1c: fixture — the leak was not landed or the injected failure never fired; not evidence"; show "$SCRATCH/out.log"
+elif [[ $rc -ne 0 ]] && grep -q "cannot read landed commit" "$SCRATCH/out.log" && ! grep -q "Ready to push" "$SCRATCH/out.log" \
+   && [[ -f "$(journal_of "$d" p9445)" ]]; then
+  pass "L1c: a landed commit the end-of-ship check cannot read stops the ship (exit $rc), not reported ready"
+else
+  fail "L1c: an unreadable landed commit was skipped (exit $rc; said Ready to push: $(grep -q "Ready to push" "$SCRATCH/out.log" && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# l2_shape <repo> <pN> — a note embargoed, declared public, renamed to the
+# ship's own spec name, then the UAT pair added in a commit of its own. The
+# note's first name carries no P-number, so only the rename links it to pN.
+l2_shape() {
+  ( cd "$1" && git checkout -q -b "feature/$2-x" && mkdir -p features/notes features/uat \
+    && echo code > src.ts && git add src.ts && git commit -qm "fix($2): code" \
+    && spec_body "$2" embargo > features/notes/draft.md && git add features && git commit -qm "notes: add" \
+    && spec_body "$2" public > features/notes/draft.md && git add features && git commit -qm "notes: declassify" \
+    && git mv features/notes/draft.md "features/$2_demo.md" && git commit -qm "notes: becomes the spec" \
+    && echo uat > "features/uat/$2.md" && git add features && git commit -qm "spec($2): uat" \
+    && git checkout -q main ) >/dev/null 2>&1
+}
+# L2a — the protected spec's UAT pair is protected too.
+d="$(mk l2a)"; l2_shape "$d" p9430
+fixture_commits "$d" feature/p9430-x 5 L2a
+review_stamp "$d" p9430
+run "$d" ship p9430; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:src.ts 2>/dev/null && features_clean "$d" \
+   && ! in_main_history "$d" features/uat/p9430.md && ! in_main_history "$d" features/p9430_demo.md \
+   && ! in_main_history "$d" features/notes/draft.md; then
+  pass "L2a: a note renamed onto pN's spec name: its UAT pair is withheld with it, code shipped (exit 0)"
+else
+  fail "L2a: UAT pair of a spec protected only by a rename (exit $rc; UAT on main: $(in_main_history "$d" features/uat/p9430.md && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# L2b — the end-of-ship check covers the UAT pair: an earlier half of the ship
+# landed L2a's UAT commit (as the pre-fix tool did); the resume must not report ready.
+d="$(mk l2b)"; l2_shape "$d" p9431
+fixture_commits "$d" feature/p9431-x 5 L2b
+review_stamp "$d" p9431
+start="$(git -C "$d" rev-parse main)"
+l2c=( $(git -C "$d" rev-list --reverse main..feature/p9431-x) )
+( cd "$d" && git cherry-pick "${l2c[4]}" ) >/dev/null 2>&1; leaked="$(git -C "$d" rev-parse main)"
+hand_journal "$(journal_of "$d" p9431)" p9431 "$start" "${l2c[4]}:$leaked:$start" "${l2c[0]}::" "${l2c[1]}::" "${l2c[2]}::" "${l2c[3]}::"
+run "$d" ship p9431 --resume; rc=$?
+if [[ "$leaked" == "$start" ]]; then
+  fail "L2b: fixture — the UAT commit did not land; not evidence"
+elif [[ $rc -ne 0 ]] && grep -q "features/uat/p9431.md" "$SCRATCH/out.log" && grep -q "${leaked:0:12}" "$SCRATCH/out.log" \
+   && ! grep -q "Ready to push" "$SCRATCH/out.log"; then
+  pass "L2b: a landed UAT pair of a protected spec stops the end-of-ship check (exit $rc), path and commit named"
+else
+  fail "L2b: landed UAT pair passed the end-of-ship check (exit $rc; said Ready to push: $(grep -q "Ready to push" "$SCRATCH/out.log" && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# L3 — P1694 records a pick that changed nothing at the existing main tip
+# (landed_sha == pre_pick_head). That tip is not this ship's commit: here it is
+# another session's commit that also edits main's public copy of the spec.
+d="$(mk l3)"; k_shape "$d" p9432
+fixture_commits "$d" feature/p9432-x 3 L3
+review_stamp "$d" p9432
+start="$(git -C "$d" rev-parse main)"
+c1="$(git -C "$d" rev-parse feature/p9432-x~2)"; c2="$(git -C "$d" rev-parse feature/p9432-x~1)"; c3="$(git -C "$d" rev-parse feature/p9432-x)"
+( cd "$d" && echo a > a.ts && spec_body p9432 public "Rank changed on main." > features/p9432_demo.md \
+  && git add a.ts features && git commit -qm "other session: a and rank" ) >/dev/null 2>&1
+cot="$(git -C "$d" rev-parse main)"
+hand_journal "$(journal_of "$d" p9432)" p9432 "$start" "$c1:$cot:$cot" "$c2::" "$c3::"
+run "$d" ship p9432 --resume; rc=$?
+if [[ $rc -eq 0 ]] && git -C "$d" cat-file -e main:b.ts 2>/dev/null && grep -q "Ready to push" "$SCRATCH/out.log" \
+   && ! grep -q "STOP" "$SCRATCH/out.log" && features_clean "$d" \
+   && [[ "$(git -C "$d" rev-parse main:features/p9432_demo.md)" == "$(git -C "$d" rev-parse "${cot}:features/p9432_demo.md")" ]]; then
+  pass "L3: a pick recorded empty at another session's tip is not taken as a commit this ship landed (exit 0)"
+else
+  fail "L3: the end-of-ship check judged another session's tip recorded by an empty pick (exit $rc)"; show "$SCRATCH/out.log"
+fi
+
+# L4 — embargo refusals name commits by sha only: a subject can repeat the
+# confidential title. A mixed commit (J2's shape) and a merge (F6's shape).
+d="$(mk l4a)"
+( cd "$d" && git checkout -q -b feature/p9433-x \
+  && echo code > src.ts && spec_body p9433 public > features/p9433_demo.md \
+  && git add src.ts features && git commit -qm "fix(p9433): Zanzibar overflow code and spec" \
+  && spec_body p9433 embargo "Reclassified." > features/p9433_demo.md && git add features && git commit -qm "spec(p9433): Zanzibar reclassify" \
+  && git checkout -q main ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9433-x 2 L4a
+review_stamp "$d" p9433
+mixed_sha="$(git -C "$d" rev-parse feature/p9433-x~1)"
+run "$d" ship p9433; rc=$?
+if [[ $rc -ne 0 ]] && grep -q "$mixed_sha" "$SCRATCH/out.log" && ! grep -q "Zanzibar" "$SCRATCH/out.log"; then
+  pass "L4a: the mixed-commit refusal names the commit by sha and prints no subject (exit $rc)"
+else
+  fail "L4a: mixed-commit refusal (exit $rc; subject printed: $(grep -q "Zanzibar" "$SCRATCH/out.log" && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+d="$(mk l4b)"; add_stub "$d" p9434
+( cd "$d" && git checkout -q -b feature/p9434-x \
+  && echo code > src.ts && git add src.ts && git commit -qm "fix(p9434): code" \
+  && git checkout -q -b side \
+  && spec_body p9434 embargo > features/p9434_demo.md && git add features && git commit -qm "spec(p9434): add" \
+  && git checkout -q feature/p9434-x && echo x > x.ts && git add x.ts && git commit -qm "fix(p9434): x" \
+  && git merge -q --no-ff -m "merge: Zanzibar overflow" side && git branch -D side \
+  && git checkout -q main ) >/dev/null 2>&1
+review_stamp "$d" p9434
+merge_sha="$(git -C "$d" rev-parse feature/p9434-x)"
+run "$d" ship p9434; rc=$?
+if [[ $rc -ne 0 ]] && grep -q "$merge_sha" "$SCRATCH/out.log" && grep -q "merge commits" "$SCRATCH/out.log" \
+   && ! grep -q "Zanzibar" "$SCRATCH/out.log"; then
+  pass "L4b: the merge-commit refusal names the commit by sha and prints no subject (exit $rc)"
+else
+  fail "L4b: merge refusal (exit $rc; subject printed: $(grep -q "Zanzibar" "$SCRATCH/out.log" && echo yes || echo no))"; show "$SCRATCH/out.log"
+fi
+
+# L5 — J8's refusal of a staged resolution recommends only a step that keeps the
+# working copy (git reset HEAD -- FILE), never one that discards an edit.
+d="$(mk l5)"
+( cd "$d" && echo base > src.ts && git add src.ts && git commit -qm base \
+  && git checkout -q -b feature/p9435-x \
+  && echo branch > src.ts && git add src.ts && git commit -qm "fix(p9435): code" \
+  && spec_body p9435 public > features/p9435_demo.md && git add features && git commit -qm "spec(p9435): add" \
+  && spec_body p9435 embargo "Reclassified." > features/p9435_demo.md && git add features && git commit -qm "spec(p9435): reclassify" \
+  && git checkout -q main && echo main > src.ts && git add src.ts && git commit -qm "main moves" ) >/dev/null 2>&1
+fixture_commits "$d" feature/p9435-x 3 L5
+review_stamp "$d" p9435
+run "$d" ship p9435; rc1=$?
+( cd "$d" && echo resolved > src.ts && git show feature/p9435-x~1:features/p9435_demo.md > features/p9435_demo.md \
+  && git add src.ts features/p9435_demo.md ) >/dev/null 2>&1
+run "$d" ship p9435 --resume; rc2=$?
+if [[ $rc1 -ne 0 && $rc2 -ne 0 ]] && grep -q "staged resolution adds or modifies an embargoed spec" "$SCRATCH/out.log" \
+   && grep -q "git reset HEAD -- " "$SCRATCH/out.log" \
+   && ! grep -qE "checkout HEAD|git restore|rm --cached" "$SCRATCH/out.log"; then
+  # And the advice works: following it lets the resume finish without the spec.
+  ( cd "$d" && git reset -q HEAD -- features/p9435_demo.md ) >/dev/null 2>&1
+  if [[ "$(cat "$d/features/p9435_demo.md" 2>/dev/null)" == "$(git -C "$d" show feature/p9435-x~1:features/p9435_demo.md)" ]]; then
+    pass "L5: the staged-resolution refusal recommends git reset HEAD -- FILE, which keeps the working copy"
+  else
+    fail "L5: following the recommended step lost the working copy"
+  fi
+else
+  fail "L5: staged-resolution refusal advice (first $rc1, resume $rc2)"; show "$SCRATCH/out.log"
+fi
+
+# ════════════════════════════════════════════════════════════════════════════
 # Z — shell-safety: no redirect-parseable tokens in any transcript
 # ════════════════════════════════════════════════════════════════════════════
 # git's own cherry-pick hints (inside the #CP_DIAGNOSTIC block) are quoted
@@ -610,4 +1332,5 @@ fi
 
 echo ""
 if (( FAILURES > 0 )); then echo "RESULT: $FAILURES failure(s)"; exit 1; fi
+if (( SKIPPED > 0 )); then echo "RESULT: every scenario that ran passed; $SKIPPED skipped (a skip is not evidence)"; exit 0; fi
 echo "RESULT: all passed"
