@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 342
 severity: high
@@ -8,12 +8,12 @@ date_reported: '2026-11-16'
 created_date: '2026-11-16'
 tags: [git-ops, ship, journal, data-loss]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, fix, ship]
 drafted_by: fable
 exec_model: opus
 exec_effort: high
 driver: anomaly
+completed_at: 2026-11-17
 ---
 
 # P1694: Ship records a commit as landed without applying it
@@ -31,7 +31,7 @@ way. Both subjects contain the word "empty" ("honest empty and capped states", "
 thread"), both picks hit a real conflict, and both were recorded as landed at the previous commit's
 sha (the first in the same second the previous commit landed). One carried a migration. They are the only two
 commits of the 38 whose subject contains a trigger word. The operator noticed only because the
-next commit conflicted against the gap ([decisions.md](../docs/decisions.md) 2026-11-16 [process],
+next commit conflicted against the gap ([decisions.md](../../../docs/decisions.md) 2026-11-16 [process],
 "A per-commit ship can drop commits silently").
 
 When the following commits do not depend on the dropped one, nothing conflicts: the ship closes the
@@ -226,12 +226,12 @@ The accepted and deferred risks above are limitations too; these are the rest.
 
 ## Related
 
-- [P972](done/2026-06-10/p972_git_ops_ship_resume_repicks_landed_commit.md): `--resume` continues a
+- [P972](p972_git_ops_ship_resume_repicks_landed_commit.md): `--resume` continues a
   paused pick; crash-window refusal; net-empty resolutions.
-- [P1082](done/2026-06-10/p1082_ship_discard_kanban_edits_clobbers_conflict_resolution.md): a
+- [P1082](p1082_ship_discard_kanban_edits_clobbers_conflict_resolution.md): a
   staged resolution wiped before `--continue`. Its "verify the empty branch before recording" idea
   was left unimplemented (decisions.md 2026-08-17).
-- [P1198](done/2026-06-10/p1198_ship_resume_ignores_commits_added_after_journal_init.md): a ship
+- [P1198](p1198_ship_resume_ignores_commits_added_after_journal_init.md): a ship
   lands only what its journal planned.
 - decisions.md 2026-11-16 [process], 2026-06-28 [process] (P972), 2026-08-14 [technical] (P1082),
   2026-10-27 [process] (P1450).
