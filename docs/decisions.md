@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [product]: The Listening Game gets a public page at /game; our pages keep playing our own copy (P1696)
+
+**Context:** After P1685 the Listening Game video lived only inside a preparation, and the founder wanted a short address for cards, hikes and sharing ("can we also link it to claritypledge.com/game ... lands on our own page?"). The video was also published to YouTube (https://youtu.be/0FD3H7rwiIk) the same day.
+**Decision:** (1) `/game` is our own public page, no sign-in, with the same title, subtitle, self-hosted video and "The roles" as the preparation step, read from the same copy constant. (2) One primary button, **"Learn the Clarity practice"** → /prepare, and a link "Read the manifesto" → /manifesto. The first label, "Start preparing", was dropped the same day: "Start preparing for what? I'm not sure it's clear" (founder); it only made sense to someone already going to an event. (3) A "Listening Game" entry under Tools → Tools. (4) The P1682 rule stands: our pages play our own copy and never load a YouTube player or link to it; YouTube is for discovery and sharing elsewhere (founder asked whether to keep the policy; kept). (5) A visitor who watched on /game and then opens /prepare sees the video step again. Left as is: that step asks only for one press of Play, and it repeats the roles right before the principle.
+**Alternatives rejected:** redirecting /game to YouTube (visitors leave and YouTube suggests other videos); opening /prepare at the game step (needs an event or membership context and would record a half-finished preparation); "Learn more" (does not say where it leads); marking the preparation's video as watched from /game (ties two pages together and records a step as done for someone not yet known).
+**Consequences:** The route lives in `src/app/routes/template-routes.tsx` next to the other shareable public page, because `App.tsx` is over its size limit and may not grow. UNTESTED: falsifier, if /game page views stay near zero after cards and hike mentions point to it for a month, the short address is not earning its place.
+**References:** [p1696 spec](../features/done/2026-06-10/p1696_listening_game_public_page.md) · [listening-game-page.tsx](../src/app/pages/listening-game-page.tsx)
+
+---
+
 ## 2026-11-17 [product]: Position movement is built now for stories and points, ahead of the recognition chain; the four open P1683 questions are settled (P1061)
 
 **Context:** The founder viewed round 6 of the P1683 exploration and asked to build it for real stories and points now ("I do like it a lot ... I want to implement it now for our stories and points"). The 2026-11-01 entry had placed P1061 after the session 2 opener, built together with P1574's canvas link. The four questions the 2026-11-16 entry left open were put to the founder the same day with production counts.
