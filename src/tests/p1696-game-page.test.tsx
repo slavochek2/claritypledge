@@ -31,9 +31,9 @@ describe('P1696 /game page', () => {
     expect(container.querySelector('video, button')).toBeTruthy();
   });
 
-  it('"Start preparing" goes to /prepare and is a tall primary action', () => {
+  it('"Learn the Clarity practice" goes to /prepare and is a tall primary action', () => {
     renderPage();
-    const link = screen.getByRole('link', { name: 'Start preparing' });
+    const link = screen.getByRole('link', { name: 'Learn the Clarity practice' });
     expect(link.getAttribute('href')).toBe('/prepare');
     expect(link.className).toContain('min-h-11');
   });

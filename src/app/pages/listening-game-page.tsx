@@ -1,7 +1,7 @@
 /**
  * @file listening-game-page.tsx
  * @description P1696 — public /game page: the Listening Game video and roles (same copy and clip as the
- * P1685 preparation step), then "Start preparing" and "Read the manifesto". Signed-out friendly; writes no preparation state.
+ * P1685 preparation step), then "Learn the Clarity practice" (to /prepare) and "Read the manifesto". Signed-out friendly; writes no preparation state.
  */
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
@@ -46,7 +46,7 @@ export function ListeningGamePage() {
         <div className="flex flex-col items-center gap-2 pt-2" data-testid="game-actions">
           <div className="w-full max-w-sm">
             <Button asChild className="min-h-11 w-full rounded-full text-base font-bold">
-              <Link to="/prepare">Start preparing</Link>
+              <Link to="/prepare">Learn the Clarity practice</Link>
             </Button>
           </div>
           <Link
