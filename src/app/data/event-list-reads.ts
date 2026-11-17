@@ -134,8 +134,12 @@ export async function fetchMyEvents<Row>(
 ): Promise<MyEvents> {
   // Metered rule 3: no request from a hidden tab, none once the caller gave up (it drops this answer).
   if (!(await untilVisible(options?.signal))) return NO_MY_EVENTS;
-  const hostedRead = supabase.from('events').select(EVENT_WITH_HOST).eq('host_id', profileId);
-  const registeredRead = supabase.from('event_rsvps').select(`event:events!inner(${EVENT_WITH_HOST})`).eq('profile_id', profileId);
+  // Newest first, no limit ("all my events"): if a person ever passes the server's max-rows cap, what drops is the
+  // oldest. The client re-sorts for display below.
+  const hostedRead = supabase.from('events').select(EVENT_WITH_HOST).eq('host_id', profileId)
+    .order('datetime', { ascending: false });
+  const registeredRead = supabase.from('event_rsvps').select(`event:events!inner(${EVENT_WITH_HOST})`).eq('profile_id', profileId)
+    .order('rsvped_at', { ascending: false });
   const [hosted, registered] = await Promise.all([
     options?.signal ? hostedRead.abortSignal(options.signal) : hostedRead,
     options?.signal ? registeredRead.abortSignal(options.signal) : registeredRead,

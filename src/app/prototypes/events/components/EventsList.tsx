@@ -229,7 +229,10 @@ export function EventsList({
       : tab === 'upcoming'
         ? (fellThroughToPast ? pastEvents : filteredUpcoming)
         : pastEvents;
-  const listIsEmpty = ready && events.length === 0;
+  // P1698: the shown list is known when ITS read has answered. My events has its own read, so its cards (and the
+  // header actions beside them) never wait on the global lists; Upcoming and Past keep `ready` exactly as before.
+  const shownReady = tab === 'my' ? !!mine : ready;
+  const listIsEmpty = shownReady && events.length === 0;
   // `&& ready` is load-bearing for POSITION, not just visibility. The actions live
   // in two places depending on `listIsEmpty`, which is false while loading — so
   // without this they rendered top-right on first paint and then visibly jumped into
@@ -245,7 +248,7 @@ export function EventsList({
   // only picks the organizer's empty-state copy below.
   const showActions = isOrgScoped
     ? false
-    : isLoggedIn && !isSeriesFiltered && ready;
+    : isLoggedIn && !isSeriesFiltered && shownReady;
 
   // P1545 decision 6: the Chiang Mai calendar card lives on the standalone Upcoming list only (never in a
   // group, never in the embedded list, never on the webinar-series filter, never on Past). With events it
@@ -301,17 +304,21 @@ export function EventsList({
   // P1698 decision 6: three pills must fit one row at 320px. Padding alone does not buy enough (measured: 335px of
   // pills in a 288px row), so below 400px the three pills also drop to text-xs, keeping today's 36px height. Only when
   // the third pill is there: everyone without it sees today's pills.
-  const pillSize = showMyTab
-    ? 'px-1.5 text-xs leading-5 min-[400px]:px-2.5 min-[400px]:text-sm sm:px-4'
-    : 'px-4 text-sm';
+  const pillBase = showMyTab
+    ? 'px-1.5 py-2 rounded-md text-xs leading-5 font-medium whitespace-nowrap transition-colors min-[400px]:px-2.5 min-[400px]:text-sm sm:px-4'
+    : 'px-4 py-2 rounded-md text-sm font-medium transition-colors'; // today's two pills, byte for byte
   const pillClass = (t: Tab) =>
-    `${pillSize} py-2 rounded-md font-medium whitespace-nowrap transition-colors ${
-      tab === t ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-    }`;
+    `${pillBase} ${tab === t ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`;
 
   // Tabs — hidden when series-filtered (only upcoming sessions matter in that context).
   const filterTabs = !isSeriesFiltered && (
-        <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
+        // P1698 decision 6: with the third pill, counts longer than today's (e.g. "Past (10000)") wrap to a second row
+        // instead of overflowing the page. The two-pill row keeps today's classes exactly.
+        <div
+          className={showMyTab ? 'flex flex-wrap max-w-full gap-1 bg-muted p-1 rounded-lg w-fit' : 'flex gap-1 bg-muted p-1 rounded-lg w-fit'}
+          role="tablist"
+          aria-label="Event filters"
+        >
           <button
             role="tab"
             aria-selected={tab === 'upcoming'}

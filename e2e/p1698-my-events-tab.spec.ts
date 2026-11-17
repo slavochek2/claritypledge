@@ -84,6 +84,8 @@ test.describe('P1698 — My events tab on /events', () => {
     // "Failed to load resource" carries no URL; record which request it was, so a failure names its cause.
     const failedRequests: string[] = [];
     page.on('requestfailed', (req) => failedRequests.push(`${req.url()} (${req.failure()?.errorText})`));
+    // An HTTP error is a response, not a failed request: record its status and URL too.
+    page.on('response', (res) => { if (res.status() >= 400) failedRequests.push(`${res.url()} (HTTP ${res.status()})`); });
 
     await openList(page, host.email);
     await expect(card(page, publicLater.title)).toBeVisible({ timeout: 20000 });
@@ -171,6 +173,7 @@ test.describe('P1698 — My events tab on /events', () => {
     const both = card(page, publicLater.title);
     await expect(both).toHaveCount(1);
     await expect(both).toContainText("You're Hosting");
+    await expect(both).not.toContainText("You're Going");
 
     const titles = page.getByTestId('event-card').locator('h3');
     await expect(titles).toHaveText([
@@ -241,15 +244,19 @@ test.describe('P1698 — My events tab on /events', () => {
     console.log(`[P1698 personal read bytes, 6 events] ${bytes.join(' + ')} = ${bytes.reduce((a, b) => a + b, 0)}`);
   });
 
+  // A phone, not a desktop window resized to 320: desktop Chromium keeps a 15px classic scrollbar, which leaves a 305px
+  // page (measured: clientWidth 305), not the 320px a phone's overlay scrollbar leaves.
+  test.describe('at 320px on a phone', () => {
+  test.use({ viewport: { width: 320, height: 700 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+
   test('at 320px the three pills fit on one row without horizontal overflow', async ({ page }) => {
-    await page.setViewportSize({ width: 320, height: 700 });
     await openList(page, host.email);
     const filters = page.getByRole('tablist', { name: 'Event filters' });
     await expect(filters.getByRole('tab', { name: MY_TAB })).toBeVisible({ timeout: 20000 });
     // Measure the widest state: all three counts drawn (before the lists answer, Upcoming/Past carry no count).
     await expect(filters.getByRole('tab', { name: /^Upcoming \(\d+\)$/ })).toBeVisible({ timeout: 20000 });
     await expect(filters.getByRole('tab', { name: /^Past \(\d+\)$/ })).toBeVisible();
-    expect(await page.evaluate(() => window.innerWidth)).toBe(320);
+    expect(await page.evaluate(() => [window.innerWidth, document.documentElement.clientWidth])).toEqual([320, 320]);
 
     const tabs = await filters.getByRole('tab').all();
     expect(tabs).toHaveLength(3);
@@ -265,5 +272,27 @@ test.describe('P1698 — My events tab on /events', () => {
     }
     expect(list!.x + list!.width).toBeLessThanOrEqual(320 - 16); // inside the page gutter
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  });
+
+  test('at 320px, counts with more digits than TEST holds wrap the pills to a second row instead of overflowing', async ({ page }) => {
+    await openList(page, host.email);
+    const filters = page.getByRole('tablist', { name: 'Event filters' });
+    await expect(filters.getByRole('tab', { name: MY_TAB })).toBeVisible({ timeout: 20000 });
+    await expect(filters.getByRole('tab', { name: /^Upcoming \(\d+\)$/ })).toBeVisible({ timeout: 20000 });
+    expect(await page.evaluate(() => [window.innerWidth, document.documentElement.clientWidth])).toEqual([320, 320]);
+    // TEST cannot hold 1,000 past events per run, so the labels are lengthened in place: this checks the row's CSS
+    // with the widest plausible text, which is all the wrap fallback is about.
+    await filters.evaluate((row) => {
+      const labels = ['Upcoming (1000)', 'Past (10000)', 'My events (100)'];
+      row.querySelectorAll('[role="tab"]').forEach((tab, i) => { tab.textContent = labels[i] ?? tab.textContent; });
+    });
+    const list = await filters.boundingBox();
+    const boxes = await Promise.all((await filters.getByRole('tab').all()).map((t) => t.boundingBox()));
+    console.log(`[P1698 pills@320, long counts] ${boxes.map((b) => `${b?.x.toFixed(1)}+${b?.width.toFixed(1)}@y${b?.y.toFixed(0)}`).join(', ')}; row right edge ${(list!.x + list!.width).toFixed(1)}`);
+    for (const box of boxes) expect(box!.x + box!.width).toBeLessThanOrEqual(320 - 16);
+    expect(list!.x + list!.width).toBeLessThanOrEqual(320 - 16);
+    expect(boxes[2]!.y).toBeGreaterThan(boxes[0]!.y); // it wrapped, rather than fitting by luck
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+  });
   });
 });

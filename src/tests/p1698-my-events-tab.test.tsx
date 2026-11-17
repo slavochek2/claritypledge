@@ -123,6 +123,23 @@ describe('P1698 My events: the tab and its list', () => {
     expect(screen.getAllByRole('tab')).toHaveLength(2);
   });
 
+  it('without the third pill, the tab row and pills carry today\'s classes byte for byte; with it, the row may wrap', async () => {
+    // Copied from main's EventsList before P1698 (`git show main:…EventsList.tsx`, the tablist div and pill template).
+    const TODAY_ROW = 'flex gap-1 bg-muted p-1 rounded-lg w-fit';
+    const TODAY_PILL = 'px-4 py-2 rounded-md text-sm font-medium transition-colors';
+    const view = render(ui());
+    await screen.findByText(PUBLIC_EVENT.title);
+    expect(screen.getByRole('tablist').className).toBe(TODAY_ROW);
+    expect(screen.getByRole('tab', { name: /^Upcoming/ }).className).toBe(`${TODAY_PILL} bg-background text-foreground shadow-sm`);
+    expect(screen.getByRole('tab', { name: /^Past/ }).className).toBe(`${TODAY_PILL} text-muted-foreground hover:text-foreground`);
+    view.unmount();
+
+    mocks.user = USER_A;
+    render(ui());
+    await screen.findByRole('tab', { name: MY_TAB });
+    expect(screen.getByRole('tablist').className.split(' ')).toEqual(expect.arrayContaining(['flex-wrap', 'max-w-full']));
+  });
+
   it('the past half is omitted when there is nothing past (no empty divider)', async () => {
     mocks.user = USER_A;
     mocks.getMyEvents.mockResolvedValue({ upcoming: [A_SOON], past: [], registeredIds: [] });
@@ -210,6 +227,20 @@ describe('P1698 My events: loading and failure (decision 7)', () => {
     expect(mocks.getMyEvents).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ['still loading', () => new Promise(() => {})],
+    ['failed', () => Promise.reject(new Error('boom'))],
+  ])('global lists %s, My events selected: Host Event follows the tab shown and is in the header', async (_label, globalRead) => {
+    mocks.user = USER_A;
+    mocks.getUpcomingEvents.mockImplementation(globalRead);
+    render(ui());
+    await userEvent.click(await screen.findByRole('tab', { name: MY_TAB }));
+    expect(titles()).toEqual([A_SOON.title, A_LATER.title, A_PAST.title]);
+    const header = screen.getByRole('heading', { name: 'Events' }).closest('header') as HTMLElement;
+    expect(within(header).getByRole('link', { name: /Host Event/ })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /Host Event/ })).toHaveLength(1);
+  });
+
   it('the main lists failing does not take My events away', async () => {
     mocks.user = USER_A;
     mocks.getUpcomingEvents.mockRejectedValue(new Error('boom'));
@@ -255,6 +286,23 @@ describe('P1698 My events: keyed by the verified viewer (decisions 2, 8)', () =>
       mineB.resolve({ upcoming: [], past: [], registeredIds: [] });
     });
     expect(screen.queryByRole('tab', { name: MY_TAB })).not.toBeInTheDocument();
+    expect(titles()).toEqual([PUBLIC_EVENT.title]);
+  });
+
+  it('A on My events, switch to B, B\'s read then answers with events: the selected tab is Upcoming, not My events', async () => {
+    const view = await openMyTabAsA();
+    const mineB = deferred<Mine>();
+    mocks.getMyEvents.mockReturnValueOnce(mineB.promise);
+    mocks.user = USER_B;
+    view.rerender(ui());
+    await act(async () => {});
+
+    await act(async () => {
+      mineB.resolve({ upcoming: [{ id: 'event-id-b', title: 'B Own Event' }], past: [], registeredIds: [] });
+    });
+    // B gets their own tab, but A's selection does not carry over to it.
+    expect(screen.getByRole('tab', { name: MY_TAB })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('tab', { name: /^Upcoming/ })).toHaveAttribute('aria-selected', 'true');
     expect(titles()).toEqual([PUBLIC_EVENT.title]);
   });
 
