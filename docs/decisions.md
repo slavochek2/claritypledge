@@ -8,6 +8,36 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-17 [technical]: A host's "Reset rounds" deletes round state only, and a stored reset time keeps the deleted rounds' speech out of every later transcript window (P1699)
+
+**Context:** The founder tested rounds on a live event and had no way to start over. Deleting `event_rounds` is not enough: round chat replies stay in the event chat (`chat_messages.thread_root_id` is `ON DELETE SET NULL`), and the "Before round 1" and room-end transcript jobs rebuild their windows from `transcribe_rooms.created_at`, so test-round speech would be re-cleaned and posted to the whole event chat after the reset (Codex and Opus, /finish).
+**Decision:** `host_reset_rounds(p_event_id)`, host only, under the `p1337_round` lock: locks the event's clean jobs, then the thread roots (`FOR UPDATE`), deletes replies before roots, deletes round transcript lines and the room-level `before`/`end` jobs, the rounds, the evening end and the after-round canvas step, clears `sits_out_round`, and stamps `event_round_resets.reset_at`. `_transcribe_round_one_start_job` and `_transcribe_room_end_segments` start event rooms' windows at the later of the room's creation and that reset. Registrations, waiting list, room members, canvases, feedback and the rest of the event chat stay. Round chat deletion is a hard delete (`[FOUNDER DECISION]` default: yes).
+**Alternatives rejected:** shifting `transcribe_rooms.created_at` at reset (other readers depend on it); ending the transcription room at reset (breaks phones still recording); soft-deleting chat (leaves "message deleted" rows in a chat that is meant to start over).
+**Consequences:** Any new transcript window that starts from a room's creation must also respect `event_round_resets`. Known limits are listed in the spec (a room ending during the reset's own milliseconds; two rare lock-order deadlocks).
+**References:** `features/done/2026-06-10/p1699_host_reset_rounds.md`, `supabase/migrations/20261117170000_p1699_host_reset_rounds.sql`, `20261117172000_p1699_reset_transcript_boundary.sql`, `20261117173000_p1699_end_segments_from_latest.sql`, `e2e/integration/p1699-reset-rounds-db.spec.ts`
+
+---
+
+## 2026-11-17 [technical]: `grep -l … | tail -1` does not find the newest migration here; sort the list first (P1699 incident)
+
+**Context:** To redefine `_transcribe_room_end_segments`, the latest body was located with `grep -lE "FUNCTION public.<name>\(" *.sql | tail -1`. The agent shell's `grep` is ugrep, which prints `-l` results in parallel, unsorted order, so `tail -1` returned `20261102170000` instead of the real latest, `20261103090200` (P1604). The migration was rebuilt from the older body, dropped P1604's branch for rooms with no event, and was applied to shared TEST, where every ended chat or plain recording room got no clean transcript job for about 25 minutes. Codex's /finish review caught it; a rolled-back control (a no-event room returning 0 segments, then 1 after the fix) confirmed it, and no room ended in that window. This is the third ugrep-semantics defect recorded here (see the `grep -vq` entry).
+**Decision:** Find a function's latest definition with a sorted list: `grep -l "FUNCTION public.<name>(" supabase/migrations/*.sql | sort | tail -1`, and before applying any redefinition, diff its body against that file and run the existing callers' canary (for transcript functions, the P1604 integration spec) in addition to the new feature's tests.
+**Alternatives rejected:** relying on the `diffed against:` header, which the pre-commit check verifies is present, not that it names the latest file.
+**Consequences:** The repo rule "confirm the body is based on the latest definition" stays; its mechanical step now needs `sort`. A check that the `diffed against:` file is the newest definer of each redefined function would make this a gate (Status: proposed, not filed).
+**References:** `supabase/migrations/20261117173000_p1699_end_segments_from_latest.sql` (the correction), `e2e/integration/20261103090000_p1604_transcription_belongs_to_a_chat.spec.ts` (23/23 after the fix)
+
+---
+
+## 2026-11-17 [technical]: A host's removal emails the person once, cancels their scheduled emails, and shows a notice on the event page (P1700)
+
+**Context:** A removed person got no message and, on trying to register again, saw a raw database error. Their reminder and feedback emails, queued up to 72 hours ahead, still went out.
+**Decision:** `remove_event_attendee` records on `event_removals` whether a registration was deleted (`had_registration`) and that registration's scheduled-email ids, read by the same `DELETE … RETURNING`. The `send-event-emails` action `removed` sends at most one email per removal: it claims `notified_at` atomically, cancels the scheduled ids best-effort, and releases the claim only if the email did not go (a release after a successful send would allow a duplicate). `my_event_removed(p_event)` returns only the caller's own status; the event page shows "The host has closed your registration for this event." in place of Register, and maps only the two removal refusal messages to it. The column is `scheduled_message_ids`, not `mailgun_message_ids`, because P1425's guard reserves every assignment of a column with that name for `set_rsvp_message_ids`, with no exceptions.
+**Alternatives rejected:** an outbox or cron retry (accepted limit: the email is one fire-and-forget call from the host's page, like the waiting-list admit email); exempting the new column in P1425's guard.
+**Consequences:** A removal email is pending the founder's copy approval (UI Contract). The feature needs the prod function deploy and migrations, listed in the spec's pre-deploy checklist.
+**References:** [p1700 spec](../features/p1700_removed_attendee_notice.md), `supabase/functions/_shared/removal-notice.ts`, `supabase/functions/_shared/removal-email.ts`, `e2e/integration/p1700-removal-email-db.spec.ts`
+
+---
+
 ## 2026-11-17 [technical]: A hidden event is found through the viewer's own My events tab, read per verified viewer (P1698)
 
 **Context:** 2026-11-03 "A hidden event is enforced by the database" keeps hidden events out of every global list, even for the host, and relied on a personal view that was never built. Hosts and the people registered could reach a hidden event only by its exact link.
@@ -65,6 +95,9 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Alternatives rejected:** eligibility in the workflow `if:` (untestable locally; moved into bash with a 14-case stub-`gh` test, including a workflow-wiring check proven by a mutated title); `--limit 100` across all authors (an alert can hide behind 100 human issues).
 **Consequences:** `check-deploy-drift.yml` still uses `first` and `--limit 100` across authors; not changed here.
 **References:** [features/p1697_smoke_gates_close_their_issue_on_recovery.md](../features/p1697_smoke_gates_close_their_issue_on_recovery.md) · [scripts/close-recovered-alert.sh](../scripts/close-recovered-alert.sh)
+
+---
+
 ## 2026-11-17 [product]: The Listening Game gets a public page at /game; our pages keep playing our own copy (P1696)
 
 **Context:** After P1685 the Listening Game video lived only inside a preparation, and the founder wanted a short address for cards, hikes and sharing ("can we also link it to claritypledge.com/game ... lands on our own page?"). The video was also published to YouTube (https://youtu.be/0FD3H7rwiIk) the same day.
