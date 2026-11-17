@@ -1,4 +1,4 @@
-import type { ListReadOptions } from './event-list-reads';
+import type { ListReadOptions, MyEvents } from './event-list-reads';
 import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent } from '@/app/types';
 
 export interface EventsService {
@@ -53,8 +53,12 @@ export interface EventsService {
   // P62: Dashboard queries
   getUserNextEvent(profileId: string): Promise<EventWithHost | null>;
   getPeopleFromEvent(eventId: string, excludeProfileId: string): Promise<EventAttendee[]>;
-  getUserRegisteredEvents(profileId: string): Promise<EventWithHost[]>;
-  getUserHostedEvents(profileId: string): Promise<EventWithHost[]>;
+  /**
+   * P1698: every event the person hosts or registered for, hidden ones included, split upcoming/past by the global
+   * lists' grace rule, with going counts. Replaces the uncalled getUserRegisteredEvents/getUserHostedEvents.
+   * `throwOnError`: a failed read throws instead of returning empty lists.
+   */
+  getMyEvents(profileId: string, options?: ListReadOptions): Promise<MyEvents>;
   getUpcomingPublicEvents(excludeProfileId: string, limit: number): Promise<EventWithHost[]>;
 
   // Mutations

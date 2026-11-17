@@ -5,6 +5,7 @@
  *    code getUpcomingEvents and getPastEvents each carried.
  *  - `selectPastEventRows`: the past-events query getPastEvents made, unchanged.
  *  - `fetchViewerRsvpEventIds` (P1586): which listed events the viewer has an RSVP for, batched like the counts.
+ *  - `fetchMyEvents` (P1698): the viewer's hosted and registered events, hidden included, for the My events tab.
  *  - `failListRead`: the opt-in failure report. By default a failed list read is logged and the list is empty (every
  *    existing caller); with `throwOnError` it throws, so a page can say "could not load" instead of "no events".
  */
@@ -105,6 +106,74 @@ export async function attachRsvpCounts(events: EventWithHost[], options?: ListRe
     event.attendeeCount = countMap[event.id] || 0;
     event.hostHasRsvp = rsvpPairs.has(`${event.id}|${event.hostId}`);
   });
+}
+
+/** P1698: the viewer's own events (hosted or registered, hidden ones included), split by the global lists' rules. */
+export interface MyEvents {
+  /** Status upcoming or cancelled and not before the grace cutoff (the Upcoming tab's rule), soonest first. */
+  upcoming: EventWithHost[];
+  /** Everything else (the Past tab's rule), most recent first. */
+  past: EventWithHost[];
+  /** The events the viewer registered for: registered means going, so these carry the Going mark. */
+  registeredIds: string[];
+}
+
+const NO_MY_EVENTS: MyEvents = { upcoming: [], past: [], registeredIds: [] };
+
+/**
+ * P1698: the My events read. Two requests in parallel (hosted events; the viewer's RSVPs with their events embedded),
+ * then the going counts through `attachRsvpCounts`, only when there is something to count. No `is_hidden` filter: RLS
+ * returns a hidden event to its host and to the people registered for it, and to nobody else. `toEvent` is the
+ * service's row mapper, passed in so this module does not import the service (no cycle).
+ */
+export async function fetchMyEvents<Row>(
+  profileId: string,
+  graceCutoff: string,
+  toEvent: (row: Row) => EventWithHost,
+  options?: ListReadOptions,
+): Promise<MyEvents> {
+  // Metered rule 3: no request from a hidden tab, none once the caller gave up (it drops this answer).
+  if (!(await untilVisible(options?.signal))) return NO_MY_EVENTS;
+  const hostedRead = supabase.from('events').select(EVENT_WITH_HOST).eq('host_id', profileId);
+  const registeredRead = supabase.from('event_rsvps').select(`event:events!inner(${EVENT_WITH_HOST})`).eq('profile_id', profileId);
+  const [hosted, registered] = await Promise.all([
+    options?.signal ? hostedRead.abortSignal(options.signal) : hostedRead,
+    options?.signal ? registeredRead.abortSignal(options.signal) : registeredRead,
+  ]);
+  if (options?.signal?.aborted) return NO_MY_EVENTS;
+  const error = hosted.error ?? registered.error;
+  if (error) {
+    failListRead('getMyEvents', error, options);
+    return NO_MY_EVENTS;
+  }
+
+  // One card per event: an event the viewer hosts AND registered for comes from the hosted read (Host wins the mark).
+  const byId = new Map<string, EventWithHost>();
+  for (const row of hosted.data as Row[]) {
+    const event = toEvent(row);
+    byId.set(event.id, event);
+  }
+  const registeredIds: string[] = [];
+  // `!inner` embeds the one event an RSVP points at (an object; the array form is only how the client types it).
+  for (const { event: raw } of registered.data as unknown as { event: Row | Row[] | null }[]) {
+    const row = Array.isArray(raw) ? raw[0] : raw;
+    if (!row) continue;
+    const event = toEvent(row);
+    registeredIds.push(event.id);
+    if (!byId.has(event.id)) byId.set(event.id, event);
+  }
+
+  const events = [...byId.values()];
+  await attachRsvpCounts(events, options);
+  const cutoff = Date.parse(graceCutoff);
+  const at = (event: EventWithHost) => Date.parse(event.datetime);
+  const isUpcoming = (event: EventWithHost) =>
+    (event.status === 'upcoming' || event.status === 'cancelled') && at(event) >= cutoff;
+  return {
+    upcoming: events.filter(isUpcoming).sort((a, b) => at(a) - at(b)),
+    past: events.filter((event) => !isUpcoming(event)).sort((a, b) => at(b) - at(a)),
+    registeredIds,
+  };
 }
 
 /**

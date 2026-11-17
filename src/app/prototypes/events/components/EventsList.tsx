@@ -4,6 +4,7 @@ import { Plus, CalendarDays, Users } from 'lucide-react';
 import { EventCard } from './EventCard';
 import { EventListSkeleton } from './EventListSkeleton';
 import { eventsService } from '@/app/data/events-service';
+import type { MyEvents } from '@/app/data/event-list-reads';
 import { useAuth } from '@/auth';
 import type { EventWithHost } from '@/app/types';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { PageFrame, PageHeader } from '@/app/components/layout/page-header';
 import { ChiangMaiCard } from '@/app/components/events/chiang-mai-card';
 import { WEBINAR_SERIES, filterWebinarSeries } from '@/app/data/webinar-series';
 
-type Tab = 'upcoming' | 'past';
+type Tab = 'upcoming' | 'past' | 'my';
 
 /** P1586: a read that has not answered by now is a failure with Retry, never an endless "Loading…". */
 const EVENTS_READ_DEADLINE_MS = 8_000;
@@ -33,6 +34,13 @@ interface MarksRead {
   forRead: ListRead;
   userId: string;
   marks: ReadonlySet<string>;
+}
+
+/** P1698: the viewer's own events (hosted or registered, hidden included), tagged with the session-verified person
+ *  they were read for. Never part of `ListRead` (keyed by group only) and never cached outside this component: shown
+ *  only while `userId` is the current viewer, so on sign-out or a switch they vanish in the same render. */
+interface MyEventsRead extends MyEvents {
+  userId: string;
 }
 
 const NO_EVENTS: EventWithHost[] = [];
@@ -81,6 +89,7 @@ export function EventsList({
   const [read, setRead] = useState<ListRead | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [marksRead, setMarksRead] = useState<MarksRead | null>(null);
+  const [myRead, setMyRead] = useState<MyEventsRead | null>(null);
   // P1560: a person is accepted only while the SESSION says so. AuthContext keeps the previous
   // person's profile while it fetches the next one, so `user.id` alone would read, and show, account
   // A's marks for account B. A mismatch means nobody.
@@ -102,6 +111,17 @@ export function EventsList({
   const userRsvps =
     marksRead && marksRead.forRead === current && marksRead.userId === viewerId ? marksRead.marks : null;
   const isOrgScoped = !!orgId;
+  // P1698 decision 1: only the standalone list has My events. Embedded, group and series views never even read it.
+  const personalAllowed = !embedded && !isOrgScoped && !isSeriesFiltered;
+  const mine = personalAllowed && myRead && myRead.userId === viewerId ? myRead : null;
+  // Decision 7: the tab exists only once the read has answered with at least one event (loading, failed, empty: none).
+  const showMyTab = !!mine && mine.upcoming.length + mine.past.length > 0;
+  // Decision 8: the tab vanishing while selected (sign-out, account switch) shows Upcoming in that same render.
+  const tab: Tab = activeTab === 'my' && !showMyTab ? 'upcoming' : activeTab;
+
+  useEffect(() => {
+    if (activeTab === 'my' && !showMyTab) setActiveTab('upcoming');
+  }, [activeTab, showMyTab]);
 
   // When series filter is active, force upcoming tab so the filter is applied.
   // Without this, a user switching from /events (past tab) to ?series= would
@@ -161,6 +181,27 @@ export function EventsList({
     };
   }, [current, viewerId]);
 
+  // P1698: the viewer's own events, one read per verified person (zero for a signed-out visitor). Independent of the
+  // global lists: it neither waits for them nor holds them. A failure is reported by the service (throwOnError logs
+  // through logDbError) and leaves no tab, which is today's page; nothing retries it.
+  useEffect(() => {
+    if (!personalAllowed || !viewerId) return;
+    let live = true;
+    const gaveUp = new AbortController();
+    eventsService.getMyEvents(viewerId, { throwOnError: true, signal: gaveUp.signal }).then(
+      (read) => {
+        if (live) setMyRead({ ...read, userId: viewerId });
+      },
+      () => {
+        if (live) setMyRead(null);
+      },
+    );
+    return () => {
+      live = false;
+      gaveUp.abort();
+    };
+  }, [personalAllowed, viewerId]);
+
   const retry = () => {
     setRead(null);
     setAttempt((n) => n + 1);
@@ -183,9 +224,11 @@ export function EventsList({
   const fellThroughToPast =
     isOrgScoped && ready && upcomingEvents.length === 0 && pastEvents.length > 0;
   const events =
-    activeTab === 'upcoming'
-      ? (fellThroughToPast ? pastEvents : filteredUpcoming)
-      : pastEvents;
+    tab === 'my' && mine
+      ? [...mine.upcoming, ...mine.past]
+      : tab === 'upcoming'
+        ? (fellThroughToPast ? pastEvents : filteredUpcoming)
+        : pastEvents;
   const listIsEmpty = ready && events.length === 0;
   // `&& ready` is load-bearing for POSITION, not just visibility. The actions live
   // in two places depending on `listIsEmpty`, which is false while loading — so
@@ -207,7 +250,7 @@ export function EventsList({
   // P1545 decision 6: the Chiang Mai calendar card lives on the standalone Upcoming list only (never in a
   // group, never in the embedded list, never on the webinar-series filter, never on Past). With events it
   // sits below the list, one level quieter; with none it is the main element.
-  const showCmCard = !isOrgScoped && !embedded && !isSeriesFiltered && ready && activeTab === 'upcoming';
+  const showCmCard = !isOrgScoped && !embedded && !isSeriesFiltered && ready && tab === 'upcoming';
   const hasOurEvents = events.length > 0;
 
   // Host / Co-create. Two positions, one definition:
@@ -255,34 +298,63 @@ export function EventsList({
     </div>
   );
 
+  // P1698 decision 6: three pills must fit one row at 320px. Padding alone does not buy enough (measured: 335px of
+  // pills in a 288px row), so below 400px the three pills also drop to text-xs, keeping today's 36px height. Only when
+  // the third pill is there: everyone without it sees today's pills.
+  const pillSize = showMyTab
+    ? 'px-1.5 text-xs leading-5 min-[400px]:px-2.5 min-[400px]:text-sm sm:px-4'
+    : 'px-4 text-sm';
+  const pillClass = (t: Tab) =>
+    `${pillSize} py-2 rounded-md font-medium whitespace-nowrap transition-colors ${
+      tab === t ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+    }`;
+
   // Tabs — hidden when series-filtered (only upcoming sessions matter in that context).
   const filterTabs = !isSeriesFiltered && (
         <div className="flex gap-1 bg-muted p-1 rounded-lg w-fit" role="tablist" aria-label="Event filters">
           <button
             role="tab"
-            aria-selected={activeTab === 'upcoming'}
+            aria-selected={tab === 'upcoming'}
             onClick={() => setActiveTab('upcoming')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'upcoming'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={pillClass('upcoming')}
           >
             Upcoming{ready && ` (${upcomingEvents.length})`}
           </button>
           <button
             role="tab"
-            aria-selected={activeTab === 'past'}
+            aria-selected={tab === 'past'}
             onClick={() => setActiveTab('past')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'past'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={pillClass('past')}
           >
             Past{ready && ` (${pastEvents.length})`}
           </button>
+          {showMyTab && mine && (
+            <button
+              role="tab"
+              aria-selected={tab === 'my'}
+              onClick={() => setActiveTab('my')}
+              className={pillClass('my')}
+            >
+              My events ({mine.upcoming.length + mine.past.length})
+            </button>
+          )}
         </div>
+  );
+
+  // P1698 decision 3: in My events, Going comes from the registered read itself (the marks read only covers the
+  // global lists' ids, so it never holds a hidden event); Host stays `hostId === viewerId` inside EventCard.
+  const myGoing = new Set(mine?.registeredIds);
+  const renderCard = (event: EventWithHost) => (
+    <EventCard
+      key={event.id}
+      event={event}
+      isLoggedIn={isLoggedIn}
+      userId={viewerId}
+      isUserGoing={tab === 'my' ? myGoing.has(event.id) : (userRsvps?.has(event.id) ?? false)}
+    />
+  );
+  const cardGrid = (list: EventWithHost[]) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{list.map(renderCard)}</div>
   );
 
   return (
@@ -308,7 +380,22 @@ export function EventsList({
 
       {/* Events Grid */}
       <div className={embedded ? 'max-w-5xl mx-auto pb-6' : undefined}>
-        {failed ? (
+        {tab === 'my' && mine ? (
+          // P1698 decision 5: upcoming soonest first, then the past half under its own "Past" divider (the D6
+          // divider's style). Its own read, so the global lists failing or loading never hides it.
+          <>
+            {mine.upcoming.length > 0 && cardGrid(mine.upcoming)}
+            {mine.past.length > 0 && (
+              <section data-testid="my-events-past" className={mine.upcoming.length > 0 ? 'mt-8' : undefined}>
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="text-sm font-medium text-muted-foreground">Past</span>
+                  <span className="h-px flex-1 bg-border" aria-hidden="true" />
+                </div>
+                {cardGrid(mine.past)}
+              </section>
+            )}
+          </>
+        ) : failed ? (
           <div role="alert" className="flex flex-col items-center gap-3 py-8 text-center">
             {/* [FOUNDER DECISION: events-list failure copy is a placeholder.] */}
             <p className="text-muted-foreground">Events could not be loaded.</p>
@@ -323,7 +410,7 @@ export function EventsList({
             {/* D6's explicit label. Deliberately avoids the phrase "No upcoming
                 events" — that is the generic empty state this fall-through exists
                 to replace, and repeating it here would reintroduce the dead end. */}
-            {fellThroughToPast && activeTab === 'upcoming' && (
+            {fellThroughToPast && tab === 'upcoming' && (
               <>
                 {/* The empty Upcoming state is still SHOWN — it is a real fact about
                     this organization — but it is not a dead end: the past list
@@ -343,17 +430,7 @@ export function EventsList({
                 </div>
               </>
             )}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {events.map(event => (
-              <EventCard
-                key={event.id}
-                event={event}
-                isLoggedIn={isLoggedIn}
-                userId={viewerId}
-                isUserGoing={userRsvps?.has(event.id) ?? false}
-              />
-            ))}
-          </div>
+          {cardGrid(events)}
           {showCmCard && (
             <div className="mt-6">
               <ChiangMaiCard quiet hasEvents />
@@ -391,10 +468,10 @@ export function EventsList({
             ) : (
               <>
                 <h3 className="text-lg font-semibold">
-                  {activeTab === 'upcoming' ? 'Nothing coming up yet' : 'Nothing in the past yet'}
+                  {tab === 'upcoming' ? 'Nothing coming up yet' : 'Nothing in the past yet'}
                 </h3>
                 <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-                  {activeTab === 'upcoming'
+                  {tab === 'upcoming'
                     ? 'Nothing is scheduled right now.'
                     : 'Events appear here once they have been held.'}
                 </p>
@@ -421,12 +498,12 @@ export function EventsList({
               <CalendarDays className="w-8 h-8 text-muted-foreground" />
             </div>
             <h3 className="text-xl font-semibold mb-2">
-              {isSeriesFiltered ? 'No upcoming sessions' : `No ${activeTab} events`}
+              {isSeriesFiltered ? 'No upcoming sessions' : `No ${tab} events`}
             </h3>
             <p className="text-muted-foreground mb-6">
               {isSeriesFiltered
                 ? 'Check back soon — new sessions are added regularly.'
-                : activeTab === 'upcoming'
+                : tab === 'upcoming'
                   ? 'Check back later or host your own!'
                   : 'Past events will appear here after they conclude.'}
             </p>
@@ -436,7 +513,7 @@ export function EventsList({
             {showActions ? (
               <div className="flex justify-center">{actionButtons}</div>
             ) : (
-              !isSeriesFiltered && activeTab === 'upcoming' && !isLoggedIn && (
+              !isSeriesFiltered && tab === 'upcoming' && !isLoggedIn && (
                 showCmCard ? (
                   // Decision 6: with the Chiang Mai card as the main thing, hosting becomes a quiet link.
                   <Link to="/signup" className="inline-flex min-h-10 items-center text-sm font-medium text-blue-600 hover:underline">
@@ -459,7 +536,7 @@ export function EventsList({
       {/* CTA Section — only in unfiltered view */}
       {/* Never in org context: this block invites a signed-out visitor to host,
           which is exactly what D4 removes from the org page. */}
-      {!isOrgScoped && !isSeriesFiltered && events.length > 0 && activeTab === 'upcoming' && !isLoggedIn && (
+      {!isOrgScoped && !isSeriesFiltered && events.length > 0 && tab === 'upcoming' && !isLoggedIn && (
         <div className={embedded ? 'max-w-5xl mx-auto px-4 pb-12' : 'pb-12'}>
           <div className="bg-blue-50 rounded-xl p-6 text-center">
             <h2 className="text-xl font-semibold mb-2">Want to host an event?</h2>

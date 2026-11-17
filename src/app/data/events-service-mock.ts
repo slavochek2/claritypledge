@@ -1,4 +1,5 @@
 import type { EventsService, CreateEventInput } from './events-service.interface';
+import type { MyEvents } from './event-list-reads';
 import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent } from '@/app/types';
 // Mock data archived after P61.1 production backend implementation
 import {
@@ -305,26 +306,18 @@ export const mockEventsService: EventsService = {
     return attendees;
   },
 
-  async getUserRegisteredEvents(profileId: string): Promise<EventWithHost[]> {
-    const now = new Date();
-    // Events user is attending (not hosting) - upcoming only
-    return mockEvents
-      .filter(e => {
-        if (e.status !== 'upcoming') return false;
-        if (new Date(e.datetime) <= now) return false;
-        if (e.hostId === profileId) return false; // Exclude hosted events
-        return e.attendees.some(a => a.id === profileId) || mockCurrentUser.rsvpdEventIds.includes(e.id);
-      })
-      .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime())
-      .map(toEventWithHost);
-  },
-
-  async getUserHostedEvents(profileId: string): Promise<EventWithHost[]> {
-    // Events user is hosting (all statuses)
-    return mockEvents
-      .filter(e => e.hostId === profileId)
-      .sort((a, b) => new Date(b.datetime).getTime() - new Date(a.datetime).getTime())
-      .map(toEventWithHost);
+  // P1698: the fixture has no hidden events; the split follows the real read's rule (status + grace cutoff).
+  async getMyEvents(profileId: string): Promise<MyEvents> {
+    const cutoff = Date.now() - 12 * 60 * 60 * 1000;
+    const registered = (e: MockEvent) => e.attendees.some(a => a.id === profileId) || mockCurrentUser.rsvpdEventIds.includes(e.id);
+    const mine = mockEvents.filter(e => e.hostId === profileId || registered(e));
+    const at = (e: MockEvent) => new Date(e.datetime).getTime();
+    const isUpcoming = (e: MockEvent) => (e.status === 'upcoming' || e.status === 'cancelled') && at(e) >= cutoff;
+    return {
+      upcoming: mine.filter(isUpcoming).sort((a, b) => at(a) - at(b)).map(toEventWithHost),
+      past: mine.filter(e => !isUpcoming(e)).sort((a, b) => at(b) - at(a)).map(toEventWithHost),
+      registeredIds: mine.filter(registered).map(e => e.id),
+    };
   },
 
   // P406: Practice Rooms (mock — returns empty, mutations are no-ops)

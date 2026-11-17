@@ -86,7 +86,21 @@ Observed and left out of scope: on the existing Past tab, a past event the viewe
 
 ## Cost Budget
 
-To be filled by the build with measured request counts (metered-services.md: this adds a per-user Supabase read on every signed-in `/events` visit, and the e2e spec creates test users).
+Applies because this adds a per-user Supabase read on every signed-in `/events/list` visit, and the e2e spec creates test users (metered-services.md, rule 6). Requests counted in the browser by `e2e/p1698-my-events-tab.spec.ts` ("requests:" test); bytes measured there on the TEST server.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | Signed-in visit to the standalone list: `1 hosted read ∥ 1 registered read (RSVPs with their events embedded) + ceil(E / 100) counts reads (E = the person's events, skipped when E = 0) = 3 for E ≤ 100` (measured: 3). Signed-out visit, group page, embedded list, series filter: `0` (measured: 0 signed out). The removed `getUserRegisteredEvents` / `getUserHostedEvents` had no callers, so nothing is subtracted | 0 (no timer, poll or retry; one read per verified person per mount, aborted on unmount or person change, and a hidden tab sends nothing until shown) | Setup per worker: `3 users x 2 (auth create + profile insert) + 1 org insert + 1 membership insert + 6 event inserts + 1 membership check (group event) + 2 RSVP inserts = 17`; cleanup per worker: `6 event deletes + 1 org delete + 3 user deletes x ≤ 8 = ≤ 31`; sessions: `≤ 3 users x ≤ 4 (token, cached per worker) = ≤ 12`; `x 2 workers` (beforeAll runs once per worker; the ledger measured 6 users) `= ≤ 120`. Pages: `13 page loads x ≤ 63 REST reads (P1586's measured worst chain) = ≤ 819`. Ledger sweep `1`. Total `≤ 940` |
+| Egress (bytes) | `E x ~1.0 KB per event row (measured 5,991 B for 6 hosted rows) + R x ~1.0 KB (registered rows, measured 1,057 B for 1) + E x ~35 B (count rows, measured 212 B) `; measured visit with E = 6, R = 1: `5,991 + 1,057 + 212 = 7,260 B` | 0 | Dominated by the existing global lists, not this change: `13 loads x (559 past + 10 upcoming rows on TEST) x ~1.0 KB = ~7.4 MB`, plus the personal reads `≤ 11 signed-in loads x 7.3 KB = ~80 KB`. Total `~7.5 MB`, about 0.15% of the 5 GB free egress |
+| Log lines | Success: 0. A failed personal read: `1 logDbError (Sentry in prod) per failed visit`, and the tab stays away; never retried | 0 | 0 provoked failures |
+| Service unit | none | none | `3 test users x 2 workers = 6 per run, deleted in the run` (P1532 ledger: "created 6 users; deleted 6") |
+
+1. **Fits the plan limit today?** Fits. Supabase Free row: 5 GB egress per month. Added egress per month = `signed-in /events/list visits per month x ~(1.0 KB x events per person + 35 B x events per person)`; at the measured 7.3 KB per visit that is `visits per month x 7.3 KB`, which stays under 1% of 5 GB below ~6,800 visits per month. Requests are not a billed unit on the Free plan. Test runs: `runs per month x ~7.5 MB` against the TEST organisation's own 5 GB.
+2. **Fits at 10x?** Fits: the per-visit cost is linear in a person's own events (single digits to tens), not in the global list, and 10x visits stays far under 5 GB at the read sizes measured.
+3. **If either answer is no:** not applicable. The next step up would be the Supabase Pro plan, from $25/month with 250 GB egress (registry row).
+
+- **Worst case:** a person with more than 100 events adds one counts request per further 100 (the same batching the global lists use), so decision 9's "at most 3" holds for E ≤ 100.
+- **Guard:** the "requests:" test fails if a signed-in visit makes other than 3 personal reads or a signed-out visit makes any; the P1532 ledger reports users created and deleted per run.
 
 ## Acceptance Criteria
 

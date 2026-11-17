@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   getPastEvents: vi.fn(),
   getViewerRsvps: vi.fn(),
   isUserRsvpd: vi.fn(),
+  getMyEvents: vi.fn(), // P1698: the standalone list's own-events read
 }));
 
 vi.mock('@/auth', () => ({
@@ -37,6 +38,7 @@ vi.mock('@/app/data/events-service', () => ({
     getPastEvents: (...a: unknown[]) => mocks.getPastEvents(...a),
     getViewerRsvps: (...a: unknown[]) => mocks.getViewerRsvps(...a),
     isUserRsvpd: (...a: unknown[]) => mocks.isUserRsvpd(...a),
+    getMyEvents: (...a: unknown[]) => mocks.getMyEvents(...a),
   },
 }));
 vi.mock('@/app/prototypes/events/components/EventCard', () => ({
@@ -80,6 +82,8 @@ beforeEach(() => {
   mocks.getPastEvents.mockReset().mockResolvedValue([]);
   mocks.getViewerRsvps.mockReset().mockResolvedValue([]);
   mocks.isUserRsvpd.mockReset().mockResolvedValue(false);
+  // Empty = no My events tab = the page these tests were written against.
+  mocks.getMyEvents.mockReset().mockResolvedValue({ upcoming: [], past: [], registeredIds: [] });
 });
 
 afterEach(() => {
@@ -294,6 +298,16 @@ describe('P1586 events list: RSVP marks', () => {
     });
     expect(screen.getByText('New Group Event')).toBeInTheDocument();
     expect(screen.queryByText('Old Group Event')).not.toBeInTheDocument();
+  });
+
+  it('P1698 decision 1: a group-scoped list never reads the viewer\'s own events, even signed in', async () => {
+    mocks.getMyEvents.mockResolvedValue({ upcoming: [EVENT], past: [], registeredIds: [] });
+    render(ui('org-id-1'));
+    expect(await screen.findByText('Clarity Hike')).toBeInTheDocument();
+    await act(async () => {});
+    expect(mocks.getViewerRsvps).toHaveBeenCalled(); // control: the signed-in reads did run
+    expect(mocks.getMyEvents).not.toHaveBeenCalled();
+    expect(screen.queryByRole('tab', { name: /^My events/ })).not.toBeInTheDocument();
   });
 });
 

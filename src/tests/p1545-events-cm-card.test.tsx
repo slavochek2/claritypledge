@@ -27,6 +27,8 @@ vi.mock('@/app/data/events-service', () => ({
     getPastEvents: () => Promise.resolve(mocks.past),
     isUserRsvpd: () => Promise.resolve(false),
     getViewerRsvps: () => Promise.resolve([]),
+    // P1698: no own events = no My events tab = the page these tests were written against.
+    getMyEvents: () => Promise.resolve({ upcoming: [], past: [], registeredIds: [] }),
   },
 }));
 vi.mock('@/app/prototypes/events/components/EventCard', () => ({

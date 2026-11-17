@@ -15,7 +15,7 @@ import { eventUpdateColumns } from './event-write-columns';
 import { eventFlowFields, type EventFlowRow } from './event-flow-row';
 import { eventOptionalCreateColumns } from './event-create-columns';
 import { canvasTimingOf } from '@/app/types/event-fields';
-import { attachRsvpCounts, failListRead, fetchViewerRsvpEventIds, selectPastEventRows, type ListReadOptions } from './event-list-reads';
+import { attachRsvpCounts, failListRead, fetchMyEvents, fetchViewerRsvpEventIds, selectPastEventRows, type ListReadOptions } from './event-list-reads';
 
 // `status` is NOT auto-managed (no trigger, no cron — intentional).
 // `datetime` is the source of truth for past/upcoming via the grace-period pattern below.
@@ -1027,79 +1027,9 @@ export const realEventsService: EventsService = {
     return attendees;
   },
 
-  async getUserRegisteredEvents(profileId: string): Promise<EventWithHost[]> {
-    log(' getUserRegisteredEvents:', profileId);
-
-    // Get event IDs where user is RSVP'd
-    const { data: rsvps, error: rsvpError } = await supabase
-      .from('event_rsvps')
-      .select('event_id')
-      .eq('profile_id', profileId);
-
-    if (rsvpError || !rsvps || rsvps.length === 0) {
-      log(' getUserRegisteredEvents: No RSVPs found');
-      return [];
-    }
-
-    const eventIds = rsvps.map(r => r.event_id);
-
-    // Return ALL events user is attending (not hosting) — past and upcoming.
-    // Callers filter by datetime to split upcoming vs past.
-    const { data, error } = await supabase
-      .from('events')
-      .select(`
-        *,
-        host:profiles!events_host_id_fkey (
-          id,
-          full_name:name,
-          slug,
-          headline:role,
-          avatar_color,
-          avatar_url,
-          has_pledged,
-          ears_count
-        )
-      `)
-      .in('id', eventIds)
-      .neq('host_id', profileId)
-      .order('datetime', { ascending: false });
-
-    if (error) {
-      logDbError('getUserRegisteredEvents', error);
-      return [];
-    }
-
-    return (data as DbEventWithHost[]).map(mapEventFromDb);
-  },
-
-  async getUserHostedEvents(profileId: string): Promise<EventWithHost[]> {
-    log(' getUserHostedEvents:', profileId);
-
-    const { data, error } = await supabase
-      .from('events')
-      .select(`
-        *,
-        host:profiles!events_host_id_fkey (
-          id,
-          full_name:name,
-          slug,
-          headline:role,
-          avatar_color,
-          avatar_url,
-          has_pledged,
-          ears_count
-        )
-      `)
-      .eq('host_id', profileId)
-      .order('datetime', { ascending: false });
-
-    if (error) {
-      logDbError('getUserHostedEvents', error);
-      return [];
-    }
-
-    return (data as DbEventWithHost[]).map(mapEventFromDb);
-  },
+  // P1698: replaces getUserRegisteredEvents/getUserHostedEvents, which nothing called. The read is in event-list-reads.
+  getMyEvents: (profileId: string, options?: ListReadOptions) =>
+    fetchMyEvents<DbEventWithHost>(profileId, getGraceCutoff(), mapEventFromDb, options),
 
   // P406: Practice Rooms
 
