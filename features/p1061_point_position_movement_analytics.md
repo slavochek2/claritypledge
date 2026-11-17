@@ -1,15 +1,17 @@
 ---
-status: week
+status: in-progress
 type: story
 disclosure: public
 rank: 344
 created_date: '2026-08-13'
 tags: [recognition-chain, points, positions, stories]
-delivery_stage: create-spec
-pipeline_ran: [create-spec, create-spec.2]
+delivery_stage: dev
+pipeline_ran: [create-spec, create-spec.2, dev]
 exec_model: opus
 exec_effort: high
 driver: heuristic
+spec_review_hash: f50027bb28dfc17e28e3050d993fe156aed70e6f2ef8869e8e122b78cfd4b356
+spec_review_vendors: [codex, gemini, openrouter]
 ---
 
 # P1061: Show position movement on a point or story
@@ -43,15 +45,17 @@ Every rule below is a test case in Done-When. Positions are on the 7-level scale
 
 - **Point.** Each point version is its own point row (`points.superseded_by`), and positions belong to that row. A story's points are the linked points its story page shows the viewer today.
 - **Holder:** a person whose current position on the point is not removed. **Every count on this page counts holders only.** A person who removed their position is not counted anywhere (see Risks).
-- **A person's positions on a point:** their history rows for it, ordered by `changed_at`, ties broken by row id. Rows whose position equals the previous row's (a reasoning-only edit) are not a new position. Removal rows (`position` NULL) end a stretch; positions taken after a removal start again from the next non-null row, and "first" is the earliest non-null row overall.
-- **First:** the earliest position. **Latest:** the current position (no date filter) or the last position inside the dates (date filter, point page only).
-- **Verification of a person by a story:** a `story_verifications` row for that story with `source = 'live'`, `speaker_id` = the story's author, `listener_id` not null and not the author, and `accuracy_achieved` true (rated exactly 10). Rows for the same story and listener count once, from the earliest.
-- **Explained back, not verified:** a person with a row meeting the same conditions except a non-null `speaker_rating` below 10, and no verification from that story. Their "before" is taken at their earliest such row.
-- **Before:** the person's position at the moment of the row (the last history row at or before its `created_at`). If that row is a removal, or there is none, there is no "before" and the person is not counted on that point.
-- **Story change on a point:** before → latest, for every holder with a "before", **including people who have not changed their position since** (they count as Same).
+- **A person's positions on a point:** their non-null history rows for it, ordered by `changed_at`. Removal rows (`position` NULL) are skipped. A row whose position equals the previous non-null position (a reasoning-only edit, or removing and re-taking the same position) is not a new position. Ties on `changed_at` (one transaction) are ordered by row id, which is arbitrary; the app never writes two positions for one person and point in one transaction, and tests seed distinct timestamps.
+- **First / latest, no dates:** the earliest position / the current position.
+- **First / latest, with dates** (point page filter only): the first / last of the person's positions taken inside the dates. A person needs at least two positions inside the dates to be listed; with fewer they drop out of the dated view.
+- **Verification of a person by a story:** a `story_verifications` row for that story with `source = 'live'`, `speaker_id` = the story's author, `listener_id` not null and not the author, and `accuracy_achieved` true (rated exactly 10, `20260218_p272_accuracy_achieved_threshold.sql`). Rows for the same story and listener count once, from the earliest. Stories by agent accounts are left out entirely.
+- **Explained back, not verified:** a person with a row meeting the same conditions except that `speaker_rating` is below 10 or not yet given, and no verification from that story. Their "before" is taken at their earliest such row.
+- **Before:** the person's position at the moment of that row (the last history row at or before its `created_at`). If that row is a removal, or there is none, there is no "before" and the person is not counted on that point.
+- **Story change on a point** (used only by the story's bars, arrows and count): before → latest, for every person in the two groups above who holds a position on the point and has a "before", **including people who have not changed their position since** (they count as Same).
 - **Moved:** latest ≠ before. **Arrows:** ← latest lower than before, → latest higher.
 - **Switched sides:** before and latest on opposite sides (agree side against disagree side; Unsure is on neither). **Other change:** any other difference. **Same:** no difference, including people who changed and came back.
-- **Story count "N moved":** distinct verified people who moved on at least one of the story's points.
+- **Story count "N moved":** distinct verified people who moved on at least one of the story's points. The explanation's "of the M people {author} verified" counts every verified person by the rule above, holder or not.
+- **Point page "first and latest"** (the chart, the change filter, the list): first → latest as defined above for each listed holder. It has nothing to do with "before", which belongs to stories.
 - **Agent accounts** (`agent_accounts`, readable by anyone for `profile_id`) are excluded from every count, bar, arrow and from the Changes list. They stay in today's Positions list and in the point card's spread (below).
 
 ## Solution
@@ -63,19 +67,19 @@ Build the surfaces as the prototype at branch `feature/p1683-story-fitness-mocku
 3. **Story points on the story page.** Look and links unchanged. One addition inside each point box: the arrows chip ("← a | b → moved") for the story's verified people on that point, hidden when both are 0, opening a one-sentence explanation.
 4. **Point page.** The existing positions block gets a "Positions | Changes" switch.
    - **Positions** is today's block, unchanged, except that an opened "1 story" pill also shows the arrows chip (its verified badge is already there).
-   - **Changes** shows holders with at least two positions (first and a later one), agent accounts excluded: the before/latest chart, the filter by change (switched sides / other change / same), and people by name. Holders with one position are not listed; the chart's explanation already says so. Opening a person shows their positions over time as a graph and, under it, one line per verification from a story the viewer can open: "{author} verified {person}'s understanding of {author}'s story", the story name linking to it (one line per story, from its earliest verification). The dated list of positions is present for screen readers only.
+   - **Changes** appears only where the viewer can read every holder's history today: on public points, and for a non-public point's first validator. Elsewhere the block is today's Positions list with no switch. It shows holders with at least two positions (first and a later one), agent accounts excluded: the first/latest chart, the filter by change as the prototype has it (toward disagree / same / toward agree, by first → latest), and people by name. Holders with one position are not listed; the chart's explanation already says so. Opening a person shows their positions over time as a graph and, under it, one line per verification from a story the viewer can open: "{author} verified {person}'s understanding of {author}'s story", the story name linking to it (one line per story, from its earliest verification). The dated list of positions is present for screen readers only.
    - **Filter**, on the switch line, visible only while Changes is open: the blue-bordered "Filter" pill opening a dialog with a search over people, events and groups, the dates "When the positions were taken" (From, To), the number of people selected, Reset and Done. Chosen people, events and groups combine as "any of them"; the dates then cut each person's positions to the days chosen, inclusive, in the viewer's time zone. An active filter is spelled out in one line under the switch and tints the pill.
      - **People** offered: the holders listed in Changes.
      - **An event** stands for the people registered for it, at any date (not limited to recent events as the canvas Share list is). **A group** stands for its members.
-     - **An event or a group is offered only when the viewer can already see who is in it today** (for example a public group's members). A private group, whose members the product shows only as a count, is never offered. Signed-out visitors get people and dates only.
-   - **The point card's spread** on the point page shows the first positions (outlined) → today's spread when at least one holder's first position differs from their current one. Both halves count every holder, agents included, as today's spread does. The filter does not apply to it.
+     - **For a signed-in viewer, an event or a group is offered only when they can already see who is in it today** (for example a public group's members). A private group, whose members even its own members cannot list today, is never offered. Signed-out visitors get people and dates only, although a public group's members are readable to them, to keep one simple rule.
+   - **The point card's spread** on the point page shows the first positions (outlined) → today's spread when at least one holder's first position differs from their current one, under the same condition as Changes (the viewer can read every holder's history). Both halves count every holder, agents included, as today's spread does. The filter does not apply to it.
    - **Links:** `?view=changes` opens Changes. `?filter=` keeps applying to Positions only. The Changes filter is not in the address.
 
-**Reads.** One request for the counts of a whole list of stories, not one per card. Recommended: a database function taking story ids and returning, per story, the count, per point the arrows, and (for the panel) the bars. If it runs with elevated rights it must apply the same visibility as today's policies (stories and points the viewer can read, live rows only) and must not exceed them. The point page's Changes data either comes from a function or from paged reads; no read may stop silently at the 1000-row page limit (history on prod is already 842 rows). Counts for a list come with that list, so returning to the feed with Back shows them from the same cache as the cards, without a second fetch (decisions.md 2026-09-29, P1364 list-return cache). A failed read is reported as a failure, never as an empty result (today's `getPositionHistory` returns `[]` on error and cannot be reused as is).
+**Reads.** One request for the counts of a whole list of stories, not one per card. Recommended: a database function taking story ids and returning, per story, the count, per point the arrows, and (for the panel) the bars. If it runs with elevated rights it must apply the same visibility as today's policies (stories and points the viewer can read, live rows only) and must not exceed them. The point page's Changes data either comes from a function or from paged reads; no read may stop silently at the 1000-row page limit (history on prod is already 842 rows). Counts for a list arrive with that list: the list is shown once both the stories and their counts are in (requested together), so no chip appears after the cards and nothing below moves; returning with Back shows them from the same cache as the cards, without a second fetch (decisions.md 2026-09-29, P1364 list-return cache). A failed read is reported as a failure, never as an empty result (today's `getPositionHistory` returns `[]` on error and cannot be reused as is).
 
 ## Invariants
 
-- **No new exposure.** Nothing shown or returned reveals a row, a membership or a point the viewer cannot read today: no letter or guest explain-backs (they are visible only to their participants), no history of a point the viewer cannot read, no membership of a group whose members the viewer cannot see.
+- **No new exposure.** Nothing shown or returned reveals a row, a membership or a point the viewer cannot read today: no letter explain-backs (visible only to their two participants), no history of a point the viewer cannot read, no membership of a group whose members the viewer cannot see. Guest explain-backs (no listener) are left out of every count by the Definitions.
 - **The story surfaces name nobody** (2026-11-16 ruling). Names appear only on the point page.
 - **The under-5 rule is a display rule.** The not-verified bar never shows a number for fewer than 5 people, in text, bars or accessible labels. It does not hide anything else: for a public story, who explained it back and their rating are readable by anyone today (P586), and this build neither changes that nor claims otherwise.
 - **Nothing new is written.** No write to `point_positions`, `points`, `stories`, `story_points` or `story_verifications`, so the P1364 cache-clear rule (decisions.md, "Any new write ... must clear the cache") is not triggered. If `/dev` finds it needs a write, stop and flag it.
@@ -88,8 +92,9 @@ Build the surfaces as the prototype at branch `feature/p1683-story-fitness-mocku
 | Story count and arrows are empty at launch: 2 ratings of exactly 10 exist, and no verified person yet holds a position from before | ACCEPT | Hidden at zero. The point page has real data on 36 points |
 | Not-verified bar withheld on most stories | ACCEPT | Founder kept the comparison; it fills in with use |
 | A person who removes their position after a verification vanishes from the counts, though removing may be the strongest change | DEFER | Prod shows 10 holders who removed and came back; the count of removals that stayed removed is not readable publicly. Revisit with the first story that has 5 verified people |
-| "of N people verified" in the story chip's explanation uses this build's population; the "N verified" badge counts every source and speaker | ACCEPT | Both 10-rated rows on prod today are live and author-rated, so the numbers agree; they can differ later |
+| "of M people {author} verified" in the story chip's explanation uses this build's population; the "N verified" badge counts every source and speaker | ACCEPT | Both 10-rated rows on prod today are live and author-rated, so the numbers agree; they can differ later |
 | Verifying a story's earlier version counts movement on points linked later | ACCEPT | A story is one story to its readers; links rarely change |
+| A story point superseded by a new version: positions on the old row and the new row are separate, so movement across the change is not seen | ACCEPT | Versions are rare and each is its own point; the story page already shows the version it links |
 | Graph text too small at 320px (prototype: ~8.5px dates, 11px names) | MITIGATE | No graph text under 12px as rendered; long histories scroll inside the graph, the page itself never scrolls sideways |
 | A point with hundreds of holders | DEFER | Revisit when a point passes 200 holders |
 
@@ -114,14 +119,14 @@ Words ship exactly as in the prototype at `f5eacc37b` (`copy.ts`, `bits.tsx`, `c
 Other words, unchanged, include "N moved", "Verified", "Not verified", "switched sides", "other change", "same", "Same position", "not shown for fewer than 5 people", "Positions", "Changes", "Filter", "Filter people", "People, events, groups", "When the positions were taken", "From", "To", "Reset", "Done", and the verification line.
 
 - Buttons are filled blue or the blue-bordered pill. The prototype's grey "Reset" becomes the blue-bordered pill; no grey or white outlined action buttons anywhere (visual-qa.md).
-- Every control at least 40px tall at 320, 375 and 1280 wide; no horizontal page overflow.
+- Every control's tap area at least 40px tall at 320, 375 and 1280 wide (the chips keep the prototype's 22px look with a 44px tap area); no horizontal page overflow.
 - Blue marks "latest" or a change, never "good".
 
 ## UX Notes
 
 - **Empty:** no chip on a story with no verified mover; no arrows on a point with no verified mover; Changes with nobody to list shows "No one here has a position before and after yet".
-- **Loading:** the chip appears on the badge's line when its count arrives; the card may grow by that line on a narrow screen, nothing above it moves.
-- **Error:** a failed count read hides the chip and the arrows; on the point page Positions keeps working and Changes says it could not load, with a retry.
+- **Loading:** a list waits for its counts (Reads); on the story page the chip and arrows appear with the page.
+- **Error:** a failed count read shows the cards and the story page without the chip and the arrows (as for zero), is reported to error monitoring, and is never cached as zero, so the next visit asks again. On the point page Positions keeps working and Changes says it could not load, with a retry.
 - **Signed out:** everything shows as for a signed-in reader without memberships; the filter offers people and dates.
 
 ## Acceptance Criteria
@@ -130,7 +135,7 @@ Other words, unchanged, include "N moved", "Verified", "Not verified", "switched
 - [ ] A story with none shows no chip; an agent-authored story never shows one.
 - [ ] On the story page, "N moved" opens the panel; each point shows the Verified bar with its parts, including people who kept their position as "same"; the Not verified bar appears only for 5 or more people, otherwise the withheld line.
 - [ ] Story points on the story page look and link as before; the arrows chip appears only when someone moved.
-- [ ] On a point page, Changes lists the holders with at least two positions, never an agent account, and never anyone absent from Positions.
+- [ ] On a public point page, Changes lists the holders with at least two positions, never an agent account, and never anyone absent from Positions; on a non-public point, only its first validator sees Changes.
 - [ ] Opening a person in Changes shows their graph and one line per story that verified them, each linking to that story; a story the viewer cannot open has no line.
 - [ ] The Filter pill shows only while Changes is open; choosing people, an event, a group or dates narrows the list as defined and is spelled out under the switch; Reset clears it.
 - [ ] A private group is never offered in the filter; a signed-out visitor is offered people and dates only.
@@ -139,7 +144,7 @@ Other words, unchanged, include "N moved", "Verified", "Not verified", "switched
 
 ## Done-When
 
-- [ ] Every rule in Definitions has a unit test with its expected result, including: two verifications by the same story (counted once, earliest); a verification by someone other than the author (not counted); the author as listener (not counted); a letter row (not counted); a person with no position before the verification (not counted on that point); a removal before the verification (no before); a person who removed their position after it (not counted); a reasoning-only history row (not a change); a person who changed and came back (Same); a person who never changed since (Same); tied timestamps (row id decides); an agent account (excluded).
+- [ ] Every rule in Definitions has a unit test with its expected result, including: two verifications by the same story (counted once, earliest); a verification by someone other than the author (not counted); the author as listener (not counted); a letter row (not counted); a person with no position before the verification (not counted on that point); a removal before the verification (no before); a person who removed their position after it (not counted); a reasoning-only history row (not a change); removing and re-taking the same position (not a change); a person who changed and came back (Same); a person who never changed since (Same); an unrated explain-back (not verified); an agent account (excluded); a story by an agent account (no count); dates that leave one position, or that fall inside a removal (person not listed in the dated view).
 - [ ] The read is checked against today's visibility: as a signed-out visitor, as a signed-in account that is neither the point's first validator nor a holder, and as a former holder of a non-public point, no history, explain-back or membership beyond today's appears.
 - [ ] Browser check at 320, 375 and 1280 on a `/tree/_gate/` fixture rendering the real components with fixture data (`.claude/rules/src.md`, P955 gate fixtures), plus one test-database story with a seeded live 10-rated verification: no overflow, no control under 40px, panel and filter dialog open, fit and close.
 - [ ] The feed makes at most one more request per page of stories than before (counted in the browser's network panel), and a feed page with 1000+ history rows behind it still returns complete counts.
