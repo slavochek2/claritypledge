@@ -6,7 +6,8 @@ workstream: events
 created_date: '2026-11-18'
 tags: [listening-game, role-card, public-page, mobile]
 disclosure: public
-pipeline_ran: [dev]
+pipeline_ran: [dev, ship]
+delivery_stage: ship
 drafted_by: opus
 exec_model: opus
 exec_effort: high
