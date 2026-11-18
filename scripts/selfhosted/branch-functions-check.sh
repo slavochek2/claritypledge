@@ -261,6 +261,10 @@ while IFS= read -r rel; do
     *) echo "$rel" ;;
   esac
 done < "$T/differs" | LC_ALL=C sort -u > "$T/tops"
+# Every name below can reach a printed fix command, so a name that is not plain stops here: a
+# directory called a>b would print a redirect, and Supabase refuses such a name anyway (P1705, Codex 5).
+odd="$(LC_ALL=C grep -v -x -E '[A-Za-z0-9_.-]+' "$T/tops" | head -3 | LC_ALL=C tr -c 'A-Za-z0-9_.-\n' '_' | tr '\n' ' ' | sed 's/ $//')"
+[ -z "$odd" ] || unknown "a function directory name is not a plain name ($odd); a function name is letters, digits, - and _ only, so rename it"
 tops="$(cat "$T/tops")"
 labels=""
 for top in $tops; do
@@ -300,7 +304,7 @@ if [ ! -s "$T/changed.repo" ]; then
   done < "$T/maindeploy"
   if [ "$ndeploy" = 0 ] && [ ! -s "$T/maindeploy" ]; then
     # Only shared files differ: any named deploy carries them.
-    first="$(git -C "$REPO" ls-tree --name-only "$DG_MAIN_REF" supabase/functions/ 2>/dev/null | sed 's|.*/||' | grep -v -e '^_shared$' -e '^main$' -e '[.]' | head -1)"
+    first="$(git -C "$REPO" ls-tree --name-only "$DG_MAIN_REF" supabase/functions/ 2>/dev/null | sed 's|.*/||' | grep -v -e '^_shared$' -e '^main$' | LC_ALL=C grep -x -E '[A-Za-z0-9_-]+' | head -1)"
     # Never print a bare deploy: with no name it deploys and PRUNES every function.
     fixes+=("  scripts/selfhosted/deploy-functions.sh ${first:-ANY_FUNCTION_NAME}")
   fi
@@ -344,7 +348,8 @@ else
       *) echo "$b" ;;
     esac
   done | LC_ALL=C sort > "$T/fnlist"
-  first="$(sed -n 1p "$T/fnlist")"
+  # Only a plain name may become a command (see the name check above the fix).
+  first="$(LC_ALL=C grep -x -E '[A-Za-z0-9_-]+' "$T/fnlist" | head -1)"
   fixes+=("  scripts/selfhosted/deploy-functions.sh ${first:-ANY_FUNCTION_NAME}")
   fixes+=("(any named deploy carries _shared, deno.json, deno.lock, the router and the JWT list)")
 fi

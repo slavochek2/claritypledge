@@ -3,6 +3,7 @@
 # its verdict. A stub curl plays GoTrue: it answers each verify probe with the redirect GoTrue would
 # give under one allow list. No network, no VM.
 #
+# Also --classify (an allow list on stdin) and --audit (a stub gcloud plays the VM).
 # Scenarios (STUB_MODE):
 #   safe      the four-digit pattern: a 4-digit localhost port is allowed, anything else falls back
 #   wildcard  the first form, `http://localhost:*` and `http://localhost:*/**` (live on TEST until
@@ -117,6 +118,37 @@ LAST="$(printf '%s\n' "$OUT" | tail -n 1)"
 { [ "$RC" -eq 2 ] && [[ "$LAST" == "auth-redirects: unknown: stopped after 0 ports, past the 0 s deadline"* ]]; } && ok "past the deadline: exit 2, unknown" || bad "deadline (rc=$RC last=$LAST)"
 OUT="$(env PATH="$TMP/bin:$PATH" STUB_MODE=safe SELFHOSTED_HOST=stub-host.test AUTH_REDIRECTS_DEADLINE=x bash "$AR" --check --quiet 2>&1)"; RC=$?
 [ "$RC" -eq 2 ] && ok "a non-number deadline is refused" || bad "bad deadline (rc=$RC)"
+
+echo "4c. --classify judges the entries themselves, which no probe sample can"
+classify() { OUT="$(printf '%s' "$1" | bash "$AR" --classify 2>&1)"; RC=$?; }
+SAFE_LIST='http://localhost:[0-9][0-9][0-9][0-9],http://localhost:[0-9][0-9][0-9][0-9]/**,https://stub-host.test/**,http://localhost:6200/**,http://localhost:5001'
+classify "$SAFE_LIST"
+{ [ "$RC" -eq 0 ] && [[ "$OUT" == "auth-config: ok: 5 entries, each fixes its host" ]]; } && ok "the safe list: exit 0" || bad "safe list (rc=$RC out=$OUT)"
+# Each one escapes every behaviour control above, or did before them (Codex and Opus reviews).
+for e in 'http://localhost:[0-9][0-9]*' 'http://localhost:????' 'http://localhost:58??/**' 'http://localhost:*' \
+         'http://localhost:*/**' 'http://localhost:[0-9]*' 'http://*:*' 'http://localhost*' \
+         'http://localhost:6200@0x7f000002/**' 'http*://localhost:6200' 'localhost:6200'; do
+  classify "$SAFE_LIST,$e"
+  { [ "$RC" -eq 1 ] && [[ "$OUT" == "auth-config: warn: UNSAFE: 1 of 6 entries let the host vary: $e "* ]]; } && ok "refuses $e" || bad "$e (rc=$RC out=$OUT)"
+done
+classify ""
+{ [ "$RC" -eq 2 ] && [[ "$OUT" == "auth-config: unknown: "* ]]; } && ok "an empty list is unknown" || bad "empty (rc=$RC out=$OUT)"
+classify "$SAFE_LIST,http://evil|*.test/x"
+[[ "$OUT" == *"evil_*.test/x"* && "$OUT" != *"|"* ]] && ok "a shown entry carries no pipe token" || bad "shown entry ($OUT)"
+
+echo "4d. --audit reads the running container's list over ssh"
+cat > "$TMP/bin/gcloud" <<'GC'
+#!/usr/bin/env bash
+case "$*" in *"compute ssh"*"GOTRUE_URI_ALLOW_LIST"*) [ -f "$GC_ALLOW" ] || exit 255; printf 'banner line\nALLOW:%s\n' "$(cat "$GC_ALLOW")" ;; *) exit 1 ;; esac
+GC
+chmod +x "$TMP/bin/gcloud"
+audit() { OUT="$(env PATH="$TMP/bin:$PATH" GC_ALLOW="$TMP/allow" bash "$AR" --audit 2>&1)"; RC=$?; }
+printf '%s' "$SAFE_LIST" > "$TMP/allow"; audit
+{ [ "$RC" -eq 0 ] && [[ "$OUT" == "auth-config: ok: "* ]]; } && ok "safe on the server: exit 0" || bad "audit safe (rc=$RC out=$OUT)"
+printf '%s' "$SAFE_LIST,http://localhost:58??/**" > "$TMP/allow"; audit
+{ [ "$RC" -eq 1 ] && [[ "$OUT" == *"58??/**"* ]]; } && ok "58?? on the server: exit 1, named" || bad "audit 58 (rc=$RC out=$OUT)"
+rm -f "$TMP/allow"; audit
+{ [ "$RC" -eq 2 ] && [[ "$OUT" == "auth-config: unknown: ssh failed"* ]]; } && ok "ssh failure: exit 2" || bad "audit ssh fail (rc=$RC out=$OUT)"
 
 echo "5. status lines are redirect-safe (shell-safety.md)"
 all=""; for m in safe wildcard star stardeep digitstar open silent gap; do run "$m"; all="$all$OUT"$'\n'; done

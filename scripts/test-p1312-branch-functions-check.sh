@@ -555,6 +555,35 @@ run_check; check "a failed landing recorded" 2 "$CRC"
 has "  says what clears it" "$W/cout" "clean checkout of main"
 rm -f "$R/.git/cp-test-deploy-land.failed"
 
+echo "10h. a function directory whose name is not a plain name never reaches a fix command (P1705, Codex 5)"
+# Fix lines are meant to be pasted or run; a name carrying a shell token would turn into a redirect.
+no_tokens() { if grep -q '[<>|]' "$W/cout"; then bad "$1 (output has a redirect token: $(grep '[<>|]' "$W/cout" | head -3 | tr '\n' ' '))"; else ok "$1"; fi; }
+mk_world s10h
+run_deploy; branch feature/odd
+commit_on feature/odd 'supabase/functions/a>b/index.ts' 'odd' "odd name"
+commit_on feature/odd supabase/functions/fn-a/index.ts 'odd a' "a"
+run_check; unk "a changed function named a>b"
+no_tokens "  no redirect token anywhere in the output"
+has "  names the directory, the token replaced" "$W/cout" "not a plain name (a_b)"
+hasnt "  prints no deploy command" "$W/cout" "^  scripts/selfhosted/deploy-functions.sh"
+echo "10i. the shared-only fallback skips a name that is not plain"
+mk_world s10i
+commit_on main 'supabase/functions/a>b/index.ts' 'odd' "odd name on main"
+run_deploy; check "setup: a full deploy carries a>b" 0 "$RC"
+branch feature/sh2
+commit_on feature/sh2 supabase/functions/_shared/x.ts 'export const v = 7' "shared v7"
+run_check; check "a _shared change, a>b present and matching" 1 "$CRC"
+no_tokens "  no redirect token anywhere in the output"
+has "  the named deploy is the first plain name" "$W/cout" "^  scripts/selfhosted/deploy-functions.sh fn-a$"
+echo "10j. main's-tip fallback skips a name that is not plain"
+mk_world s10j
+commit_on main 'supabase/functions/a>b/index.ts' 'odd' "odd name on main"
+run_deploy; check "setup: a full deploy carries a>b" 0 "$RC"
+echo 'drift' >> "$SB/stack/volumes/functions/_shared/x.ts"
+run_check; check "the server's _shared drifted, nothing changed here" 1 "$CRC"
+no_tokens "  no redirect token anywhere in the output"
+has "  the named deploy is the first plain name" "$W/cout" "^  scripts/selfhosted/deploy-functions.sh fn-a$"
+
 # ---------------------------------------------------------------- 9 playwright
 echo "9. the hooks under a real Playwright run (empty spec, stub check script, no TEST)"
 PW="$SRC_ROOT/node_modules/.bin/playwright"

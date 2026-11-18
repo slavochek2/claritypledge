@@ -77,11 +77,14 @@ if ! command -v gcloud >/dev/null 2>&1 || ! gcloud auth print-access-token >/dev
   why="gcloud not logged in"
 elif [ "$SOURCE" = ssh ]; then
   out="$(gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet --command \
-    "echo DISK:\$(df --output=pcent / | tail -1 | tr -dc 0-9); echo WAL:\$(sudo docker exec supabase-db psql -U postgres -At -c 'select (coalesce(sum(size),0)/1048576)::bigint from pg_ls_waldir()')" 2>/dev/null)"; ssh_rc=$?
+    "echo DISK:\$(df --output=pcent / | tail -1 | tr -dc 0-9); echo WAL:\$(sudo docker exec supabase-db psql -U postgres -At -c 'select (coalesce(sum(size),0)/1048576)::bigint from pg_ls_waldir()'); printf 'ALLOW:%s\\n' \"\$(sudo docker exec supabase-auth printenv GOTRUE_URI_ALLOW_LIST)\"" 2>/dev/null)"; ssh_rc=$?
   # A failed session proves nothing, whatever it printed before failing.
   [ "$ssh_rc" -eq 0 ] || { out=""; why="ssh failed"; }
   # Tagged lines, so a banner or warning on stdout can never be read as a number.
   pct="$(printf '%s\n' "$out" | sed -n 's/^DISK:\([0-9][0-9]*\)$/\1/p')"; wal="$(printf '%s\n' "$out" | sed -n 's/^WAL:\([0-9][0-9]*\)$/\1/p')"
+  # P1705: the auth allow list the running container uses, judged entry by entry. The probe in 2b
+  # samples behaviour; this reads what an edit could add that no probe happens to try.
+  allow="$(printf '%s\n' "$out" | sed -n 's/^ALLOW://p' | head -n 1)"
 else
   # JSON, not CSV: gcloud quotes a CSV value that contains a comma ("auth,storage"), which would turn
   # two down services into "no reading". jq flattens it to key,value lines.
@@ -104,6 +107,18 @@ if [ -z "$pct" ]; then report disk unknown "${why:-no disk reading}"
 elif [ "$pct" -ge "$DISK_WARN_PCT" ]; then report disk warn "${pct}% used"; else report disk ok "${pct}% used"; fi
 if [ -z "$wal" ]; then report wal unknown "${why:-could not read WAL size}"
 elif [ "$wal" -ge "$WAL_WARN_MB" ]; then report wal warn "${wal} MB"; else report wal ok "${wal} MB"; fi
+if [ "$SOURCE" = ssh ]; then
+  if [ -n "$why" ]; then report auth-config unknown "$why"
+  else
+    ac_line="$(printf '%s' "${allow:-}" | "$(dirname "$0")/auth-redirects.sh" --classify 2>&1 | tail -n 1)"
+    case "$ac_line" in
+      "auth-config: ok: "*) report auth-config ok "${ac_line#auth-config: ok: }" ;;
+      "auth-config: warn: "*) report auth-config warn "${ac_line#auth-config: warn: }" ;;
+      "auth-config: unknown: "*) report auth-config unknown "${ac_line#auth-config: unknown: }" ;;
+      *) report auth-config unknown "auth-redirects.sh gave no verdict" ;;
+    esac
+  fi
+fi
 if [ "$SOURCE" = guest-attributes ]; then
   if [ -z "$down" ]; then report services unknown "${why:-no service reading}"
   elif [ "$down" = none ]; then report services ok "every stack container running and healthy"

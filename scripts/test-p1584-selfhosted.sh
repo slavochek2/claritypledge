@@ -126,9 +126,20 @@ echo '[]' > "$T/runs"
 expect "day: on main with no scheduled run is unknown, no silent local probe" 2 '^workflow: unknown: .*no completed scheduled run' -- "$SH/day-health.sh"
 rm -f "$T/runs"
 expect "day: on main with gh failing is unknown, no silent local probe" 2 '^workflow: unknown: could not list' -- "$SH/day-health.sh"
-printf 'DISK:18\nWAL:64\n' > "$T/ssh"
+SAFE_ALLOW='http://localhost:[0-9][0-9][0-9][0-9],http://localhost:[0-9][0-9][0-9][0-9]/**,https://136-85-1-126.sslip.io/**,http://localhost:6200/**'
+printf 'DISK:18\nWAL:64\nALLOW:%s\n' "$SAFE_ALLOW" > "$T/ssh"
 unset SELFHOSTED_WORKFLOW_ON_MAIN
 GH_VIEW=no expect "day: GitHub says not on main: the local probe answers" 0 '^source: ok: local probe, because the workflow is not on main yet' -- "$SH/day-health.sh"
+# P1705: the ssh source also reads the auth container's allow list and judges each entry.
+expect "health ssh: an allow list that fixes every host is ok" 0 '^auth-config: ok: 4 entries' -- "$SH/health.sh" --source ssh
+printf 'DISK:18\nWAL:64\nALLOW:%s,http://localhost:58??/**\n' "$SAFE_ALLOW" > "$T/ssh"
+expect "health ssh: a glob before the path (58??) warns" 1 '^auth-config: warn: UNSAFE: 1 of 5 entries let the host vary: http://localhost:58\?\?/\*\*' -- "$SH/health.sh" --source ssh
+printf 'DISK:18\nWAL:64\n' > "$T/ssh"
+expect "health ssh: no allow list read is unknown, never ok" 2 '^auth-config: unknown: the allow list could not be read' -- "$SH/health.sh" --source ssh
+rm -f "$T/ssh"
+expect "health ssh: a failed session is unknown for the allow list too" 2 '^auth-config: unknown: ssh failed' -- "$SH/health.sh" --source ssh
+if "$SH/health.sh" --source none 2>&1 | grep -q '^auth-config:'; then bad "health --source none: no auth-config line (it needs ssh)" "an auth-config line was printed"; else ok "health --source none: no auth-config line (it needs ssh)"; fi
+printf 'DISK:18\nWAL:64\nALLOW:%s\n' "$SAFE_ALLOW" > "$T/ssh"
 GH_VIEW=error expect "day: GitHub unreachable: unknown, never a quiet local probe" 2 '^workflow: unknown: could not ask GitHub' -- "$SH/day-health.sh"
 
 # --- the workflow's alert block, extracted verbatim from the YAML (P1567 pattern) -------------------

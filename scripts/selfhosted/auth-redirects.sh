@@ -3,6 +3,10 @@
 # worktree port it came from? (P1705)
 #
 #   auth-redirects.sh --check [--quiet]   read-only probe; exit 0 all ok, 1 a port is refused, 2 could not check
+#   auth-redirects.sh --audit              read-only: the allow list the running auth container uses,
+#                                          judged by --classify (needs SSH to the VM)
+#   auth-redirects.sh --classify           judge a comma-separated allow list on stdin: exit 0 every
+#                                          entry fixes its host, 1 one lets the host vary, 2 empty
 #   auth-redirects.sh --apply              put the four-digit localhost pattern in the VM's
 #                                          ADDITIONAL_REDIRECT_URLS (backup first, other entries kept,
 #                                          the earlier unsafe `localhost:*` entries removed), recreate
@@ -24,6 +28,11 @@
 # failing: an external host. If it is not refused, the probe cannot tell allowed from refused and the
 # check reports unknown rather than ok. Two more must stay refused, or the check fails: a userinfo
 # host behind localhost (the bypass above), and a five-digit port.
+#
+# Probes sample; they cannot prove an arbitrary entry safe (`http://localhost:[0-9][0-9]*` admits
+# `http://localhost:12@0x08080808` and none of the controls). So --audit also reads the entries and
+# allows a glob only after the host: the text before the first `/` past `://` must hold no glob
+# character and no `@`, or the entry must be one of WILDCARDS, whose `[0-9]` classes match digits only.
 # Output contract (shell-safety.md): no redirect or pipe tokens in status lines.
 set -uo pipefail
 
@@ -35,8 +44,10 @@ HOST="${SELFHOSTED_HOST:-136-85-1-126.sslip.io}"
 PROBE_TOKEN="p1705-probe-invalid" # gitleaks:allow
 STACK_DIR="/opt/supabase/docker"
 WILDCARDS="http://localhost:[0-9][0-9][0-9][0-9],http://localhost:[0-9][0-9][0-9][0-9]/**"
-# The first form of this fix (P1705, 2026-11-18). --apply removes them wherever they are.
-UNSAFE="http://localhost:*,http://localhost:*/**"
+# Entries that let the host vary and that WILDCARDS already covers. --apply removes them wherever
+# they are. The first two are the first form of this fix (P1705, 2026-11-18); `58??` was an earlier
+# named-worktree entry, and its `??` admits `http://localhost:58@a/x` (host `a`).
+UNSAFE="http://localhost:*,http://localhost:*/**,http://localhost:58??,http://localhost:58??/**"
 # Must never be honoured. The first three are the userinfo bypass in the header (0x7f000002 is
 # 127.0.0.2, so the probe never names an outside host); the last is outside the allocator. Each
 # GoTrue entry form needs its own control, because `*` stops at `.` and `/`: a plain
@@ -59,11 +70,49 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --check) MODE=check; shift ;;
     --apply) MODE=apply; shift ;;
+    --audit) MODE=audit; shift ;;
+    --classify) MODE=classify; shift ;;
     --quiet) QUIET=1; shift ;;
-    *) echo "usage: auth-redirects.sh --check [--quiet] | --apply" >&2; exit 2 ;;
+    *) echo "usage: auth-redirects.sh --check [--quiet] | --audit | --classify | --apply" >&2; exit 2 ;;
   esac
 done
-[ -n "$MODE" ] || { echo "usage: auth-redirects.sh --check [--quiet] | --apply" >&2; exit 2; }
+[ -n "$MODE" ] || { echo "usage: auth-redirects.sh --check [--quiet] | --audit | --classify | --apply" >&2; exit 2; }
+
+# An entry printed in a status line keeps only characters with no shell meaning (shell-safety.md).
+shown() { printf '%s' "$1" | LC_ALL=C tr -c 'A-Za-z0-9:/._*?[]{}@,-' '_'; }
+
+# Judge an allow list (comma-separated, on stdin). One status line; exit 0 ok, 1 warn, 2 unknown.
+classify() {
+  local list e scheme rest auth n=0 k=0 bad=""
+  list="$(cat)"; list="${list%$'\n'}"
+  [ -n "$list" ] || { echo "auth-config: unknown: the allow list could not be read"; return 2; }
+  local -a entries; IFS=',' read -r -a entries <<< "$list"
+  for e in "${entries[@]}"; do
+    [ -n "$e" ] || continue
+    n=$((n + 1))
+    case ",$WILDCARDS," in *",$e,"*) continue ;; esac
+    scheme="${e%%://*}"; rest="${e#*://}"
+    if [ "$rest" = "$e" ]; then bad="$bad $(shown "$e")"; k=$((k + 1)); continue; fi
+    auth="${rest%%/*}"
+    case "$scheme" in ""|*[!a-z]*) bad="$bad $(shown "$e")"; k=$((k + 1)); continue ;; esac
+    case "$auth" in ""|*[][*?{}@\\]*) bad="$bad $(shown "$e")"; k=$((k + 1)) ;; esac
+  done
+  if [ -n "$bad" ]; then
+    echo "auth-config: warn: UNSAFE: $k of $n entries let the host vary:$bad (auth-redirects.sh --apply drops the known ones; any other needs a hand edit)"
+    return 1
+  fi
+  echo "auth-config: ok: $n entries, each fixes its host"
+  return 0
+}
+
+audit() {
+  local out rc list
+  out="$(gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
+    --command "printf 'ALLOW:%s\\n' \"\$(sudo docker exec supabase-auth printenv GOTRUE_URI_ALLOW_LIST)\"" 2>/dev/null)"; rc=$?
+  [ "$rc" -eq 0 ] || { echo "auth-config: unknown: ssh failed (exit $rc)"; return 2; }
+  list="$(printf '%s\n' "$out" | sed -n 's/^ALLOW://p' | head -n 1)"
+  printf '%s' "$list" | classify
+}
 case "$HOST" in ""|*[!a-z0-9.-]*|-*) echo "refusing SELFHOSTED_HOST: not a plain hostname" >&2; exit 2 ;; esac
 
 # Ports to probe, derived from the one definition. A name sample covers the named range, and base+1
@@ -134,7 +183,7 @@ check() {
 }
 
 apply() {
-  echo "Setting $WILDCARDS in ADDITIONAL_REDIRECT_URLS on $VM (backup kept, unsafe localhost:* entries removed), then recreating the auth container."
+  echo "Setting $WILDCARDS in ADDITIONAL_REDIRECT_URLS on $VM (backup kept, the UNSAFE entries removed), then recreating the auth container."
   # The remote script backs up .env, drops the unsafe entries, appends only the entries that are
   # missing, and validates the compose config before recreating. Values are never printed.
   local remote
@@ -184,8 +233,18 @@ REMOTE
     case "$(curl -s -o /dev/null --max-time 5 -w '%{http_code}' "https://$HOST/auth/v1/health")" in 2*|4*) break ;; esac
     sleep 5
   done
-  check
+  # Behaviour first, then the entries themselves: the worse of the two verdicts is the answer.
+  local c a
+  check; c=$?
+  audit; a=$?
+  [ "$c" -eq 1 ] || [ "$a" -eq 1 ] && return 1
+  [ "$c" -eq 0 ] && [ "$a" -eq 0 ] && return 0
+  return 2
 }
 
-if [ "$MODE" = check ]; then check; exit $?; fi
+case "$MODE" in
+  check) check; exit $? ;;
+  classify) classify; exit $? ;;
+  audit) audit; exit $? ;;
+esac
 apply; exit $?
