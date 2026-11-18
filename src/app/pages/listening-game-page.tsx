@@ -9,7 +9,8 @@ import { SEO } from '@/app/components/seo';
 import { Button } from '@/components/ui/button';
 import { watchSeconds } from '@/app/prototypes/events/prep/prep-plan';
 import { Clip, Title, type ClipMedia } from '@/app/prototypes/events/prep/prep-ui';
-import { LISTENING_GAME_COPY, listeningGamePosterUrl, listeningGameVideoUrl } from '@/app/prototypes/events/prep/listening-game';
+import { LISTENING_GAME_COPY, ROLE_CARDS, listeningGamePosterUrl, listeningGameVideoUrl } from '@/app/prototypes/events/prep/listening-game';
+import { RoleCards } from '@/app/prototypes/events/prep/RoleCards';
 
 export function ListeningGamePage() {
   const media = useMemo<ClipMedia>(() => ({
@@ -42,6 +43,10 @@ export function ListeningGamePage() {
             ))}
           </ul>
           <p className="text-base leading-relaxed text-foreground" data-testid="listening-game-closing">{LISTENING_GAME_COPY.closing}</p>
+        </div>
+        <div className="space-y-3">
+          <h2 className="text-xl font-semibold text-foreground">{ROLE_CARDS.heading}</h2>
+          <RoleCards />
         </div>
         <div className="flex flex-col items-center gap-2 pt-2" data-testid="game-actions">
           <div className="w-full max-w-sm">
