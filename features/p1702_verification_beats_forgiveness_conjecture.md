@@ -6,8 +6,9 @@ workstream: research
 created_date: '2026-11-17'
 tags: [research, game-theory, cooperation, paper]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: ship
+pipeline_ran: [create-spec, inline, ship]
+flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
