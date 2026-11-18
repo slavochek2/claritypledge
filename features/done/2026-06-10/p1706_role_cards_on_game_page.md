@@ -1,5 +1,5 @@
 ---
-status: ready-for-qa
+status: all-done
 type: story
 rank: 343
 workstream: events
@@ -7,11 +7,11 @@ created_date: '2026-11-18'
 tags: [listening-game, role-card, public-page, mobile]
 disclosure: public
 pipeline_ran: [dev, ship]
-delivery_stage: ship
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-18
 ---
 
 # P1706: The speaker/listener card on /game
