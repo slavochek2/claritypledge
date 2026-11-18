@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-18 [technical]: Vitest workers keep the real console; a log during worker teardown no longer fails a full run (P1710)
+
+**Context:** The full pre-commit suite blocked 4 of 8 commits in one session with "Closing rpc while onUserConsoleLog was pending" and every test passing, attributed to a different file each time. Vitest replaces the worker console with one that sends each log over RPC; a log fired while a worker closes is cut off and counted as an unhandled error.
+**Decision:** `disableConsoleIntercept: true` in `vite.config.ts`. A probe confirmed the worker's console is Node's own with the setting and vitest's without it; 37 console-spying files (882 tests) pass.
+**Alternatives rejected:** Hunting each late log (the file changed every run); retrying commits (four blocked commits in one day).
+**Consequences:** Console output is not grouped under the test that printed it, and `onConsoleLog`, `--silent` and structured-reporter log capture stop working; nothing in the repo uses them (grep of scripts, workflows, package.json). A test that logs after it ends no longer fails the run. UNTESTED falsifier: the same teardown error in a full run after this lands.
+**References:** [P1710](../features/done/2026-06-10/p1710_full_suite_console_teardown_error_blocks_commits.md)
+
 ## 2026-11-18 [product]: "High stakes" gets a definition (an entry condition, an `irreversible` mode, a rename, an example list), a proposed fifth Clarity Organization stage, and step 2 of the five moves renamed
 
 **Context:** While the next product film was being planned, a friendly prospective partner could not repeat the pitch. He named the meetings where he would use it: kickoffs, pre-mortems and post-mortems, feedback sessions, quarterly reviews. Asked what this repo actually defines as "high stakes", the answer was: no glossary entry. That is the debt recorded in 2026-07-29 [product] "Detection may be the product" ("`definitions.md` needs a **high-stakes** entry"). The working criteria live in [arbiter-failure-model.md](arbiter-failure-model.md); the detect skill's trigger list (states a position, consequential fork, irreversible-class commitment, ...) is a scanning checklist, not a definition.
