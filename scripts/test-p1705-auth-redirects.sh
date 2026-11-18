@@ -133,6 +133,15 @@ for e in 'http://localhost:[0-9][0-9]*' 'http://localhost:????' 'http://localhos
 done
 classify ""
 { [ "$RC" -eq 2 ] && [[ "$OUT" == "auth-config: unknown: "* ]]; } && ok "an empty list is unknown" || bad "empty (rc=$RC out=$OUT)"
+# A line break ended the read and hid every entry after it (Codex round 6).
+classify "$SAFE_LIST"$'\n'",http://*/**"
+{ [ "$RC" -eq 1 ] && [[ "$OUT" == *"http://*/**"* ]]; } && ok "an entry after a line break is still judged" || bad "line break, comma (rc=$RC out=$OUT)"
+classify "$SAFE_LIST"$'\n'"http://*/**"
+{ [ "$RC" -eq 1 ] && [[ "$OUT" == "auth-config: warn: UNSAFE: 1 of 5 "* ]]; } && ok "an entry holding a line break is refused" || bad "line break inside (rc=$RC out=$OUT)"
+classify "$SAFE_LIST"$'\n'
+{ [ "$RC" -eq 0 ] && [[ "$OUT" == "auth-config: ok: 5 entries"* ]]; } && ok "a trailing line break alone is no finding" || bad "trailing newline (rc=$RC out=$OUT)"
+classify ",,,"
+{ [ "$RC" -eq 2 ] && [[ "$OUT" == "auth-config: unknown: the allow list holds no entries" ]]; } && ok "commas and no entries is unknown, never ok" || bad "commas only (rc=$RC out=$OUT)"
 classify "$SAFE_LIST,http://evil|*.test/x"
 [[ "$OUT" == *"evil_*.test/x"* && "$OUT" != *"|"* ]] && ok "a shown entry carries no pipe token" || bad "shown entry ($OUT)"
 
@@ -147,6 +156,8 @@ printf '%s' "$SAFE_LIST" > "$TMP/allow"; audit
 { [ "$RC" -eq 0 ] && [[ "$OUT" == "auth-config: ok: "* ]]; } && ok "safe on the server: exit 0" || bad "audit safe (rc=$RC out=$OUT)"
 printf '%s' "$SAFE_LIST,http://localhost:58??/**" > "$TMP/allow"; audit
 { [ "$RC" -eq 1 ] && [[ "$OUT" == *"58??/**"* ]]; } && ok "58?? on the server: exit 1, named" || bad "audit 58 (rc=$RC out=$OUT)"
+printf '%s\n%s' "$SAFE_LIST" ",http://*/**" > "$TMP/allow"; audit
+{ [ "$RC" -eq 1 ] && [[ "$OUT" == *"http://*/**"* ]]; } && ok "a line break in the server's value hides nothing: exit 1" || bad "audit line break (rc=$RC out=$OUT)"
 rm -f "$TMP/allow"; audit
 { [ "$RC" -eq 2 ] && [[ "$OUT" == "auth-config: unknown: ssh failed"* ]]; } && ok "ssh failure: exit 2" || bad "audit ssh fail (rc=$RC out=$OUT)"
 

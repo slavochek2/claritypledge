@@ -134,6 +134,9 @@ GH_VIEW=no expect "day: GitHub says not on main: the local probe answers" 0 '^so
 expect "health ssh: an allow list that fixes every host is ok" 0 '^auth-config: ok: 4 entries' -- "$SH/health.sh" --source ssh
 printf 'DISK:18\nWAL:64\nALLOW:%s,http://localhost:58??/**\n' "$SAFE_ALLOW" > "$T/ssh"
 expect "health ssh: a glob before the path (58??) warns" 1 '^auth-config: warn: UNSAFE: 1 of 5 entries let the host vary: http://localhost:58\?\?/\*\*' -- "$SH/health.sh" --source ssh
+printf 'DISK:18\nWAL:64\nALLOW:%s\n,http://*/**\n' "$SAFE_ALLOW" > "$T/ssh"
+# The entry the break ends holds it too, so both are refused: 2 of 5.
+expect "health ssh: an entry after a line break in the value is still judged" 1 '^auth-config: warn: UNSAFE: 2 of 5 entries let the host vary: .* http://\*/\*\* ' -- "$SH/health.sh" --source ssh
 printf 'DISK:18\nWAL:64\n' > "$T/ssh"
 expect "health ssh: no allow list read is unknown, never ok" 2 '^auth-config: unknown: the allow list could not be read' -- "$SH/health.sh" --source ssh
 rm -f "$T/ssh"

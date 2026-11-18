@@ -73,10 +73,10 @@ while [ $# -gt 0 ]; do
     --audit) MODE=audit; shift ;;
     --classify) MODE=classify; shift ;;
     --quiet) QUIET=1; shift ;;
-    *) echo "usage: auth-redirects.sh --check [--quiet] | --audit | --classify | --apply" >&2; exit 2 ;;
+    *) echo "usage: auth-redirects.sh --check [--quiet], --audit, --classify or --apply" >&2; exit 2 ;;
   esac
 done
-[ -n "$MODE" ] || { echo "usage: auth-redirects.sh --check [--quiet] | --audit | --classify | --apply" >&2; exit 2; }
+[ -n "$MODE" ] || { echo "usage: auth-redirects.sh --check [--quiet], --audit, --classify or --apply" >&2; exit 2; }
 
 # An entry printed in a status line keeps only characters with no shell meaning (shell-safety.md).
 shown() { printf '%s' "$1" | LC_ALL=C tr -c 'A-Za-z0-9:/._*?[]{}@,-' '_'; }
@@ -84,7 +84,9 @@ shown() { printf '%s' "$1" | LC_ALL=C tr -c 'A-Za-z0-9:/._*?[]{}@,-' '_'; }
 # Judge an allow list (comma-separated, on stdin). One status line; exit 0 ok, 1 warn, 2 unknown.
 classify() {
   local list e scheme rest auth n=0 k=0 bad=""
-  list="$(cat)"; list="${list%$'\n'}"
+  # A line break or other control character inside the value would end the read below and hide
+  # every entry after it (Codex round 6), so each becomes a space, and an entry holding one is refused.
+  list="$(LC_ALL=C tr '[:cntrl:]' ' ')"; list="${list%"${list##*[! ]}"}"
   [ -n "$list" ] || { echo "auth-config: unknown: the allow list could not be read"; return 2; }
   local -a entries; IFS=',' read -r -a entries <<< "$list"
   for e in "${entries[@]}"; do
@@ -95,8 +97,10 @@ classify() {
     if [ "$rest" = "$e" ]; then bad="$bad $(shown "$e")"; k=$((k + 1)); continue; fi
     auth="${rest%%/*}"
     case "$scheme" in ""|*[!a-z]*) bad="$bad $(shown "$e")"; k=$((k + 1)); continue ;; esac
-    case "$auth" in ""|*[][*?{}@\\]*) bad="$bad $(shown "$e")"; k=$((k + 1)) ;; esac
+    case "$auth" in ""|*[][*?{}@\\]*) bad="$bad $(shown "$e")"; k=$((k + 1)); continue ;; esac
+    case "$e" in *" "*) bad="$bad $(shown "$e")"; k=$((k + 1)) ;; esac
   done
+  [ "$n" -gt 0 ] || { echo "auth-config: unknown: the allow list holds no entries"; return 2; }
   if [ -n "$bad" ]; then
     echo "auth-config: warn: UNSAFE: $k of $n entries let the host vary:$bad (auth-redirects.sh --apply drops the known ones; any other needs a hand edit)"
     return 1
@@ -110,7 +114,9 @@ audit() {
   out="$(gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
     --command "printf 'ALLOW:%s\\n' \"\$(sudo docker exec supabase-auth printenv GOTRUE_URI_ALLOW_LIST)\"" 2>/dev/null)"; rc=$?
   [ "$rc" -eq 0 ] || { echo "auth-config: unknown: ssh failed (exit $rc)"; return 2; }
-  list="$(printf '%s\n' "$out" | sed -n 's/^ALLOW://p' | head -n 1)"
+  # The value is printed last; every line from ALLOW: on is part of it.
+  list="$(printf '%s\n' "$out" | sed -n '/^ALLOW:/,$p' | sed '1s/^ALLOW://')"
+  case "$out" in *ALLOW:*) ;; *) echo "auth-config: unknown: the allow list could not be read"; return 2 ;; esac
   printf '%s' "$list" | classify
 }
 case "$HOST" in ""|*[!a-z0-9.-]*|-*) echo "refusing SELFHOSTED_HOST: not a plain hostname" >&2; exit 2 ;; esac
@@ -225,7 +231,7 @@ REMOTE
   out="$({ printf 'STACK_DIR=%q\nWILDCARDS=%q\nUNSAFE=%q\n' "$STACK_DIR" "$WILDCARDS" "$UNSAFE"; printf '%s\n' "$remote"; } |
     gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
       --command 'sudo bash -s' 2>&1)"; rc=$?
-  printf '%s\n' "$out"
+  printf '%s\n' "$out" | LC_ALL=C tr '<>|' '___'
   [ "$rc" -eq 0 ] || { echo "auth-redirects: apply failed on the VM (exit $rc); TEST auth may need a look" >&2; return 2; }
   # GoTrue takes a few seconds to come back after a recreate.
   local i

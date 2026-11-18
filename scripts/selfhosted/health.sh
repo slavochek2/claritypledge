@@ -84,7 +84,9 @@ elif [ "$SOURCE" = ssh ]; then
   pct="$(printf '%s\n' "$out" | sed -n 's/^DISK:\([0-9][0-9]*\)$/\1/p')"; wal="$(printf '%s\n' "$out" | sed -n 's/^WAL:\([0-9][0-9]*\)$/\1/p')"
   # P1705: the auth allow list the running container uses, judged entry by entry. The probe in 2b
   # samples behaviour; this reads what an edit could add that no probe happens to try.
-  allow="$(printf '%s\n' "$out" | sed -n 's/^ALLOW://p' | head -n 1)"
+  # The allow list is printed last, and a line break inside it must reach the audit, so every line
+  # from ALLOW: on is kept (auth-redirects.sh --classify refuses an entry holding one).
+  allow="$(printf '%s\n' "$out" | sed -n '/^ALLOW:/,$p' | sed '1s/^ALLOW://')"
 else
   # JSON, not CSV: gcloud quotes a CSV value that contains a comma ("auth,storage"), which would turn
   # two down services into "no reading". jq flattens it to key,value lines.
