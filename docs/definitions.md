@@ -190,6 +190,7 @@ Authors see verification results across all listeners:
 - **L2 — Documented:** the organization's verified-understanding behavior is recorded and visible to members (the **Cognitive Understanding Ledger** — defined below).
 - **L3 — Recognized:** sustained full badging (9-of-9) — the outcome-unit sense described above. A **recognition** status earned over time, not a join gate.
 - **L4 — Pledged:** members carry individual Clarity Pledges — identity beyond the organization.
+- **L5 (proposed, short name open):** the company records in its articles of association or shareholder agreement that the clarity process must be followed before its high-stakes decisions, the reserved matters those documents already list (examples in [high-stakes-examples.md](high-stakes-examples.md)). The practice becomes part of how the company is governed, not a habit of its current members. *Proposed 2026-11-18, untested; falsifier in [decisions.md](decisions.md) 2026-11-18 [product].*
 
 Joining (L1, accept) and recognition (L3, badging) are distinct gates: joining is open, recognition is earned. An organization also has a **type** — a **community** (cross-organizational affinity) or a **company** (a single internal team); the community type is where *Clarity Practice Community · Chiang Mai* sits (resolved 2026-08-19; the Chiang Mai group carries the name again since 2026-10-22 — [decisions.md](decisions.md) 2026-10-22 [product] "One community, named for the practice").
 
@@ -279,6 +280,20 @@ The word "understand" covers three incompatible requests. Without naming which o
 **The false-unity word problem:** All three are called "understanding" in everyday speech. Satisfying one while missing another produces a silent failure — it looks like dishonesty or poor memory. It isn't. It's a word doing too much work.
 
 **Why this matters for the platform:** ClarityPledge verifies cognitive understanding (can you reproduce the story accurately?). It does not and cannot verify emotional understanding. Agreement is tracked separately via Points. Conflating them is the root cause of most "we talked but nothing changed" conversations.
+
+---
+
+## High Stakes
+
+> **One-liner:** an item is high-stakes when its success depends on the people involved sharing one understanding of it, so a misunderstanding would be costly.
+
+**What it means here:** the gate the protocol sits behind (§Verification Threshold: *"stakes is the gate"*). A high-stakes item is worth the instrument when, in addition, its natural outcome will not reveal the misunderstanding in time to fix it cheaply: it is too vague to settle (fuzzy intent), you find out too late (delayed feedback), it is too costly to try and see (concentrated consequences; irreversible), or each side will explain the result its own way and nobody will call it a misunderstanding (explanatory divergence). A high-stakes item where none of these holds settles itself.
+
+**Who decides:** the classification is joint work with the person whose meeting or decision it is, never our verdict on their stakes ([decisions.md](decisions.md) 2026-07-29 [product]).
+
+**What it is NOT:** the detect skill's trigger list (states a position, consequential fork, irreversible-class commitment, ...) is a scanning checklist for finding candidates in a transcript, not this definition.
+
+*Full model, firing conditions and falsifiers: [arbiter-failure-model.md](arbiter-failure-model.md). Examples of high-stakes meetings and decisions: [high-stakes-examples.md](high-stakes-examples.md). Entry added 2026-11-18 ([decisions.md](decisions.md) 2026-11-18 [product]).*
 
 ---
 

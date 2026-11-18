@@ -8,6 +8,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-18 [product]: "High stakes" gets a definition (an entry condition, an `irreversible` mode, a rename, an example list), a proposed fifth Clarity Organization stage, and step 2 of the five moves renamed
+
+**Context:** While the next product film was being planned, a friendly prospective partner could not repeat the pitch. He named the meetings where he would use it: kickoffs, pre-mortems and post-mortems, feedback sessions, quarterly reviews. Asked what this repo actually defines as "high stakes", the answer was: no glossary entry. That is the debt recorded in 2026-07-29 [product] "Detection may be the product" ("`definitions.md` needs a **high-stakes** entry"). The working criteria live in [arbiter-failure-model.md](arbiter-failure-model.md); the detect skill's trigger list (states a position, consequential fork, irreversible-class commitment, ...) is a scanning checklist, not a definition.
+
+**Decision (founder, 2026-11-18):**
+1. `definitions.md` gains **§High Stakes**: a plain-meaning entry pointing to the model file. This applies the 2026-07-29 owed update.
+2. An **entry condition** sits above the modes: *success depends on shared understanding*. The modes say why the natural outcome will not reveal the misunderstanding in time. It is the positive form of skip rule (b) and the "real stake" half of the problem-board filter.
+3. **`irreversible`** becomes its own mode, a second way of being too costly to try (who bears the cost vs whether it can be undone).
+4. **`concentrated stakes` is renamed `concentrated consequences`.** This is a deliberate founder rename, recorded here so that 2026-07-03 [product]'s falsifier ("If the pinned terms drift again next session, the derivation didn't hold") is not misread as firing; the 2026-04-23 wording was already "concentrated consequences".
+5. **"Compounding" stays out**, as 2026-07-03 decided: it names the damage, not a filter, and no counter-example was found.
+6. A separate **example list**, [high-stakes-examples.md](high-stakes-examples.md): meetings (project kickoff, pre-mortem, hiring decision meeting, onboarding a new employee, rollout kickoff, post-mortem, quarterly or yearly review, firing meeting) and decisions that shareholder agreements commonly reserve. It is linked from the model file and kept out of it, because the detect skill's rule is that a rubric names shapes, never findings.
+7. A proposed **fifth stage (L5)** of the Clarity Organization maturity ladder: the company records in its articles of association or shareholder agreement that the clarity process must be followed before its reserved-matter decisions. Short name open.
+8. **Five moves, step 2:** "Secure mutual commitment" becomes **"Agree on expectations"**. This stays inside 2026-07-15 [product]'s reason for leaving "Align expectations" (the page spends "align" on the whole promise): the new name does not use "align". The founder's "show evidence of behaviour" folds into "Improve the skill", which already means measuring listening calibration.
+
+**Alternatives rejected:** the examples inside the model file (the rubric rule above); the detect trigger list as the definition (product terms, not a general meaning of high stakes); "compounding" as a sixth mode (names the damage); a separate film per question ("why" and "how"): one film in two lengths was chosen instead, recorded in the film's private plan, not here.
+
+**Consequences:** Not done here, each needing its own approval: (a) the two skills that print the tag (`understanding/detect.md`, `disagreement/prepare.md`, and their `.agents/skills/` copies) and the generated clarify prompt (`supabase/functions/clarify-draft/clarify-prompt.generated.ts`, built from `prepare.md`) still emit `concentrated stakes` and never `irreversible`; changing them is a skill edit plus a prompt rebuild and a function deploy. The model file says to read the old tag as the new name until then. (b) The step 2 rename is copy in `src/app/components/landing/how-platform-works.tsx`; no strategy doc names the current five moves. (c) `lean-canvas.md`'s dormant therapist block still lists the 2026-06 five moves; left as history.
+
+**Falsifiers:** the entry condition and `irreversible` carry theirs in the model file. **L5:** if no organization that has reached L3 will put the clarity process into its governing documents when asked, L5 is not a stage of this ladder but a different offer. **Step 2:** if people shown the five moves still cannot say what step 2 asks of them, the rename did not fix it. All UNTESTED.
+
+**References:** [arbiter-failure-model.md](arbiter-failure-model.md) · [high-stakes-examples.md](high-stakes-examples.md) · [definitions.md](definitions.md) §High Stakes, §Clarity Organization · 2026-07-29 [product] · 2026-07-15 [product] · 2026-07-03 [product] · 2026-08-24 [product]
+
+---
+
 ## 2026-11-18 [technical]: Preparation funnel events: "finished" means every step gone through, once, for learning not done before
 
 **Context:** The invite-to-room funnel (P1709, P1708) had view events but nothing between "opened preparation" and "came". Added `prepare_started`, `prepare_step_completed` and `prepare_finished` (helpers in `src/app/prototypes/events/prep/prep-analytics.ts`) plus `event_page_viewed`, `event_room_viewed` and `prepare_viewed`; nothing renamed. Every event carries `prep_context` (`event` / `standalone` / `group_join`). Spec of the stages: `docs/technical/analytics.md` "Preparation funnel". Mixpanel board "6 · Preparation funnel".
