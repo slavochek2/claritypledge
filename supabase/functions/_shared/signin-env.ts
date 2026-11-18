@@ -24,3 +24,16 @@ export function signinEnvOrError(
   }
   return { supabaseUrl, serviceRoleKey, ipHashSecret };
 }
+
+// Build the request handler once the settings are present, or answer with the 500 above.
+export function serveSignin(
+  fn: string,
+  userMessage: string,
+  corsHeaders: Record<string, string>,
+  mailConfigured: boolean,
+  build: (env: SigninEnv) => (req: Request) => Promise<Response>,
+  req: Request,
+): Promise<Response> | Response {
+  const env = signinEnvOrError(fn, userMessage, corsHeaders, mailConfigured);
+  return env instanceof Response ? env : build(env)(req);
+}
