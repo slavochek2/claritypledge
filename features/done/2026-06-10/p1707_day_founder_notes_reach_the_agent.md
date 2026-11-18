@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 349
 severity: high
@@ -10,8 +10,8 @@ exec_model: opus
 exec_effort: high
 tags: [day, kanban, founder-input, insights]
 disclosure: public
-delivery_stage: create-bug
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-11-18
 ---
 
 # P1707: Day page notes are dropped without a sign, and insight cards ask the founder a technical question
