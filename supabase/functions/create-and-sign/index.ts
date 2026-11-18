@@ -12,6 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
 import { linkBaseFor } from '../_shared/link-base.ts';
+import { signinEnvOrError } from '../_shared/signin-env.ts';
 import { createHandler, type AgreementSignInEmail } from './handler.ts';
 
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
@@ -118,21 +119,8 @@ serve(async (req: Request) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  const ipHashSecret = Deno.env.get('IP_HASH_SECRET');
-  if (!supabaseUrl || !serviceRoleKey || !MAILGUN_API_KEY || !MAILGUN_DOMAIN || !ipHashSecret) {
-    console.error('[create-and-sign] SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, MAILGUN_API_KEY, MAILGUN_DOMAIN or IP_HASH_SECRET not configured');
-    return new Response(
-      JSON.stringify({ error: 'INTERNAL', message: 'Something went wrong. Please try again.' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  return createHandler({
-    supabase: createClient(supabaseUrl, serviceRoleKey),
-    appUrl: linkBaseFor(req),
-    sendSignInEmail,
-    ipHashSecret,
-  })(req);
+  const env = signinEnvOrError('create-and-sign', 'Something went wrong. Please try again.', corsHeaders, Boolean(MAILGUN_API_KEY && MAILGUN_DOMAIN));
+  if (env instanceof Response) return env;
+  const { supabaseUrl, serviceRoleKey, ipHashSecret } = env;
+  return createHandler({ supabase: createClient(supabaseUrl, serviceRoleKey), appUrl: linkBaseFor(req), sendSignInEmail, ipHashSecret })(req);
 });
