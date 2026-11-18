@@ -215,12 +215,16 @@ done < "$T/rels" | LC_ALL=C sort > "$T/local.files"
 
 # Every other file the server holds is compared against main's tip (P1705): a branch that changed no
 # function still reads the server, and a branch that changed some also sees the others. A function
-# differing from both the branch and main shows up as differs. A function the server does not hold
-# is not foreign code, so main's files absent from the server are not compared.
+# differing from both the branch and main shows up as differs. Main's deployed files are compared
+# too: one the server lacks reads MISSING on the server and so differs (a deploy that never ran is
+# not "match").
+git -C "$REPO" -c core.quotepath=off ls-tree -r --name-only "$DG_MAIN_REF" -- "${DG_INPUT_PATHS[@]}" > "$T/main.raw" 2>/dev/null ||
+  unknown "git could not list main's functions"
 {
-  cut -f1 "$T/server.files" | while IFS= read -r rel; do dg_repo_path_of_rel "$rel"; done |
-    dg_filter_deployed_repo_paths | while IFS= read -r p; do dg_rel_of_repo_path "$p"; done
-} | LC_ALL=C sort -u | grep -v '^$' > "$T/others.all" || true
+  cut -f1 "$T/server.files" | while IFS= read -r rel; do dg_repo_path_of_rel "$rel"; done
+  cat "$T/main.raw"
+} | dg_filter_deployed_repo_paths | while IFS= read -r p; do dg_rel_of_repo_path "$p"; done |
+  LC_ALL=C sort -u | grep -v '^$' > "$T/others.all" || true
 LC_ALL=C comm -23 "$T/others.all" "$T/rels" > "$T/extra.rel"
 while IFS= read -r rel; do printf '%s\t%s\n' "$rel" "$(main_hash "$rel")"; done < "$T/extra.rel" >> "$T/local.files"
 LC_ALL=C sort -o "$T/local.files" "$T/local.files"

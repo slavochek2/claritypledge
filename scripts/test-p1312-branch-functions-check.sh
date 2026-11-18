@@ -189,7 +189,8 @@ run_check; check "an untracked new file in fn-b differs" 1 "$CRC"
 # ---------------------------------------------------------------- 2 sequences
 echo "2. the documented sequences (deploy, check, edit, check)"
 mk_world s2
-branch feature/seq
+# The server starts as TEST always is: holding main's functions (an empty server lacks fn-b, which differs: 5d).
+run_deploy; branch feature/seq
 commit_on feature/seq supabase/functions/fn-a/index.ts 'seq change' "change fn-a"
 run_deploy fn-a; check "deploy fn-a from the branch with the real deploy script" 0 "$RC"
 run_check; check "check right after the deploy" 0 "$CRC"
@@ -339,6 +340,19 @@ run_check; check "my fn-a matches but fn-b is another branch's" 1 "$CRC"
 first_line_is "  names fn-b" "$W/cout" "differs: fn-b"
 has "  names the other branch" "$W/cout" "feature/other from 20"
 has "  says it is not this branch's change" "$W/cout" "not changed by this branch: fn-b"
+
+echo "5d. the server lacks a function main ships (e.g. a landing deploy that never ran)"
+mk_world s5d
+run_deploy; branch feature/docs
+commit_on feature/docs README.md 'readme v2' "docs"
+rm -rf "$SB/stack/volumes/functions/fn-b"
+run_check; check "a docs-only branch sees main's fn-b missing from the server" 1 "$CRC"
+first_line_is "  names fn-b" "$W/cout" "differs: fn-b"
+checkout main; branch feature/mine
+commit_on feature/mine supabase/functions/fn-a/index.ts 'mine' "mine: fn-a"
+run_deploy fn-a; check "setup: mine deploys fn-a (fn-b still absent)" 0 "$RC"
+run_check; check "a branch changing fn-a also sees fn-b missing" 1 "$CRC"
+first_line_is "  names fn-b" "$W/cout" "differs: fn-b"
 
 # ---------------------------------------------------------------- 6 unknown
 echo "6. every way the check cannot tell exits 2, never a pass"
