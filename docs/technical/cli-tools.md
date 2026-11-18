@@ -57,7 +57,7 @@ npx supabase gen types typescript --project-id besjtuodziykmjidubzw > src/app/ty
 `.env.prod` must exist with `VITE_SUPABASE_URL` (and the public anon key). The prod management token and DB URL are **not** in it — the token comes from the keychain (one dialog per run), and prod migrations do not use the DB URL (P1318).
 
 **Migration file naming rule — CRITICAL:**
-Supabase CLI tracks one history entry per 8-digit date (`YYYYMMDD`). Multiple files sharing the same date permanently block `db push`. **One migration file per day.** If you need multiple same-day migrations, use `YYYYMMDDHHMMSS` timestamps (14 digits) to ensure uniqueness.
+Supabase CLI keys migration history on the version prefix, so two files sharing a prefix (an 8-digit date alone, or the same 14-digit time) permanently block `db push`. Name every migration with a full 14-digit version generated from the current UTC time; the rule and its reasons live in [.claude/rules/database.md](../../.claude/rules/database.md) (Migration Naming).
 
 **Known state:**
 - Project linked via `supabase link --project-ref ayibkeoyukulbsjpxgaw`

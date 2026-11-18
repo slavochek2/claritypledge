@@ -7,7 +7,7 @@ paths:
 
 ## Migration Naming
 
-`YYYYMMDDHHMMSS_description.sql`, with the version **generated from the current time to the second** (`date +%Y%m%d%H%M%S`), never typed by hand. Hand-typed round times (`…120000`, `…190000`) are what collide across concurrent sessions: 420 of 658 migrations ended in `0000`, and five collisions are logged (latest P1703). A "highest version + 1" helper is not the fix: two sessions read the same highest value ([decisions.md](../../docs/decisions.md) P1279 is the same race for P-numbers).
+`YYYYMMDDHHMMSS_description.sql`, with the version **generated from the current time in UTC, to the second** (`date -u +%Y%m%d%H%M%S`), never typed by hand. Sessions run in different time zones, so local time can number a later file lower. Hand-typed round times (`…120000`, `…190000`) are what collide across concurrent sessions: most existing migration files end in `0000`, and [decisions.md](../../docs/decisions.md) 2026-08-24 "Two migration-collision guards" records five collisions. A same-second collision stays possible and the duplicate-version checks in `migrate.sh` and pre-commit still catch it. A "highest version + 1" helper is not the fix: two sessions read the same highest value (decisions.md 2026-09-09 "A P-number is owned from the moment of the CLAIM", P1279, is that race for P-numbers).
 
 Multiple files sharing an 8-digit date only (`20260206_a.sql`, `20260206_b.sql`) make `db push` fail permanently: the full 14 digits are required.
 
