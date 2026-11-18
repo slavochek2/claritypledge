@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-18 [technical]: Migration versions come from the current UTC time to the second, never typed by hand
+
+**Context:** Hand-typed round versions (`…120000`, `…190000`) kept colliding across concurrent sessions; five collisions are logged (decisions.md 2026-08-24 "Two migration-collision guards", latest P1703), and most existing migration files end in `0000`.
+**Decision:** `.claude/rules/database.md` now requires the version to be generated with `date -u +%Y%m%d%H%M%S` (commits `5219a0af2`, `4f44120fa`). UTC, because sessions run in different time zones and local time can number a later file lower (raised by the Gemini, GLM and Sonnet review of the first commit). `docs/technical/database.md` and `docs/technical/cli-tools.md` point to the rule instead of restating "one file per day".
+**Alternatives rejected:** A "highest version + 1" helper: two sessions read the same highest value, the race decisions.md 2026-09-09 (P1279) records for P-numbers.
+**Consequences:** A same-second collision is still possible; the duplicate-version checks in `migrate.sh` and pre-commit still catch it. Out-of-order versions were checked: self-hosted TEST and prod apply by ledger difference; hosted TEST's `db push` refusal for an older merged migration predates this rule. UNTESTED falsifier: a new version collision between two generated (non-round) versions.
+**References:** `.claude/rules/database.md` · commits `5219a0af2`, `4f44120fa`
+
 ## 2026-11-18 [product]: Correction to "H-CheapGapReveal refuted in the P1702 model": three review rounds moved two of its numbers and one verdict
 
 **Context:** The 2026-11-17 entry "H-CheapGapReveal refuted in the P1702 model" reported the first model run. That code then went through three review rounds: Gemini, Codex and a criteria reviewer, about 42 findings, all fixed or set aside as latent. The final round found no defect that could change a verdict (branch `feature/p1702-cheap-gap-reveal-model`, commit `685fd6abe`, `docs/research/p1702/RESULTS.md`).
