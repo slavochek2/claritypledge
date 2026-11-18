@@ -26,8 +26,8 @@ export const ROLE_CARDS = {
   heading: 'The cards',
   caption: 'Speaker and listener each wear a two-sided card, with the job written for the person facing them. Flip it when you switch roles.',
   sides: [
-    { id: 'speaker', role: 'SPEAKER', color: '#C2410C', label: 'Front', job: ['Explain back what I mean.', 'Ask me open questions.'] },
-    { id: 'listener', role: 'LISTENER', color: '#1864AB', label: 'Back', job: ['Ask me, “How well do you think you understand me, from 0 to 10?”'] },
+    { id: 'speaker', role: 'SPEAKER', color: '#C2410C', label: 'Front of the card', job: ['Explain back what I mean.', 'Ask me open questions.'] },
+    { id: 'listener', role: 'LISTENER', color: '#1864AB', label: 'Back of the same card', job: ['Ask me, “How well do you think you understand me, from 0 to 10?”'] },
   ],
 } as const;
 

@@ -39,4 +39,5 @@ Small: one component on an existing page.
 
 - [x] /game shows both card sides with the printed wording, under the roles. Evidence: screenshot at 320px, this session.
 - [x] No overflow at 320px: card children inside their card, `scrollWidth` 320.
-- [x] Existing /game tests pass (p1696-game-page, 14/14).
+- [x] Readable on a phone: cards are sized in rem and stack below about 450px, so job text stays near 18px and follows the browser font setting (all three reviewers flagged ~12px text in the first version).
+- [x] Tests: p1696-game-page and p1706-role-cards pass (sides, printed wording, front/back labels, caption).
