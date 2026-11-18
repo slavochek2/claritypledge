@@ -16,6 +16,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** A same-second collision is still possible; the duplicate-version checks in `migrate.sh` and pre-commit still catch it. Out-of-order versions were checked: self-hosted TEST and prod apply by ledger difference; hosted TEST's `db push` refusal for an older merged migration predates this rule. UNTESTED falsifier: a new version collision between two generated (non-round) versions.
 **References:** `.claude/rules/database.md` · commits `5219a0af2`, `4f44120fa`
 
+## 2026-11-18 [product]: The speaker/listener card is shown on /game, both sides under the roles, not on its own /cards page (P1706)
+
+**Context:** The printed lanyard card (docs/events/badges/) had no on-screen version. The question was a separate /cards page, or the existing /game page.
+**Decision:** /game shows both sides of the card next to each other (Front orange speaker, Back blue listener), under the roles, with the printed wording. Caption (founder-approved): "Speaker and listener each wear a two-sided card, with the job written for the person facing them. Flip it when you switch roles." The card's orange is allowed here because it pictures the physical card; it is not a UI action colour.
+**Alternatives rejected:** a /cards page: a second home for the role wording and a second link to share. This follows 2026-11-02 [product] item 5 (roles taught as a clip plus the cards).
+**Consequences:** The card wording now lives in two places, the print files and `ROLE_CARDS` in listening-game.ts; a wording change must update both. The preparation step (ListeningGameScreen) does not show the cards yet. UNTESTED: falsifier is people arriving at an event still unable to say what their card asks of them after visiting /game.
+**References:** [docs/events/badges/](events/badges/) · src/app/prototypes/events/prep/RoleCards.tsx · 2026-11-09 [product] (role card)
+
+---
+
 ## 2026-11-18 [product]: Correction to "H-CheapGapReveal refuted in the P1702 model": three review rounds moved two of its numbers and one verdict
 
 **Context:** The 2026-11-17 entry "H-CheapGapReveal refuted in the P1702 model" reported the first model run. That code then went through three review rounds: Gemini, Codex and a criteria reviewer, about 42 findings, all fixed or set aside as latent. The final round found no defect that could change a verdict (branch `feature/p1702-cheap-gap-reveal-model`, commit `685fd6abe`, `docs/research/p1702/RESULTS.md`).
