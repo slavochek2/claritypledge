@@ -9,7 +9,7 @@
 import { appendFileSync, chmodSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
-import type { LedgerEntry, StoredRead } from '../scripts/analytics-gate'
+import type { Insight, LedgerEntry, StoredRead } from '../scripts/analytics-gate'
 
 export const analyticsDir = (): string => process.env.KANBAN_ANALYTICS_DIR?.trim() || join(homedir(), '.claude-analytics')
 
@@ -102,4 +102,40 @@ export function appendLedger(dir: string, key: string, decision: 'confirm' | 'di
   ensureDirs(dir)
   appendFileSync(join(dir, 'ledger.jsonl'), JSON.stringify({ key, decision, at: at.toISOString() }) + '\n', { mode: 0o600 })
   chmodSync(join(dir, 'ledger.jsonl'), 0o600)
+}
+
+/**
+ * P1673: the weekly insights still waiting for a decision. `error` is a read that could not be
+ * loaded, never the same as having nothing to decide. A read that was not collected raises no card:
+ * /day's own cp.analytics check reports that. A dismiss hides its key for good; a confirm hides only
+ * the card of the read it was made on.
+ * P1707: shared by the Day page server and the fixing agent's verdict CLI (scripts/day-insight.ts),
+ * so both refuse the same second decision.
+ */
+export function undecidedInsights(dir: string): { insights: Insight[]; error: boolean } {
+  try {
+    const good = latestRead(dir)
+    if (!good || good.status !== 'collected' || latestReadFileDate(dir) !== good.date) return { insights: [], error: false }
+    const decided = new Set(
+      // an unreadable ledger throws here: a failed load, never "nothing" and never a dismissed card again
+      readLedgerStrict(dir)
+        .filter((e) => e.decision === 'dismiss' || (e.decision === 'confirm' && (e.at ?? '') >= good.date))
+        .map((e) => e.key),
+    )
+    return { insights: good.insights.filter((i) => !decided.has(i.key)), error: false }
+  } catch {
+    return { insights: [], error: true }
+  }
+}
+
+/**
+ * P1673 review: one ledger decision per insight. Records `decision` for an insight still waiting for
+ * one; a retry, a double press, a stale tab or a second agent verdict is refused and writes nothing.
+ */
+export function recordInsightDecision(dir: string, key: string, decision: 'confirm' | 'dismiss', at: Date): 'recorded' | 'not-undecided' | 'unreadable' {
+  const open = undecidedInsights(dir)
+  if (open.error) return 'unreadable'
+  if (!open.insights.some((i) => i.key === key)) return 'not-undecided'
+  appendLedger(dir, key, decision, at)
+  return 'recorded'
 }

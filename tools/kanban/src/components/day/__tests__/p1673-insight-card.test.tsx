@@ -62,10 +62,14 @@ describe('an insight in the normal finding card', () => {
     expect(h).toContain('Weekly insight')
     expect(h).toContain('<dt>Point A</dt><dd>102 dead clicks, first week it is raised</dd>')
     expect(h).toContain('<dt>Obstacle</dt>')
-    expect(h).toContain('<dt>Point B</dt><dd>Open the replay</dd>')
+    // P1707: Point B is the outcome; the read's own next step moved to More info (it asked the founder to decide)
+    expect(h).toContain('<dt>Point B</dt><dd>The agent has found out whether real users are hurt by it, and fixed it if they are</dd>')
     expect(h).toContain('More info')
-    expect(h).toContain('Real problem')
-    expect(h).toContain('Not a problem')
+    // P1707: an actionable pair replaced "Real problem" / "Not a problem"
+    expect(h).toContain("Look into it and fix it if it&#x27;s real")
+    expect(h).toContain('Leave it for 90 days')
+    expect(h).not.toContain('Real problem')
+    expect(h).not.toContain('Not a problem')
     expect(h).toContain('Your answer or question')
     // exactly three numbered choices, and the separate insight block is gone
     const slice = h.slice(h.indexOf('data-insight-tag'), h.indexOf('</article>'))
@@ -75,13 +79,13 @@ describe('an insight in the normal finding card', () => {
     expect(h).not.toContain('Confirm')
   })
 
-  it('nothing is marked recommended and nothing is preselected', () => {
+  // P1707 reverses P1673 here: "Look into it" is the default, so the card no longer waits on a technical judgement
+  it('"Look into it" is the recommended default', () => {
     const h = html([insight('a')])
     const card = h.slice(h.indexOf('data-insight-tag'), h.indexOf('</article>'))
-    expect(card).not.toContain('Recommended')
-    expect(card).not.toContain('checked=""')
-    expect(card).toContain('Not answered yet')
-    expect(card).not.toContain('recommended:')
+    const look = card.slice(card.indexOf('data-option="look"'))
+    expect(look.slice(0, look.indexOf('data-option="park"'))).toContain('Recommended')
+    expect(card.slice(card.indexOf('data-option="park"'))).not.toContain('Recommended')
   })
 
   it('the first card is the insight, listed first in the one sidebar list', () => {
@@ -106,14 +110,15 @@ describe('an insight in the normal finding card', () => {
     expect(insightIssue(insight('b', { link: undefined })).insight_link).toBeUndefined()
   })
 
-  it('the note box on an insight says it is not sent to the agent', () => {
+  // P1707 reverses P1673 here: an insight note IS sent to the agent, so the box must not say otherwise
+  it('the note box on an insight is the normal one: no "not sent to the agent"', () => {
     const report = withInsights(base(), [insight('a')])
     const view = buildView(report, [])
     const h = renderToStaticMarkup(
       <DailyReport report={report} view={view} readOnly={false} issues={view.issues} index={0} agent={{ items: [], open: false, setOpen: noop, header: 'first' }} onJump={noop} selected={() => 'own'} draftOf={() => ''} onChoose={noop} onDraft={noop} onDraftBlur={noop} ownFocus={0} onFix={noop} onUndoFix={noop} onBringBack={noop} sent={{}} statements={{ rows: [], current: -1, open: 0, onPick: noop }} onCards={noop} />,
     )
-    expect(h).toContain('A note, saved here. It is not sent to the agent.')
-    expect(h).not.toContain('question the agent answers first')
+    expect(h).not.toContain('not sent to the agent')
+    expect(h).toContain('Ending with ? makes it a question the agent answers first')
   })
 
   it('a saved note keeps the sidebar row labelled Insight', () => {

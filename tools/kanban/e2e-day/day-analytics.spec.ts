@@ -1,6 +1,7 @@
 // P1669: the Analytics tab embeds the public boards (three states). P1673: an undecided insight from the
 // P1640 read is an ordinary finding card on the Report tab, read from the e2e analytics folder by the real
-// server (no route is mocked). Synthetic data, fake tokens.
+// server (no route is mocked). P1707: its choices are "Look into it" / "Leave it for 90 days" / a note, all
+// ordinary decisions sent to the agent; the ledger is written only by the agent's verdict CLI. Synthetic data, fake tokens.
 import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -76,7 +77,7 @@ test('boards: an invalid value is named by key, with the public link form', asyn
   await expect(page.locator('[data-boards-invalid]')).toContainText('https://eu.mixpanel.com/p/')
 })
 
-test('report: an undecided insight is a normal finding card, listed first and tagged', async ({ page }) => {
+test('report: an undecided insight is a normal finding card, listed first and tagged, with an actionable choice (P1707)', async ({ page }) => {
   putRead()
   await openDay(page, {})
   const card = page.locator(INSIGHT)
@@ -86,16 +87,19 @@ test('report: an undecided insight is a normal finding card, listed first and ta
   await expect(card).toContainText('Point A')
   await expect(card).toContainText('4 this week')
   await expect(card).toContainText('Point B')
-  await expect(card).toContainText('Open the linked report.')
-  await expect(card).toContainText('Real problem')
-  await expect(card).toContainText('Not a problem')
+  // P1707: the founder is never asked whether it is real; the agent looks into it
+  await expect(card).toContainText("Look into it and fix it if it's real")
+  await expect(card).toContainText('Leave it for 90 days')
+  await expect(card).not.toContainText('Real problem')
+  await expect(card).not.toContainText('Not a problem')
   await expect(card).toContainText('Your answer or question')
-  await expect(card).not.toContainText('Recommended')
+  await expect(card.locator('[data-option="look"]')).toContainText('Recommended')
   // one card style on the page: the old block is gone, and the insight is the first card
   await expect(page.locator('[data-insights]')).toHaveCount(0)
   await expect(page.locator('article[data-issue]').first()).toHaveAttribute('data-issue', /^insight:/)
-  // More info carries the numbers and the link
+  // More info carries the numbers, the read's own next step and the link
   await card.getByRole('button', { name: /More info/ }).click()
+  await expect(card).toContainText('Suggested next step: Open the linked report.')
   await expect(card).toContainText('Base: no earlier weekly read carried this failure')
   await expect(card).toContainText('Confidence: medium')
   await expect(card.getByRole('link', { name: 'Open the link' })).toHaveAttribute('href', 'https://eu.mixpanel.com/project/1')
@@ -103,46 +107,60 @@ test('report: an undecided insight is a normal finding card, listed first and ta
   expect(overflow).toBeLessThanOrEqual(0)
 })
 
-test('report: Real problem records a confirm in the ledger, and the card leaves', async ({ page }) => {
+const decisionLines = () => {
+  try {
+    return readFileSync(join(DAY_E2E_DIR, 'decisions.jsonl'), 'utf-8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as { kind: string; target: string; option_id?: string; text?: string })
+  } catch {
+    return []
+  }
+}
+const insightDecisions = () => decisionLines().filter((l) => l.kind === 'option' && l.target.startsWith('insight:'))
+
+test('report: Look into it is a decision for the agent, counted on Start fixing; the ledger is the agent\'s to write (P1707)', async ({ page }) => {
   putRead()
   await openDay(page, {})
   const card = page.locator(INSIGHT)
   await expect(card).toHaveCount(1)
-  await card.getByText('Real problem').click()
-  await expect(card).toHaveCount(0)
-  expect(ledger().map((e) => [e.key, e.decision])).toEqual([['failure:x', 'confirm']])
+  const btn = page.locator('button[data-send-count]')
+  const n0 = Number(await btn.getAttribute('data-send-count'))
+  await card.locator('[data-option="look"]').getByText("Look into it and fix it if it's real").click()
+  await expect(btn).toHaveAttribute('data-send-count', String(n0 + 1))
+  await expect.poll(() => insightDecisions().map((l) => l.option_id)).toEqual(['look'])
+  expect(ledger()).toEqual([])
 })
 
-test('report: Not a problem records a dismiss, and the card stays gone after a reload', async ({ page }) => {
+test('report: Leave it for 90 days writes no ledger line and is not sent (P1707)', async ({ page }) => {
   putRead()
   await openDay(page, {})
   const card = page.locator(INSIGHT)
-  await expect(card).toHaveCount(1)
-  await card.getByText('Not a problem').click()
-  await expect(card).toHaveCount(0)
-  expect(ledger().map((e) => [e.key, e.decision])).toEqual([['failure:x', 'dismiss']])
-  const run = page.waitForResponse((r) => /\/api\/day\/runs\//.test(r.url()))
-  await page.reload()
-  await run
-  await expect(page.locator(INSIGHT)).toHaveCount(0)
+  const btn = page.locator('button[data-send-count]')
+  const n0 = Number(await btn.getAttribute('data-send-count'))
+  await card.getByText('Leave it for 90 days').click()
+  await expect.poll(() => insightDecisions().map((l) => l.option_id)).toEqual(['park'])
+  await expect(btn).toHaveAttribute('data-send-count', String(n0))
+  expect(ledger()).toEqual([])
 })
 
-test('report: the keyboard works as on any card: 1 is Real problem', async ({ page }) => {
+test('report: the keyboard works as on any card: 1 is Look into it (P1707)', async ({ page }) => {
   putRead()
   await openDay(page, {}, 1280)
   await expect(page.locator(INSIGHT)).toHaveCount(1)
   await page.keyboard.press('1')
-  await expect(page.locator(INSIGHT)).toHaveCount(0)
-  expect(ledger().map((e) => e.decision)).toEqual(['confirm'])
+  await expect.poll(() => insightDecisions().map((l) => l.option_id)).toEqual(['look'])
+  expect(ledger()).toEqual([])
 })
 
-test('report: a free-text answer survives a reload and leaves the card; the ledger stays empty', async ({ page }) => {
+test('report: a note on an insight survives a reload, is counted on Start fixing, and the ledger stays empty (P1707)', async ({ page }) => {
   putRead()
   await openDay(page, {})
   const card = page.locator(INSIGHT)
+  const btn = page.locator('button[data-send-count]')
+  const n0 = Number(await btn.getAttribute('data-send-count'))
   await card.getByText('Your answer or question').click()
   const box = card.locator('textarea')
+  await expect(box).not.toHaveAttribute('placeholder', /not sent/)
   await box.fill('Which page was it?')
+  await expect(btn).toHaveAttribute('data-send-count', String(n0 + 1))
   await box.blur()
   await expect(page.getByText(/Your answer · saved/)).toBeVisible()
   const run = page.waitForResponse((r) => /\/api\/day\/runs\//.test(r.url()))
@@ -150,6 +168,8 @@ test('report: a free-text answer survives a reload and leaves the card; the ledg
   await run
   // the page opens on the first card that still needs an answer; the answered insight stays in the list
   await expect(page.locator('[data-list-card^="insight:"]')).toHaveAttribute('data-list-state', 'answered')
+  await expect(page.locator('button[data-send-count]')).toHaveAttribute('data-send-count', String(n0 + 1))
+  expect(insightDecisions().map((l) => l.text)).toEqual(['Which page was it?'])
   expect(ledger()).toEqual([])
 })
 
@@ -172,47 +192,17 @@ test('report: an unreadable ledger says Insights could not load, never "nothing 
   await expect(page.locator(INSIGHT)).toHaveCount(0)
 })
 
-test('report: a failed save keeps the card with an error, and the same press can be retried', async ({ page }) => {
-  putRead()
-  await openDay(page, {}, 1280)
-  const card = page.locator(INSIGHT)
-  await expect(card).toHaveCount(1)
-  await page.route('**/api/day/analytics/decision', (r) => r.fulfill({ status: 500, json: { error: 'boom' } }))
-  await card.getByText('Real problem').click()
-  await expect(page.getByText(/Not saved/)).toBeVisible()
-  await expect(card).toHaveCount(1)
-  expect(ledger()).toEqual([])
-  await page.unroute('**/api/day/analytics/decision')
-  await card.getByText('Real problem').click()
-  await expect(card).toHaveCount(0)
-  expect(ledger().map((e) => e.decision)).toEqual(['confirm'])
-})
-
-test('report: a double press sends one decision', async ({ page }) => {
-  putRead()
-  await openDay(page, {}, 1280)
-  await expect(page.locator(INSIGHT)).toHaveCount(1)
-  let posts = 0
-  await page.route('**/api/day/analytics/decision', async (r) => {
-    posts++
-    await new Promise((res) => setTimeout(res, 600)) // the first save is still in flight when the second press lands
-    await r.continue()
-  })
-  await page.keyboard.press('1')
-  await page.keyboard.press('1')
-  await expect(page.locator(INSIGHT)).toHaveCount(0)
-  expect(posts).toBe(1)
-  expect(ledger().map((e) => e.decision)).toEqual(['confirm'])
-})
-
-test('report: an empty note on an insight does not block Start fixing', async ({ page }) => {
+// P1707 reverses P1673 here: an insight note is sent, so an empty one blocks Start fixing like on any card
+test('report: an empty note on an insight sends the founder back to it, like on any card (P1707)', async ({ page }) => {
   putRead()
   await openDay(page, {}, 1280)
   const card = page.locator(INSIGHT)
   await card.getByText('Your answer or question').click()
-  // the request only goes out if the page did not send the founder back to the empty note
-  const start = page.waitForResponse('**/api/day/start')
+  let started = false
+  page.on('request', (r) => {
+    if (r.url().includes('/api/day/start')) started = true
+  })
   await page.locator('button[data-send-count]').click()
-  await start
-  await expect(page.getByText('Write your answer or question first')).toHaveCount(0)
+  await expect(page.getByText('Write your answer or question first')).toBeVisible()
+  expect(started).toBe(false)
 })

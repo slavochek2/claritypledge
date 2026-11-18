@@ -71,6 +71,7 @@ import {
 import { checkStatus } from '../src/components/day/statusWords'
 import { defaultGoalsFile, readGoals } from './day-goals'
 import { applyLoops, readGitFacts, type LoopInputs } from './day-loops'
+import { NOTES_CHECK, unansweredNotes } from './day-notes'
 import { appendDecisionLines, readDecisionsText } from '../server/dayStore'
 
 // ---------------------------------------------------------------------------------------
@@ -745,6 +746,17 @@ export function buildReportDetailed(inp: RenderInputs): { report: DayReport; pla
   if (inp.goals) report.goals = inp.goals
   if (inp.goal) report.goal = inp.goal
   const plain = data.plain ? applyPlain(report, readPlain(data.plain) ?? [], inp.earlier) : { unmatched: 0, rejected: 0 }
+  // P1707: delivered notes with no recorded answer, each its own card; before the loops, so they are annotated too
+  if (inp.loops?.decisions) {
+    const notes = unansweredNotes({ report, earlier: inp.earlier, decisions: inp.loops.decisions, receipts: inp.loops.receipts, evaluated: inp.loops.evaluated ?? [] })
+    if (notes.length) {
+      const have = new Set(report.issues.map((i) => i.fp))
+      report.issues.push(...notes.filter((n) => !have.has(n.fp)))
+      if (!report.checks.some((c) => c.id === NOTES_CHECK)) {
+        report.checks.push({ id: NOTES_CHECK, ...runProblem('Your notes answered', `${plural(notes.length, 'note')} sent to the agent with no answer recorded`) })
+      }
+    }
+  }
   // P1578: after the plain overlay, so every card the board will show is annotated
   const outcomeLines = inp.loops ? applyLoops(report, inp.loops).lines : []
   return { report, plainUnmatched: plain.unmatched, plainRejected: plain.rejected, outcomeLines }
@@ -1141,6 +1153,7 @@ function loopInputs(args: Args, earlier: DayReport[]): LoopInputs {
     receipts: parseLaunches(text),
     outcomes: parseOutcomes(text),
     evaluated: parseEvaluated(text),
+    decisions: parseDecisions(text).lines,
     earlier,
     git: repo === 'none' || !repo ? { ok: repo === 'none', branches: [], specs: [] } : readGitFacts(repo),
     now: new Date(args.now),

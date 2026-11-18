@@ -54,7 +54,7 @@ const parsed = (r: DayReport): DayReport => {
 const viewOf = (insights: Insight[]) => buildView(withInsights(parsed(synthReport()), insights), [])
 
 describe('P1673 insight cards in the view', () => {
-  it('is one normal card: Point A / Obstacle / Point B, More info, two choices, a tag key', () => {
+  it('is one normal card: Point A / Obstacle / Point B, More info, two choices, a tag key (choices as of P1707)', () => {
     const c = insightIssue(insight(SHIFT))
     expect(c.fp.startsWith(INSIGHT_FP)).toBe(true)
     expect(c.fp).toMatch(/^[A-Za-z0-9._:-]{1,100}$/) // the decision route's fingerprint rule
@@ -62,22 +62,25 @@ describe('P1673 insight cards in the view', () => {
     expect(c.point_a).toBe('102 dead clicks, first week it is raised')
     expect(c.obstacle).toContain('Not yet known whether this is a real user problem')
     expect(c.obstacle).toContain('medium')
-    expect(c.point_b).toBe('Open the linked replay or report and decide whether it is a real user problem')
+    // P1707: Point B is the outcome; the read's own next step (which asks to "decide") moved to More info
+    expect(c.point_b).not.toMatch(/decide/i)
+    expect(c.more_info).toContain('Suggested next step: Open the linked replay or report and decide whether it is a real user problem')
     expect(c.more_info).toContain('Base: base 40 sessions')
     expect(c.more_info).toContain('Comparison: vs 12 last week')
     expect(c.more_info).toContain('Confidence: medium')
+    // P1707 reverses P1673: an actionable pair, "Look into it" the default agent work
     expect(c.options.map((o) => [o.id, o.label])).toEqual([
-      ['confirm', 'Real problem'],
-      ['dismiss', 'Not a problem'],
+      ['look', "Look into it and fix it if it's real"],
+      ['park', 'Leave it for 90 days'],
     ])
-    expect(c.options.some((o) => o.agent || o.recommended)).toBe(false)
+    expect(c.options[0]).toMatchObject({ agent: true, recommended: true })
     expect(c.insight_key).toBe(SHIFT)
     expect(c.insight_link).toBe('https://eu.mixpanel.com/p/AAA111')
   })
 
-  it('point B is the insight own next step, whatever its type; the repeat pattern is in More info', () => {
+  it('the insight own next step is kept (More info, P1707), whatever its type; the repeat pattern is in More info', () => {
     const c = insightIssue(insight('failure:k', { next_step: 'Look at the failing step', seen_count: 3, pattern: true }))
-    expect(c.point_b).toBe('Look at the failing step')
+    expect(c.more_info).toContain('Suggested next step: Look at the failing step')
     expect(c.more_info).toContain('Pattern: seen 3 times before')
     expect(c.point_a).toContain('raised 3 times before')
     expect(insightIssue(insight('failure:k2')).more_info).not.toContain('Pattern')
@@ -95,27 +98,26 @@ describe('P1673 insight cards in the view', () => {
     expect(v.issues.length).toBe(viewOf([]).issues.length + 2)
   })
 
-  it('nothing is preselected and nothing is agent work: no recommended answer, no Accept', () => {
+  // P1707 reverses the P1673 rules below: "Look into it" is recommended, and an answered insight is sent (fenced)
+  it('"Look into it" is the preselected recommendation; the card is still the founder\'s (P1707)', () => {
     const v = viewOf([insight('a')])
     const i = v.issues[0]
-    expect(i.recommended_index).toBe(-1)
-    expect(i.options[i.recommended_index]).toBeUndefined()
-    expect(cardState(i)).toMatchObject({ kind: 'open', recommended: '' })
+    expect(i.options[i.recommended_index]?.id).toBe('look')
+    expect(cardState(i)).toMatchObject({ kind: 'open', recommended: "Look into it and fix it if it's real" })
   })
 
-  it('an unanswered insight is never sent and never "still yours"', () => {
+  it('an unanswered insight is not sent, and is listed as still the founder\'s (P1707: never silently unsent)', () => {
     const base = viewOf([])
     const withI = viewOf([insight('a'), insight('b')])
     expect(collect(withI).count).toBe(collect(base).count)
-    expect(stillYours(withI).length).toBe(stillYours(base).length)
+    expect(stillYours(withI).length).toBe(stillYours(base).length + 2)
   })
 
-  it('an insight is never sent to the agent, answered or not: its text comes from analytics data', () => {
+  it('an answered insight is sent to the agent with the founder note (P1707)', () => {
     const fp = insightIssue(insight('a')).fp
     const r = withInsights(parsed(synthReport()), [insight('a')])
     const v = buildView(r, [{ run_id: r.pass_id, at: '2026-10-04T08:00:00Z', kind: 'option', target: fp, option_id: 'own', text: 'Which page?' }])
-    expect(collect(v).count).toBe(collect(viewOf([])).count)
-    expect(collect(v).issues.some((x) => x.issue.fp === fp)).toBe(false)
+    expect(collect(v).issues.find((x) => x.issue.fp === fp)).toMatchObject({ option_id: 'own', text: 'Which page?' })
     expect(cardState(v.issues.find((i: IssueView) => i.fp === fp) as IssueView).kind).toBe('answered')
   })
 
@@ -124,7 +126,7 @@ describe('P1673 insight cards in the view', () => {
     expect(v.issues.slice(0, 3).map((i) => i.insight_key)).toEqual(['zeta', 'alpha', 'mid'])
   })
 
-  it('nothing else that counts the day treats an insight as work: no preselected write', () => {
+  it('nothing writes an insight answer for the founder: no preselected write', () => {
     expect(pendingPreselected(viewOf([insight('a')])).length).toBe(pendingPreselected(viewOf([])).length)
   })
 

@@ -26,6 +26,7 @@ import {
   OWNER_STALE_DAYS,
   allIssues,
   connectionBroken,
+  type DayDecision,
   type DayIssue,
   type DayLoop,
   type DayLoops,
@@ -270,6 +271,8 @@ export interface LoopInputs {
   now: Date
   /** P1605: the evaluated records already in decisions.jsonl; absent = the feature is off */
   evaluated?: EvaluatedLine[]
+  /** P1707: the founder's decisions, for the unanswered-note check (day-notes.ts); absent = the check is off */
+  decisions?: DayDecision[]
 }
 
 function checkRan(report: DayReport, v: DayIssue): boolean {

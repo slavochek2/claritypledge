@@ -25,10 +25,11 @@ import { KANBAN_CONFIG } from '../config'
 import { ackWaitMs, collectionHash, dayClock, dayLauncher, launchWorkdir, sweepLaunchDirs, waitForAck, writePromptFile } from './dayLaunch'
 import { appendDecisionLines, parseLines, readDecisionsText, Refusal } from './dayStore'
 import { ledgerOf, markLine, resendLine } from './dayStories'
-import { analyticsDir, appendLedger, latestRead, latestReadFileDate, readLedger, readLedgerStrict } from './analyticsStore'
+import { analyticsDir, latestRead, latestReadFileDate, readLedger, recordInsightDecision, undecidedInsights } from './analyticsStore'
 import {
   buildPrompt,
   buildView,
+  carriedNotes,
   collect,
   collectedKeys,
   decisionTargetExists,
@@ -42,6 +43,7 @@ import {
   validateStoryRequest,
   traceOf,
   withInsights,
+  type CarriedNote,
   type DayDecision,
   type LaunchReceipt,
   type RunStatements,
@@ -64,6 +66,9 @@ const STORY_CLI = `${fileURLToPath(new URL('../node_modules/.bin/tsx', import.me
 const EVALUATED_BASE = `${fileURLToPath(new URL('../node_modules/.bin/tsx', import.meta.url))} ${fileURLToPath(new URL('../scripts/day-evaluated.ts', import.meta.url))}`
 /** P1605: bound to this server's day dir (the launcher's env is near-empty), shell-quoted. */
 export const evaluatedCli = (dir: string) => `${EVALUATED_BASE} --dir '${dir.replace(/'/g, `'\\''`)}'`
+const INSIGHT_BASE = `${fileURLToPath(new URL('../node_modules/.bin/tsx', import.meta.url))} ${fileURLToPath(new URL('../scripts/day-insight.ts', import.meta.url))}`
+/** P1707: the fixing agent's insight verdict CLI, bound to this server's analytics dir, shell-quoted. */
+export const insightCli = (dir: string) => `${INSIGHT_BASE} --dir '${dir.replace(/'/g, `'\\''`)}'`
 
 // Read at request time (not module load) so tests and embedders can flip it.
 export function dayDir(): string | null {
@@ -168,36 +173,37 @@ function readDecisions(dir: string): { lines: DayDecision[]; badLines: number } 
   }
 }
 
-/**
- * P1673: the weekly insights still waiting for a decision (the same rule the /api/day/analytics route
- * applies). `error` is a read that could not be loaded, never the same as having nothing to decide.
- * A read that was not collected raises no card: /day's own cp.analytics check reports that.
- */
-function undecidedInsightsNow(): { insights: Insight[]; error: boolean } {
+/** P1673: the weekly insights still waiting for a decision, from the analytics dir (the rule lives in analyticsStore). */
+const undecidedInsightsNow = (): { insights: Insight[]; error: boolean } => {
   try {
-    const dir = analyticsDir()
-    const good = latestRead(dir)
-    if (!good || good.status !== 'collected' || latestReadFileDate(dir) !== good.date) return { insights: [], error: false }
-    // a dismiss hides its key for good; a confirm hides only the card of the read it was made on
-    const decided = new Set(
-      // an unreadable ledger throws here: a failed load, never "nothing" and never a dismissed card again
-      readLedgerStrict(dir)
-        .filter((e) => e.decision === 'dismiss' || (e.decision === 'confirm' && (e.at ?? '') >= good.date))
-        .map((e) => e.key),
-    )
-    return { insights: good.insights.filter((i) => !decided.has(i.key)), error: false }
+    return undecidedInsights(analyticsDir())
   } catch {
     return { insights: [], error: true }
   }
 }
 
 /** The latest run, only when it is readable. Decisions and the prompt use this. Its report carries the weekly insights (P1673). */
-function latestReadable(dir: string): { id: string; report: DayReport; history: RunTrace[]; statements: Record<string, RunStatements> } | { refused: string } {
+function latestReadable(dir: string): { id: string; report: DayReport; history: RunTrace[]; statements: Record<string, RunStatements>; reports: DayReport[] } | { refused: string } {
   const list = listRuns(dir)
   const latest = list.runs[0]
   if (!latest) return { refused: 'No run to decide on' }
   if (latest.parsed.kind !== 'ok') return { refused: 'The latest run cannot be read' }
-  return { id: latest.id, report: withInsights(latest.parsed.report, undecidedInsightsNow().insights), history: traces(list.runs), statements: statementsByRun(reportsOf(list.runs)) }
+  return {
+    id: latest.id,
+    report: withInsights(latest.parsed.report, undecidedInsightsNow().insights, readSent(dir)),
+    history: traces(list.runs),
+    statements: statementsByRun(reportsOf(list.runs)),
+    reports: reportsOf(list.runs),
+  }
+}
+
+/**
+ * P1707: the notes of earlier runs that no launch carried, for the latest run. The keys of every
+ * launch of every run that counts as sent (pending or started), so a note sent from any run is done.
+ */
+function carriedFor(dir: string, report: DayReport, lines: DayDecision[], reports: DayReport[]): CarriedNote[] {
+  const everSent = new Set(readSent(dir).filter((l) => l.state === 'pending' || l.state === 'started').flatMap((l) => l.items))
+  return carriedNotes(lines, report, everSent, reports)
 }
 
 /** P1440: every story of every run, with its state (open / sent / stuck / done). An unreadable file has none. */
@@ -304,11 +310,14 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       const { lines, badLines } = readDecisions(dir)
       // P1673: the latest run also shows the undecided weekly insights; an earlier run shows none
       const weekly = isLatest ? undecidedInsightsNow() : { insights: [], error: false }
-      const view = buildView(withInsights(run.parsed.report, weekly.insights), lines, traces(list.runs))
+      const withWeekly = withInsights(run.parsed.report, weekly.insights, isLatest ? readSent(dir) : [])
+      const view = buildView(withWeekly, lines, traces(list.runs))
       // An earlier run shows what was sent from it too (P1432); the bar's lastSentAt stays latest-only.
       const sent = sentForRun(dir, run.parsed.report)
       // P1440: the stories with their hashes — the page echoes a hash back to mark a story, never computes one.
       const ledger = ledgerFor(dir, statementsByRun(reportsOf(list.runs)))
+      // P1707: notes of earlier runs that were never sent go with the next Start fixing (latest run only)
+      const carried = isLatest ? carriedFor(dir, withWeekly, lines, reportsOf(list.runs)) : []
       res.json({
         id,
         isLatest,
@@ -318,7 +327,8 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         insightsError: weekly.error,
         droppedRows: run.parsed.droppedRows,
         decisionsBadLines: badLines,
-        collectedCount: isLatest ? collect(view, sent.items, ledger).count : collect(view, new Set<string>()).count,
+        collectedCount: isLatest ? collect(view, sent.items, ledger, carried).count : collect(view, new Set<string>()).count,
+        carriedNotes: collect(view, sent.items, undefined, carried).carried.length,
         stories: storiesFor(run.parsed.report, isLatest, ledger),
         quotaHistory: quotaHistory(run.parsed.report, list.runs.flatMap((r) => (r.parsed.kind === 'ok' ? [r.parsed.report] : []))),
         lastSentAt: isLatest ? sent.lastAt ?? null : null,
@@ -412,14 +422,13 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       return res.status(400).json({ error: 'Invalid decision' })
     }
     try {
-      const dir = analyticsDir()
       // P1673: only an insight still waiting for a decision: a second press, a retry after a lost reply or a stale
-      // second tab must not write a second line (a confirm is counted by the "keep the insights?" criterion)
-      const open = undecidedInsightsNow()
+      // second tab must not write a second line (a confirm is counted by the "keep the insights?" criterion).
+      // P1707: the same rule the fixing agent's verdict CLI applies (recordInsightDecision).
+      const r = recordInsightDecision(analyticsDir(), body.key, body.decision, now())
       // an unreadable ledger is a failure of ours, not a stale card: the page keeps the card and the retry
-      if (open.error) return res.status(500).json({ error: 'The insight ledger could not be read' })
-      if (!open.insights.some((i) => i.key === body.key)) return res.status(409).json({ error: 'Not an undecided insight in the latest read' })
-      appendLedger(dir, body.key, body.decision, now())
+      if (r === 'unreadable') return res.status(500).json({ error: 'The insight ledger could not be read' })
+      if (r === 'not-undecided') return res.status(409).json({ error: 'Not an undecided insight in the latest read' })
       res.json({ success: true })
     } catch {
       console.error('[kanban] POST /api/day/analytics/decision failed')
@@ -449,8 +458,10 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       if (body.run_id !== latest.report.pass_id && body.run_id !== latest.id) {
         return res.status(409).json({ error: 'Start fixing works on the latest run only', reason: 'not-latest' })
       }
-      const view = buildView(latest.report, readDecisions(dir).lines, latest.history)
+      const lines = readDecisions(dir).lines
+      const view = buildView(latest.report, lines, latest.history)
       const sent = sentForRun(dir, latest.report)
+      const carried = carriedFor(dir, latest.report, lines, latest.reports)
       const now = dayClock()
       if (sent.all.some((l) => now.getTime() - Date.parse(l.at) < LAUNCH_EVERY_MS)) {
         return res.status(429).json({ error: 'Started less than a minute ago' })
@@ -460,13 +471,13 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       // or stuck (P1440: sent is not processed). Open stories of earlier runs count, so a run with
       // nothing else to send still starts.
       const ledger = ledgerFor(dir, latest.statements)
-      const c = collect(view, sent.items, ledger)
+      const c = collect(view, sent.items, ledger, carried)
       if (!c.count) {
         return sent.lastAt
           ? res.status(409).json({ error: 'This was already sent to a terminal', reason: 'already-sent' })
           : res.status(409).json({ error: 'Nothing to send', reason: 'nothing' })
       }
-      const prompt = buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI, evaluatedCli: evaluatedCli(dir) })
+      const prompt = buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI, evaluatedCli: evaluatedCli(dir), insightCli: insightCli(analyticsDir()), carried })
       const id = collectionHash(prompt + now.toISOString())
       const base = { kind: 'sent', id, run_id: latest.report.pass_id, target: collectionHash(prompt) }
       await appendLine(dir, { ...base, state: 'pending', items: collectedKeys(c), count: c.count })
@@ -513,13 +524,15 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
     try {
       const latest = latestReadable(dir)
       if ('refused' in latest) return res.status(409).json({ error: latest.refused })
-      const view = buildView(latest.report, readDecisions(dir).lines, latest.history)
+      const lines = readDecisions(dir).lines
+      const view = buildView(latest.report, lines, latest.history)
       const sent = sentForRun(dir, latest.report)
       const ledger = ledgerFor(dir, latest.statements)
+      const carried = carriedFor(dir, latest.report, lines, latest.reports)
       res.json({
         run_id: latest.report.pass_id,
-        prompt: buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI, evaluatedCli: evaluatedCli(dir) }),
-        count: collect(view, sent.items, ledger).count,
+        prompt: buildPrompt(latest.report, view, sent.items, sent.lastAt, { ledger, cli: STORY_CLI, evaluatedCli: evaluatedCli(dir), insightCli: insightCli(analyticsDir()), carried }),
+        count: collect(view, sent.items, ledger, carried).count,
         lastSentAt: sent.lastAt ?? null,
       })
     } catch {

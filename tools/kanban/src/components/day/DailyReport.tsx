@@ -531,7 +531,8 @@ function IssueCard(p: Props) {
           className="d-ftxt"
           maxLength={2000}
           aria-label="Your answer or question"
-          placeholder={issue.insight_key ? 'A note, saved here. It is not sent to the agent.' : 'Ending with ? makes it a question the agent answers first'}
+          // P1707: every note is sent to the agent, insight cards included
+          placeholder="Ending with ? makes it a question the agent answers first"
           value={ownText}
           onChange={(e) => p.onDraft(issue, e.target.value)}
           onBlur={() => p.onDraftBlur(issue)}

@@ -14,16 +14,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import {
-  INSIGHT_CONFIRM,
-  INSIGHT_DISMISS,
   OWN,
   PARK,
   cardState,
   clearPosition,
   isAgentWork,
   isAnswered,
-  isInsightCard,
   pendingPreselected,
+  queuedOnPage,
   statementRows,
   stillYours,
   storyAnswer,
@@ -33,7 +31,7 @@ import {
   type IssueView,
   type StoryEntry,
 } from '../../lib/day'
-import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, postWeeklyDecision, startRun, type DayIndex, type RunPayload } from './api'
+import { copyText, dayLabel, getIndex, getPrompt, getRun, HttpError, postDecisions, postStory, startRun, type DayIndex, type RunPayload } from './api'
 import { DailyReport } from './DailyReport'
 import { isAgentOnly } from './checklist'
 import { MonitoringTab } from './MonitoringTab'
@@ -320,63 +318,15 @@ export function DayPage() {
 
   const draftOf = useCallback((i: IssueView) => drafts[i.fp] ?? (i.decision?.option_id === OWN ? i.decision.text ?? '' : ''), [drafts])
 
-  /** P1673: weekly insights being saved to the P1640 ledger; a second press while one is in flight does nothing. */
-  const insightInFlight = useRef(new Set<string>())
-  /**
-   * P1673: Real problem / Not a problem on an insight card go to the P1640 ledger (not decisions.jsonl),
-   * then the run is re-read: a decided insight is no longer in it, so the card leaves. A failed save keeps
-   * the card, says why, and the same press can be tried again.
-   */
-  const decideInsight = useCallback(
-    async (i: IssueView, optionId: string) => {
-      if (!runId || !i.insight_key) return
-      if (insightInFlight.current.has(i.fp)) {
-        // the first press is still being saved: say so instead of silently ignoring this one
-        say('Still saving your first choice')
-        return
-      }
-      const key = i.insight_key
-      insightInFlight.current.add(i.fp)
-      setChoice((c) => ({ ...c, [i.fp]: optionId }))
-      // one write and re-read at a time, in click order, like every other write on this page: two
-      // overlapping re-reads could land out of order and bring a decided card back
-      const job = chain.current.then(async () => {
-        try {
-          try {
-            await postWeeklyDecision(key, optionId === INSIGHT_DISMISS ? 'dismiss' : 'confirm')
-          } catch (e) {
-            say(`Not saved: ${e instanceof Error && e.message ? e.message : 'Could not save the decision'}`)
-            // whatever failed, re-read: a refusal (409) means the card is stale, and a lost reply may have been saved
-            // anyway (the outcome of a write with no answer is unknown), so the page shows what the ledger holds
-            await reload(runId)
-            return
-          }
-          // reload() reports its own failure on the page; a saved decision is never shown as "Not saved"
-          // (a retry would write the same decision into the ledger twice)
-          await reload(runId)
-        } finally {
-          insightInFlight.current.delete(i.fp)
-          setChoice((c) => Object.fromEntries(Object.entries(c).filter(([k]) => k !== i.fp)))
-        }
-      })
-      chain.current = job.catch(() => undefined)
-      await job
-    },
-    [runId, reload, say],
-  )
-
   const choose = useCallback(
     (i: IssueView, optionId: string) => {
       if (readOnly) return
-      if (isInsightCard(i) && (optionId === INSIGHT_CONFIRM || optionId === INSIGHT_DISMISS)) {
-        void decideInsight(i, optionId)
-        return
-      }
+      // P1707: an insight card's choices are ordinary decisions; its ledger verdict is the fixing agent's (day-insight.ts)
       setChoice((c) => ({ ...c, [i.fp]: optionId }))
       if (isFree(optionId)) setOwnFocus((n) => n + 1)
       else void write([{ kind: 'option', target: i.fp, option_id: optionId }])
     },
-    [readOnly, write, decideInsight],
+    [readOnly, write],
   )
 
   /** Custom-answer text not yet in the file (never a custom answer without text). */
@@ -535,17 +485,8 @@ export function DayPage() {
     [agentCards, yours],
   )
 
-  /** The founder's answer is on the page but not in the file yet: typed text, or a pick still being written. */
-  const queuedLocally = useCallback(
-    (i: IssueView) => {
-      // P1673: an insight's answer or in-flight Real problem / Not a problem is never part of what Start fixing sends
-      if (i.decision || isAgentWork(i) || isInsightCard(i)) return false
-      const kind = choice[i.fp]
-      if (isFree(kind)) return !!(drafts[i.fp] ?? '').trim()
-      return kind !== undefined && kind !== PARK
-    },
-    [choice, drafts],
-  )
+  /** The founder's answer is on the page but not in the file yet: typed text, or a pick still being written (P1707: insight cards too). */
+  const queuedLocally = useCallback((i: IssueView) => queuedOnPage(i, choice[i.fp], drafts[i.fp] ?? ''), [choice, drafts])
   /** The button counts what will actually be sent: the server's count + what is only on the page. */
   const sendCount = (ok?.collectedCount ?? 0) + (view ? view.issues.filter(queuedLocally).length : 0)
   /** Unopened founder choices: not sent, listed as "still yours". */
@@ -558,8 +499,7 @@ export function DayPage() {
     async (mode: 'start' | 'copy') => {
       if (!runId || readOnly || busy || !view) return
       // A custom answer with no text is not an answer: send the founder back to it.
-      // (not an insight's note: it is never sent, so an empty one has nothing to block)
-      const empty = view.issues.find((i) => !isInsightCard(i) && freeEmpty(i))
+      const empty = view.issues.find((i) => freeEmpty(i))
       if (empty) {
         say('Write your answer or question first, or pick another answer')
         jumpTo(empty.fp)
