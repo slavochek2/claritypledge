@@ -173,7 +173,9 @@ export function HikeRegistrationQuestions({
       <DialogContent className="max-h-[90dvh] overflow-y-auto" data-testid="hike-registration-questions">
         <DialogHeader>
           <DialogTitle>{FORM_TITLE}</DialogTitle>
-          <DialogDescription data-testid="hike-lead-line">{copy.HIKE_LEAD_LINE}</DialogDescription>
+          <DialogDescription data-testid="hike-lead-line">
+            {copy.HIKE_LEAD_LINE} <strong className="font-semibold text-foreground">{copy.HIKE_REQUIRED_LINE}</strong> {copy.HIKE_LEAD_QUESTION}
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-5" ref={form}>
           <fieldset className={ring('when')} data-question="when">

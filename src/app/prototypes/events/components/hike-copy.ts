@@ -36,7 +36,10 @@ export const HIKE_ROLE_TRANSPORT_LEAD = "You help people who need a ride get the
 // ─── Client-only: the registration form (P1675, sections 1 to 3b). Spec text verbatim; lines marked PROPOSED are not in the spec. ───
 
 /** UAT round 1 R1 (founder): the lead line carries no minutes; they stay in the "now" option. */
-export const HIKE_LEAD_LINE = 'Everyone does a short introduction first: a few shared words and habits that make conversations with new people better. When will you do it?';
+export const HIKE_LEAD_LINE = 'Everyone does a short introduction first: a few shared words and habits that make conversations with new people better.';
+/** Founder (UAT round 3): say plainly it is required; shown in bold. */
+export const HIKE_REQUIRED_LINE = "It's required to join.";
+export const HIKE_LEAD_QUESTION = 'When will you do it?';
 export const hikeNowOption = (minutes: string): string => `I have ${minutes} minutes, I'll do it now`;
 export const HIKE_LATER_OPTION = "I'll do it later, remind me by email";
 

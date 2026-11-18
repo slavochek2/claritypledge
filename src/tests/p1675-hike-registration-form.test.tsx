@@ -27,7 +27,8 @@ beforeEach(() => vi.clearAllMocks());
 describe('P1675 hike form: copy', () => {
   it('lead line, the two options and the privacy line, verbatim, with the computed minutes in both places', () => {
     open();
-    expect(screen.getByTestId('hike-lead-line').textContent).toBe('Everyone does a short introduction first: a few shared words and habits that make conversations with new people better. When will you do it?'); // UAT round 3 (founder): says why, no minutes
+    expect(screen.getByTestId('hike-lead-line').textContent).toBe("Everyone does a short introduction first: a few shared words and habits that make conversations with new people better. It's required to join. When will you do it?"); // UAT round 3 (founder): says why, says required (bold), no minutes
+    expect(screen.getByTestId('hike-lead-line').querySelector('strong')?.textContent).toBe("It's required to join.");
     expect(screen.getByLabelText("I have 9 minutes, I'll do it now")).toBeTruthy();
     expect(screen.getByLabelText("I'll do it later, remind me by email")).toBeTruthy();
     expect(screen.getByText('Only you and the host see these answers.')).toBeTruthy();
