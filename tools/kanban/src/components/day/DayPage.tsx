@@ -887,6 +887,7 @@ export function DayPage() {
                   onUndoFix={undoFix}
                   onBringBack={bringBack}
                   sent={ok.sentItems ?? {}}
+                  carried={ok.isLatest ? ok.carriedNotes : undefined}
                   statements={{
                     ...statementRows(statements, view, isUnsaved),
                     current: sec === 'statements' ? Math.min(reflIdx, statements.length - 1) : -1,

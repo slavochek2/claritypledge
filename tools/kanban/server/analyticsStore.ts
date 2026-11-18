@@ -10,6 +10,7 @@ import { appendFileSync, chmodSync, mkdirSync, readFileSync, readdirSync, writeF
 import { homedir } from 'os'
 import { join } from 'path'
 import type { Insight, LedgerEntry, StoredRead } from '../scripts/analytics-gate'
+import { acquireLock, releaseLock } from './dayStore'
 
 export const analyticsDir = (): string => process.env.KANBAN_ANALYTICS_DIR?.trim() || join(homedir(), '.claude-analytics')
 
@@ -131,11 +132,22 @@ export function undecidedInsights(dir: string): { insights: Insight[]; error: bo
 /**
  * P1673 review: one ledger decision per insight. Records `decision` for an insight still waiting for
  * one; a retry, a double press, a stale tab or a second agent verdict is refused and writes nothing.
+ * P1707 review A: the check and the append run under an exclusive lock file next to the ledger (the
+ * day store's lock: bounded wait, stale-lock takeover), so two processes (the page's route and the
+ * agent's CLI, or two CLIs) cannot both find an insight undecided and both write a line.
+ * A lock held past the wait throws (ELOCKED): the caller reports a failure, never a decision.
  */
-export function recordInsightDecision(dir: string, key: string, decision: 'confirm' | 'dismiss', at: Date): 'recorded' | 'not-undecided' | 'unreadable' {
-  const open = undecidedInsights(dir)
-  if (open.error) return 'unreadable'
-  if (!open.insights.some((i) => i.key === key)) return 'not-undecided'
-  appendLedger(dir, key, decision, at)
-  return 'recorded'
+export async function recordInsightDecision(dir: string, key: string, decision: 'confirm' | 'dismiss', at: Date): Promise<'recorded' | 'not-undecided' | 'unreadable'> {
+  ensureDirs(dir)
+  const lock = join(dir, 'ledger.jsonl.lock')
+  const owner = await acquireLock(lock)
+  try {
+    const open = undecidedInsights(dir)
+    if (open.error) return 'unreadable'
+    if (!open.insights.some((i) => i.key === key)) return 'not-undecided'
+    appendLedger(dir, key, decision, at)
+    return 'recorded'
+  } finally {
+    releaseLock(lock, owner)
+  }
 }

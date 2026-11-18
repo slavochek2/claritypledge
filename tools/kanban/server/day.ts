@@ -198,12 +198,11 @@ function latestReadable(dir: string): { id: string; report: DayReport; history: 
 }
 
 /**
- * P1707: the notes of earlier runs that no launch carried, for the latest run. The keys of every
- * launch of every run that counts as sent (pending or started), so a note sent from any run is done.
+ * P1707: the notes of earlier runs that no launch carried, for the latest run. Every launch of every
+ * run is checked (a note is delivered by a launch made at or after it was written, from any run).
  */
 function carriedFor(dir: string, report: DayReport, lines: DayDecision[], reports: DayReport[]): CarriedNote[] {
-  const everSent = new Set(readSent(dir).filter((l) => l.state === 'pending' || l.state === 'started').flatMap((l) => l.items))
-  return carriedNotes(lines, report, everSent, reports)
+  return carriedNotes(lines, report, readSent(dir), reports)
 }
 
 /** P1440: every story of every run, with its state (open / sent / stuck / done). An unreadable file has none. */
@@ -328,7 +327,8 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         droppedRows: run.parsed.droppedRows,
         decisionsBadLines: badLines,
         collectedCount: isLatest ? collect(view, sent.items, ledger, carried).count : collect(view, new Set<string>()).count,
-        carriedNotes: collect(view, sent.items, undefined, carried).carried.length,
+        // P1707 review C: what the page lists beside Start fixing (date, card, text); never the fingerprint
+        carriedNotes: collect(view, sent.items, undefined, carried).carried.map((n) => ({ at: n.at, title: n.title, text: n.text, insight: n.insight })),
         stories: storiesFor(run.parsed.report, isLatest, ledger),
         quotaHistory: quotaHistory(run.parsed.report, list.runs.flatMap((r) => (r.parsed.kind === 'ok' ? [r.parsed.report] : []))),
         lastSentAt: isLatest ? sent.lastAt ?? null : null,
@@ -413,7 +413,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
 
   // The page's own origin only (the same guard as Start fixing), JSON only. The key must be one
   // the latest read raised and no decision has hidden yet: the body never names a path.
-  app.post('/api/day/analytics/decision', (req, res) => {
+  app.post('/api/day/analytics/decision', async (req, res) => {
     if (!dayEnabled()) return res.status(404).json({ error: 'Day page is not enabled' })
     if (!fromBoard(req)) return res.status(403).json({ error: 'Only the Day page can record this' })
     if (!isJson(req)) return res.status(415).json({ error: 'JSON only' })
@@ -425,7 +425,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       // P1673: only an insight still waiting for a decision: a second press, a retry after a lost reply or a stale
       // second tab must not write a second line (a confirm is counted by the "keep the insights?" criterion).
       // P1707: the same rule the fixing agent's verdict CLI applies (recordInsightDecision).
-      const r = recordInsightDecision(analyticsDir(), body.key, body.decision, now())
+      const r = await recordInsightDecision(analyticsDir(), body.key, body.decision, now())
       // an unreadable ledger is a failure of ours, not a stale card: the page keeps the card and the retry
       if (r === 'unreadable') return res.status(500).json({ error: 'The insight ledger could not be read' })
       if (r === 'not-undecided') return res.status(409).json({ error: 'Not an undecided insight in the latest read' })

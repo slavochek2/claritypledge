@@ -273,6 +273,8 @@ export interface LoopInputs {
   evaluated?: EvaluatedLine[]
   /** P1707: the founder's decisions, for the unanswered-note check (day-notes.ts); absent = the check is off */
   decisions?: DayDecision[]
+  /** P1707 review F: the weekly-insight ledger's verdicts, so an insight note answered with the verdict CLI counts as answered */
+  insightVerdicts?: { key: string; at?: string }[]
 }
 
 function checkRan(report: DayReport, v: DayIssue): boolean {

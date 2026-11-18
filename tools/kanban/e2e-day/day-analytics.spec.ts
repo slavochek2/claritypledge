@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { DAY_E2E_ANALYTICS, DAY_E2E_DIR } from '../playwright.day.config'
-import { seedDay } from '../scripts/day-seed'
+import { EARLIER_ID, seedDay } from '../scripts/day-seed'
 
 const READ = {
   date: '2026-11-06',
@@ -205,4 +205,24 @@ test('report: an empty note on an insight sends the founder back to it, like on 
   await page.locator('button[data-send-count]').click()
   await expect(page.getByText('Write your answer or question first')).toBeVisible()
   expect(started).toBe(false)
+})
+
+// P1707 review C: a note typed on an earlier run that was never sent is listed beside the work Start fixing sends
+test('report: an earlier, never-sent note is listed as also sent by Start fixing (P1707)', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 1400 })
+  seedDay(DAY_E2E_DIR, 'default')
+  writeFileSync(
+    join(DAY_E2E_DIR, 'decisions.jsonl'),
+    JSON.stringify({ kind: 'option', target: 'credits:baseline', option_id: 'own', text: 'Balance was 412 when I looked', run_id: EARLIER_ID, at: '2026-10-03T06:00:00Z' }) + '\n',
+  )
+  await page.goto('/')
+  await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+  const box = page.locator('[data-carried-notes]')
+  await expect(box).toContainText('Start fixing also sends 1 earlier note')
+  await box.getByRole('button').click()
+  await expect(box.locator('[data-carried-note]')).toHaveCount(1)
+  await expect(box).toContainText('Cloud credit balance is a guess')
+  await expect(box).toContainText('Balance was 412 when I looked')
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+  expect(overflow).toBeLessThanOrEqual(0)
 })

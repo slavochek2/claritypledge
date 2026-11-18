@@ -53,7 +53,7 @@ export async function run(argv: string[], io: IO, now: () => Date = () => new Da
   const insight = open.insights.find((i) => insightIssue(i).fp === fp)
   if (!insight) return refuse('not an undecided insight of the latest weekly read (unknown, or already decided)')
   try {
-    const r = recordInsightDecision(dir, insight.key, decision, now())
+    const r = await recordInsightDecision(dir, insight.key, decision, now())
     if (r === 'unreadable') return refuse('the insight ledger could not be read')
     if (r === 'not-undecided') return refuse('already decided')
     io.out(`recorded ${decision} for ${fp}\n`)

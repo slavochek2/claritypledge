@@ -3,18 +3,19 @@
 import { describe, it, expect } from 'vitest'
 import { allIssues, parseReport, sentKey, type DayDecision, type DayReport, type EvaluatedLine, type LaunchReceipt } from '../../src/lib/day'
 import { buildReport, parseLedger, parseManifest, parseRegistry, validateReport, type Registries } from '../../scripts/day-render'
-import { NOTE_WINDOW_DAYS, unansweredNotes } from '../../scripts/day-notes'
+import { NOTES_CHECK_FROM, unansweredNotes } from '../../scripts/day-notes'
 import { synthEarlier } from './fixtures/day-fixture'
 
 const EARLIER = synthEarlier() // pass 2026-10-03T05-05-00Z, carries rules:live-not-on-main "Database rules are live before review"
-const RUN = '2026-10-04T05-00-00Z'
-const STARTED = '2026-10-04T05:00:00Z'
+// P1707 review E: every date sits after the check's rollout cutoff (NOTES_CHECK_FROM, 2026-11-04)
+const RUN = '2026-11-06T05-00-00Z'
+const STARTED = '2026-11-06T05:00:00Z'
 const FP = 'rules:live-not-on-main'
 const TEXT = 'I already reconnected it, why is it still red?'
 
-const noteLine = (over: Partial<DayDecision> = {}): DayDecision => ({ kind: 'option', target: FP, option_id: 'own', text: TEXT, is_question: true, run_id: EARLIER.pass_id, at: '2026-10-03T06:00:00Z', ...over })
-const receipt = (over: Partial<LaunchReceipt> = {}): LaunchReceipt => ({ id: 's1', run_id: EARLIER.pass_id, at: '2026-10-03T06:30:00Z', state: 'started', items: [sentKey.option(FP, 'own', TEXT)], ...over })
-const evaluated = (fps: string[], at: string): EvaluatedLine => ({ kind: 'evaluated', id: 'ev-1', fps, cause: 'named', verdict: 'fixed', expires: '2026-12-01', at })
+const noteLine = (over: Partial<DayDecision> = {}): DayDecision => ({ kind: 'option', target: FP, option_id: 'own', text: TEXT, is_question: true, run_id: EARLIER.pass_id, at: '2026-11-05T06:00:00Z', ...over })
+const receipt = (over: Partial<LaunchReceipt> = {}): LaunchReceipt => ({ id: 's1', run_id: EARLIER.pass_id, at: '2026-11-05T06:30:00Z', state: 'started', items: [sentKey.option(FP, 'own', TEXT)], ...over })
+const evaluated = (fps: string[], at: string): EvaluatedLine => ({ kind: 'evaluated', id: 'ev-1', fps, cause: 'named', verdict: 'fixed', expires: '2027-01-01', at })
 const base = { report: { pass_id: RUN, started_at: STARTED }, earlier: [EARLIER] }
 
 describe('P1707 unanswered-note check (pure)', () => {
@@ -25,24 +26,24 @@ describe('P1707 unanswered-note check (pure)', () => {
     expect(f.fp).toMatch(/^day\.notes:unanswered:[0-9a-f]{16}$/)
     expect(f.check).toBe('day.notes')
     expect(f.title).toContain('Database rules are live before review')
-    expect(f.point_a).toContain('2026-10-03')
+    expect(f.point_a).toContain('2026-11-05')
     expect(f.point_a).toContain(TEXT)
     expect(f.options[0]).toMatchObject({ agent: true, recommended: true })
     expect(f.options.some((o) => o.id === 'park')).toBe(true)
-    expect(f.first_seen).toBe('2026-10-03')
+    expect(f.first_seen).toBe('2026-11-05')
   })
 
   it('an evaluated record for the card after the delivery answers it', () => {
-    expect(unansweredNotes({ ...base, decisions: [noteLine()], receipts: [receipt()], evaluated: [evaluated([FP], '2026-10-03T09:00:00Z')] })).toHaveLength(0)
+    expect(unansweredNotes({ ...base, decisions: [noteLine()], receipts: [receipt()], evaluated: [evaluated([FP], '2026-11-05T09:00:00Z')] })).toHaveLength(0)
   })
 
   it('an evaluated record on the finding itself answers it too (the agent was sent the finding)', () => {
     const fp = unansweredNotes({ ...base, decisions: [noteLine()], receipts: [receipt()], evaluated: [] })[0].fp
-    expect(unansweredNotes({ ...base, decisions: [noteLine()], receipts: [receipt()], evaluated: [evaluated([fp], '2026-10-04T04:00:00Z')] })).toHaveLength(0)
+    expect(unansweredNotes({ ...base, decisions: [noteLine()], receipts: [receipt()], evaluated: [evaluated([fp], '2026-11-06T04:00:00Z')] })).toHaveLength(0)
   })
 
   it('an evaluated record from BEFORE the delivery does not answer it', () => {
-    expect(unansweredNotes({ ...base, decisions: [noteLine()], receipts: [receipt()], evaluated: [evaluated([FP], '2026-10-02T09:00:00Z')] })).toHaveLength(1)
+    expect(unansweredNotes({ ...base, decisions: [noteLine()], receipts: [receipt()], evaluated: [evaluated([FP], '2026-11-04T09:00:00Z')] })).toHaveLength(1)
   })
 
   it('a note never delivered (no receipt, or only a failed launch) is not this check\'s finding', () => {
@@ -51,21 +52,24 @@ describe('P1707 unanswered-note check (pure)', () => {
   })
 
   it('not before one run has passed: a note sent from this same run is not raised yet', () => {
-    expect(unansweredNotes({ ...base, decisions: [noteLine({ run_id: RUN })], receipts: [receipt({ run_id: RUN, at: '2026-10-04T05:30:00Z' })], evaluated: [] })).toHaveLength(0)
+    expect(unansweredNotes({ ...base, decisions: [noteLine({ run_id: RUN })], receipts: [receipt({ run_id: RUN, at: '2026-11-06T05:30:00Z' })], evaluated: [] })).toHaveLength(0)
   })
 
-  it(`a delivery older than ${NOTE_WINDOW_DAYS} days is no longer raised (bounded history)`, () => {
-    const old = new Date(Date.parse(STARTED) - (NOTE_WINDOW_DAYS + 1) * 86_400_000).toISOString()
-    expect(unansweredNotes({ ...base, decisions: [noteLine({ at: old })], receipts: [receipt({ at: old })], evaluated: [] })).toHaveLength(0)
+  // P1707 review E replaced the 14-day window with a fixed rollout cutoff
+  it(`a delivery before ${NOTES_CHECK_FROM} (when evaluated records began) is never raised`, () => {
+    const old = '2026-11-03T06:00:00Z'
+    expect(unansweredNotes({ ...base, decisions: [noteLine({ at: old })], receipts: [receipt({ at: '2026-11-03T06:30:00Z' })], evaluated: [] })).toHaveLength(0)
   })
 
   it('a choice that is not a note (an option id) is not a note', () => {
     expect(unansweredNotes({ ...base, decisions: [noteLine({ option_id: 'agent', text: undefined })], receipts: [receipt({ items: [sentKey.option(FP, 'agent')] })], evaluated: [] })).toHaveLength(0)
   })
 
-  it('the same note typed on two runs is one finding', () => {
-    const second = noteLine({ run_id: 'x', at: '2026-10-03T07:00:00Z' })
-    expect(unansweredNotes({ ...base, decisions: [noteLine(), second], receipts: [receipt()], evaluated: [] })).toHaveLength(1)
+  // P1707 review D/G: the latest note on the card is the one judged, by its own delivery (a launch at or after it)
+  it('the same note re-typed on a later run is judged by its own delivery', () => {
+    const second = noteLine({ run_id: 'x', at: '2026-11-05T07:00:00Z' })
+    expect(unansweredNotes({ ...base, decisions: [noteLine(), second], receipts: [receipt()], evaluated: [] })).toHaveLength(0) // not delivered yet: it is carried instead
+    expect(unansweredNotes({ ...base, decisions: [noteLine(), second], receipts: [receipt(), receipt({ id: 's2', run_id: 'x', at: '2026-11-05T07:30:00Z' })], evaluated: [] })).toHaveLength(1)
   })
 
   it('a note on a weekly insight is named without analytics text', () => {

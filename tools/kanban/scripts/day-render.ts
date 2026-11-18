@@ -72,6 +72,7 @@ import { checkStatus } from '../src/components/day/statusWords'
 import { defaultGoalsFile, readGoals } from './day-goals'
 import { applyLoops, readGitFacts, type LoopInputs } from './day-loops'
 import { NOTES_CHECK, unansweredNotes } from './day-notes'
+import { analyticsDir, readLedger } from '../server/analyticsStore'
 import { appendDecisionLines, readDecisionsText } from '../server/dayStore'
 
 // ---------------------------------------------------------------------------------------
@@ -748,7 +749,7 @@ export function buildReportDetailed(inp: RenderInputs): { report: DayReport; pla
   const plain = data.plain ? applyPlain(report, readPlain(data.plain) ?? [], inp.earlier) : { unmatched: 0, rejected: 0 }
   // P1707: delivered notes with no recorded answer, each its own card; before the loops, so they are annotated too
   if (inp.loops?.decisions) {
-    const notes = unansweredNotes({ report, earlier: inp.earlier, decisions: inp.loops.decisions, receipts: inp.loops.receipts, evaluated: inp.loops.evaluated ?? [] })
+    const notes = unansweredNotes({ report, earlier: inp.earlier, decisions: inp.loops.decisions, receipts: inp.loops.receipts, evaluated: inp.loops.evaluated ?? [], insightVerdicts: inp.loops.insightVerdicts })
     if (notes.length) {
       const have = new Set(report.issues.map((i) => i.fp))
       report.issues.push(...notes.filter((n) => !have.has(n.fp)))
@@ -1154,6 +1155,8 @@ function loopInputs(args: Args, earlier: DayReport[]): LoopInputs {
     outcomes: parseOutcomes(text),
     evaluated: parseEvaluated(text),
     decisions: parseDecisions(text).lines,
+    // P1707 review F: a missing or unreadable ledger reads as no verdicts (the check can only over-report then, never hide)
+    insightVerdicts: readLedger(analyticsDir()).map((e) => ({ key: e.key, at: e.at })),
     earlier,
     git: repo === 'none' || !repo ? { ok: repo === 'none', branches: [], specs: [] } : readGitFacts(repo),
     now: new Date(args.now),

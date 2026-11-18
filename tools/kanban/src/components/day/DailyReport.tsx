@@ -10,7 +10,7 @@ import { evaluatedSummary, loopNotices, waitingText } from './loops'
 import { OWN, cardDetail, cardState, isAnswered, isInsightCard, daysOpen, technicalDetail, type CardState, type ConnectionView, type DayReport, type DayView, type IssueView } from '../../lib/day'
 import { CheckRow, Phrases, StatusIcon } from './status'
 import { agentWord, checkStatus, connectionStatus, listSummary, type AgentHeader } from './statusWords'
-import { safeUrl } from './api'
+import { safeUrl, type CarriedNoteView } from './api'
 import { NewPeople } from './People'
 import { type DestKind, DEST_WORD, buildChecklist, summaryParts, type Checklist as ChecklistT, type ChecklistRow } from './checklist'
 import { ListPane, type ListRow } from './ListPane'
@@ -60,6 +60,8 @@ interface Props {
   afterStatement?: ReactNode
   /** P1468: show the card view (the parked row, clicked while a statement is open) */
   onCards: () => void
+  /** P1707: notes of earlier runs that Start fixing also sends */
+  carried?: CarriedNoteView[]
 }
 
 /** P1468: the statement half of the one list */
@@ -161,6 +163,7 @@ export function DailyReport(p: Props) {
   const [statusOpen, setStatusOpen] = useState(false)
   const [peopleOpen, setPeopleOpen] = useState(false)
   const [parkedOpen, setParkedOpen] = useState(false)
+  const [carriedOpen, setCarriedOpen] = useState(false)
   const parkedRef = useRef<HTMLDivElement>(null)
   // P1468: the parked row asks for Parked — scrolled to once it has rendered (from a statement, the
   // card view and its Parked section mount in the same commit)
@@ -197,6 +200,7 @@ export function DailyReport(p: Props) {
           <div className="d-mdmain">
             {p.statement ?? <IssueCard {...p} />}
             <AgentList agent={p.agent} sent={p.sent} />
+            {!readOnly && <CarriedNotes notes={p.carried ?? []} open={carriedOpen} setOpen={setCarriedOpen} />}
             <Waiting view={view} />
             <Evaluated view={view} />
             {p.statement && p.afterStatement}
@@ -696,6 +700,32 @@ function IssueCard(p: Props) {
         </div>
       </article>
     </>
+  )
+}
+
+/**
+ * P1707: notes typed on earlier runs that no launch delivered. Start fixing sends them with today's
+ * answers; this fold says so and shows each one (date, card, the note), so nothing goes unseen.
+ */
+export function CarriedNotes({ notes, open, setOpen }: { notes: CarriedNoteView[]; open: boolean; setOpen: (o: boolean) => void }) {
+  if (!notes.length) return null
+  return (
+    <div className="d-card d-parked" data-carried-notes>
+      <button type="button" className="d-fold" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="d-tri">▶</span>Start fixing also sends {plural(notes.length, 'earlier note')}
+      </button>
+      {open &&
+        notes.map((n) => (
+          <div className="d-row" key={`${n.at}\u0000${n.title}`} data-carried-note={n.at}>
+            <span className="d-tx">
+              <span className="d-ptitle">{n.insight ? `Weekly insight: ${n.title}` : n.title}</span>
+              <span className="d-w">
+                {shortDate(n.at)} · {n.text}
+              </span>
+            </span>
+          </div>
+        ))}
+    </div>
   )
 }
 

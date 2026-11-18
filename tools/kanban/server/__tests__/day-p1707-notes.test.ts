@@ -222,7 +222,7 @@ describe('P1707 AC4 + AC5: notes of a run that was never sent carry forward', ()
 
   it('a note on an earlier run that was never sent is carried into today\'s send, with its date', () => {
     const lines = [earlyNote]
-    const carried = carriedNotes(lines, today(), new Set(), [earlier(), today()])
+    const carried = carriedNotes(lines, today(), [], [earlier(), today()])
     expect(carried).toHaveLength(1)
     expect(carried[0]).toMatchObject({ fp: 'credits:baseline', text: 'Balance was 412 when I looked', run_id: EARLIER, at: '2026-10-03T06:00:00Z', title: 'Cloud credit balance is a guess' })
     const v = buildView(today(), lines, [])
@@ -236,30 +236,31 @@ describe('P1707 AC4 + AC5: notes of a run that was never sent carry forward', ()
   })
 
   it('a note that was sent (any run\'s receipt holds its key) is not carried', () => {
-    const sent = new Set([sentKey.option('credits:baseline', 'own', 'Balance was 412 when I looked')])
-    expect(carriedNotes([earlyNote], today(), sent, [earlier(), today()])).toHaveLength(0)
+    const launch = (key: string): LaunchReceipt => ({ id: 's1', run_id: EARLIER, at: '2026-10-03T07:00:00Z', state: 'started', items: [key] })
+    expect(carriedNotes([earlyNote], today(), [launch(sentKey.option('credits:baseline', 'own', 'Balance was 412 when I looked'))], [earlier(), today()])).toHaveLength(0)
     // the key Phase C wrote, with the raw stored id
-    const sentAsk = new Set([sentKey.option('credits:baseline', 'ask', 'Balance was 412 when I looked')])
-    expect(carriedNotes([earlyNote], today(), sentAsk, [earlier(), today()])).toHaveLength(0)
+    expect(carriedNotes([earlyNote], today(), [launch(sentKey.option('credits:baseline', 'ask', 'Balance was 412 when I looked'))], [earlier(), today()])).toHaveLength(0)
+    // a failed launch delivered nothing
+    expect(carriedNotes([earlyNote], today(), [{ ...launch(sentKey.option('credits:baseline', 'own', 'Balance was 412 when I looked')), state: 'failed' }], [earlier(), today()])).toHaveLength(1)
   })
 
   it('the 2026-10-12 shape: a note replaced by a later choice on the same card is not carried', () => {
     const replaced = [earlyNote, opt('credits:baseline', PARK, EARLIER, '2026-10-03T06:05:00Z')]
-    expect(carriedNotes(replaced, today(), new Set(), [earlier(), today()])).toHaveLength(0)
+    expect(carriedNotes(replaced, today(), [], [earlier(), today()])).toHaveLength(0)
     const removed = [earlyNote, { ...opt('credits:baseline', 'own', EARLIER, '2026-10-03T06:05:00Z'), option_id: undefined, remove: true }]
-    expect(carriedNotes(removed, today(), new Set(), [earlier(), today()])).toHaveLength(0)
+    expect(carriedNotes(removed, today(), [], [earlier(), today()])).toHaveLength(0)
     // a choice on today's run replaces it too: today's answer is what goes
     const answeredToday = [earlyNote, opt('credits:baseline', 'read')]
-    expect(carriedNotes(answeredToday, today(), new Set(), [earlier(), today()])).toHaveLength(0)
+    expect(carriedNotes(answeredToday, today(), [], [earlier(), today()])).toHaveLength(0)
   })
 
   it('today\'s own notes are never "carried": they go through the normal path once', () => {
-    expect(carriedNotes([note('credits:baseline', 'today')], today(), new Set(), [earlier(), today()])).toHaveLength(0)
+    expect(carriedNotes([note('credits:baseline', 'today')], today(), [], [earlier(), today()])).toHaveLength(0)
   })
 
   it('a carried note on a weekly insight no longer raised is named without analytics text', () => {
     const fp = insightIssue(insight('gone')).fp
-    const carried = carriedNotes([note(fp, 'why again?', EARLIER, '2026-10-03T06:00:00Z')], today(), new Set(), [earlier(), today()])
+    const carried = carriedNotes([note(fp, 'why again?', EARLIER, '2026-10-03T06:00:00Z')], today(), [], [earlier(), today()])
     expect(carried).toHaveLength(1)
     expect(carried[0].title).toBe('A weekly insight that is no longer raised')
     expect(carried[0].is_question).toBe(true)
@@ -268,7 +269,7 @@ describe('P1707 AC4 + AC5: notes of a run that was never sent carry forward', ()
   it('a carried note on an insight still raised today is fenced in the prompt', () => {
     const fp = insightIssue(insight('a')).fp
     const r = withInsights(today(), [insight('a')])
-    const carried = carriedNotes([note(fp, 'look again', EARLIER, '2026-10-03T06:00:00Z')], r, new Set(), [earlier(), today()])
+    const carried = carriedNotes([note(fp, 'look again', EARLIER, '2026-10-03T06:00:00Z')], r, [], [earlier(), today()])
     const p = buildPrompt(r, buildView(r, []), new Set(), undefined, { ledger: [], cli: 's', carried })
     expect(p).toContain('look again')
     expect(outsideFences(p)).not.toContain(HOSTILE)
@@ -356,13 +357,13 @@ describe('P1707 routes and the insight verdict CLI', () => {
     })()
     await writeFile(join(dayDir, 'decisions.jsonl'), JSON.stringify({ kind: 'option', target: 'credits:baseline', option_id: 'own', text: 'Balance was 412', run_id: EARLIER, at: '2026-10-03T06:00:00Z' }) + '\n')
     expect(run.collectedCount).toBe(without + 1)
-    expect(run.carriedNotes).toBe(1)
+    expect(run.carriedNotes).toHaveLength(1)
     expect((await start()).status).toBe(200)
     expect(calls[0]).toContain('(2026-10-03) Cloud credit balance is a guess → My note: Balance was 412')
     const sent = (await decisionsFile()).split('\n').filter((l) => l.includes('"kind":"sent"')).map((l) => JSON.parse(l))
     expect(sent[0].items).toContain(sentKey.option('credits:baseline', 'own', 'Balance was 412'))
     // sent once: the next payload no longer carries it
-    expect((await getRun()).carriedNotes).toBe(0)
+    expect((await getRun()).carriedNotes).toEqual([])
   })
 
   it('the agent records its verdict once through the CLI; a second verdict is refused and writes nothing', async () => {

@@ -15,6 +15,14 @@ export type DayIndex =
   | { enabled: false }
   | { enabled: true; state: 'present' | 'absent' | 'error'; runs: RunSummary[]; latestId: string | null }
 
+/** P1707: one earlier note Start fixing also sends, as the page lists it */
+export interface CarriedNoteView {
+  at: string
+  title: string
+  text: string
+  insight: boolean
+}
+
 export type RunPayload =
   | {
       id: string
@@ -28,6 +36,8 @@ export type RunPayload =
       decisionsBadLines: number
       /** items not yet sent to a terminal */
       collectedCount: number
+      /** P1707: notes of earlier runs that Start fixing also sends (latest run only); `insight`: the title is analytics text */
+      carriedNotes?: CarriedNoteView[]
       /** per quota id: its readings from this week's runs, oldest first (the Subscriptions chart) */
       quotaHistory?: Record<string, { at: string; remaining_pct: number }[]>
       /** when Start fixing last reached a terminal on this run, if ever */
