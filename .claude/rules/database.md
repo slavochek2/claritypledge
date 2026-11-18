@@ -7,9 +7,9 @@ paths:
 
 ## Migration Naming
 
-Use 14-digit timestamps: `YYYYMMDDHHMMSS_description.sql`
+`YYYYMMDDHHMMSS_description.sql`, with the version **generated from the current time to the second** (`date +%Y%m%d%H%M%S`), never typed by hand. Hand-typed round times (`…120000`, `…190000`) are what collide across concurrent sessions: 420 of 658 migrations ended in `0000`, and five collisions are logged (latest P1703). A "highest version + 1" helper is not the fix: two sessions read the same highest value ([decisions.md](../../docs/decisions.md) P1279 is the same race for P-numbers).
 
-Multiple files with the same 8-digit date (e.g., `20260206_a.sql`, `20260206_b.sql`) cause `db push` to fail permanently — always use sub-second timestamps for same-day migrations.
+Multiple files sharing an 8-digit date only (`20260206_a.sql`, `20260206_b.sql`) make `db push` fail permanently: the full 14 digits are required.
 
 ## After Creating a Migration
 
