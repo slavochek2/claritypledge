@@ -134,9 +134,11 @@ interface NoteState {
 }
 function noteState(issue: IssueView, st: CardState, readOnly: boolean, followUp: boolean): NoteState | null {
   const d = issue.decision
-  if (readOnly || d?.option_id !== OWN || !d.text?.trim()) return null
+  if (d?.option_id !== OWN || !d.text?.trim()) return null
   const label = d.is_question || d.text.trim().endsWith('?') ? 'Your question' : 'Your note'
   if (st.kind === 'sent') return { label, where: `Sent to the fixing agent on ${shortDate(st.at)}, ${clock(st.at)}` }
+  // P1707 round 3: an earlier run is read-only, so there is no button to press from it
+  if (readOnly) return { label, where: 'Not sent from this day' }
   return { label, where: `Goes to the fixing agent when you press ${followUp ? 'Send' : 'Start fixing'}` }
 }
 
@@ -591,7 +593,8 @@ function IssueCard(p: Props) {
         <div className="d-chose" data-chosen>
           <span>
             {note ? `${note.label}: ` : 'You chose: '}
-            <b>{chosen}</b>
+            {/* P1707 round 3: a typed note keeps its lines and wraps a long word, like the saved-answer box */}
+            <b {...(note ? { className: 'd-chose-note' } : {})}>{chosen}</b>
           </span>
           <button type="button" className="d-link d-tap" onClick={() => setReopened((r) => ({ ...r, [issue.fp]: true }))}>
             {readOnly ? 'Show the card' : 'Change'}
@@ -707,10 +710,11 @@ function IssueCard(p: Props) {
               o.id,
               <>
                 <span className="d-l">{o.label}</span>
-                {i === issue.recommended_index && (
+                {/* P1707: no fit is ever computed for a weekly insight, so it gets no fit words, tooltip or unrated look */}
+                {i === issue.recommended_index && isInsightCard(issue) && <span className="d-rec">Recommended</span>}
+                {i === issue.recommended_index && !isInsightCard(issue) && (
                   <span className={`d-rec ${fitRated ? '' : 'dim'}`} title="Fit: how likely this fixes the real cause without breaking something else">
-                    {/* P1707 round 2: no fit is ever computed for a weekly insight, so it gets no fit words */}
-                    {fitRated ? `Recommended · Fit ${fit}%` : isInsightCard(issue) ? 'Recommended' : 'Recommended · Fit not rated'}
+                    {fitRated ? `Recommended · Fit ${fit}%` : 'Recommended · Fit not rated'}
                   </span>
                 )}
                 {i === issue.recommended_index && issue.risk && <span className="d-risk">Main risk: {issue.risk}</span>}
@@ -749,6 +753,8 @@ export function CarriedNotes({ notes, open, setOpen, followUp }: { notes: Carrie
               </span>
               {/* the founder's own text: kept whole and wrapped, never clipped (a URL has no break points) */}
               <span className="d-w d-carried-text" data-carried-text>
+                {/* P1707 round 3: say which line is the founder's own words */}
+                {n.text.trim().endsWith('?') ? 'Your question: ' : 'Your note: '}
                 {n.text}
               </span>
             </span>

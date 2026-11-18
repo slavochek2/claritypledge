@@ -511,6 +511,9 @@ button.d-chip:hover { border-color: var(--amber); }
 /* P1463 round 3: an answered card folds to its answer */
 .d-chose { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 6px; font-size: 14px; color: var(--fg2); }
 .d-chose b { color: var(--fg); }
+/* P1707: a typed note in the folded card keeps its lines and breaks a long word (a URL) instead of widening the card */
+.d-chose > span { min-width: 0; }
+.d-chose .d-chose-note { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* P1463 round 3: the row linking cards and statements in the one queue reads as a section divider */
 .d-clsec { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 4px; }
 .d-clsec .d-clt { font-weight: 600; }

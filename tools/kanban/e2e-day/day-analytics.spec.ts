@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { DAY_E2E_ANALYTICS, DAY_E2E_DIR } from '../playwright.day.config'
-import { EARLIER_ID, seedDay } from '../scripts/day-seed'
+import { EARLIER_ID, LATEST_ID, seedDay } from '../scripts/day-seed'
 
 const READ = {
   date: '2026-11-06',
@@ -245,4 +245,23 @@ test('report: a long unbroken carried note wraps at 320px (P1707)', async ({ pag
   await expect(text).toBeVisible()
   const clipped = await text.evaluate((el) => el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().right > (el.closest('[data-carried-notes]') as HTMLElement).getBoundingClientRect().right + 1)
   expect(clipped).toBe(false)
+})
+
+// P1707 round 3 item 3: a saved note with a long unbroken word wraps in the folded card at phone width
+test('report: a folded note with a long URL wraps at 320px (P1707)', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 1400 })
+  seedDay(DAY_E2E_DIR, 'default')
+  const long = `https://example.com/${'b'.repeat(160)}`
+  writeFileSync(join(DAY_E2E_DIR, 'decisions.jsonl'), JSON.stringify({ kind: 'option', target: 'credits:baseline', option_id: 'own', text: long, run_id: LATEST_ID, at: '2026-10-04T08:00:00Z' }) + '\n')
+  await page.goto('/')
+  await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+  // at phone width the card list is folded behind its summary line
+  await page.locator('[data-card-list] .d-cltog').click()
+  await page.locator('[data-list-card="credits:baseline"]').click()
+  const text = page.locator('article[data-issue="credits:baseline"] [data-chosen]').getByText(long, { exact: true })
+  await expect(text).toBeVisible()
+  // an ancestor clips, so the page itself never scrolls sideways: measure against the viewport (and the card) instead
+  const right = await text.evaluate((el) => ({ text: el.getBoundingClientRect().right, card: (el.closest('article') as HTMLElement).getBoundingClientRect().right, view: window.innerWidth }))
+  expect(right.text).toBeLessThanOrEqual(right.card + 1)
+  expect(right.card).toBeLessThanOrEqual(right.view + 1)
 })

@@ -61,3 +61,11 @@ describe('P1707 round 2: the panel speaks the button\'s word, every row is dated
     expect(errors.filter((e) => String(e).includes('same key'))).toEqual([])
   })
 })
+
+describe('P1707 round 3: the note line says what it is', () => {
+  it('4: the second line of a carried row is "Your note: …", or "Your question: …" when it ends in ?', () => {
+    const h = renderToStaticMarkup(<CarriedNotes notes={notes} open setOpen={() => {}} followUp={false} />)
+    expect(h).toMatch(/data-carried-text="true">Your note: Balance was 412</)
+    expect(h).toMatch(/data-carried-text="true">Your question: why again\?</)
+  })
+})

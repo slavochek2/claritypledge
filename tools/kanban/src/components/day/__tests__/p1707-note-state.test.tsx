@@ -17,7 +17,7 @@ const noop = () => {}
 const AT = '2026-10-04T08:00:00Z'
 const own = (target: string, text: string): DayDecision => ({ kind: 'option', target, option_id: 'own', text, is_question: text.endsWith('?'), run_id: '2026-10-04T05-37-45Z', at: AT })
 
-function html(lines: DayDecision[], opts: { fp?: string; sent?: Record<string, string>; header?: 'first' | 'follow-up'; insights?: Insight[] } = {}): string {
+function html(lines: DayDecision[], opts: { fp?: string; sent?: Record<string, string>; header?: 'first' | 'follow-up' | 'read-only'; insights?: Insight[]; readOnly?: boolean } = {}): string {
   const report = withInsights(base(), opts.insights ?? [])
   const view = buildView(report, lines)
   const index = opts.fp ? view.issues.findIndex((i) => i.fp === opts.fp) : 0
@@ -25,7 +25,7 @@ function html(lines: DayDecision[], opts: { fp?: string; sent?: Record<string, s
     <DailyReport
       report={report}
       view={view}
-      readOnly={false}
+      readOnly={opts.readOnly ?? false}
       issues={view.issues}
       index={index}
       agent={{ items: [], open: false, setOpen: noop, header: opts.header ?? 'first' }}
@@ -113,5 +113,47 @@ describe('an insight\'s recommendation has no fit chip', () => {
     expect(c).not.toContain('Fit not rated')
     const ordinary = card(html([], { fp: 'replies:event-post' }), 'replies:event-post')
     expect(ordinary).toContain('Recommended · Fit not rated')
+  })
+})
+
+describe('P1707 round 3', () => {
+  it('1: on an earlier, read-only run a typed note still says it is a note: not sent from this day', () => {
+    const c = card(html([own('credits:baseline', 'I read it')], { fp: 'credits:baseline', readOnly: true, header: 'read-only' }), 'credits:baseline')
+    expect(c).toContain('Your note · Not sent from this day')
+    expect(c).toContain('Your note: ')
+    expect(c).not.toContain('Answered on this run')
+    expect(c).not.toContain('You chose')
+    expect(c).not.toMatch(/press (Send|Start fixing)/)
+  })
+
+  it('1: …or when it was sent from that day, sent with its date', () => {
+    const sent = { [sentKey.option('credits:baseline', 'own', 'Which account?')]: '2026-10-04T09:00:00Z' }
+    const c = card(html([own('credits:baseline', 'Which account?')], { fp: 'credits:baseline', readOnly: true, header: 'read-only', sent }), 'credits:baseline')
+    expect(c).toMatch(/Your question · Sent to the fixing agent on 4 Oct/)
+  })
+
+  it('1: must-allow: an option pick on a read-only run reads as before', () => {
+    const pick: DayDecision = { kind: 'option', target: 'credits:baseline', option_id: 'read', run_id: '2026-10-04T05-37-45Z', at: AT }
+    const c = card(html([pick], { fp: 'credits:baseline', readOnly: true, header: 'read-only' }), 'credits:baseline')
+    expect(c).toContain('Answered on this run')
+    expect(c).toContain('You chose')
+  })
+
+  it('2: the insight\'s Recommended chip has no fit tooltip and no unrated (dim) look; ordinary cards keep both', () => {
+    const fp = insightIssue(insight('a')).fp
+    const chip = (c: string) => c.match(/<span class="d-rec[^"]*"[^>]*>/)?.[0] ?? ''
+    const i = chip(card(html([], { fp, insights: [insight('a')] }), fp))
+    expect(i).not.toContain('title=')
+    expect(i).not.toContain('dim')
+    const o = chip(card(html([], { fp: 'replies:event-post' }), 'replies:event-post'))
+    expect(o).toContain('title="Fit:')
+    expect(o).toContain('dim')
+  })
+
+  it('3: the folded note is marked for wrapping (newlines kept, long words broken); an option pick is not', () => {
+    const c = card(html([own('credits:baseline', 'I read it')], { fp: 'credits:baseline' }), 'credits:baseline')
+    expect(c).toMatch(/<b class="d-chose-note"[^>]*>I read it<\/b>/)
+    const pick: DayDecision = { kind: 'option', target: 'credits:baseline', option_id: 'read', run_id: '2026-10-04T05-37-45Z', at: AT }
+    expect(card(html([pick], { fp: 'credits:baseline' }), 'credits:baseline')).not.toContain('d-chose-note')
   })
 })

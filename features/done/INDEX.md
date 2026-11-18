@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-17
+Last updated: 2026-11-18
 
 ---
 
@@ -667,6 +667,7 @@ Last updated: 2026-11-17
 
 ## Product & Docs
 
+- **P1702** (Nov 26) Verification-vs-forgiveness conjecture model — refuted in a restricted model; first-run verdicts moved twice under review, so never relay a model verdict before code review
 - **P855** (Jun 26) Pledge v4 (number-first) — single-source necessary but NOT sufficient (prose paraphrases drift past exact-string discovery); /upgrade-oath = discovery + 3 gates; dispatched(stored)-vs-default(current) classification prevents grandfather false-flags
 - **P142** (Feb 5) Information Architecture Restructure — separate Tracks/Hypotheses/Experiments; lean canvas redesign
 - **P69** (Jan 27) Product Vision Consolidation — asymmetric conversion hypothesis as foundation
