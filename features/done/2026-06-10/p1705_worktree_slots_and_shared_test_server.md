@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 348
 workstream: infrastructure
 created_date: '2026-11-18'
 tags: [worktrees, test-server, self-hosted, edge-functions]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: ef45d880246e7df77d0385957d88c722cc2ee2dc12546025657c2d64c4842c50
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-18
 ---
 
 # P1705: A worktree on any slot works against shared TEST, and says when TEST runs another branch's server code
