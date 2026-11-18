@@ -1,18 +1,18 @@
 ---
-status: week
+status: all-done
 type: comment
 rank: 345
 workstream: research
 created_date: '2026-11-17'
 tags: [research, game-theory, cooperation, paper]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, inline, ship]
 flow: inline
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: heuristic
+completed_at: 2026-11-18
 ---
 
 # P1702: Verification beats forgiveness under perception noise — test the conjecture, model it, publish it
