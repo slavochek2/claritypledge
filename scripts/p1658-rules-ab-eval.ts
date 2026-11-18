@@ -74,7 +74,7 @@ export const LEAD_RE = /\b(?:best|biggest|first|chosen|next|ahead of)\b|, not\b/
 export const CHOICE_RE = /\b(?:best|biggest|first|chosen|next)\b/i;
 export const ALTERNATIVE_RE = /\bahead of\b|, not\b|\binstead of\b|\brather than\b/i;
 /** First-person words left in a point's text ("I" and "US" only as written, so a stray "i" or the country is not counted). Titles are never point text. */
-export const PRONOUN_RE = /\b(?:I|[Ww]e|[Mm]y|[Oo]urs?|[Uu]s|[Mm]e|[Mm]ine)\b/g;
+export const PRONOUN_RE = /\b(?:I|[Ww]e|[Mm]y|[Oo]urs?|[Uu]s|[Mm]e|[Mm]ine|[Yy]ou)\b/g;
 /** A reason inside the point (the summary.md check a). */
 export const REASON_RE = / because |, which | so they | so that /i;
 
@@ -101,6 +101,8 @@ export function validId(id: string, what: string): string {
  * after that, so a symlink cannot point --out at a public folder. Throws otherwise.
  */
 export function realOutDir(outArg: string): string {
+  // checked before anything is created, so a refused --out leaves no folders behind; checked again on the real path below
+  if (!`${resolve(outArg)}/`.includes('/.private/')) throw new Error(`--out ${JSON.stringify(outArg)} is not under a .private directory`);
   mkdirSync(outArg, { recursive: true });
   const real = realpathSync(outArg);
   if (!`${real}/`.includes('/.private/')) throw new Error(`--out resolves to ${JSON.stringify(real)}, which is not under a .private directory`);
@@ -289,7 +291,7 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
   const o: string[] = [`# P1658 ${A} vs ${B}: counts from the .jsonl files`, '',
     `Computed by \`scripts/p1658-rules-ab-eval.ts --compare ${A},${B}\` from \`<pack>-${A}.jsonl\` and \`<pack>-${B}.jsonl\`. Runs per side: ${runsLine}. Wording: ${wording}. No model judge.`, '',
     `- Lead point (headline, strict): the FIRST point of a ranked box (${RANKED.map(titleOf).join(', ')}) holding a choice word (best, biggest, first, chosen, next) AND an alternative (ahead of, ", not", instead of, rather than) in the same point. "(loose)" marks a first point that has only one of the two (the secondary, lexical count); "before" counts as neither.`,
-    '- Pronouns: "I", "we", "my", "our", "ours", "us", "me", "mine" as whole words in point text ("I" and "US" as written); box titles are never counted.',
+    '- Pronouns: "I", "we", "my", "our", "ours", "us", "me", "mine", "you" as whole words in point text ("I" and "US" as written); box titles are never counted.',
     '- Reason in a point: " because ", ", which ", " so they ", " so that ".',
     '- Dropped: the engine\'s count; every point the model wrote and the engine did not keep is named with the engine\'s reason (only for runs made by a script version that keeps the model actions; earlier files carry none).', ''];
   const totals: Record<string, { leads: number; strict: number; pron: number; reasons: number; kept: number; dropped: number; named: number; runs: number }> = {};

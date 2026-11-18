@@ -240,7 +240,7 @@ describe('S2 box guidance', () => {
 
   it('P1658 fix round: a later option is "ahead of", a dropped one ", not"; the lead and third-person rules agree', () => {
     expect(LEAD_POINT_RULE.text).toContain('"ahead of <Y>" for an option that comes later, ", not <Y>" for one the owner dropped or turned down');
-    expect(LEAD_POINT_RULE.plain).toContain('the option it beats ("not" only if I dropped it)');
+    expect(LEAD_POINT_RULE.plain).toContain('the option it beats ("not" only if I dropped or turned it down)');
     expect(THIRD_PERSON_RULE.text).toContain('Write ", not <Y>" only when the owner\'s words drop, turn down or deny Y; a later option is "ahead of <Y>".');
     expect(LEAD_POINT_RULE.text).not.toMatch(/dropped or turned down counts/); // the round-1 wording that put a dropped option behind "ahead of"
   });
@@ -287,7 +287,7 @@ describe('S2 box guidance', () => {
 
   it('P1658 revision 2: the milestone and offer leads keep their parts; a milestone\'s "if missed" is only one the owner stated', () => {
     expect(def('canvas:metrics').shape).toContain('(target)');
-    expect(def('canvas:metrics').shape).toContain('[; if missed, <change the owner stated>]');
+    expect(def('canvas:metrics').shape).toContain('[; if missed, <stated change>]');
     expect(def('canvas:metrics').good).toContain('(target), ahead of');
     const offer = def('canvas:revenue');
     // the price sits after the contrast clause, never inside it, and the lead keeps every part of the terms

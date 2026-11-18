@@ -84,7 +84,7 @@ export const RANKED_BOXES = ['canvas:segments', 'canvas:problem', 'canvas:revenu
 export const LEAD_POINT_RULE: GlobalRule = {
   name: 'Lead point',
   text: `Lead point: a box whose shape has "Lead:" (Customer Segments, Problem, Offers & Pricing, My next milestone, My current biggest challenge) opens with one point naming the owner's choice and the option it beats, both from the owner's words: "ahead of <Y>" for an option that comes later, ", not <Y>" for one the owner dropped or turned down. Write "best" or "biggest" only if the owner ranked them, else "first" or "chosen". Order of mention, effort or pursuit is no ranking. No other option in the owner's words, no lead.`,
-  plain: `A "Lead:" point names my choice and, from my words, the option it beats ("not" only if I dropped it). "Best" or "biggest" only if I ranked them, else "first" or "chosen"; order or effort is no ranking. No other option, no lead.`,
+  plain: `A "Lead:" point names my choice and, from my words, the option it beats ("not" only if I dropped or turned it down). "Best" or "biggest" only if I ranked them, else "first" or "chosen"; order or effort is no ranking. No other option, no lead.`,
 };
 
 /**
@@ -155,7 +155,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     tag: 'canvas:metrics', title: 'My next milestone',
     type: 'Target, and what comes first', voice: 'third person',
     definition: `The next result customers produce (pay, renew, refer).`,
-    shape: `Lead: "The next milestone is <target>, <ahead of|not> <other goal>." Others: "<target>[; if missed, <change the owner stated>]." Target: <number> <customers> <action> by <date> (target).`,
+    shape: `Lead: "The next milestone is <target>, <ahead of|not> <other goal>." Others: "<target>[; if missed, <stated change>]." Target: <number> <customers> <action> by <date> (target).`,
     good: `"The next milestone is 10 cafés paying monthly by 31 March 2027 (target), ahead of opening a second city."`,
     not: `"I aim for 10 cafés paying monthly by 31 March 2027." (about the owner's aim, which nobody can dispute) / "Launch the new website and grow."`,
     gap: `What number, by what date, comes next, and which goal comes after it?`,
