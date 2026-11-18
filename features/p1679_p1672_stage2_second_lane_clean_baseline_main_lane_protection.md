@@ -91,3 +91,4 @@ Each check is by effect, and its control must fail first.
 
 - P1672: the predecessor (stage 1: lane tooling, claim protocol, per-worktree resolver, VM-wide E2E admission). This spec is its stage 2.
 - P1631: the browser-only branch that the second lane is for.
+- P1705 (2026-11-18): receipt evidence for prevention. Of 222 E2E runs recorded in `<git-common-dir>/cp-function-checks.jsonl` since 2026-11-10, 52 started with `differs`: 18 on another branch's code, 30 with the server on main before the branch's own change was deployed, 4 on an older copy of the branch itself; 47 of the 52 came from one branch. That meets P1312's recorded condition for revisiting prevention ("until the receipts show evidence runs regularly waiting on redeploys"). P1705 only makes the state visible (a dev-server banner, a whole-server check for branches with no function change); prevention stays here.
