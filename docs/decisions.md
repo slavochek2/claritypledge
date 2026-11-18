@@ -76,6 +76,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-18 [technical]: TEST's auth redirect list is judged entry by entry, not only by sampled addresses (P1705)
+
+**Context:** Worktree dev servers run on many ports, and a sign-in or verify link must return to the port it started on. The TEST auth service decides that with a glob allow list. The first check sent fixed probe addresses through the live verify endpoint and read the redirect. Review showed a probe set can only sample: an over-broad entry left from an older port range, and one added during this work, both passed every probe while letting the link's host vary. Both were removed from TEST the same day (backups on the VM).
+**Decision:** `auth-redirects.sh --audit` reads the running auth container's list over SSH, and `--classify` judges every entry by its shape. An entry passes only if it is one of the two four-digit localhost patterns, or its scheme is lowercase letters (not a script or data scheme) and its host part holds no glob character, no userinfo marker and no backslash. The whole value is read, so a line break hides nothing, and an empty list is `unknown`. `health.sh` runs the audit as `auth-config` when it reads the server over SSH. The probe check stays as the behavioural half.
+**Alternatives rejected:** more probes (still a sample; each review round found a shape the probes missed); a parser that proves arbitrary globs host-fixed (larger and harder to trust than refusing anything not plainly fixed; the cost is that a few safe but unusual entries are refused and need rewriting).
+**Consequences:** the classifier is conservative by design, so a new legitimate entry that uses a glob in its host part will read UNSAFE until it is rewritten or added to the two named patterns. The guest-attributes health source (CI) does not run the audit; only the SSH source does (DEFER in the spec).
+**References:** [p1705 spec](../features/p1705_worktree_slots_and_shared_test_server.md), `scripts/selfhosted/auth-redirects.sh`, `scripts/test-p1705-auth-redirects.sh`
+
+## 2026-11-18 [technical]: One dev port set; every allow list is generated from it or tested against it (P1705)
+
+**Context:** Worktree ports, edge-function CORS origins, TEST auth redirects, GCS bucket origins and the mail-link base each kept a hand-typed copy of which localhost ports exist. When slots grew past w19, sign-in links from w21 fell back to port 5001 and CORS refused every edge-function call from w20 and w21.
+**Decision:** `scripts/lib/worktree-port.mjs` is the only definition (main 5001, wN at 5000+N×100, named worktrees 5811 to 5889). CORS uses a generated `_shared/dev-origins.ts` that a test holds equal to the allocator; GCS lists keep exact origins checked equal to `slotOrigins()`; TEST auth takes two four-digit localhost patterns; mail links on prod come from configuration alone and never from a request value.
+**Alternatives rejected:** accepting any localhost port in CORS (CORS also runs on prod, where it passes auth headers, so the set stays exact); capping slots at w19 and keeping the lists as they are (19 slots were already in use).
+**Consequences:** a new consumer of the port set imports the allocator or adds an equality test; a hand-typed port list anywhere else is a defect. Changing a live GCS bucket's list stays a separate step with a human watching.
+**References:** [p1705 spec](../features/p1705_worktree_slots_and_shared_test_server.md), `scripts/lib/worktree-port.mjs`
+
+## 2026-11-18 [technical]: The functions check covers branches that change no function, and prints only plain names (P1705)
+
+**Context:** The P1312 check compared TEST's functions only for what the current branch changed, so a branch with no function changes reported nothing while TEST served another branch's code.
+**Decision:** with no function change, the same single SSH call compares every function on the server against main's tip, and the dev server shows the result as a banner (`unknown` is its own state). A function directory name that is not plain (letters, digits, `-`, `_`, not starting with `-`; `deno.json` and `deno.lock` are the only dotted tops) makes the check `unknown` and prints no fix command, because fix lines are meant to be run.
+**Alternatives rejected:** deploying automatically on mismatch (detect, never auto-deploy: 2026-11-05, P1312); escaping odd names into the commands (Supabase refuses such names anyway, so refusing is both simpler and truthful).
+**Consequences:** E2E on a branch that changes no function now gets a real verdict instead of silence.
+**References:** [p1705 spec](../features/p1705_worktree_slots_and_shared_test_server.md), `scripts/selfhosted/branch-functions-check.sh`
+
 ## 2026-11-18 [product]: Correction to "H-CheapGapReveal refuted in the P1702 model": three review rounds moved two of its numbers and one verdict
 
 **Context:** The 2026-11-17 entry "H-CheapGapReveal refuted in the P1702 model" reported the first model run. That code then went through three review rounds: Gemini, Codex and a criteria reviewer, about 42 findings, all fixed or set aside as latent. The final round found no defect that could change a verdict (branch `feature/p1702-cheap-gap-reveal-model`, commit `685fd6abe`, `docs/research/p1702/RESULTS.md`).
