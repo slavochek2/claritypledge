@@ -43,7 +43,7 @@ git -C "$FAKE" add seed.txt .gitignore; git -C "$FAKE" commit -qm seed
 FAKE="$(cd "$FAKE" && pwd -P)"
 WT="$FAKE/.claude/worktrees"; mkdir -p "$WT"
 cp "$REPO_ROOT/scripts/git-ops.sh" "$FAKE/scripts/"
-cp "$REPO_ROOT/scripts/lib/worktree-changes.sh" "$FAKE/scripts/lib/"
+cp "$REPO_ROOT/scripts/lib/worktree-changes.sh" "$REPO_ROOT/scripts/lib/worktree-port.mjs" "$FAKE/scripts/lib/"  # claim reads the slot cap from worktree-port.mjs (P1705)
 cp "$REPO_ROOT/.claude/hooks/heartbeat-worktree-slot.sh" "$FAKE/.claude/hooks/"
 chmod +x "$FAKE/scripts/"*.sh "$FAKE/.claude/hooks/"*.sh
 GO="$FAKE/scripts/git-ops.sh"

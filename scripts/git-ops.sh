@@ -411,8 +411,11 @@ cmd_claim() {
   )"
 
   local slot="" slot_path="" candidate candidate_path
-  local i
-  for ((i = 1; i <= 99; i++)); do
+  local i max_slot
+  # The cap lives in the allocator (P1705); read it from the same scripts/ checkout this script runs from.
+  max_slot="$(node "$(dirname "${BASH_SOURCE[0]}")/lib/worktree-port.mjs" --max-slot 2>/dev/null || true)"
+  [[ "$max_slot" =~ ^[0-9]+$ ]] || die "cannot read MAX_SLOT from scripts/lib/worktree-port.mjs --max-slot"
+  for ((i = 1; i <= max_slot; i++)); do
     candidate="w$i"
     candidate_path="$WORKTREES_DIR/$candidate"
 
@@ -445,7 +448,7 @@ cmd_claim() {
     break
   done
   if [[ -z "$slot" ]]; then
-    die "no free slot in w1..w99 — worktree ceiling reached"
+    die "no free slot in w1..w${max_slot}: the slot cap is reached. Run ./scripts/git-ops.sh tidy --all to see reclaimable slots"
   fi
 
   local branch="feature/${p_number}-${slug}"
@@ -755,6 +758,24 @@ sweep_merged_agent_worktrees() {
 teardown_worktree_if_clean() {
   local wt_path="$1" who="$2"
   [[ -n "$wt_path" && -d "$wt_path" ]] || return 0
+  # P1705: a clean slot that is on hold is kept, for every caller (ship, archive-spec, park). The
+  # .hold file lives inside the worktree, so removing the worktree would end the hold, and no
+  # command ends a hold except `hold --clear`. The classifier (tidy_hold_blocks) answers "blocks"
+  # when it cannot tell, so doubt keeps the slot.
+  if tidy_hold_blocks "$wt_path"; then
+    local _hreason _hslot
+    _hslot="$(basename "$wt_path")"
+    _hreason="$(sed -n 's/^REASON=//p' "$wt_path/.hold" 2>/dev/null | head -1 | tr '<>|' ':::')"
+    {
+      echo "$who: worktree $_hslot KEPT: it is on hold (${_hreason:-reason unreadable}). A hold is never cleared by $who."
+      if [[ -f "$wt_path/.lock" ]]; then
+        echo "  to release it: ./scripts/git-ops.sh hold --clear $_hslot --nonce NONCE (the NONCE= line of $wt_path/.lock)"
+      else
+        echo "  no lock on this slot: delete $wt_path/.hold yourself once the reason no longer applies"
+      fi
+    } >&2
+    return 1
+  fi
   if worktree_has_user_changes "$wt_path"; then
     {
       echo "$who: worktree RETAINED — it holds uncommitted changes that are not on main:"

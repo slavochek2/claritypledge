@@ -13,7 +13,8 @@
 #
 # Bookkeeping = the lockfile and its temp/mutex siblings, the activity marker and
 # its temp siblings, and the SYMLINKS scripts/setup-worktree.sh hydrates
-# (node_modules, .env.local, .env.test.local). Only those names, and only when they
+# (node_modules, and any .env*.local such as .env.local, .env.test.local,
+# .env.development.local — P1705). Only those names, and only when they
 # are symlinks: a symlink a session created is work, and exempting every untracked
 # symlink made `abandon` delete it (adversarial review, 2026-09-16).
 #
@@ -118,7 +119,7 @@ worktree_user_change_lines() {
       _wc_dir_only_regenerable "$wt" "$name" && continue
       case "$name" in
         .activity|.activity.*|.hold|.hold.*) continue ;;
-        .env.local|.env.test.local) [[ -L "$wt/$name" ]] && continue ;;
+        .env*.local) [[ -L "$wt/$name" ]] && continue ;;   # P1705: any setup symlink; a real file still counts
         .private)
           # Directory reported collapsed; look inside for anything that is not e2e login state.
           # A find error is a change, never "nothing found".
@@ -132,7 +133,7 @@ worktree_user_change_lines() {
     if [[ "${line:0:3}" == "?? " ]]; then
       case "$name" in
         .lock|.lock.*|.activity|.activity.*|.hold|.hold.*) continue ;;
-        .env.local|.env.test.local) [[ -L "$wt/$name" ]] && continue ;;
+        .env*.local) [[ -L "$wt/$name" ]] && continue ;;   # P1705: any setup symlink; a real file still counts
       esac
       # The one untracked exemption: the hydration symlink.
       if [[ -L "$wt/$name" ]]; then

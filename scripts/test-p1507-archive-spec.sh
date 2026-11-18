@@ -59,7 +59,7 @@ mk() {
   cp "$GIT_OPS_SRC" "$d/scripts/git-ops.sh"
   cp "$W/scripts/ship-gates.sh" "$d/scripts/"
   cp "$W/scripts/lib/gate-override.sh" "$W/scripts/lib/admin-close.sh" \
-     "$W/scripts/lib/worktree-changes.sh" "$d/scripts/lib/"
+     "$W/scripts/lib/worktree-changes.sh" "$W/scripts/lib/worktree-port.mjs" "$d/scripts/lib/"
   chmod +x "$d/scripts/git-ops.sh" "$d/scripts/ship-gates.sh"
   : > "$d/$SPRINT/.gitkeep"
   printf '.private/\n.claude/worktrees/\n' > "$d/.gitignore"

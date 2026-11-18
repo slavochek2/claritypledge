@@ -51,7 +51,7 @@ git -C "$FAKE" add seed.txt .gitignore scripts/tool.py; git -C "$FAKE" commit -q
 FAKE="$(cd "$FAKE" && pwd -P)"
 WT="$FAKE/.claude/worktrees"; mkdir -p "$WT"
 cp "$REPO_ROOT/scripts/git-ops.sh" "$REPO_ROOT/scripts/pipeline-strandings.sh" "$FAKE/scripts/"
-mkdir -p "$FAKE/scripts/lib" && cp "$REPO_ROOT/scripts/lib/worktree-changes.sh" "$FAKE/scripts/lib/"
+mkdir -p "$FAKE/scripts/lib" && cp "$REPO_ROOT/scripts/lib/worktree-changes.sh" "$REPO_ROOT/scripts/lib/worktree-port.mjs" "$FAKE/scripts/lib/"
 cp "$REPO_ROOT/.claude/hooks/heartbeat-worktree-slot.sh" "$FAKE/.claude/hooks/"
 chmod +x "$FAKE/scripts/"*.sh "$FAKE/.claude/hooks/"*.sh
 GO="$FAKE/scripts/git-ops.sh"

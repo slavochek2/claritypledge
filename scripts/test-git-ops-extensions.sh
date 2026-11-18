@@ -81,6 +81,8 @@ mkdir -p "$SCRATCH/origin.git" \
 cp "$REPO_ROOT/scripts/git-ops.sh" "$SCRATCH/main/scripts/git-ops.sh"
 chmod +x "$SCRATCH/main/scripts/git-ops.sh"
 cp "$REPO_ROOT/scripts/setup-worktree.sh" "$SCRATCH/main/scripts/setup-worktree.sh"
+# claim reads the slot cap from the port allocator (P1705).
+mkdir -p "$SCRATCH/main/scripts/lib" && cp "$REPO_ROOT/scripts/lib/worktree-port.mjs" "$SCRATCH/main/scripts/lib/"
 chmod +x "$SCRATCH/main/scripts/setup-worktree.sh"
 # Seed supabase/migrations and features with placeholders so unguarded globs
 # in setup-worktree.sh don't fail on empty matches.
@@ -99,7 +101,7 @@ echo "CANARY_TEST=1" > "$SCRATCH/main/.env.test.local"
   git config commit.gpgsign false
   git remote add origin "$SCRATCH/origin.git"
   echo "seed" > README.md
-  git add README.md scripts/git-ops.sh scripts/setup-worktree.sh \
+  git add README.md scripts/git-ops.sh scripts/setup-worktree.sh scripts/lib/worktree-port.mjs \
           supabase/migrations/.gitkeep features/p000_canary.md \
           .env.local .env.test.local
   git commit -qm "seed"

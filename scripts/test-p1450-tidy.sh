@@ -29,7 +29,7 @@ git -C "$R" config user.email t@t.t; git -C "$R" config user.name t; git -C "$R"
 echo seed > "$R/seed.txt"; printf 'node_modules/\n' > "$R/.gitignore"
 cp "${P1450_GIT_OPS:-$REPO_REAL/scripts/git-ops.sh}" "$R/scripts/git-ops.sh"
 cp "$REPO_REAL/scripts/pipeline-strandings.sh" "$REPO_REAL/scripts/ship-gates.sh" "$R/scripts/"
-cp "$REPO_REAL/scripts/lib/worktree-changes.sh" "$REPO_REAL/scripts/lib/gate-override.sh" "$R/scripts/lib/"
+cp "$REPO_REAL/scripts/lib/worktree-changes.sh" "$REPO_REAL/scripts/lib/gate-override.sh" "$REPO_REAL/scripts/lib/worktree-port.mjs" "$R/scripts/lib/"
 chmod +x "$R/scripts/"*.sh
 git -C "$R" add -A . >/dev/null; git -C "$R" commit -qm seed
 R="$(cd "$R" && pwd -P)"

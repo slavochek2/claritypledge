@@ -25,7 +25,7 @@ git -C "$REPO" checkout -q -b main 2>/dev/null || true
 mkdir -p "$REPO/scripts/lib" "$REPO/features/done/2026-10" "$REPO/src"
 cp "$GIT_OPS_SRC" "$REPO/scripts/git-ops.sh"
 cp "$SCRIPT_DIR/pipeline-strandings.sh" "$REPO/scripts/"
-cp "$SCRIPT_DIR/lib/worktree-changes.sh" "$REPO/scripts/lib/"
+cp "$SCRIPT_DIR/lib/worktree-changes.sh" "$SCRIPT_DIR/lib/worktree-port.mjs" "$REPO/scripts/lib/"
 printf '.claude/worktrees/\n.activity\n.hold\n.hold.*\n' > "$REPO/.gitignore"
 echo "export const base = 1" > "$REPO/src/base.ts"
 git -C "$REPO" add -A && git -C "$REPO" "${G[@]}" commit -qm init && git -C "$REPO" push -q origin main 2>/dev/null
