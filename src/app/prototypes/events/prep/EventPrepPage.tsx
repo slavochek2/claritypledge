@@ -27,6 +27,7 @@ import { isOnlineLocation, onTimeLine } from '../arrival/arrival-text';
 import { arrivalLeadMinutes, ownTimeLine } from '../event-doors';
 import { EventCanvasStep } from './EventCanvasStep';
 import { useAutoFinish, useStepsDone } from './use-auto-finish';
+import { trackPrepFinished, trackPrepStarted, trackPrepStep } from './prep-analytics';
 import { useEventCommunityName } from '../use-event-community';
 import { useDeclareAppMenu } from '@/app/components/layout/app-menu-override';
 import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/shell-nav';
@@ -405,6 +406,8 @@ export function PrepFlow({
     if (next === 'end') {
       const ok = await save({ ...extra, stepsDone: done, currentStep: null, completedAt: new Date().toISOString() });
       if (!ok) return;
+      // A re-finish of learning already finished (reopened steps) is not a new finish.
+      if (!prep?.completedAt) trackPrepFinished('event', event, { plan_length: plan.length });
       // Round 5: learning opened from the thank-you's Join goes straight on to the group terms.
       // Round 6 (F): learning opened from the room's Learn step ends on its own screen INSIDE the room's frame (what
       // was learned, then the room's next step), not with a jump back to the room.
@@ -422,7 +425,7 @@ export function PrepFlow({
       void save({ ...extra, stepsDone: done, currentStep: next === 'canvas' ? null : next });
     }
     window.scrollTo(0, 0);
-  }, [save, state.withPrincipleIntro, thenJoin, room?.thenJoin, finishInRoom]);
+  }, [save, state.withPrincipleIntro, thenJoin, room?.thenJoin, finishInRoom, event, plan.length, prep?.completedAt]);
   // Founder UAT round: every step already finished elsewhere → record it and show the end, not an all-ticked list.
   const autoFinishing = useAutoFinish(event, prep, screen, plan, stepsDone, go, room);
 
@@ -451,12 +454,15 @@ export function PrepFlow({
 
   const start = () => {
     const first = plan.find((s) => !stepsDone.includes(s) && !isSkippable(s)) ?? 'end';
+    trackPrepStarted('event', event, { plan_length: plan.length, resumed: !!prep?.startedAt });
     void go(first, stepsDone, { prepChoice: 'now', startedAt: prep?.startedAt ?? new Date().toISOString() });
   };
 
   /** Leaves the current step forward: records it done (and its once-per-person part), moves on. */
   const next = (outcome: 'completed' | 'skipped' = 'completed') => {
     if (screen === 'plan' || screen === 'end') return;
+    // Re-viewing finished learning is not funnel progress.
+    if (!prep?.completedAt) trackPrepStep('event', event, screen, outcome, { step_number: plan.indexOf(screen) + 1, plan_length: plan.length });
     const part = STEP_PART[screen];
     if (part) markPart(part, outcome);
     const done = stepsDone.includes(screen) ? stepsDone : [...stepsDone, screen];

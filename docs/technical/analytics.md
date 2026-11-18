@@ -44,6 +44,7 @@ Events are categorized by feature area:
 - [Navigation](#navigation) - CTA clicks
 - [Article/Content](#articlecontent) - Manifesto engagement
 - [Social Features](#social-features) - Pledgers page, endorsements
+- [Preparation funnel](#preparation-funnel) - Invitation link → preparation steps → room (P1709, P1708)
 - [Live Meetings](#live-meetings) - Real-time understanding verification
 - [Audio Upload Reliability](#audio-upload-reliability) - Chunk upload failures and recovery (P578)
 - [404 Page](#404-page) - Not-found page tracking (P578)
@@ -454,6 +455,25 @@ Witness submission failed.
 | Property | Type | Description |
 |----------|------|-------------|
 | `profile_id` | string | Profile being endorsed |
+
+---
+
+## Preparation funnel
+
+Every invitation through preparation (P1709) and the preparation without an event (`/prepare`), from link to room. Split everything by `prep_context`. Steps fire from `src/app/prototypes/events/prep/prep-analytics.ts`; page views from `route-view-events.ts`. There is no "invited" event: an invitation is a shared link (P1709 D3), so the funnel starts at the link opened.
+
+| Stage | Event | Properties |
+|---|---|---|
+| Link opened | `event_page_viewed` | `event_slug` |
+| Registered | `event_rsvp_initiated` → `event_rsvp_completed` / `event_rsvp_auto` | `event_id`, `event_type` (series slug or `standalone`), `path` / `trigger` |
+| Preparation opened | `event_prepare_viewed` (event) · `prepare_viewed` (`/prepare`) | `event_slug` · `prep_context: standalone` |
+| Started | `prepare_started` (event only: Start on the plan) | `prep_context`, `event_id`, `event_slug`, `event_type`, `plan_length`, `resumed` |
+| Each step | `prepare_step_completed` | `prep_context`, `step` (`welcome`, `story`, `game`, `principle`, `cmp7`, `stake`, `research`, `canvas`, `misunderstanding`), `outcome` (`completed` / `skipped`), `step_number`, `plan_length`, event props when there is an event |
+| Finished | `prepare_finished` | `prep_context`, `plan_length`, event props when there is an event |
+| Came | `event_room_viewed` | `event_slug` |
+| Declined with a reason | not tracked yet: the decline does not exist until P1709 builds it. Count declines from the stored reason, never send the reason text to Mixpanel. |
+
+`prep_context` is `event`, `standalone` (`/prepare`), or `group_join` (the learning inside a group join). Re-viewing finished learning (a review, or a step reopened after `completed_at`) sends nothing. "Came" means the room page opened, not the external call joined (P1709 risk table).
 
 ---
 

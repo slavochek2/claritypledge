@@ -42,6 +42,7 @@ import { LETTER_FOUNDER_SLUG } from '@/app/data/offline-reads-letters';
 import { getMyPrepParts, markPrepPart, type PrepPart, type PrepPartRow } from '@/app/data/event-prep-service';
 import type { PointWithUserPosition, Profile } from '@/app/types';
 import { CMP7_TAG, isPartDone, PART_VERSIONS, PRINCIPLE_LEVEL, SECONDS_PER_DECISION, STEP_LABELS, stepMinutes } from './prep-plan';
+import { trackPrepFinished, trackPrepStep, type PrepContext } from './prep-analytics';
 import { localPartRows, markLocalPart, readLocalParts, syncLocalPrepParts } from './prep-local-parts';
 import { ListeningGameScreen } from './ListeningGameScreen';
 import { ManifestoFilm } from '@/app/components/manifesto/manifesto-film';
@@ -292,7 +293,20 @@ function PrepareFlow({
     setRating(null);
   };
 
+  const prepContext: PrepContext = join ? 'group_join' : 'standalone'; // review sends nothing (guards below)
+  // Everything already done before this visit: going through it again is not a new finish. Read at the
+  // first step left, not on mount: signed in, the parts load after mount (the handler's rows are still
+  // the ones from before its own complete()). `finished` stops a second finish in the same visit.
+  const doneBefore = useRef<boolean | null>(null);
+  const finished = useRef(false);
+  // Steps left forward this visit: "finished" means every step was gone through (or done before), not
+  // just reaching the end screen from the last step picked off the list.
+  const passed = useRef(new Set<StandaloneStep>());
   const go = (next: Screen) => {
+    if (next === 'end' && !review && !finished.current && doneBefore.current === false && steps.every((s) => passed.current.has(s) || isStepDone(s))) {
+      finished.current = true;
+      trackPrepFinished(prepContext, null, { plan_length: steps.length });
+    }
     if (next === 'end' && join) return join.onFinish();
     if (next === 'end' && review) return review.onReturn();
     if (join && screen !== 'list' && screen !== 'end' && steps.indexOf(next as StandaloneStep) > steps.indexOf(screen)) setTrail((t) => [...t, screen]);
@@ -308,9 +322,16 @@ function PrepareFlow({
     return (join ? rest.find((n) => !isStepDone(n) && !(n === 'principle' && answeredPrinciple)) : rest[0]) ?? 'end';
   };
   const firstOpen = steps.find((s) => !isStepDone(s));
+  /** Leaves a step forward, recording it for the funnel (review re-visits are not progress). */
+  const forward = (s: StandaloneStep, outcome: 'completed' | 'skipped' = 'completed', answeredPrinciple?: boolean) => {
+    if (doneBefore.current === null) doneBefore.current = steps.every((x) => isStepDone(x));
+    passed.current.add(s);
+    if (!review) trackPrepStep(prepContext, null, s, outcome, { step_number: steps.indexOf(s) + 1, plan_length: steps.length });
+    go(after(s, answeredPrinciple));
+  };
   const finishPrinciple = () => {
     setPrincipleAnswered(true);
-    go(after('principle', true));
+    forward('principle', 'completed', true);
   };
 
   const leaveStep = () => {
@@ -507,7 +528,7 @@ function PrepareFlow({
               <Clip key={clips.attempt.story ?? 0} clip="story" pulse={!clips.played.story} onPlay={clips.markPlayed('story')} onError={clips.markFailed('story')} playRequest={playRequest} />
               {videoBar('story', (watched) => {
                 if (watched) complete('cognitive_video');
-                go(after('story'));
+                forward('story', watched ? 'completed' : 'skipped');
               })}
             </section>
           )}
@@ -559,7 +580,7 @@ function PrepareFlow({
 
           {screen === 'game' && (
             // D3: the video is required, as every other preparation video: Play, then Continue. Recorded once per person.
-            <ListeningGameScreen ref={barRef} onContinue={(watched) => { if (watched) complete('listening_game'); go(after('game')); }} />
+            <ListeningGameScreen ref={barRef} onContinue={(watched) => { if (watched) complete('listening_game'); forward('game', watched ? 'completed' : 'skipped'); }} />
           )}
 
           {isStatementsStep(screen) && (
@@ -585,8 +606,8 @@ function PrepareFlow({
                 // same moment the event learning records its cmp7 part (EventPrepPage STEP_PART). Recorded here too
                 // (account, or this browser signed out), so finishing /prepare counts as "learned anywhere" (hasLearned).
                 // Skipping records nothing, as there.
-                onContinue={() => { if (screen === 'cmp7') complete('cmp7'); go(after(screen)); }}
-                onSkip={() => go(after(screen))}
+                onContinue={() => { if (screen === 'cmp7') complete('cmp7'); forward(screen); }}
+                onSkip={() => forward(screen, 'skipped')}
                 hideSkip={!!join}
                 onRecheck={reloadPoints}
               />

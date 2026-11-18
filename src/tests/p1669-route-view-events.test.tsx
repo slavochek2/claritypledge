@@ -93,4 +93,17 @@ describe('AppRouteEffects route view events', () => {
       ['event_rsvp_confirm_viewed', { event_slug: 'cm-hike' }],
     ]);
   });
+
+  it('preparation funnel: event page, room, standalone /prepare; fixed /events pages send nothing', () => {
+    mount('/events/cm-hike');
+    go('/events/cm-hike/room');
+    go('/prepare');
+    go('/events/new');
+    go('/events/list');
+    expect(track.mock.calls).toEqual([
+      ['event_page_viewed', { event_slug: 'cm-hike' }],
+      ['event_room_viewed', { event_slug: 'cm-hike' }],
+      ['prepare_viewed', { prep_context: 'standalone' }],
+    ]);
+  });
 });

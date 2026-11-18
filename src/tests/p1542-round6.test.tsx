@@ -258,8 +258,10 @@ describe('round 6b fixes (source contract)', () => {
     expect(close).toMatch(/<GroupChatOffer url=\{groupChatUrl\} caption=\{recipe\.afterChatCaption\}/);
   });
   it('/prepare records the cmp7 part when its statements are finished (learned anywhere), and not on Skip', () => {
-    expect(prepare).toMatch(/onContinue=\{\(\) => \{ if \(screen === 'cmp7'\) complete\('cmp7'\); go\(after\(screen\)\); \}\}/);
-    expect(prepare).toMatch(/onSkip=\{\(\) => go\(after\(screen\)\)\}/);
+    // Preparation funnel: `forward` = go(after(step)) plus the step event (prep-analytics.ts).
+    expect(prepare).toMatch(/onContinue=\{\(\) => \{ if \(screen === 'cmp7'\) complete\('cmp7'\); forward\(screen\); \}\}/);
+    expect(prepare).toMatch(/onSkip=\{\(\) => forward\(screen, 'skipped'\)\}/);
+    expect(prepare).toMatch(/go\(after\(s, answeredPrinciple\)\);/);
     // complete() writes the account (markPrepPart) or, signed out, this browser (markLocalPart), at PART_VERSIONS.
     expect(prepare).toMatch(/markPrepPart\(viewerId, part, PART_VERSIONS\[part\], 'completed', now\)/);
     expect(prepare).toMatch(/setLocalRows\(localPartRows\(markLocalPart\(part, now\)\)\)/);

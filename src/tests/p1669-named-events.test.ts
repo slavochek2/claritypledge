@@ -21,11 +21,15 @@ describe('viewEventFor', () => {
     ['/chats/c/conv-123/t/root-9', { event: 'chat_opened', viewKey: 'conv-123' }],
     ['/events/cm-hike-0315/prepare', { event: 'event_prepare_viewed', props: { event_slug: 'cm-hike-0315' } }],
     ['/events/cm-hike-0315/confirm', { event: 'event_rsvp_confirm_viewed', props: { event_slug: 'cm-hike-0315' } }],
+    // Preparation funnel (opened link → came; standalone /prepare).
+    ['/events/cm-hike-0315', { event: 'event_page_viewed', props: { event_slug: 'cm-hike-0315' } }],
+    ['/events/x/room', { event: 'event_room_viewed', props: { event_slug: 'x' } }],
+    ['/prepare', { event: 'prepare_viewed', props: { prep_context: 'standalone' } }],
   ])('%s (signed in) → %o', (path, expected) => {
     expect(viewEventFor(path, IN)).toEqual(expected);
   });
 
-  it.each(['/', '/groups', '/groups/cm/members', '/events/cm-hike-0315', '/events/x/room', '/feed/tag', '/prepare', '/chatsx', '/chats/new', '/chats/c'])(
+  it.each(['/', '/groups', '/groups/cm/members', '/events/new', '/events/list', '/events/x/edit', '/feed/tag', '/prepare/x', '/chatsx', '/chats/new', '/chats/c'])(
     '%s has no P1669 view event',
     (path) => {
       expect(viewEventFor(path, IN)).toBeNull();

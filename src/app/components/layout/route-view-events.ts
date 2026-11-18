@@ -32,6 +32,8 @@ const cleanSlug = (raw: string): string => {
 export function viewEventFor(pathname: string, opts: { signedIn: boolean }): RouteViewEvent | null {
   const path = pathname.replace(/\/+$/, '') || '/';
   if (path === '/feed') return { event: 'feed_viewed' };
+  // Preparation funnel: the preparation without an event (/prepare); its steps fire from PreparePage.
+  if (path === '/prepare') return { event: 'prepare_viewed', props: { prep_context: 'standalone' } };
 
   const group = path.match(/^\/groups\/([^/]+)(\/join)?$/);
   if (group) {
@@ -45,6 +47,9 @@ export function viewEventFor(pathname: string, opts: { signedIn: boolean }): Rou
   const { conversationId } = parseChatRoute(path);
   if (conversationId) return opts.signedIn ? { event: 'chat_opened', viewKey: conversationId } : null;
 
+  const eventView = eventPageView(path);
+  if (eventView !== undefined) return eventView;
+
   const step = path.match(/^\/events\/([^/]+)\/(prepare|confirm)$/);
   if (step) {
     const slug = cleanSlug(step[1] ?? '');
@@ -52,4 +57,19 @@ export function viewEventFor(pathname: string, opts: { signedIn: boolean }): Rou
     return { event: step[2] === 'prepare' ? 'event_prepare_viewed' : 'event_rsvp_confirm_viewed', props: { event_slug: slug } };
   }
   return null;
+}
+
+/** Fixed sub-routes under /events/* (EventsRoutes) that are not event slugs. */
+const EVENTS_FIXED_PAGES = ['experiment', 'list', 'new', 'webinar'];
+
+/**
+ * Preparation funnel: the invitation link opened (event page) and "came" (the room page entered).
+ * `undefined` = not this kind of route; `null` = this route, but nothing to send.
+ */
+function eventPageView(path: string): RouteViewEvent | null | undefined {
+  const match = path.match(/^\/events\/([^/]+)(\/room)?$/);
+  if (!match || EVENTS_FIXED_PAGES.includes(match[1] ?? '')) return undefined;
+  const slug = cleanSlug(match[1] ?? '');
+  if (!slug) return null;
+  return { event: match[2] ? 'event_room_viewed' : 'event_page_viewed', props: { event_slug: slug } };
 }
