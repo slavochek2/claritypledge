@@ -251,6 +251,18 @@ UAT round 1 (R1 to R8 below; R5 keeps the privacy line, covered by the existing 
 - [ ] R11: a confirmation requested from `http://localhost:<port>` on TEST links to that port; a non-localhost address or a non-localhost configured site is ignored (prod links unchanged).
 - [ ] R8: for a person part-way through the same hike, the form's rule and the preparation page's remaining minutes come from one shared function; each `/prepare` row equals the same step's row on the preparation page and the misunderstanding row uses the same factor; the factor is not applied to the canvas step; a test pins that the hike's number is the factor applied to the modelled seconds, not a typed total.
 
+UAT round 3 (R12 to R18 below; R18 supersedes R6's two checkboxes, so the R6 criteria above are re-read against the preset: transport off = `when`, help off = `when` or `when_transport`):
+
+- [ ] R12: the hike form's lead line is exactly R12's text, with "It's required to join." in bold, then "When will you do it?".
+- [ ] R13: on a hike whose preset is not `optional`, the plan page's title is "Your short introduction", a brand-new person reads "About 15 minutes.", a person with parts done elsewhere reads "About {N} minutes left: you've done part of it before." with N equal to the R10 number, and no why paragraphs show; a one-tap hike keeps today's title, line and paragraphs; Clarity Night's and the mastermind's plan pages are unchanged.
+- [ ] R14: the confirmation page of a hike that asks the questions says "Required for this hike. We'll remind you by email."; a one-tap hike says "Optional. You can come without it."; Clarity Night and the mastermind are unchanged.
+- [ ] R15: choosing Car or Motorbike shows 0 in the free-seats box, a submit without touching it stores 0, and the WhatsApp line shows only at 1 or more.
+- [ ] R16: the help question's first option reads "Participant" and stores help NULL.
+- [ ] R17: the host's hike page shows the roles count line with R17's format, counting only active registrations' answers, leaving out zeros, and not shown when no answer has a help part; attendees and anonymous viewers never see it; confirmed in the browser on 7100 with a real registration.
+- [ ] R18: Edit event on a hike shows "Before the seat" with the four choices, `all` selected on an existing hike; a non-hike event shows none; saving a choice stores it and sends no "event updated" email.
+- [ ] R18: with `optional`, Reserve registers in one tap with no answers row, the server accepts a direct insert without answers, `register_for_hike` refuses with its distinct code, and the thank-you page's next-event offer registers directly; with `when` the form asks only when and stores transport, seats and help NULL; with `when_transport` it asks when and transport and stores help NULL with asked_help false; with `all` behaviour is unchanged.
+- [ ] R18: the migration backfills the preset from the two booleans as R18 lists, drops them, and nothing in the client, edge functions, scripts or skills still reads `hike_asks_transport` or `hike_asks_help` (grep proof in the build notes); applied to TEST.
+
 ## UAT round 1 (founder, 2026-11-17, localhost)
 
 Founder feedback after trying the form on the Wat Pha Lat hike. Every founder decision below was given in session on 2026-11-17; the text is verbatim and supersedes the matching text in sections 1 to 3 above.
@@ -308,6 +320,41 @@ Kept as is (founder left these to the builder): the help question stays "How wou
 Reported, not reproduced: a slight blinking while scrolling the registration form on desktop. Scrolling the open form changes nothing on the page (0 DOM changes over 10 scroll steps), and scrolling the page changes only the header; likely a paint effect of the blurred backdrop over the photo and video gallery. Re-check against the same page on main.
 
 Also discussed, not built: tokens for asking a real question when there is a disagreement. This is the armband game already in "Not built: host practice". Recommendation given: try it by hand on the next one or two hikes and judge it with the measure below; build nothing in the app until it shows it helps.
+
+## UAT round 3 (founder, 2026-11-18, localhost)
+
+Founder feedback after registering on the Wat Pha Lat hike on port 7100; decisions given in session on 2026-11-18. Supersedes the matching text above.
+
+**R12. The lead line gives the real reason** (founder chose option A of three): "Everyone does a short introduction first. We believe a few shared words and habits make every relationship better, at work and at home, and our community exists to spread them." then, in bold, "It's required to join." then "When will you do it?". It echoes the founder's own P1549 opening on the preparation page ("A few small habits and shared words can change the quality of all your relationships, personal and professional"). Neither the lean canvas nor the philosophy doc has a single mission sentence for the community; the closest are "Practices spread through communities, not sales funnels" (lean canvas) and "spread fallibilism as a communicative tradition" (decisions.md 2026-10-27).
+
+**R13. The page after "now" continues from the form** (founder chose "continue + honest number"). Finding (TEST, read-only, 2026-11-18): the "now" registrant's account had finished parts of the introduction on 2026-10-02 and 2026-11-12/13, so the plan page computed about 8 minutes left while the form said 15; a brand-new person sees 15 on both (R10's accepted gap, now explained on the page). On a hike that asks the questions (R18: any preset but "optional"):
+- Plan page title: "Your short introduction" (was "Get to know {community}").
+- The line under it: a brand-new person "About 15 minutes."; anyone else "About {N} minutes left: you've done part of it before." N is R10's number (the computed remaining time capped at 15). The step count is dropped from this line.
+- No "why" paragraphs on this page: the form already said why, and the third paragraph ("Then you decide if it is for you.") contradicts a commitment already made. A one-tap hike (R18 "optional") keeps today's title, line and paragraphs.
+
+**R14. One word for required, everywhere a hike says it** (finding of the round-3 audit, below). On a hike that asks the questions, the confirmation page's "Optional. You can come without it." becomes "Required for this hike. We'll remind you by email." A one-tap hike keeps "Optional. You can come without it.". The room still never stops anyone (section 5): "required" is the commitment at registration, not a door.
+
+**R15. Free seats start at 0.** Choosing Car or Motorbike shows the free-seats box filled with 0, so the form never refuses an untouched box; the WhatsApp free-seats line still appears only at 1 or more.
+
+**R16. "Participant"** replaces "Just attend as a participant" as the first option of the help question (one-word options, like the roles). Stored as before (help NULL); the host line already reads "Participant".
+
+**R17. A roles count for the host** (founder chose roles only, no rides count). On a hike's event page, host only, above the people list, one line counting the help answers of active registrations: "Roles: 1 Lead · 1 Sweep · 2 Welcomers · 1 Transport lead · 1 Other · 12 Participants". Zero counts are left out; plural forms ("Welcomers", "Transport leads", "Participants"; "Other" stays "Other"); "Participants" counts help NULL with asked_help true; people registered without answers or without the help question are not counted. Computed from the answers the page already loads (no new read). Not shown when nobody's answer has a help part. Confirmed on 7100 with a real registration before this round is reported done.
+
+**R18. One "before the seat" setting per hike, replacing R6's two checkboxes** (founder chose one preset choice and asked for it in this spec). Edit event, hike events only, heading "Before the seat", one choice of four (builder's labels, shown at UAT):
+- "Introduction optional: one tap" (`optional`): registration is one tap as before P1675; no form, no answers row, no 24-hour rule; the confirmation page says optional (R14); the emails keep the hike's introduction link and wording (section 3c).
+- "Introduction required: ask when only" (`when`): the form with the when question only (the in-city collab).
+- "Introduction required: ask when and how they're coming" (`when_transport`).
+- "Introduction required: ask all questions" (`all`, the default for every hike, matching R6's both-on default).
+
+Storage: one column on `events`, `hike_registration text NOT NULL DEFAULT 'all'` with a CHECK on the four values, in one new migration that also backfills it from R6's two booleans (both on → `all`; transport only → `when_transport`; neither → `when`; help only → `all`, a TEST-only state, since R6 never reached prod) and drops `hike_asks_transport` and `hike_asks_help`. Every reader of the two booleans (client answer model and validator, registration step, sign-in return, Edit event, event write columns, `register_for_hike`, the seat trigger) reads the preset instead. The server is the authority: the seat trigger requires an answers row only when the preset is not `optional`; `register_for_hike` refuses an `optional` hike with a distinct code, so a form left open when the host switches to optional gets the generic retry toast (ACCEPT, as R6's live-switch cases). `asked_help` per answers row stays, written from the preset. The thank-you page's next-event offer (section 4b) registers in one tap when the next hike's preset is `optional`.
+
+Changing the preset after people registered keeps every existing seat and answers row (no flow guard, as section 0). Members-only (INBOX-361) stays a separate "who can register" setting beside this one, not a fifth preset; a member who has finished the introduction will later skip the when question (that spec's job). Presets for Clarity Night or the mastermind are not built: Clarity Night keeps one tap and its preparation toggle, the mastermind keeps its own registration (Non-Goals unchanged). The event description's opening line is not changed per preset; a host who makes a hike optional edits the description.
+
+**Round-3 audit: where "optional" and "required" are stated** (read from the code 2026-11-18, before R13 and R14):
+- Hike: the form and the series template's opening say required; the confirmation page said "Optional. You can come without it." (the contradiction the founder found, fixed by R14); the plan page's "Then you decide if it is for you." (fixed by R13); the emails ask ("Do the short introduction before the hike", "we ask every participant to prepare"), consistent.
+- Mastermind: the confirmation page and emails say "Preparation is required", while the room lets everyone in. P1529 chose this ("optional at the room's door"); left as is.
+- Clarity Night: consistent. It asks ("Do you have 15 minutes to prepare?"), offers "Remind me by email", and the room gate offers "Join the room without preparing".
+- Dead copy: the room step bar's default "(optional)" label is shown by no event type (every recipe names its learn step); left as is.
 
 ## How the founder judges it (not a build gate)
 
