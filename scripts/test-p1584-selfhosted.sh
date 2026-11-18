@@ -18,6 +18,18 @@ expect() {
 # --- fakes: behaviour comes from files in $T --------------------------------------------------------
 cat > "$T/bin/curl" <<EOF
 #!/usr/bin/env bash
+# P1705: health.sh also runs auth-redirects.sh, whose probes are GET /auth/v1/verify with a
+# redirect_to. Play GoTrue with the safe allow list: a four-digit localhost port is honoured,
+# anything else falls back to SITE_URL. \$T/auth-open honours everything; \$T/auth-glob plays the old
+# localhost:* entry, whose * matches any run without a dot or slash (the userinfo bypass).
+case "\$*" in *"/auth/v1/verify"*)
+  rt=""; prev=""; for a in "\$@"; do [ "\$prev" = --data-urlencode ] && case "\$a" in redirect_to=*) rt="\${a#redirect_to=}" ;; esac; prev="\$a"; done
+  ok=0; printf '%s' "\$rt" | grep -Eq '^http://localhost:[0-9]{4}(/.*)?\$' && ok=1
+  [ -f "$T/auth-open" ] && ok=1
+  [ -f "$T/auth-glob" ] && printf '%s' "\$rt" | grep -Eq '^http://localhost:[^./]+(/.*)?\$' && ok=1
+  if [ "\$ok" = 1 ]; then printf '%s' "\$rt"; else printf 'https://136-85-1-126.sslip.io/'; fi
+  exit 0 ;;
+esac
 # -o FILE writes the body; -w prints the code. Bodies come from \$T/curl-<pattern>.
 out=""; url=""; while [ \$# -gt 0 ]; do case "\$1" in -o) out="\$2"; shift 2 ;; -w|-m|-H|-X|--data) shift 2 ;; -*) shift ;; *) url="\$1"; shift ;; esac; done
 case "\$url" in
@@ -84,6 +96,12 @@ expect "health: a malformed service list is unknown, never echoed" 2 '^services:
 rm -f "$T/ga"
 expect "health: unreadable guest attributes are unknown" 2 '^wal: unknown: could not read guest attributes' "${GA[@]}"
 expect "health: --source none skips disk and WAL" 0 '^cert: ok: ' -- "$SH/health.sh" --source none
+expect "health: sign-in links go back to every worktree port" 0 '^auth-redirects: ok: ' -- "$SH/health.sh" --source none
+touch "$T/auth-glob"
+expect "health: the localhost:* glob (userinfo bypass) warns" 1 '^auth-redirects: warn: UNSAFE' -- "$SH/health.sh" --source none
+rm -f "$T/auth-glob"; touch "$T/auth-open"
+expect "health: an allow list that honours any host is unknown, never ok" 2 '^auth-redirects: unknown: control probe was not refused' -- "$SH/health.sh" --source none
+rm -f "$T/auth-open"
 expect "health: --source without a value refused, no hang" 2 'needs a value' -- "$SH/health.sh" --source
 expect "health: bad --source refused" 2 'unknown --source' -- "$SH/health.sh" --source bogus
 SELFHOSTED_HOST='a b' expect "health: non-hostname override refused" 2 'refusing SELFHOSTED_HOST' -- "$SH/health.sh" --source none

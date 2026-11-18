@@ -302,7 +302,9 @@ if [ "$MODE" = "check-secrets" ] || [ "$MODE" = "secrets" ]; then
   # P1705: on TEST, mail links honour a dev server's port only while APP_URL is a localhost address
   # (_shared/link-base.ts, second gate). Absent, the code falls back to the prod address. APP_URL is
   # not a secret, so its value may be read and named here.
-  app_url="$( [ -f "$MAC_FN_ENV" ] && sed -n 's/^APP_URL=//p' "$MAC_FN_ENV" | tail -n 1 )"
+  # An if, not `[ -f ] && …` inside $( ): under set -e a missing file would end the script here.
+  app_url=""
+  if [ -f "$MAC_FN_ENV" ]; then app_url="$(sed -n 's/^APP_URL=//p' "$MAC_FN_ENV" | tail -n 1)"; fi
   case "$app_url" in
     http://localhost:[0-9]*|http://127.0.0.1:[0-9]*) echo "APP_URL: ok: $app_url" ;;
     "") echo "APP_URL: warn: not set in $MAC_FN_ENV; TEST mail links would point at the prod address. Set APP_URL=http://localhost:5001 (P1705)" ;;

@@ -106,11 +106,12 @@ Every run takes a lock in the git common dir (shared by all worktrees). `--ui`, 
 
 ## Is TEST serving this branch's functions? (P1312)
 
-TEST has one copy of each edge function, and any session's deploy can replace it. A deploy of one function also replaces all of `_shared`, `deno.*`, the router and the JWT list. So on a branch that changes a deployed function file, every local run checks the server at start and end with `scripts/selfhosted/branch-functions-check.sh` and prints a `FUNCTIONS:` line. Each checked run also adds a line to `cp-function-checks.jsonl` in the git common dir.
+TEST has one copy of each edge function, and any session's deploy can replace it. A deploy of one function also replaces all of `_shared`, `deno.*`, the router and the JWT list. So every local run, on any branch, checks the server at start and end with `scripts/selfhosted/branch-functions-check.sh` and prints a `FUNCTIONS:` line. Each checked run also adds a line to `cp-function-checks.jsonl` in the git common dir.
 
 - **Evidence runs:** set `E2E_REQUIRE_FUNCTIONS=1`. A mismatch or an unknown state refuses at start and fails the run at the end. Without it the run warns and continues. Quote the `FUNCTIONS:` line with the counts.
 - **Anything that is not Playwright** (a latency run, a curl measurement): run the script yourself before and after, and discard the numbers if the two answers are not both exit 0.
-- **It proves the code is there, not that it works, and it does nothing for a branch that changes no function.** So a client change that depends on new function behaviour must also assert that function's response status for a real payload, not only the UI. Reference: "a live slice sent while transcribing is accepted by transcribe-slice" in `e2e/p1307-event-transcription.spec.ts`.
+- **What it compares (P1705).** For each function this branch changes, the branch's files; for every other deployed function, main's files. So a branch that changes no function still reads `differs` when TEST holds another branch's code or a stale copy of main. With `E2E_REQUIRE_FUNCTIONS=1` that refuses at start, so set the flag only on a branch that changes functions (as `/dev` does), or bring TEST back to main first.
+- **It proves the code is there, not that it works.** So a client change that depends on new function behaviour must also assert that function's response status for a real payload, not only the UI. Reference: "a live slice sent while transcribing is accepted by transcribe-slice" in `e2e/p1307-event-transcription.spec.ts`.
 
 ---
 

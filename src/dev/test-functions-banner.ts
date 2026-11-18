@@ -23,7 +23,7 @@ export function bannerLines(d: Display): { tone: 'mark' | 'banner' | 'muted'; li
         // Fix commands before the provenance: on a phone the banner scrolls, so what to do comes first.
         lines: [
           `TEST serves other code for: ${s.functions.join(', ') || s.line}`,
-          ...(s.fix.length ? ['Fix:', ...s.fix] : []),
+          ...s.fix,
           s.branch ? `Server holds: ${s.branch}` : '',
         ].filter(Boolean),
       }
@@ -46,7 +46,10 @@ function render(el: HTMLElement, state: FunctionsCheckState, now: number, onDism
   el.setAttribute('data-state', d.kind)
   // Capped at a third of the screen (scrolls inside) so a long differs list never hides the page;
   // the right padding keeps text clear of the 32px dismiss target.
-  el.style.cssText = `position:fixed;left:8px;bottom:8px;z-index:2147483000;max-width:min(520px,calc(100vw - 16px));max-height:33vh;overflow-y:auto;padding:6px 36px 6px 10px;border-radius:6px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;pointer-events:auto;${STYLE[tone]}`
+  // The match mark has no dismiss button and sits over the mobile bottom nav, so clicks pass through
+  // it; the others take clicks (dismiss, and selecting a fix command to copy).
+  const pointer = tone === 'mark' ? 'none' : 'auto'
+  el.style.cssText = `position:fixed;left:8px;bottom:8px;z-index:2147483000;max-width:min(520px,calc(100vw - 16px));max-height:33vh;overflow-y:auto;padding:6px 36px 6px 10px;border-radius:6px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;pointer-events:${pointer};${STYLE[tone]}`
   el.textContent = lines.join('\n')
   if (tone !== 'mark') {
     const close = document.createElement('button')
@@ -86,6 +89,9 @@ export function createFunctionsBanner(doc: Document): {
 /** Listen on Vite's dev channel and keep one element up to date; also refreshes its age each minute. */
 export function mountFunctionsBanner(): void {
   if (typeof document === 'undefined' || !import.meta.hot) return
+  // An automated browser (Playwright, the DevTools MCP) never sees it: a test reusing a person's dev
+  // server would otherwise find it over the page under test. The banner is for people.
+  if (typeof navigator !== 'undefined' && navigator.webdriver) return
   const banner = createFunctionsBanner(document)
   import.meta.hot.on(FUNCTIONS_CHECK_EVENT, (data: FunctionsCheckState) => banner.update(data, Date.now()))
   // A result sent before this module loaded was missed: ask for the latest one now that we listen.

@@ -39,7 +39,7 @@ process.env[RUN_ID_ENV] ??= randomUUID();
  *     except a port Chromium refuses (w10, ERR_UNSAFE_PORT) or macOS reserves (w20, AirPlay),
  *     which shifts by 50 (w10 6050, w20 7050). Rule: scripts/lib/worktree-port.mjs
  *   Legacy worktrees (claritypledge-N): same as wN
- *   Named worktrees (.../worktrees/name): 5801-5899 (hashed)
+ *   Named worktrees (.../worktrees/name): 5811-5889 (hashed)
  *
  * This file's own directory is the checkout, so it is passed explicitly.
  */
@@ -280,10 +280,10 @@ export default defineConfig({
       VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL || '',
       VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || '',
       // Always use real API in E2E tests — mock services don't have test user data
-      // P1705: global setup already runs the functions check; the dev server must not run it again.
-      P1705_SKIP_FUNCTIONS_CHECK: '1',
       VITE_USE_REAL_API: 'true',
       VITE_USE_REAL_EVENTS_API: 'true',
+      // P1705: global setup already runs the functions check; the dev server must not run it again.
+      P1705_SKIP_FUNCTIONS_CHECK: '1',
     },
   },
 });

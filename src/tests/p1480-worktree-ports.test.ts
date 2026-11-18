@@ -105,23 +105,23 @@ describe('P1480 shared port module', () => {
     expect(new Set(ports).size).toBe(49)
   })
 
-  it('keeps the remapped port clear of every other slot, the 5800-5899 hash range and 5001', async () => {
+  it('keeps the remapped port clear of every other slot, the 5811-5889 named range and 5001', async () => {
     const m = await loadModule()
     const w10 = m.worktreePort(wt('w10'))
     const others = Array.from({ length: 49 }, (_, i) => i + 1)
       .filter((n) => n !== 10)
       .map((n) => m.worktreePort(wt(`w${n}`)))
     expect(others).not.toContain(w10)
-    expect(w10 >= 5800 && w10 <= 5899).toBe(false)
+    expect(w10 >= 5811 && w10 <= 5889).toBe(false)
     expect(w10).not.toBe(5001)
   })
 
-  it('leaves the main checkout on 5001 and named worktrees in 5800-5899', async () => {
+  it('leaves the main checkout on 5001 and named worktrees in 5811-5889', async () => {
     const m = await loadModule()
     expect(m.worktreePort('/home/dev/Projects/public/claritypledge')).toBe(5001)
     for (const name of ['landing-v4-artistic', 'p1234canary', 'x']) {
       const p = m.worktreePort(wt(name))
-      expect(p >= 5801 && p <= 5899, `${name} -> ${p}`).toBe(true)
+      expect(p >= 5811 && p <= 5889, `${name} -> ${p}`).toBe(true)
       expect(FETCH_BAD_PORTS).not.toContain(p)
     }
   })
@@ -235,7 +235,7 @@ describe('P1480 call sites agree from a slot-named checkout', () => {
       const checker = Number(checkerPort(dir))
 
       if (expected === 'named') {
-        expect(probe.vite >= 5801 && probe.vite <= 5899).toBe(true)
+        expect(probe.vite >= 5811 && probe.vite <= 5889).toBe(true)
       } else {
         expect(probe.vite).toBe(expected)
       }

@@ -59,7 +59,7 @@ function getWorktreeSlot(): string | null {
 
 // Main repo: 5001; worktrees w1..w49 get one port per slot in hundreds (w1 is 5100, w10 is 6050,
 // w20 is 7050, since a browser-refused or macOS-reserved port shifts by 50); named worktrees
-// 5801-5899. The rule lives only in scripts/lib/worktree-port.mjs (P1480, P1705).
+// 5811-5889. The rule lives only in scripts/lib/worktree-port.mjs (P1480, P1705).
 function getPort(): number {
   return portForSlot(getWorktreeSlot())
 }

@@ -10,11 +10,14 @@
  *     the only origin input; P1675's body field is not kept)
  *   - no module compares a parsed host to localhost (P1705: P1675's localOrigin shape)
  *   - no app-route link (/events/, /letters, /agreements/) is built on a literal prod address
- * and every function that sends mail reaches link-base.ts through its imports.
+ * and every function that sends mail reaches link-base.ts through its imports, and forwards the
+ * request it answers to every shared function that takes one (a dropped `req` falls back to APP_URL
+ * silently, which no type check sees).
  *
  * STRUCTURAL ONLY, and a tripwire rather than a proof: it reads source text for the shapes these
- * defects had. The behaviour is proven in the Deno suites: `_shared/link-base.test.ts`,
- * `_shared/p1705-event-link-base.test.ts`, and each mail function's `index.test.ts`.
+ * defects had. The rule's behaviour is proven in the Deno suites `_shared/link-base.test.ts` and
+ * `_shared/p1705-event-link-base.test.ts`, which call the builders directly; no suite runs a mail
+ * function's handler end to end, so the forwarding rule here is the only check on that wiring.
  *
  * Scope is derived: every function directory, every non-test shared module, and the mail senders
  * found by what they import, with known members asserted per derivation path (gate 7e). Every
@@ -77,8 +80,13 @@ function sharedModules(): Array<{ name: string; src: string }> {
 }
 
 /** Relative .ts imports of a file, resolved to absolute paths that exist. */
-function localImports(file: string): string[] {
-  const src = readFileSync(file, 'utf8');
+// Overrides let a control run the real derivation on a mutated copy of a real file.
+type Sources = ReadonlyMap<string, string>;
+const NO_OVERRIDES: Sources = new Map();
+const sourceOf = (file: string, ov: Sources) => ov.get(file) ?? readFileSync(file, 'utf8');
+
+function localImports(file: string, ov: Sources = NO_OVERRIDES): string[] {
+  const src = sourceOf(file, ov);
   const out: string[] = [];
   for (const m of src.matchAll(/from\s+['"](\.{1,2}\/[^'"]+\.ts)['"]/g)) {
     const p = normalize(join(dirname(file), m[1]));
@@ -88,33 +96,86 @@ function localImports(file: string): string[] {
 }
 
 /** Every local module a file reaches through its imports, itself included. */
-function reachable(entry: string): Set<string> {
+function reachable(entry: string, ov: Sources = NO_OVERRIDES): Set<string> {
   const seen = new Set<string>();
   const stack = [entry];
   while (stack.length) {
     const f = stack.pop()!;
     if (seen.has(f)) continue;
     seen.add(f);
-    stack.push(...localImports(f));
+    stack.push(...localImports(f, ov));
   }
   return seen;
 }
 
 /** Functions that send mail: the entry point reaches a module that sends. Derived, never hand-kept. */
-function mailSenders(): Array<{ name: string; viaShared: boolean; reachesRule: boolean }> {
+function mailSenders(ov: Sources = NO_OVERRIDES): Array<{ name: string; viaShared: boolean; reachesRule: boolean }> {
   const rule = join(SHARED, LINK_RULE);
   return readdirSync(FUNCTIONS)
     .filter((n) => n !== '_shared' && existsSync(join(FUNCTIONS, n, 'index.ts')))
     .map((name) => {
       const entry = join(FUNCTIONS, name, 'index.ts');
-      const mods = [...reachable(entry)];
+      const mods = [...reachable(entry, ov)];
       const own = mods.filter((m) => m.startsWith(join(FUNCTIONS, name)));
-      const sendsOwn = own.some((m) => SENDS_MAIL.test(stripComments(readFileSync(m, 'utf8'))));
-      const sendsShared = mods.some((m) => m.startsWith(SHARED) && SENDS_MAIL.test(stripComments(readFileSync(m, 'utf8'))));
+      const sendsOwn = own.some((m) => SENDS_MAIL.test(stripComments(sourceOf(m, ov))));
+      const sendsShared = mods.some((m) => m.startsWith(SHARED) && SENDS_MAIL.test(stripComments(sourceOf(m, ov))));
       return { name, sends: sendsOwn || sendsShared, viaShared: !sendsOwn && sendsShared, reachesRule: mods.includes(rule) };
     })
     .filter((f) => f.sends)
     .map(({ name, viaShared, reachesRule }) => ({ name, viaShared, reachesRule }));
+}
+
+/** From `name(` at `open`, the text between its balanced parentheses (strings are not special-cased). */
+function argsAt(src: string, open: number): string {
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '(') depth++;
+    else if (src[i] === ')' && --depth === 0) return src.slice(open + 1, i);
+  }
+  return src.slice(open + 1);
+}
+
+/** Every exported shared function's name and parameter text. */
+function sharedSignatures(): Array<{ name: string; params: string }> {
+  const out: Array<{ name: string; params: string }> = [];
+  for (const { src } of sharedModules()) {
+    const code = stripComments(src);
+    for (const m of code.matchAll(/export\s+(?:async\s+)?function\s+(\w+)\s*\(/g)) {
+      out.push({ name: m[1], params: argsAt(code, m.index! + m[0].length - 1) });
+    }
+  }
+  return out;
+}
+
+/**
+ * Shared functions that take the request being answered (`req?: Request`), and builders whose link
+ * base defaults to `linkBaseFor()` with no request. Both derived from the shared source (gate 7e).
+ */
+function requestTakers(): { takesReq: string[]; defaultsBase: string[] } {
+  const sigs = sharedSignatures();
+  return {
+    takesReq: sigs.filter((s) => /\breq\?\s*:\s*Request\b/.test(s.params)).map((s) => s.name),
+    defaultsBase: sigs.filter((s) => /=\s*linkBaseFor\(\s*\)/.test(s.params)).map((s) => s.name),
+  };
+}
+
+/**
+ * Calls in a function's own code that drop the request: a request-taker called without `req`, or a
+ * base-defaulting builder called without `linkBaseFor(req)` (its default then ignores the dev port).
+ * A function's own code always answers a request, so it always has one to forward.
+ */
+function droppedRequests(raw: string, t = requestTakers()): string[] {
+  const src = stripComments(raw);
+  const out: string[] = [];
+  for (const m of src.matchAll(/\b(\w+)\s*\(/g)) {
+    const name = m[1];
+    const before = src.slice(Math.max(0, m.index! - 9), m.index!);
+    if (/function\s*$/.test(before)) continue;
+    const args = argsAt(src, m.index! + m[0].length - 1);
+    if (t.takesReq.includes(name) && !/\breq\b/.test(args)) out.push(`${name}(${args.trim()})`);
+    if (t.defaultsBase.includes(name) && !/linkBaseFor\(\s*req\s*\)/.test(args)) out.push(`${name}(…) without linkBaseFor(req)`);
+  }
+  return out;
 }
 
 const functions = allFunctionSources(FUNCTIONS);
@@ -140,6 +201,36 @@ describe('P1691/P1705: one rule decides the host of a mailed link', () => {
     for (const { name, src } of shared) {
       if (ownHostRules(src).includes('reads the request Origin header itself')) expect(ORIGIN_READERS, name).toContain(name);
     }
+  });
+
+  it('every function forwards the request it answers to the link rule (Codex review, P1705)', () => {
+    const t = requestTakers();
+    // One known member per derivation path: takes the request, and defaults its base.
+    expect(t.takesReq).toContain('linkBaseFor');
+    expect(t.takesReq).toContain('mintEmailLink');
+    expect(t.defaultsBase).toContain('buildCancellation');
+    expect(t.defaultsBase).toContain('buildConfirmation');
+    for (const { name, src } of functions) expect(droppedRequests(src, t), name).toEqual([]);
+  });
+
+  describe('forwarding controls (seeded into the real send-event-emails)', () => {
+    const events = read('send-event-emails/index.ts');
+    it('the clean file passes', () => expect(droppedRequests(events)).toEqual([]));
+    it('linkBaseFor() with no request is caught', () => {
+      expect(events).toContain('buildCancellation(event, profileData?.name, linkBaseFor(req))');
+      const seeded = events.replace('buildCancellation(event, profileData?.name, linkBaseFor(req))', 'buildCancellation(event, profileData?.name, linkBaseFor())');
+      expect(droppedRequests(seeded).join('\n')).toMatch(/linkBaseFor\(\)/);
+    });
+    it('a builder left on its default base is caught', () => {
+      const seeded = events.replace('buildUpdate(event, profileName, linkBaseFor(req))', 'buildUpdate(event, profileName)');
+      expect(seeded).not.toBe(events);
+      expect(droppedRequests(seeded).join('\n')).toContain('buildUpdate(…) without linkBaseFor(req)');
+    });
+    it('a ticket minted without the request is caught', () => {
+      const seeded = events.replace("mintEmailLink(supabase, rsvpId, 'prepare', event, req)", "mintEmailLink(supabase, rsvpId, 'prepare', event)");
+      expect(seeded).not.toBe(events);
+      expect(droppedRequests(seeded).join('\n')).toContain('mintEmailLink(');
+    });
   });
 
   it('every function that sends mail reaches link-base.ts, and the sender list is derived', () => {
@@ -224,15 +315,16 @@ function localOrigin(value: string | null | undefined): string | null {
     });
 
     it('a mail sender that stops reaching link-base.ts is caught', () => {
-      // Same derivation as the real check, applied to the agreement function with its link-base import removed.
-      const entryImports = agreements.match(/from\s+['"](\.{1,2}\/[^'"]+\.ts)['"]/g) ?? [];
-      expect(entryImports.some((i) => i.includes('link-base.ts'))).toBe(true);
-      const without = entryImports.filter((i) => !i.includes('link-base.ts'));
-      const reaches = without.some((i) => {
-        const rel = i.match(/['"](.+)['"]/)![1];
-        return reachable(normalize(join(FUNCTIONS, 'send-agreement-emails', rel))).has(join(SHARED, LINK_RULE));
-      });
-      expect(reaches, 'send-agreement-emails would still reach link-base.ts through another import').toBe(false);
+      // The real check (mailSenders) run on the agreement function with its link-base import removed.
+      const entry = join(FUNCTIONS, 'send-agreement-emails', 'index.ts');
+      const importLine = /^import[^\n]*from\s+['"]\.\.\/_shared\/link-base\.ts['"];?\n/m;
+      expect(agreements).toMatch(importLine);
+      const mutated = agreements.replace(importLine, '');
+      const clean = mailSenders().find((x) => x.name === 'send-agreement-emails');
+      const seeded = mailSenders(new Map([[entry, mutated]])).find((x) => x.name === 'send-agreement-emails');
+      expect(clean?.reachesRule).toBe(true);
+      expect(seeded, 'the mutated function must still be found as a mail sender').toBeDefined();
+      expect(seeded?.reachesRule, 'send-agreement-emails would still reach link-base.ts through another import').toBe(false);
     });
   });
 });

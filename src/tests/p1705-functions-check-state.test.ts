@@ -26,11 +26,31 @@ describe('toState', () => {
     expect(s.kind).toBe('differs')
     expect(s.functions).toEqual(['fn-a', 'fn-b'])
     expect(s.branch).toBe('feature/other from 2030-01-01T11:00:00Z, uncommitted')
-    expect(s.fix).toEqual(['scripts/selfhosted/deploy-functions.sh fn-a', 'scripts/selfhosted/deploy-functions.sh fn-b'])
+    // Every fix line, so a command never appears without where it must run (Codex review, P1705).
+    expect(s.fix).toEqual([
+      "Fix: TEST holds code that is not main's tip. From a clean checkout of main, deploy main's version:",
+      '  scripts/selfhosted/deploy-functions.sh fn-a',
+      '  scripts/selfhosted/deploy-functions.sh fn-b',
+      'A deploy recreates the shared functions container.',
+    ])
     const text = bannerLines(displayState(s, NOW)).lines.join('\n')
     expect(text).toContain('fn-a, fn-b')
     expect(text).toContain('feature/other')
     expect(text).toContain('deploy-functions.sh fn-a')
+    expect(text).toContain('From a clean checkout of main')
+  })
+  it('differs keeps the warning about functions this branch must not deploy', () => {
+    const out = [
+      'differs: fn-a, call-pass (server has feature/x from 2030-01-01T11:00:00Z)',
+      'STARTED: 1794986303408775000',
+      "Fix: deploy this branch's functions to TEST:",
+      '  scripts/selfhosted/deploy-functions.sh fn-a',
+      "Also differing from main's tip, and not changed by this branch: call-pass. Deploy those from a clean checkout of main, not from this branch.",
+    ].join('\n')
+    const text = bannerLines(displayState(toState({ status: 1, stdout: out, now: NOW }), NOW)).lines.join('\n')
+    expect(text).toContain('not from this branch')
+    // Order: summary first, then the fix text, the provenance last.
+    expect(text.indexOf('Fix:')).toBeLessThan(text.indexOf('Server holds:'))
   })
   it('unknown from the check carries its reason', () => {
     const s = toState({ status: 2, stdout: 'unknown: gcloud not logged in\n', now: NOW })
@@ -86,5 +106,22 @@ describe('P1705 banner element: a dismissal holds until the next result', () => 
     b.update({ ...differs, checkedAt: NOW + 30 * 60_000 }, NOW + 30 * 60_000)
     expect(b.el.style.display).not.toBe('none')
     b.el.remove()
+  })
+
+  it('the match mark lets clicks through (it sits over the mobile bottom nav); the banner takes them', async () => {
+    const { createFunctionsBanner } = await import('../dev/test-functions-banner')
+    const b = createFunctionsBanner(document)
+    b.update(toState({ status: 0, stdout: MATCH, now: NOW }), NOW)
+    expect(b.el.style.pointerEvents).toBe('none')
+    expect(b.el.querySelector('button')).toBeNull()
+    b.update(toState({ status: 1, stdout: DIFFERS, now: NOW }), NOW)
+    expect(b.el.style.pointerEvents).toBe('auto')
+    b.el.remove()
+  })
+
+  it('offline shows as unknown with its reason', () => {
+    const s = toState({ status: null, stdout: '', offline: true, now: NOW })
+    expect(s.kind).toBe('unknown')
+    expect(bannerLines(displayState(s, NOW)).lines.join('\n')).toMatch(/offline/)
   })
 })

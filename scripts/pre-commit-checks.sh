@@ -224,6 +224,27 @@ fi
 if [ -n "$BUILD_AFFECTING" ]; then
     if ! run_quiet "Build" npm run build; then
         ERRORS=$((ERRORS + 1))
+    else
+        # P1705: the TEST-functions banner is dev-only (src/main.tsx imports it behind
+        # import.meta.env.DEV). Its marker string in the built JS means it shipped to prod.
+        # grep exits 0 found, 1 not found, 2 could not read: only 1 passes (`|| rc=` under set -e).
+        # macOS grep with --include answers 1, not 2, for a dist that does not exist, so a build
+        # with no JS in it is refused first: "not found" in nothing would otherwise pass.
+        BANNER_RC=0
+        if [ -z "$(find dist -name '*.js' -print -quit 2>/dev/null)" ]; then
+            BANNER_RC=3
+        else
+            grep -rlF --include='*.js' --include='*.html' 'p1705-test-functions-banner' dist > /dev/null 2>&1 || BANNER_RC=$?
+        fi
+        if [ "$BANNER_RC" -eq 1 ]; then
+            echo -e ">>> Dev-only banner absent from build (P1705)... ${GREEN}✓${NC}"
+        elif [ "$BANNER_RC" -eq 0 ]; then
+            echo -e ">>> Dev-only banner absent from build (P1705)... ${RED}✗${NC} dist contains p1705-test-functions-banner"
+            ERRORS=$((ERRORS + 1))
+        else
+            echo -e ">>> Dev-only banner absent from build (P1705)... ${RED}✗${NC} could not read dist (exit $BANNER_RC; 3 means no built JS)"
+            ERRORS=$((ERRORS + 1))
+        fi
     fi
 else
     echo -e ">>> Build... ${GREEN}skipped (no build-affecting files staged)${NC}"

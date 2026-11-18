@@ -78,7 +78,7 @@ Deno.test('an unset, empty, unreadable, hosted or unrecognised project address i
 
 Deno.test('on a known test target with a localhost APP_URL an exact development origin becomes the link base', () => {
   for (const url of SELF_HOSTED_OR_LOCAL) {
-    for (const origin of [DEV, 'http://localhost:5100', 'http://localhost:5899', 'http://localhost:6050', 'http://localhost:6900', 'http://localhost:9909']) {
+    for (const origin of [DEV, 'http://localhost:5100', 'http://localhost:5889', 'http://localhost:5898', 'http://localhost:6050', 'http://localhost:6900', 'http://localhost:9909']) {
       assertEquals(resolve(req(origin), LOCAL_APP, url), origin, `${origin} on ${url}`);
     }
   }
@@ -125,6 +125,7 @@ Deno.test('an origin that is not in the dev set is never the link base, on any p
     'http://localhost:7000',
     'http://localhost:10000',
     'http://localhost:5150',
+    'http://localhost:5899', // P1705: was a named port; the named range now ends at 5889 (+9 load-test = 5898)
     'http://localhost:5001/',
     'http://localhost:5001/path',
     'http://localhost:50010',

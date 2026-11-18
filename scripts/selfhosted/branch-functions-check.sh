@@ -301,7 +301,8 @@ if [ ! -s "$T/changed.repo" ]; then
   if [ "$ndeploy" = 0 ] && [ ! -s "$T/maindeploy" ]; then
     # Only shared files differ: any named deploy carries them.
     first="$(git -C "$REPO" ls-tree --name-only "$DG_MAIN_REF" supabase/functions/ 2>/dev/null | sed 's|.*/||' | grep -v -e '^_shared$' -e '^main$' -e '[.]' | head -1)"
-    fixes+=("  scripts/selfhosted/deploy-functions.sh ${first:-}")
+    # Never print a bare deploy: with no name it deploys and PRUNES every function.
+    fixes+=("  scripts/selfhosted/deploy-functions.sh ${first:-ANY_FUNCTION_NAME}")
   fi
 else
 stale="$(dg_stale_files "$REPO" HEAD 2>/dev/null)" || stale=""
@@ -330,8 +331,9 @@ while IFS= read -r fn; do
   elif grep -qxF -- "$fn" "$T/tops"; then deleted="$deleted $fn"; fi
 done < "$T/fns"
 if [ -n "$deleted" ]; then
-  fixes+=("  scripts/selfhosted/deploy-functions.sh")
+  # The warning comes first, so no reader meets the pruning command before what it does.
   fixes+=("WARNING: this branch deleted a function (${deleted# }); only a full deploy removes it, and a full deploy replaces every function and prunes the ones this checkout lacks, including other sessions' work.")
+  fixes+=("  scripts/selfhosted/deploy-functions.sh")
 elif [ -n "$kept" ]; then
   for fn in $kept; do fixes+=("  scripts/selfhosted/deploy-functions.sh $fn"); done
 else
@@ -343,7 +345,7 @@ else
     esac
   done | LC_ALL=C sort > "$T/fnlist"
   first="$(sed -n 1p "$T/fnlist")"
-  fixes+=("  scripts/selfhosted/deploy-functions.sh ${first:-<function>}")
+  fixes+=("  scripts/selfhosted/deploy-functions.sh ${first:-ANY_FUNCTION_NAME}")
   fixes+=("(any named deploy carries _shared, deno.json, deno.lock, the router and the JWT list)")
 fi
 fi

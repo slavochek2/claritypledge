@@ -150,6 +150,18 @@ OUT=$(cd "$REPO_ROOT" && env HOME="$H" PATH="$BIN:$PATH" STUB_LOG="$LOG" STUB_ST
 : > "$LOG"; OUT=$(cd "$REPO_ROOT" && env HOME="$H" PATH="$BIN:$PATH" STUB_LOG="$LOG" STUB_STACK="$FIX" bash "$DF" --setup 2>&1); RC=$?
 { [ "$RC" -eq 0 ] && grep -q SSH "$LOG" && ! grep -q SCP "$LOG"; } && ok "--setup: still reaches the server, unaffected" || bad "--setup (rc=$RC out='$OUT')"
 
+echo "-- P1705: the APP_URL line (mail links honour dev ports only while APP_URL is localhost)"
+: > "$LOG"; OUT=$(cd "$REPO_ROOT" && env HOME="$H" PATH="$BIN:$PATH" STUB_LOG="$LOG" STUB_STACK="$FIX" bash "$DF" --check-secrets 2>&1); RC=$?
+grep -q 'APP_URL: warn: not set' <<<"$OUT" && ok "--check-secrets: a Mac file without APP_URL warns" || bad "APP_URL unset warn (rc=$RC out='$OUT')"
+printf 'ALPHA_KEY=m1\nAPP_URL=http://localhost:5001\n' > "$H/.config/cp-selfhosted-test/functions.env"; chmod 600 "$H/.config/cp-selfhosted-test/functions.env"
+: > "$LOG"; OUT=$(cd "$REPO_ROOT" && env HOME="$H" PATH="$BIN:$PATH" STUB_LOG="$LOG" STUB_STACK="$FIX" bash "$DF" --check-secrets 2>&1); RC=$?
+grep -q 'APP_URL: ok: http://localhost:5001' <<<"$OUT" && ok "--check-secrets: a localhost APP_URL reads ok" || bad "APP_URL ok (rc=$RC out='$OUT')"
+rm -f "$H/.config/cp-selfhosted-test/functions.env"
+: > "$LOG"; OUT=$(cd "$REPO_ROOT" && env HOME="$H" PATH="$BIN:$PATH" STUB_LOG="$LOG" STUB_STACK="$FIX" bash "$DF" --check-secrets 2>&1); RC=$?
+{ grep -q 'MISSING required' <<<"$OUT" && grep -q 'APP_URL: warn: not set' <<<"$OUT"; } && ok "--check-secrets: no Mac file still reports names and the APP_URL warning" || bad "no Mac file (rc=$RC out='$OUT')"
+: > "$LOG"; OUT=$(cd "$REPO_ROOT" && env HOME="$H" PATH="$BIN:$PATH" STUB_LOG="$LOG" STUB_STACK="$FIX" bash "$DF" --secrets 2>&1); RC=$?
+{ [ "$RC" -ne 0 ] && grep -q 'not found: nothing to push' <<<"$OUT" && ! sent; } && ok "--secrets: no Mac file stops with the not-found message" || bad "--secrets no Mac file (rc=$RC out='$OUT')"
+
 echo ""
 echo "p1602: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ]

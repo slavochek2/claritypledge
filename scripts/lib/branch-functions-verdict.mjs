@@ -5,7 +5,8 @@
  * e2e/global-setup.ts and e2e/global-teardown.ts do the spawning and call this.
  *
  * States, from the script's exit code AND the prefix of its first line (both must agree):
- *   none     0, "no changed functions"
+ *   none     0, "no changed functions" (legacy: the check printed it before P1705 and no longer does;
+ *            kept so a run on a checkout with the older script still reads as not-applicable)
  *   match    0, "match:" AND a second line "STARTED: <digits>" (the functions container's start time)
  *   differs  1, "differs:"
  *   unknown  2, "unknown:", and anything malformed (never a pass)

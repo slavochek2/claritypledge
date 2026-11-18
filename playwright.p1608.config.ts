@@ -81,6 +81,8 @@ export default defineConfig({
       VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY || '',
       VITE_USE_REAL_API: 'true',
       VITE_USE_REAL_EVENTS_API: 'true',
+      // P1705: the dev-server functions check is for people; this run is not one.
+      P1705_SKIP_FUNCTIONS_CHECK: '1',
     },
   },
 });

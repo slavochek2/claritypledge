@@ -31,7 +31,7 @@ export interface FunctionsCheckState {
   functions: string[]
   /** differs only: the branch (and time) the server's deploy record names. */
   branch: string
-  /** differs only: the commands that fix it (the check's indented lines). */
+  /** differs only: the check's fix text, every line (commands stay indented). */
   fix: string[]
   /** unknown only: why the check could not run. */
   reason: string
@@ -44,6 +44,8 @@ export interface CheckInput {
   timedOut?: boolean
   /** The check could not be started at all. */
   spawnError?: string
+  /** The TEST host did not resolve, so the check was not run (unknown, never silence). */
+  offline?: boolean
   now: number
 }
 
@@ -56,6 +58,9 @@ export function toState(input: CheckInput): FunctionsCheckState {
   if (input.timedOut) {
     return { ...base('unknown', now, 'unknown: timed out'), reason: 'the check did not answer before its deadline' }
   }
+  if (input.offline) {
+    return { ...base('unknown', now, 'unknown: offline'), reason: 'offline: the TEST host name did not resolve, so the check did not run' }
+  }
   if (input.spawnError) {
     return { ...base('unknown', now, 'unknown: not started'), reason: `the check could not be started (${input.spawnError})` }
   }
@@ -64,7 +69,9 @@ export function toState(input: CheckInput): FunctionsCheckState {
   if (r.state === 'match' || r.state === 'none') return base('match', now, r.line)
   if (r.state === 'differs') {
     const m = /^differs: (.*?) \(server has (.*)\)\s*$/.exec(r.line)
-    const fix = r.detail.split('\n').filter((l) => /^ {2}\S/.test(l)).map((l) => l.trim())
+    // Every line, not just the indented commands: the unindented ones say where a command must run
+    // ("From a clean checkout of main", "not from this branch"), and a command without that is unsafe.
+    const fix = r.detail.split('\n').map((l) => l.trimEnd()).filter(Boolean)
     return {
       ...base('differs', now, r.line),
       functions: (m?.[1] ?? '').split(',').map((s) => s.trim()).filter(Boolean),

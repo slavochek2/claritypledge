@@ -72,7 +72,12 @@ export function testFunctionsCheckPlugin(opts: PluginOptions): Plugin {
       const send = () => { if (last) server.ws.send({ type: 'custom', event: FUNCTIONS_CHECK_EVENT, data: last }) }
       const tick = async () => {
         try {
-          if (!(await isOnline())) return
+          // Offline: no SSH, but the page still shows unknown rather than nothing (spec invariant).
+          if (!(await isOnline())) {
+            last = toState({ status: null, stdout: '', offline: true, now: Date.now() })
+            send()
+            return
+          }
           last = await run({ repoDir: opts.repoDir, env })
           send()
         } catch (err) {

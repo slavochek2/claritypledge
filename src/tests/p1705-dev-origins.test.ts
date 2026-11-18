@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { devOrigins, portForSlot, slotOrigins } from '../../scripts/lib/worktree-port.mjs';
+import { devOrigins, LOADTEST_MAX_LEVEL, portForSlot, slotOrigins } from '../../scripts/lib/worktree-port.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const CLI = path.join(REPO_ROOT, 'scripts', 'lib', 'worktree-port.mjs');
@@ -58,12 +58,32 @@ describe('P1705 slot ports', () => {
     }
   });
 
-  it('2000 sample names never map to 5800 and stay in 5801..5899', () => {
+  it('2000 sample names stay in 5811..5889', () => {
     for (let i = 0; i < 2000; i++) {
       const p = portForSlot(`sample-worktree-${i}-${(i * 7919).toString(36)}`);
-      expect(p, `name ${i}`).not.toBe(5800);
-      expect(p, `name ${i}`).toBeGreaterThanOrEqual(5801);
-      expect(p, `name ${i}`).toBeLessThanOrEqual(5899);
+      expect(p, `name ${i}`).toBeGreaterThanOrEqual(5811);
+      expect(p, `name ${i}`).toBeLessThanOrEqual(5889);
+    }
+  });
+
+  // Opus review, P1705: a named worktree's load-test ports reached 5900 (w9's dev port), and w8's
+  // load-test ports 5801..5809 were named dev ports. No dev port (main, a slot, any named port)
+  // may equal another checkout's dev or load-test port.
+  it('no dev port is another checkout\'s dev or load-test port', () => {
+    const slots = [5001, ...Array.from({ length: 49 }, (_, i) => portForSlot(`w${i + 1}`))];
+    const named = new Set<number>();
+    for (let i = 0; i < 5000; i++) named.add(portForSlot(`n-${i}-${(i * 104729).toString(36)}`));
+    expect(named.size).toBe(79); // every named port is reachable, so the sample covers the range
+    const owners = [...slots.map((p) => ({ p, kind: 'slot' })), ...[...named].map((p) => ({ p, kind: 'named' }))];
+    for (const a of owners) {
+      for (const b of owners) {
+        if (a === b) continue;
+        // Named against named is accepted, not checked: two names may hash to one port (strictPort
+        // makes that loud) or land within nine of each other (worktree-port.mjs says why). Only a
+        // load-test range reaching a slot's dev port, or a slot meeting a named port, fails here.
+        if (a.kind === 'named' && b.kind === 'named') continue;
+        expect(b.p >= a.p && b.p <= a.p + LOADTEST_MAX_LEVEL, `${a.kind} ${a.p} load range holds ${b.kind} ${b.p}`).toBe(false);
+      }
     }
   });
 });

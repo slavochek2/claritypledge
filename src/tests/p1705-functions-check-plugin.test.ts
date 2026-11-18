@@ -71,11 +71,19 @@ describe('testFunctionsCheckPlugin', () => {
     expect(f.sent).toEqual([])
   })
 
-  it('runs nothing when offline', async () => {
+  it('runs nothing when offline, but tells the page it is unknown (never silence)', async () => {
     const f = fakeServer(); let ran = 0
     configure(testFunctionsCheckPlugin({ repoDir: dir, env: {}, run: async () => { ran++; return toState({ status: 0, stdout: '', now: 0 }) }, isOnline: async () => false }), f.server)
     await wait(50)
     expect(ran).toBe(0)
+    expect(f.sent).toHaveLength(1)
+    const data = (f.sent[0] as { data: { kind: string; reason: string } }).data
+    expect(data.kind).toBe('unknown')
+    expect(data.reason).toMatch(/offline/)
+    // A page that loads later and asks gets the same answer.
+    const replies: unknown[] = []
+    f.handlers[FUNCTIONS_CHECK_REQUEST](undefined, { send: (event: string, d: unknown) => replies.push({ event, d }) })
+    expect(replies).toHaveLength(1)
   })
 
   it('runs in the background and pushes the result on the dev channel, and answers a late page that asks', async () => {

@@ -93,12 +93,12 @@ export async function mintEmailLink(
 
 // ── Text rules shared with the app (src/app/prototypes/events/arrival/arrival-text.ts) ──
 
-/** A location that is a URL is an online event: no arrival question. */
 /** The public event page under the given base (link-base.ts decides the base). */
 export function eventPageUrl(slug: string, base: string): string {
   return `${base}/events/${slug}`;
 }
 
+/** A location that is a URL is an online event: no arrival question. */
 export function isOnlineLocation(location: string | null): boolean {
   if (!location) return false;
   try {

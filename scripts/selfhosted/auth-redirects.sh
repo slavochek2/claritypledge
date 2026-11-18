@@ -3,12 +3,18 @@
 # worktree port it came from? (P1705)
 #
 #   auth-redirects.sh --check [--quiet]   read-only probe; exit 0 all ok, 1 a port is refused, 2 could not check
-#   auth-redirects.sh --apply              add the localhost wildcard to the VM's ADDITIONAL_REDIRECT_URLS
-#                                          (backup first, existing entries kept), recreate auth, then --check
+#   auth-redirects.sh --apply              put the four-digit localhost pattern in the VM's
+#                                          ADDITIONAL_REDIRECT_URLS (backup first, other entries kept,
+#                                          the earlier unsafe `localhost:*` entries removed), recreate
+#                                          auth, then --check
 #
-# Why a wildcard: GoTrue (v2.189.0, internal/utilities/request.go IsRedirectURLValid) already accepts a
-# redirect to ANY port on a loopback IP, so `http://localhost:*` adds no new class of trust, and it
-# covers every slot scripts/lib/worktree-port.mjs can ever hand out with nothing to regenerate.
+# Why four digits and never `*`: GoTrue (v2.189.0) compiles each entry with glob.MustCompile(uri, '.',
+# '/'), so `*` matches any run without a dot or slash, including `a@0x5db8d822`. With
+# `http://localhost:*` it accepted `http://localhost:a@0x5db8d822/x`: a browser reads that as user
+# "localhost" on host 0x5db8d822 (an outside IPv4 address), so a sign-in link carried its tokens off
+# the machine. Verified live on TEST 2026-11-18 by the probe below. `[0-9][0-9][0-9][0-9]` matches
+# a port and nothing else, and covers every port scripts/lib/worktree-port.mjs hands out (all four
+# digits) with nothing to regenerate.
 # A refused redirect falls back to SITE_URL, and TEST's email template then writes localhost:5001 into
 # the link: the P1705 symptom. So refusal is checked by behaviour, never by reading the config text.
 #
@@ -16,8 +22,8 @@
 # allowed, else to SITE_URL. An invalid token changes no state. The ports probed come from the
 # allocator (every slot), plus a sample of named-worktree and load-test ports. One control must keep
 # failing: an external host. If it is not refused, the probe cannot tell allowed from refused and the
-# check reports unknown rather than ok. (A localhost port outside the allocator is not asserted
-# refused: the wildcard accepts it by design.)
+# check reports unknown rather than ok. Two more must stay refused, or the check fails: a userinfo
+# host behind localhost (the bypass above), and a five-digit port.
 # Output contract (shell-safety.md): no redirect or pipe tokens in status lines.
 set -uo pipefail
 
@@ -28,7 +34,25 @@ HOST="${SELFHOSTED_HOST:-136-85-1-126.sslip.io}"
 # Deliberately invalid: GoTrue rejects it, so the probe changes no state. Not a secret.
 PROBE_TOKEN="p1705-probe-invalid" # gitleaks:allow
 STACK_DIR="/opt/supabase/docker"
-WILDCARDS="http://localhost:*,http://localhost:*/**"
+WILDCARDS="http://localhost:[0-9][0-9][0-9][0-9],http://localhost:[0-9][0-9][0-9][0-9]/**"
+# The first form of this fix (P1705, 2026-11-18). --apply removes them wherever they are.
+UNSAFE="http://localhost:*,http://localhost:*/**"
+# Must never be honoured. The first three are the userinfo bypass in the header (0x7f000002 is
+# 127.0.0.2, so the probe never names an outside host); the last is outside the allocator. Each
+# GoTrue entry form needs its own control, because `*` stops at `.` and `/`: a plain
+# `http://localhost:*` matches only a URL with no path, `http://localhost:*/**` only one with a
+# path, and a hand-typed `http://localhost:[0-9]*` only a userinfo that starts with a digit.
+MUST_REFUSE="http://localhost:a@0x7f000002 http://localhost:1@0x7f000002 http://localhost:a@0x7f000002/x http://localhost:12345/x"
+
+# Whole-check deadline in seconds. health.sh runs this on every call, and each probe may take 20 s,
+# so a slow auth server must not hold it for minutes: past the deadline the verdict is unknown.
+# The five controls (the external host and MUST_REFUSE) run first and are never cut short (they
+# are the safety answer); the deadline is checked before each worktree-port probe. Every probe is
+# capped at 20 s, so a run lasts at most the larger of 100 s (the controls) and DEADLINE + 20 s:
+# 110 s at the default.
+# An ok that lands after the deadline is still a full answer: every port was probed and allowed.
+DEADLINE="${AUTH_REDIRECTS_DEADLINE:-90}"
+case "$DEADLINE" in ""|*[!0-9]*) echo "AUTH_REDIRECTS_DEADLINE must be a whole number of seconds" >&2; exit 2 ;; esac
 
 MODE=""; QUIET=0
 while [ $# -gt 0 ]; do
@@ -73,8 +97,25 @@ check() {
     "") echo "auth-redirects: unknown: the auth server did not answer the control probe"; return 2 ;;
     *) echo "auth-redirects: unknown: control probe was not refused (went to ${loc%%#*}), so the probe cannot judge"; return 2 ;;
   esac
+  local bad=""
+  for target in $MUST_REFUSE; do
+    loc="$(location_for "$target")"
+    case "$loc" in
+      "https://$HOST/"*) [ "$QUIET" = 1 ] || echo "  refused as it must be: $target" ;;
+      "") echo "auth-redirects: unknown: no answer for the refusal control $target"; return 2 ;;
+      *) bad="$bad $target" ;;
+    esac
+  done
+  if [ -n "$bad" ]; then
+    echo "auth-redirects: warn: UNSAFE: the allow list accepts what it must refuse:$bad (a sign-in link can leave this machine; run auth-redirects.sh --apply)"
+    return 1
+  fi
   while IFS= read -r p; do
     [ -n "$p" ] || continue
+    if [ "$SECONDS" -ge "$DEADLINE" ]; then
+      echo "auth-redirects: unknown: stopped after $n ports, past the ${DEADLINE} s deadline (the auth server answers slowly)"
+      return 2
+    fi
     n=$((n + 1))
     target="http://localhost:$p/auth/callback"
     loc="$(location_for "$target")"
@@ -88,14 +129,14 @@ check() {
     echo "auth-redirects: warn: $refused of $n worktree ports refused:$failed (sign-in links from them fall back to localhost:5001; run auth-redirects.sh --apply)"
     return 1
   fi
-  echo "auth-redirects: ok: all $n worktree ports allowed, external control refused"
+  echo "auth-redirects: ok: all $n worktree ports allowed, external, userinfo and five-digit controls refused"
   return 0
 }
 
 apply() {
-  echo "Adding $WILDCARDS to ADDITIONAL_REDIRECT_URLS on $VM (backup kept), then recreating the auth container."
-  # The remote script backs up .env, appends only the entries that are missing, and validates the
-  # compose config before recreating. Values are never printed.
+  echo "Setting $WILDCARDS in ADDITIONAL_REDIRECT_URLS on $VM (backup kept, unsafe localhost:* entries removed), then recreating the auth container."
+  # The remote script backs up .env, drops the unsafe entries, appends only the entries that are
+  # missing, and validates the compose config before recreating. Values are never printed.
   local remote
   IFS= read -r -d '' remote <<'REMOTE' || true
 set -euo pipefail
@@ -103,10 +144,16 @@ cd "$STACK_DIR"
 cur="$(grep -m1 '^ADDITIONAL_REDIRECT_URLS=' .env || true)"
 [ -n "$cur" ] || { echo "P1705: no ADDITIONAL_REDIRECT_URLS line in .env; refusing" >&2; exit 1; }
 val="${cur#ADDITIONAL_REDIRECT_URLS=}"; val="${val#\"}"; val="${val%\"}"
-new="$val"
+new=""
+IFS=',' read -r -a have <<< "$val"
+IFS=',' read -r -a unsafe <<< "$UNSAFE"
+for h in "${have[@]}"; do
+  drop=0; for u in "${unsafe[@]}"; do [ "$h" = "$u" ] && drop=1; done
+  [ "$drop" = 1 ] || new="${new:+$new,}$h"
+done
 IFS=',' read -r -a want <<< "$WILDCARDS"
 for w in "${want[@]}"; do
-  case ",$new," in *",$w,"*) ;; *) new="$new,$w" ;; esac
+  case ",$new," in *",$w,"*) ;; *) new="${new:+$new,}$w" ;; esac
 done
 if [ "$new" = "$val" ]; then echo "P1705: already present, nothing changed"; exit 0; fi
 ts="$(date -u +%Y%m%d-%H%M%S)"
@@ -126,7 +173,7 @@ echo "P1705: applied; backup .env.pre-p1705-$ts"
 REMOTE
   # The VM's whole output is shown, never filtered: a keyword filter can hide the only failure line.
   local out rc
-  out="$({ printf 'STACK_DIR=%q\nWILDCARDS=%q\n' "$STACK_DIR" "$WILDCARDS"; printf '%s\n' "$remote"; } |
+  out="$({ printf 'STACK_DIR=%q\nWILDCARDS=%q\nUNSAFE=%q\n' "$STACK_DIR" "$WILDCARDS" "$UNSAFE"; printf '%s\n' "$remote"; } |
     gcloud compute ssh "$VM" --project="$GCP_PROJECT" --zone="$ZONE" --tunnel-through-iap --quiet \
       --command 'sudo bash -s' 2>&1)"; rc=$?
   printf '%s\n' "$out"

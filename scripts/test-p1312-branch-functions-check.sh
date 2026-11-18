@@ -256,6 +256,7 @@ run_check; check "fn-b deleted on the branch, still on the server" 1 "$CRC"
 first_line_is "  names fn-b" "$W/cout" "differs: fn-b"
 has "  prints the full deploy" "$W/cout" "^  scripts/selfhosted/deploy-functions.sh$"
 has "  warns it prunes other sessions' functions" "$W/cout" "WARNING: .*prunes"
+if [ "$(grep -n 'WARNING: .*prunes' "$W/cout" | head -1 | cut -d: -f1)" -lt "$(grep -n '^  scripts/selfhosted/deploy-functions.sh$' "$W/cout" | head -1 | cut -d: -f1)" ] 2>/dev/null; then ok "  the warning comes before the full deploy"; else bad "  the warning comes before the full deploy ($(tr '\n' ' ' < "$W/cout"))"; fi
 run_fixes; check "  the full deploy works" 0 "$FRC"
 run_check; check "  then matches" 0 "$CRC"
 if [ -d "$SB/stack/volumes/functions/fn-b" ]; then bad "  fn-b is gone from the server"; else ok "  fn-b is gone from the server"; fi
