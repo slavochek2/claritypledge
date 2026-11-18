@@ -157,3 +157,8 @@ resolve_series_alias(text)                    # a signed-out visitor follows /hi
 # --- 2026-11-09: a personal contact code shows its owner's public name and photo before sign-up (P1556) ---
 # The token is the owner's 128-bit random code; the function returns name and photo only, nothing for an invalid token.
 lookup_contact_code(text)                     # a signed-out visitor opens /connect/:token and sees whose code it is (P1556) — src/app/pages/connect-page.tsx:114
+
+# --- 2026-11-18: change history of public points and stories reads for signed-out visitors (P1061) ---
+# SECURITY INVOKER: the caller's own RLS applies, so a signed-out visitor reads only public rows.
+get_point_movement_rows(uuid)                 # a signed-out visitor opens a public point and its Changes panel loads (P1061) — src/app/components/movement/point-movement-block.tsx:154
+get_story_movement_rows(uuid[])               # a signed-out visitor opens the public stake feed and story "N moved" counts load (P1061) — src/app/data/offline-reads.ts:58
