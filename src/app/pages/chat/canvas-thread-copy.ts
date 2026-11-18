@@ -5,7 +5,7 @@
 
 // Edge-shared, so the Copy prompt, the drafting prompt and the empty-box questions read one text (precedent: api.ts imports participant-name.ts).
 import {
-  BOX_DEFINITIONS, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, copyPromptSection, globalRulesText,
+  BOX_DEFINITIONS, LEAD_POINT_RULE, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, THIRD_PERSON_RULE, copyPromptSection, globalRulesText,
 } from '../../../../supabase/functions/_shared/canvas-box-definitions.ts';
 // The approved reply sentences are the server's (one source).
 import { WORDS } from '../../../../supabase/functions/_shared/canvas-reply-table.ts';
@@ -44,8 +44,10 @@ export const CANVAS_OWN_AI_PROMPT = [
   'Rules:',
   globalRulesText('owner'),
   '',
-  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." naming who it is for. If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in order; the lines under each say what belongs there; do not copy them.',
-  `- Under each heading write up to ${MAX_POINTS_PER_BOX} points, each one short sentence of at most ${MAX_STATEMENT_CHARS} characters, in the voice named under the heading.`,
+  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in order; the lines under each say what belongs there; do not copy them.',
+  `- Under each heading write up to ${MAX_POINTS_PER_BOX} points, each one short sentence of at most ${MAX_STATEMENT_CHARS} characters, in its heading's voice.`,
+  `- ${THIRD_PERSON_RULE.plain}`,
+  `- ${LEAD_POINT_RULE.plain}`,
   '- Examples inside a definition show the form only. Never reuse their businesses, numbers or claims.',
   '- Under each point, add one line starting "Source:" naming the chat, memory, file or message it comes from. Never invent a source; if there is none, leave the point out.',
   '- Under an empty heading write only: Not known yet.',

@@ -8,7 +8,7 @@ import { quoteData, type GeminiRequest } from './mirror-agent.ts';
 import {
   MAX_OUT_TOKENS, MAX_POINTS_PER_BOX, MAX_QUOTE_CHARS, MAX_STATEMENT_CHARS,
 } from './canvas-draft.ts';
-import { BOX_DEFINITIONS, NAMING_RULE, boxGuideText, globalRulesText } from './canvas-box-definitions.ts';
+import { BOX_DEFINITIONS, LEAD_POINT_RULE, NAMING_RULE, THIRD_PERSON_RULE, boxGuideText, globalRulesText } from './canvas-box-definitions.ts';
 import { cutChars } from './canvas-source.ts';
 import { titleOf } from './canvas-draft.ts';
 import { FOCUS_REASONS, type DraftContext, type Material, type RunFrame } from './canvas-types.ts';
@@ -27,6 +27,8 @@ ${globalRulesText()}
 
 The boxes (use exactly these tags):
 ${boxGuideText()}
+${LEAD_POINT_RULE.text}
+${THIRD_PERSON_RULE.text}
 
 ${SHARED_RULES}
 - Nothing invented. Write a point only when the owner's own words support it. For each NEW or REWORDED point give "quote": a verbatim excerpt of at most ${MAX_QUOTE_CHARS} characters, copied exactly from an "owner" item, that the point rests on. Quote enough that it shares at least two of the point's own words (not counting numbers and small words like "the" or "this"): the whole sentence or clause, not a fragment. A point without a real owner quote is discarded.

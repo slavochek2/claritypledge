@@ -11,8 +11,8 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CANVAS_BOXES } from '../lib/canvas-boxes';
 import {
-  BOX_DEFINITIONS, GLOBAL_RULES, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, ONE_SALE_LOOP_PLAIN, boxGuideEntry,
-  copyPromptSection, emptyQuestionFor, globalRulesText,
+  BOX_DEFINITIONS, GLOBAL_RULES, LEAD_POINT_RULE, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, ONE_SALE_LOOP_PLAIN, RANKED_BOXES,
+  THIRD_PERSON_RULE, boxGuideEntry, copyPromptSection, emptyQuestionFor, globalRulesText,
 } from '../../supabase/functions/_shared/canvas-box-definitions';
 import { DRAFT_RULES, buildDraftRequest } from '../../supabase/functions/_shared/canvas-prompt';
 import { questionsFor } from '../../supabase/functions/_shared/canvas-parse';
@@ -110,7 +110,8 @@ describe('S2 review fixes', () => {
       expect(DRAFT_RULES, b.tag).toContain(`when the box is empty or only part is supported: ${b.gap}`);
       if (b.empty) expect(DRAFT_RULES, b.tag).toContain(`when nothing in the box is supported: ${b.empty}`);
     }
-    expect(BOX_DEFINITIONS.filter((b) => b.empty).map((b) => b.tag)).toEqual(['canvas:solution']); // CONTROL: the empty branch is exercised
+    // CONTROL: the empty branch is exercised (P1658 revision 2: the five ranked boxes ask for the core fact and the ranking together when empty)
+    expect(BOX_DEFINITIONS.filter((b) => b.empty).map((b) => b.tag)).toEqual(['canvas:segments', 'canvas:problem', 'canvas:solution', 'canvas:revenue', 'canvas:metrics', 'canvas:good-at']);
     const req = buildDraftRequest({ material: { items: [], truncated: false }, basePoints: [], baseLabel: null });
     // v6 (S1): the model's answer gains focus (S5: and focus_reason), other_canvases, scope, questions and note; `conflicts` is gone with "What I decided on my own"
     expect(Object.keys((req.generationConfig!.responseSchema as { properties: object }).properties)).toEqual(['focus', 'focus_reason', 'other_canvases', 'scope', 'actions', 'questions', 'note']);
@@ -169,14 +170,63 @@ describe('S2 box guidance', () => {
     expect(DRAFT_RULES).toContain('"X over Y[, even when <what it costs>]."');
   });
 
-  it('P1658 claim/stance split: claim boxes are third person, action boxes start "I ", no good example carries a reason', () => {
-    for (const tag of ['canvas:segments', 'canvas:problem', 'canvas:revenue', 'canvas:metrics']) {
-      const g = def(tag).good;
-      expect(g, tag).not.toMatch(/(^|[\s"(])I /);
-      expect(g, tag).not.toMatch(/\bbecause\b/i);
-    }
-    for (const tag of ['canvas:solution', 'canvas:channels']) expect(def(tag).good.startsWith('"I '), tag).toBe(true);
+  it('P1658 revision 2: every box is third person, stance boxes say "The business", no good example carries a reason', () => {
+    for (const tag of ['canvas:solution', 'canvas:channels', 'canvas:world-needs']) expect(def(tag).good.startsWith('"The business '), tag).toBe(true);
     for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toMatch(/\bbecause\b/i);
+  });
+
+  it('P1658 revision 2: no good example says "I", "we", "my" or "our"', () => {
+    const PRONOUN = /\b(I|we|my|our)\b/i;
+    for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toMatch(PRONOUN);
+    expect('so I now do their books').toMatch(PRONOUN); // CONTROL: the old Hypotheses example fails it
+    expect('our chat thread').toMatch(PRONOUN); // CONTROL: the old Solution example fails it
+    expect(def('canvas:good-at').not).toMatch(PRONOUN); // CONTROL: the not-example still shows the first-person form it rejects
+  });
+
+  it('P1658 revision 2: each ranked box opens with a lead point that names an alternative; the rest have no lead', () => {
+    expect([...RANKED_BOXES]).toEqual(['canvas:segments', 'canvas:problem', 'canvas:revenue', 'canvas:metrics', 'canvas:good-at']);
+    for (const b of BOX_DEFINITIONS) {
+      const ranked = (RANKED_BOXES as readonly string[]).includes(b.tag);
+      expect(b.shape.startsWith('Lead: "'), b.tag).toBe(ranked);
+      if (!ranked) continue;
+      const lead = b.shape.slice(0, b.shape.indexOf(' Others: '));
+      expect(lead, b.tag).toMatch(/, ahead of <[^>]+>/); // names the alternative it beats
+      expect(lead, b.tag).toMatch(/\b(best|biggest|first|next)\b/);
+      expect(b.good, b.tag).toMatch(/^"The (first|biggest|offer to sell first|next milestone)\b[^"]*, ahead of /);
+    }
+  });
+
+  it('P1658 revision 2: shapes never say "will not" ("will" is an UNSURE word), and the milestone and offer leads keep their parts', () => {
+    for (const b of BOX_DEFINITIONS) expect(b.shape, b.tag).not.toMatch(/\bwill not\b/i);
+    expect(THIRD_PERSON_RULE.text).toContain('Write "does not", never "will not".');
+    expect(def('canvas:metrics').shape).toContain('(target)');
+    expect(def('canvas:metrics').good).toContain('(target), ahead of');
+    const offer = def('canvas:revenue');
+    // the price sits after the contrast clause, never inside it, and the lead keeps every part of the terms
+    expect(offer.shape).toContain('ahead of <other offer>; <price + currency> per <unit> <cadence>; <state>');
+    expect(offer.good).toMatch(/, ahead of [^;\d]+; [\d,]+ baht per shop per month;/);
+  });
+
+  it('P1658 revision 2: a ranked box asks for the ranking (gap) and for the core fact with the ranking (empty)', () => {
+    for (const tag of RANKED_BOXES) {
+      const b = def(tag);
+      expect(b.gap, tag).toMatch(/\b(best|most|biggest|first|next)\b/);
+      expect(b.gap, tag).toMatch(/\b(after|other)\b/);
+      expect(b.empty, tag).toBeTruthy();
+      expect(b.empty, tag).toMatch(/\b(best|most|biggest|first)\b|comes after/);
+    }
+  });
+
+  it('P1658 revision 2: the lead rule and the third-person rule reach both prompts, the Copy prompt in the owner\'s words', () => {
+    expect(DRAFT_RULES).toContain(LEAD_POINT_RULE.text);
+    expect(DRAFT_RULES).toContain(THIRD_PERSON_RULE.text);
+    expect(CANVAS_OWN_AI_PROMPT).toContain(LEAD_POINT_RULE.plain!);
+    expect(CANVAS_OWN_AI_PROMPT).toContain(THIRD_PERSON_RULE.plain!);
+    expect(THIRD_PERSON_RULE.plain).toMatch(/"I" and "you"; points never do/);
+    expect(THIRD_PERSON_RULE.plain).toContain('"the business"');
+    expect(LEAD_POINT_RULE.text).toMatch(/only if the owner ranked/);
+    expect(LEAD_POINT_RULE.plain).toMatch(/only if I ranked/);
+    expect(`${LEAD_POINT_RULE.text} ${THIRD_PERSON_RULE.text}`).not.toMatch(/the owner believes/i);
   });
 
   it('P1658 review: Offers & Pricing has no "not" form, and Problem does not rank problems by cost', () => {

@@ -3,8 +3,9 @@
  * (canvas-prompt.ts), the empty-box questions (canvas-parse.ts questionsFor, canvas-reply.ts) and the owner's
  * Copy prompt (src/app/pages/chat/canvas-thread-copy.ts) all read this module and hold no box text of their own.
  *
- * BOX_DEFINITIONS is P1658's test wording: every point a claim a reader can agree or disagree with (claim boxes third person, action boxes
- * first-person stance, reasons left out of the point). Founder-pending [FOUNDER DECISION: adopt, revise or drop, P1658]. GLOBAL_RULES,
+ * BOX_DEFINITIONS is P1658's revision-2 test wording: every point a claim a reader can agree or disagree with, in third person about
+ * "the business" (THIRD_PERSON_RULE), reasons left out of the point, and the five RANKED_BOXES opening with a lead point that names the
+ * owner's choice against an alternative (LEAD_POINT_RULE). Founder-pending [FOUNDER DECISION: adopt, revise or drop, P1658]. GLOBAL_RULES,
  * ONE_SALE_LOOP_PLAIN and PRICE_GAP_QUESTION are still P1536's copy, unchanged.
  *
  * Titles repeat CANVAS_BOXES (src/lib/canvas-boxes.ts) because edge code cannot import src/; a test pins the equality
@@ -66,62 +67,94 @@ export const GLOBAL_RULES: readonly GlobalRule[] = [
   { name: 'One sale loop', text: `Every customer-facing box is about this canvas's segment (or its roles). The three founder-fit boxes may hold business-wide points.`, plain: `${ONE_SALE_LOOP_PLAIN} The three founder-fit boxes (Guiding values, My current biggest challenge, Hypotheses I've falsified) may hold points about my whole business.` },
 ];
 
+/**
+ * P1658 revision 2: the boxes that open with a ranked lead point, in canvas order. The lead is the box's first point and counts toward
+ * MAX_POINTS_PER_BOX; LEAD_POINT_RULE says when one may be written.
+ */
+export const RANKED_BOXES = ['canvas:segments', 'canvas:problem', 'canvas:revenue', 'canvas:metrics', 'canvas:good-at'] as const;
+
+/**
+ * P1658 revision 2: when a ranked box may open with a lead point. The chosen X, the other option Y and the ranking all trace to the owner's
+ * words; "best" or "biggest" only when the owner ranked, "first" or "chosen" when they chose without ranking; no invented Y, and no lead
+ * when nothing grounds one (round 1 review: an invented "costliest"). `plain` is the owner's wording, for the Copy prompt.
+ */
+export const LEAD_POINT_RULE: GlobalRule = {
+  name: 'Lead point',
+  text: `Lead point: a box whose shape has "Lead:" (Customer Segments, Problem, Offers & Pricing, My next milestone, My current biggest challenge) opens with one point naming the owner's choice and the option it beats, both from the owner's words; an option the owner dropped or turned down counts. Write "best" or "biggest" only if the owner ranked them, else "first" or "chosen". Order of mention, effort or pursuit is no ranking. No other option in the owner's words, no lead.`,
+  plain: `A "Lead:" point names my choice and the option it beats (or dropped), from my words: "best" or "biggest" only if I ranked them, else "first" or "chosen"; order or effort is no ranking. No other option, no lead.`,
+};
+
+/**
+ * P1658 revision 2: no point says "I", "we", "my" or "our"; the subject is "the business", never its name (canvas-names.ts drops a point
+ * carrying a capitalised two-word name learned from an uploaded file). "does not", never "will not" ("will" is an UNSURE word in
+ * canvas-support.ts); "ahead of" where the owner's words carry no negation (negation parity). `plain` is the Copy prompt's one line.
+ */
+export const THIRD_PERSON_RULE: GlobalRule = {
+  name: 'Third person',
+  text: `Every point is third person: never "I", "we", "my" or "our". Its subject is "the business", never the business's or the owner's name. A stance stays a stance ("The business does not sell hand-run sessions"). Write "does not", never "will not". Write "ahead of <Y>" instead of ", not <Y>" unless the owner's words say not.`,
+  plain: `Rules say "I" and "you"; points never do. A point says "the business", never its name.`,
+};
+
 export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   {
     tag: 'canvas:segments', title: 'Customer Segments',
-    type: 'Claim about who the customer is', voice: 'third-person claim; no "I"',
-    definition: `The specific people who have the problem and pay (or will), what they do today and what makes it urgent now. Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:". Each point needs a role or title, plus at least two of: industry, company size, demographics, psychographics. "Not" names a lookalike the owner's words show is not the customer; a group you dropped goes under Hypotheses I've falsified.`,
-    shape: `"<role + qualifier> who <do X today> <when trigger> are the customers[, not <group the owner named>]." A role point drops "are the customers".`,
-    good: `"Owners of 1-3 independent cafés who do their own books after closing are the customers, not café chains with an in-house accountant."`,
-    not: `"Owners of independent cafés." (a description nobody can disagree with) / "I sell to small businesses"`,
-    gap: `Who exactly is the customer, what do they do about the problem today, and who looks like one but is not?`,
+    type: 'Claim about who the customer is, and who comes first', voice: 'third person',
+    definition: `The specific people who have the problem and pay (or will). Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:". Each point needs a role or title, plus at least two of: industry, company size, demographics, psychographics. "Not" names a lookalike the owner's words show is not the customer.`,
+    shape: `Lead: "The first customers are <X>, ahead of <Y>." Others: "<role + qualifier> who <do X today> <when trigger> are the customers[, not <lookalike>]."`,
+    good: `"The first customers are owners of 1-3 independent cafés who do their own books after closing, ahead of bakery owners." / "Owners of 1-3 independent cafés who file their own tax returns are the customers, not café chains with an in-house accountant."`,
+    not: `"Owners of independent cafés." (a description nobody can disagree with) / "The best customers are cafés, ahead of bakeries." (the owner never ranked them) / "I sell to small businesses"`,
+    gap: `Which customer is best to start with, and which comes after?`,
+    empty: `Who exactly is the customer, and which kind is best to start with, ahead of which other?`,
   },
   {
     tag: 'canvas:problem', title: 'Problem',
-    type: `Claim about the customer's problem`, voice: `third-person claim; no "I"`,
-    definition: `The problem this customer has, before they hear of you, said so a reader could call it the wrong problem: where they are and its cost (A), what they want (B), what stops them (obstacle). Rank it above another problem only if the owner did. Leave out why.`,
-    shape: `"For <customer> the problem is <A + cost>[, not <other problem the owner named>]; they want <B>, but <obstacle>." The obstacle is a barrier, not a missing product.`,
-    good: `"For café owners the problem is sorting a quarter of receipts in the week before the deadline, not the bookkeeping itself; they want their books closed without losing evenings, but receipts pile up during 14-hour shifts."`,
-    not: `"Café owners spend time on bookkeeping." (true, and nobody can disagree) / "There is no simple bookkeeping app for cafés."`,
-    gap: `Which problem do your customers have today, what do they want instead, and what stops them?`,
+    type: `Claim about the customer's problem, and which matters most`, voice: `third person`,
+    definition: `The problem this customer has, before they hear of you: where they are and its cost (A), what they want (B), what stops them (obstacle). Leave out why.`,
+    shape: `Lead: "The biggest problem for <customer> is <A>, ahead of <other problem>." Others: "For <customer> the problem is <A + cost>[, not <other problem the owner named>]; they want <B>, but <obstacle>." The obstacle is a barrier, not a missing product.`,
+    good: `"The biggest problem for café owners is the receipt pile-up in the week before the tax deadline, ahead of chasing late invoices." / "For café owners the problem is sorting a quarter of receipts in the week before the deadline, not the bookkeeping itself; they want their books closed without losing evenings, but receipts pile up during 14-hour shifts."`,
+    not: `"Café owners spend time on bookkeeping." (true, and nobody can disagree) / "The biggest problem for café owners is receipts, ahead of invoices." (the owner never ranked them) / "There is no simple bookkeeping app for cafés."`,
+    gap: `Which problem matters most to your customers, and which comes after it?`,
+    empty: `Which problem do your customers have today, which matters most to them, and what stops them?`,
   },
   {
     tag: 'canvas:solution', title: 'Solution',
-    type: 'Stance on what you do', voice: 'first-person stance ("I do", "I will not", "I require"), with status',
-    definition: `What you do or hand over, as a rule a reader could hold you to. Leave out why it works.`,
-    shape: `"I <do X>[, not <Y the owner named>]." Status: planned / piloted / live.`,
-    good: `"I log every receipt the night an owner photographs it into our chat thread, not at month end; live for 6 cafés."`,
-    not: `"I log receipts the same night, which removes the deadline pile-up so owners close their books on time." (the reason is inside the point) / "Seamless AI-powered bookkeeping."`,
+    type: 'Stance on what the business does', voice: 'third person, with status',
+    definition: `What you do or hand over, as a rule a reader could hold you to. Leave out why.`,
+    shape: `"The business <does X>[, not <Y the owner ruled out>]." or "The business does not <Y>." Status: planned / piloted / live.`,
+    good: `"The business logs every receipt the night an owner photographs it into a chat thread, not at month end; live for 6 cafés."`,
+    not: `"The business logs receipts the same night, which removes the deadline pile-up so owners close their books on time." (the reason is inside the point) / "I log receipts nightly." (first person) / "Seamless AI-powered bookkeeping."`,
     // The gap asks for the part a stance point most often lacks (what exactly, and its status); the empty-box question is the one the code had before.
     gap: `What exactly do you do or hand over, and is it planned, piloted or live?`,
     empty: `What do you do about it?`,
   },
   {
     tag: 'canvas:channels', title: 'Go-to-market strategy',
-    type: 'Stance on how you reach them', voice: 'first-person stance ("I do", "I will not")',
-    definition: `Where this segment can be reached, your first action there, and which paths brought customers vs. which are plans. Leave out why. Public platform names allowed.`,
-    shape: `"I <first action> in <place>[, not <path the owner named>]; <result so far, or 'not tried yet'>."`,
-    good: `"I answer tax questions weekly in two café-owner Facebook groups, not through paid ads; 4 of my 6 clients came via an espresso-machine technician who refers me."`,
-    not: `"Social media and word of mouth." / "I post in café-owner groups because owners trust peers more than ads." (the reason is inside the point)`,
+    type: 'Stance on how the business reaches them', voice: 'third person',
+    definition: `Where this segment can be reached and your first action there. Leave out why. Public platform names allowed.`,
+    shape: `"The business <first action> in <place>[, not <path the owner ruled out>]; <result so far, or 'not tried yet'>."`,
+    good: `"The business answers tax questions weekly in two café-owner Facebook groups, not through paid ads; 4 of its 6 clients came via an espresso-machine technician who refers it."`,
+    not: `"Social media and word of mouth." / "We post in café-owner groups because owners trust peers more than ads." (first person, with the reason inside)`,
     gap: `How did your last customer find you, and where do the next ones gather?`,
   },
   {
     tag: 'canvas:revenue', title: 'Offers & Pricing',
-    type: 'Claim about the terms', voice: 'third-person terms; no "I"',
+    type: 'Claim about the terms, and which offer comes first', voice: 'third person',
     definition: `What the customer buys, for how much, per what unit, how often, and its state (considering / quoted / paid by N).`,
-    shape: `"<offer>: <price + currency> per <unit> <cadence>; <state>."`,
-    good: `"Monthly books and tax filing: 2,500 baht per shop per month; 6 shops pay it today."`,
+    shape: `Lead: "The offer to sell first is <offer>, ahead of <other offer>; <price + currency> per <unit> <cadence>; <state>." Others: "<offer>: <price + currency> per <unit> <cadence>; <state>."`,
+    good: `"The offer to sell first is monthly books and tax filing, ahead of payroll; 2,500 baht per shop per month; 6 shops pay it today."`,
     not: `"Affordable packages." / "I charge 2,500 baht a month because cafés cannot afford an accountant." (first person, with the reason inside)`,
-    gap: `What exactly does a customer buy, for how much, and has anyone paid it yet?`,
+    gap: `Which offer do you sell first, ahead of which other, and has anyone paid for it yet?`,
+    empty: `What does a customer buy, for how much, and which offer do you sell first?`,
   },
   {
     tag: 'canvas:metrics', title: 'My next milestone',
-    type: 'Target', voice: 'third person, marked as a target; no "I"',
-    definition: `The next result customers produce (pay, renew, refer), with a number and a date. What you will change if you miss it, only if stated.`,
-    shape: `"<number> <customers> <action> by <date> (target)[; if missed, <change>]."`,
-    good: `"10 cafés pay monthly by 31 March 2027 (target)."`,
+    type: 'Target, and what comes first', voice: 'third person',
+    definition: `The next result customers produce (pay, renew, refer). "If missed" only when stated.`,
+    shape: `Lead: "The next milestone is <target>, ahead of <later goal>." Others: "<target>[; if missed, <change>]." Target: <number> <customers> <action> by <date> (target).`,
+    good: `"The next milestone is 10 cafés paying monthly by 31 March 2027 (target), ahead of opening a second city."`,
     not: `"I aim for 10 cafés paying monthly by 31 March 2027." (about the owner's aim, which nobody can dispute) / "Launch the new website and grow."`,
-    gap: `What number, by what date, would show this is working?`,
+    gap: `Which result comes next, by what date, and which goal comes after it?`,
+    empty: `What number, by what date, would show this is working, and what comes after it?`,
   },
   {
     tag: 'canvas:love', title: 'Guiding values',
@@ -134,20 +167,22 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   },
   {
     tag: 'canvas:good-at', title: 'My current biggest challenge',
-    type: `Owner's constraint`, voice: 'first person',
-    definition: `The obstacle you see as most likely to stop this working now: where you are (A, with a number if you have one), where you want to be (B), and what is in the way. Causes the material does not state are written as "I think".`,
-    shape: `"I'm at <A>, I want <B>, and the obstacle is <barrier>."`,
-    good: `"I'm at 3 replies from my last 20 messages to café owners, I want 10 first calls this month, and I think strangers writing about money look like scams to them."`,
-    not: `"Finding time." / a copy of the customer's Problem`,
-    gap: `Where are you now, where do you want to be, and what is in the way?`,
+    // "probably" is the third-person guess marker: an UNSURE word (canvas-support.ts), so a weakly matched point carrying it is never added as a best guess, as "I think" was not.
+    type: `The business's constraint, and which is biggest`, voice: 'third person',
+    definition: `The obstacle most likely to stop this working now: where you are (A, with a number if you have one), where you want to be (B). A cause the material does not state gets "probably".`,
+    shape: `Lead: "The biggest challenge is <X>, ahead of <Y>." Others: "The business is at <A> and wants <B>; the obstacle is <barrier>."`,
+    good: `"The biggest challenge is getting first calls with café owners, ahead of setting a price." / "The business is at 3 replies from its last 20 messages to café owners and wants 10 first calls this month; the obstacle is probably that strangers writing about money look like scams to them."`,
+    not: `"Finding time." / "I think strangers see a scam." (first person; write "probably") / a copy of the customer's Problem`,
+    gap: `Which of these challenges is biggest now, and which comes after it?`,
+    empty: `Where are you now, where do you want to be, and which obstacle is biggest?`,
   },
   {
     tag: 'canvas:world-needs', title: `Hypotheses I've falsified`,
-    type: 'Evidence', voice: 'first person, past',
-    definition: `A whole direction you dropped (a customer group, an offer, a way of selling): what you expected, how you tested it, what happened, and what you changed (if you have). One wrong detail is a "not" point in its own box instead; a dropped price form stays here.`,
-    shape: `"I expected <X>; I <test + sample>; <result>; so I <change>."`,
-    good: `"I expected café owners to run a bookkeeping app themselves; 0 of 8 trial cafés still used it after a month, so I now do their books for them."`,
-    not: `"I learned customers value relationships." / "I expected café chains to buy; none did." (a lookalike group: a "not" point in Customer Segments)`,
+    type: 'Evidence', voice: 'third person, past',
+    definition: `A whole direction you dropped (a customer group, an offer, a way of selling). One wrong detail is a "not" point in its own box; a dropped price form stays here.`,
+    shape: `"The business expected <X>; <test + sample>; <result>; so it <change>."`,
+    good: `"The business expected café owners to run a bookkeeping app themselves; 0 of 8 trial cafés still used it after a month, so it now does their books for them."`,
+    not: `"The business learned customers value relationships." / "The business expected café chains to buy; none did." (a lookalike group: a "not" point in Customer Segments)`,
     gap: `Which direction (a customer group, an offer, a way of selling) did you drop, and what showed you it was wrong?`,
   },
 ];
