@@ -127,7 +127,8 @@ classify "$SAFE_LIST"
 # Each one escapes every behaviour control above, or did before them (Codex and Opus reviews).
 for e in 'http://localhost:[0-9][0-9]*' 'http://localhost:????' 'http://localhost:58??/**' 'http://localhost:*' \
          'http://localhost:*/**' 'http://localhost:[0-9]*' 'http://*:*' 'http://localhost*' \
-         'http://localhost:6200@0x7f000002/**' 'http*://localhost:6200' 'localhost:6200'; do
+         'http://localhost:6200@0x7f000002/**' 'http*://localhost:6200' 'localhost:6200' \
+         'http://[a-z]vil.test/**' 'javascript://localhost/**' 'data://localhost/**'; do
   classify "$SAFE_LIST,$e"
   { [ "$RC" -eq 1 ] && [[ "$OUT" == "auth-config: warn: UNSAFE: 1 of 6 entries let the host vary: $e "* ]]; } && ok "refuses $e" || bad "$e (rc=$RC out=$OUT)"
 done

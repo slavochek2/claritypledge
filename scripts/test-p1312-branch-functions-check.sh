@@ -583,6 +583,20 @@ echo 'drift' >> "$SB/stack/volumes/functions/_shared/x.ts"
 run_check; check "the server's _shared drifted, nothing changed here" 1 "$CRC"
 no_tokens "  no redirect token anywhere in the output"
 has "  the named deploy is the first plain name" "$W/cout" "^  scripts/selfhosted/deploy-functions.sh fn-a$"
+echo "10k. a name that starts with - or holds a dot is not plain either (P1705, Opus 6)"
+for odd in -h a.b; do
+  mk_world "s10k$odd"
+  run_deploy; branch feature/dash
+  commit_on feature/dash "supabase/functions/$odd/index.ts" 'odd' "odd name"
+  run_check; unk "a changed function named $odd"
+  hasnt "  prints no deploy command" "$W/cout" "^  scripts/selfhosted/deploy-functions.sh"
+done
+echo "10l. deno.json alone changed is still a plain top, not an odd name"
+mk_world s10l
+run_deploy; branch feature/denojson
+commit_on feature/denojson supabase/functions/deno.json '{"imports":{}}' "deno.json"
+run_check; check "a deno.json change is not refused as odd" 1 "$CRC"
+hasnt "  not reported as an odd name" "$W/cout" "not a plain name"
 
 # ---------------------------------------------------------------- 9 playwright
 echo "9. the hooks under a real Playwright run (empty spec, stub check script, no TEST)"

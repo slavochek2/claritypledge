@@ -96,7 +96,8 @@ classify() {
     scheme="${e%%://*}"; rest="${e#*://}"
     if [ "$rest" = "$e" ]; then bad="$bad $(shown "$e")"; k=$((k + 1)); continue; fi
     auth="${rest%%/*}"
-    case "$scheme" in ""|*[!a-z]*) bad="$bad $(shown "$e")"; k=$((k + 1)); continue ;; esac
+    # A script or data scheme has no host to fix, so it is refused whatever follows (Opus 6).
+    case "$scheme" in ""|*[!a-z]*|javascript|data|vbscript|file) bad="$bad $(shown "$e")"; k=$((k + 1)); continue ;; esac
     case "$auth" in ""|*[][*?{}@\\]*) bad="$bad $(shown "$e")"; k=$((k + 1)); continue ;; esac
     case "$e" in *" "*) bad="$bad $(shown "$e")"; k=$((k + 1)) ;; esac
   done
