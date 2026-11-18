@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 352
 severity: medium
@@ -10,8 +10,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [vitest, pre-commit, flaky, tooling]
 disclosure: public
-delivery_stage: create-bug
 pipeline_ran: [create-bug, fix]
+completed_at: 2026-11-18
 ---
 
 # P1710: Full-suite pre-commit run fails on a console-log teardown error with every test passing
