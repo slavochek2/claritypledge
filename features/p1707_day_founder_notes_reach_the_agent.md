@@ -1,5 +1,5 @@
 ---
-status: week
+status: qa
 type: bug
 rank: 349
 severity: high
@@ -11,7 +11,7 @@ exec_effort: high
 tags: [day, kanban, founder-input, insights]
 disclosure: public
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran: [create-bug, fix]
 ---
 
 # P1707: Day page notes are dropped without a sign, and insight cards ask the founder a technical question
@@ -86,14 +86,14 @@ Rejected-alternatives check: `docs/decisions.md` 2026-11-13 (P1673) rejected "Se
 
 ## Acceptance Criteria
 
-- [ ] A note typed on a weekly insight card appears in the next Start fixing prompt, with the card's analytics text inside the «» data fence.
-- [ ] Insight cards no longer show "Real problem" / "Not a problem". They show an actionable choice that sends the card to the agent, and a defer choice.
-- [ ] The Start fixing count includes insight notes, and the `sent` record's `items` hold them.
-- [ ] A note typed on a run where Start fixing was never pressed is offered in the next run's send. Shown with a known run fixture: the 2026-11-03 shape (notes, no `sent` record).
-- [ ] A note replaced by a later choice on the same card is not carried forward (the 2026-10-12 shape).
-- [ ] A delivered note with no later `evaluated` record for its fingerprint is raised on the next run as a finding naming the card and date.
-- [ ] Regression tests cover all of the above, including a must-allow case: an ordinary card's note sends exactly as before.
-- [ ] No console errors on the Day page during these flows.
+- [x] A note typed on a weekly insight card appears in the next Start fixing prompt, with the card's analytics text inside the «» data fence. — test "the prompt carries the note and the card, every analytics string inside the «» fence" (day-p1707-notes; fails with the fence removed)
+- [x] Insight cards no longer show "Real problem" / "Not a problem". They show an actionable choice that sends the card to the agent, and a defer choice. — p1673-insight-card + e2e day-analytics; seen on real data 2026-11-18
+- [x] The Start fixing count includes insight notes, and the `sent` record's `items` hold them. — route test AC1+AC3 (count +1, sent items hold option:<fp>:own:<text>)
+- [x] A note typed on a run where Start fixing was never pressed is offered in the next run's send. Shown with a known run fixture: the 2026-11-03 shape (notes, no `sent` record). — "a note on an earlier run that was never sent is carried…" + route test AC4; real data carries the 2026-11-03 note
+- [x] A note replaced by a later choice on the same card is not carried forward (the 2026-10-12 shape). — "the 2026-10-12 shape…" (day-p1707-notes)
+- [x] A delivered note with no later `evaluated` record for its fingerprint is raised on the next run as a finding naming the card and date. — day-p1707-unanswered (finding names card and date; fixed 2026-11-04 cutoff)
+- [x] Regression tests cover all of the above, including a must-allow case: an ordinary card's note sends exactly as before. — 106/106 Day tests incl. must-allow "an ordinary card's note sends exactly as before"
+- [x] No console errors on the Day page during these flows. — chrome-devtools console on real-data copy, 1280 and 320: no errors or warnings
 
 ## Known Limitations
 
