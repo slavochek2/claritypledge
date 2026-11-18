@@ -6,6 +6,8 @@
  *
  * Usage:   EVAL_GEMINI_KEY=... npx tsx scripts/p1658-rules-ab-eval.ts --material a.md[,b.md] --arm old|new|rev2 --shared DIR --out DIR [--repeat 2] [--name LABEL]
  *          npx tsx scripts/p1658-rules-ab-eval.ts --compare LABEL_A,LABEL_B --packs a,b --out DIR   (no model call: reads the .jsonl files, writes summary-<LABEL_B>.md)
+ *          npx tsx scripts/p1658-rules-ab-eval.ts --self-test   (the counters' own positive and negative controls; exit 1 on any failure)
+ *   Labels and pack ids are lower-case letters, digits and dashes, and every file they name must resolve inside --out (refused, exit 2).
  *   --material  comma-separated files; the pack id is the file basename without .md.
  *   --arm       label only (old|new|rev2); the rules come from --shared.
  *   --name      the output label (default: the arm), so a rerun of an arm never overwrites an earlier run's files.
@@ -18,8 +20,9 @@
  * Dropped points (P1658 revision 2): the engine reports only a count, so the model call is wrapped to keep the model's own actions, and each
  * new point the model wrote but the engine did not keep is named with the engine's reason. The reason comes from the engine itself: the one
  * action is parsed again alone (parseDraft, same material), and the counter it moves says why (support, names, scope); a point the alone-parse
- * keeps but the full run did not was shed for room or as a repeat. Within "support" the sub-reason is read in the engine's own order (quote,
- * number, two shared words / best guess, price terms) with the engine's own pure checks.
+ * keeps but the full run did not was shed for room or as a repeat (kept points are consumed as a multiset, see dropsOf). Within "support"
+ * the sub-reason is read in the engine's own order (quote, number, two shared words / best guess) with the engine's own pure checks; a
+ * revenue refusal past those is "unclassified (revenue)", because the unit/cadence check is not run here.
  * The key is read from EVAL_GEMINI_KEY and never printed. TEST only: refused when the environment names the prod project or the key is one a
  * prod env file holds (p1536-eval-guard.ts). The judge (canvas-eval-rules.ts) is loaded from --shared, so each arm is judged by its own rules.
  * The material is private: --out must resolve under a .private/ directory (refused, exit 2, otherwise). Also refused (exit 2): --arm not old|new|rev2,
@@ -57,10 +60,16 @@ export function preprocess(text: string): string {
 
 /** The five boxes that open with a lead point under revision 2. */
 export const RANKED = ['canvas:segments', 'canvas:problem', 'canvas:revenue', 'canvas:metrics', 'canvas:good-at'] as const;
-/** A lead point, as the spec counts it: the box's FIRST point holding one of these. */
-export const LEAD_RE = /\b(?:best|biggest|first|chosen|ahead of|before)\b|, not\b/i;
-/** "I", "we", "my", "our" left in a point's text ("I" only as a capital, so a stray "i" is not counted). Titles are never point text. */
-export const PRONOUN_RE = /\b(?:I|[Ww]e|[Mm]y|[Oo]ur)\b/g;
+/**
+ * A lead point, loosely (the spec's first lexical count, kept as a secondary row): the box's FIRST point holding a choice word or an
+ * alternative marker. "before" is not one (the fix round: "…understood before acting" is no lead).
+ */
+export const LEAD_RE = /\b(?:best|biggest|first|chosen|ahead of)\b|, not\b/i;
+/** A choice word and an alternative marker: a STRICT lead holds both, in the same point. This is the headline count. */
+export const CHOICE_RE = /\b(?:best|biggest|first|chosen|next)\b/i;
+export const ALTERNATIVE_RE = /\bahead of\b|, not\b|\binstead of\b|\brather than\b/i;
+/** First-person words left in a point's text ("I" and "US" only as written, so a stray "i" or the country is not counted). Titles are never point text. */
+export const PRONOUN_RE = /\b(?:I|[Ww]e|[Mm]y|[Oo]urs?|[Uu]s|[Mm]e|[Mm]ine)\b/g;
 /** A reason inside the point (the summary.md check a). */
 export const REASON_RE = / because |, which | so they | so that /i;
 
@@ -69,16 +78,40 @@ export function leadOf(points: ReadonlyArray<{ box: string; text: string }>, box
   return first && LEAD_RE.test(first.text) ? first.text : null;
 }
 export const pronounsIn = (text: string): string[] => text.match(PRONOUN_RE) ?? [];
-/**
- * A stricter reading of a lead, reported beside the spec's count: the first point names a choice (best, biggest, first, chosen, next) AND
- * an alternative (ahead of, before, ", not", instead of, rather than). "are the first users" or "before acting" alone pass LEAD_RE but name no alternative.
- */
-export const STRICT_LEAD_RE = /\b(?:best|biggest|first|chosen|next)\b[^]*(?:\bahead of\b|\bbefore\b|, not\b|\binstead of\b|\brather than\b)/i;
+export const isStrictLead = (text: string): boolean => CHOICE_RE.test(text) && ALTERNATIVE_RE.test(text);
 export function strictLeadOf(points: ReadonlyArray<{ box: string; text: string }>, box: string): boolean {
   const first = points.find((p) => p.box === box);
-  return !!first && STRICT_LEAD_RE.test(first.text);
+  return !!first && isStrictLead(first.text);
 }
 const titleOf = (tag: string) => CANVAS_BOXES.find((b) => b.tag === tag)?.title ?? tag;
+
+/** A label or pack id names a file in --out: lower-case letters, digits and dashes only, and the file must resolve inside --out. Throws otherwise. */
+export function fileInside(outDir: string, id: string, file: string): string {
+  if (!/^[a-z0-9-]+$/.test(id)) throw new Error(`not a safe label or pack id: ${JSON.stringify(id)}`);
+  const root = resolve(outDir);
+  const path = resolve(join(root, file));
+  if (!path.startsWith(`${root}/`)) throw new Error(`resolves outside --out: ${JSON.stringify(file)}`);
+  return path;
+}
+
+/** The counters' own controls, run by --self-test: each must hold or the script exits non-zero. */
+export function selfTest(): string[] {
+  const fails: string[] = [];
+  const check = (ok: boolean, what: string) => { if (!ok) fails.push(what); };
+  for (const t of ['The first customers are owners of 1-3 independent cafés, ahead of bakery owners.', 'The offer to sell first is monthly books, not payroll; 2,500 baht per shop per month; paid by 6.', 'The biggest challenge is first calls, rather than pricing.']) check(isStrictLead(t), `strict lead missed: ${t}`);
+  // negative controls: a choice word with no alternative ("before" is none), an alternative with no choice word
+  for (const t of ['The business sends its first invoice before the deadline.', 'Owners of 1-3 independent cafés who do their own books after closing are the customers, not café chains with an in-house accountant.', 'The first users are people who own what they sell.']) check(!isStrictLead(t), `strict lead wrongly found: ${t}`);
+  check(!LEAD_RE.test('they want to know they understood before acting'), 'loose count still takes "before"');
+  check(pronounsIn('so I now do their books; the clients refer us to me; ours and mine').length === 5, 'pronoun regex missed I/us/me/ours/mine');
+  check(pronounsIn('4 of its 6 clients came via a technician who refers it; sold in the US; the business').length === 0, 'pronoun regex matched a clean point');
+  for (const bad of ['../x', 'a/b', 'A', '']) {
+    let threw = false;
+    try { fileInside('/tmp/out/.private', bad, `summary-${bad}.md`); } catch { threw = true; }
+    check(threw, `unsafe label accepted: ${JSON.stringify(bad)}`);
+  }
+  check(fileInside('/tmp/out/.private', 'rev2b', 'summary-rev2b.md') === '/tmp/out/.private/summary-rev2b.md', 'a safe label was refused');
+  return fails;
+}
 
 // ── Model capture and drop reasons ──────────────────────────────────────────
 
@@ -92,11 +125,13 @@ function answerJson(response: unknown): Record<string, unknown> | null {
 type Mods = Record<string, Record<string, (...a: never[]) => unknown>>;
 
 /**
- * Why the engine did not keep one model point: the action is parsed again ALONE through the engine's parseDraft (same material, no
- * current points, all nine boxes in scope) and the counter that moves names the class; the sub-reason of a support refusal is read with
- * the engine's own pure checks, in the order vetEvidence applies them.
+ * What the engine does with one model point ALONE: the action is parsed again through the engine's parseDraft (same material, no current
+ * points, all nine boxes in scope). Kept: the box and normalized statement it is written as (the caller consumes it from the full run's
+ * kept points). Refused: the counter that moved names the class; a support refusal's sub-reason is read with the engine's own pure checks,
+ * in the order vetEvidence applies them. A revenue refusal that passes those three is "unclassified (revenue)": the unit/cadence check
+ * (canvas-price.ts) is not run here, so no price diagnosis is claimed.
  */
-function dropReason(m: Mods, material: unknown, tags: string[], a: Record<string, unknown>, keptTexts: Set<string>): string | null {
+function aloneVerdict(m: Mods, material: unknown, tags: string[], a: Record<string, unknown>): { kept: string } | { reason: string } {
   const norm = m.source!.normalizeForQuote as (s: string) => string;
   const response = { candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ scope: tags, actions: [a] }) }] } }] };
   const pc = {
@@ -104,26 +139,50 @@ function dropReason(m: Mods, material: unknown, tags: string[], a: Record<string
     rebuild: [], currentFocus: null, acceptFocus: true, knownGroups: [], listOffers: true, offersOnEmptyScope: false, sections: null, allowChoice: false,
   };
   const out = (m.parse!.parseDraft as (r: unknown, p: unknown) => Record<string, unknown>)(response, pc);
-  if (!out.ok) return `unparsable alone (${String(out.code)})`;
-  const acts = (out.actions as Array<{ action: string; statement?: string }>).filter((x) => x.action === 'new');
-  if (acts.length) {
-    const s = acts[0]!.statement ?? '';
-    if (keptTexts.has(norm(s))) return null; // kept (perhaps with price terms taken out)
-    return 'kept alone, shed in the full run (more than 3 points in the box, or a repeat)';
-  }
-  if (Number(out.droppedNames) > 0) return 'names filter (canvas-names.ts)';
-  if (Number(out.droppedScope) > 0) return 'scope';
+  if (!out.ok) return { reason: `unparsable alone (${String(out.code)})` };
+  const acts = (out.actions as Array<{ action: string; box?: string; statement?: string }>).filter((x) => x.action === 'new');
+  if (acts.length) return { kept: `${acts[0]!.box}|${norm(acts[0]!.statement ?? '')}` }; // perhaps with price terms taken out
+  if (Number(out.droppedNames) > 0) return { reason: 'names filter (canvas-names.ts)' };
+  if (Number(out.droppedScope) > 0) return { reason: 'scope' };
   if (Number(out.droppedUnverified) > 0) {
     const haystack = (m.source!.ownerHaystack as (x: unknown) => string)(material);
     const statement = String(a.statement ?? '');
-    if (!(m.source!.quoteIsOwnerSourced as (q: unknown, h: string) => boolean)(a.quote, haystack)) return 'support: quote is not verbatim owner words';
+    if (!(m.source!.quoteIsOwnerSourced as (q: unknown, h: string) => boolean)(a.quote, haystack)) return { reason: 'support: quote is not verbatim owner words' };
     const nums = (m.support!.numbersIn as (t: string) => Set<string>)(haystack);
-    if (!(m.support!.numbersSupported as (t: string[], p: Set<string>) => boolean)([statement], nums)) return 'support: a number not in the material';
-    if (!(m.support!.sharesWords as (s: string, q: string) => boolean)(statement, String(a.quote))) return 'support: shares fewer than 2 words with its quote, and is no showable best guess';
-    if (a.box === 'canvas:revenue') return 'price terms (canvas-price.ts): nothing certain left of the price';
-    return 'support (unclassified)';
+    if (!(m.support!.numbersSupported as (t: string[], p: Set<string>) => boolean)([statement], nums)) return { reason: 'support: a number not in the material' };
+    if (!(m.support!.sharesWords as (s: string, q: string) => boolean)(statement, String(a.quote))) return { reason: 'support: shares fewer than 2 words with its quote, and is no showable best guess' };
+    return { reason: a.box === 'canvas:revenue' ? 'unclassified (revenue)' : 'support (unclassified)' };
   }
-  return 'not written (unclassified)';
+  return { reason: 'not written (unclassified)' };
+}
+
+/**
+ * Every model point the full run did not keep, with why. The kept points are a MULTISET keyed by box + normalized text, and each kept
+ * occurrence is consumed once, so two identical model points with one kept leave one drop. Both "new" and "reword" count on both sides
+ * (the kept set is built from the run's new and reword actions). These runs are first drafts with no current points, so a model "reword"
+ * has nothing to reword and the engine never writes it: it is named as such without the alone-parse.
+ */
+function dropsOf(m: Mods, material: unknown, tags: string[], raw: Array<Record<string, unknown>>, kept: ReadonlyArray<{ box: string; text: string }>): Drop[] {
+  const norm = m.source!.normalizeForQuote as (s: string) => string;
+  const left = new Map<string, number>();
+  for (const p of kept) { const k = `${p.box}|${norm(p.text)}`; left.set(k, (left.get(k) ?? 0) + 1); }
+  const drops: Drop[] = [];
+  const named = (a: Record<string, unknown>, reason: string) => drops.push({ box: String(a.box), text: String(a.statement), reason });
+  const aloneKept: Array<{ a: Record<string, unknown>; key: string }> = [];
+  for (const a of raw) {
+    if (a.action === 'reword') { named(a, 'reword with no current point (first draft): never written'); continue; }
+    if (!material) { named(a, 'no material captured'); continue; }
+    const v = aloneVerdict(m, material, tags, a);
+    if ('reason' in v) named(a, v.reason);
+    else aloneKept.push({ a, key: v.kept });
+  }
+  // consume kept occurrences only after every refusal is known, so a refused point never takes a kept slot
+  for (const { a, key } of aloneKept) {
+    const n = left.get(key) ?? 0;
+    if (n > 0) left.set(key, n - 1);
+    else named(a, 'kept alone, shed in the full run (more than 3 points in the box, or a repeat)');
+  }
+  return drops;
 }
 
 function prodEnvValues(): string[] | null {
@@ -167,27 +226,30 @@ function render(pack: string, arm: string, rows: RunRow[]): string {
 // ── --compare: the side-by-side counts of two labels ────────────────────────
 
 function compare(outDir: string, labels: [string, string], packs: string[]): string {
-  const rowsOf = (p: string, l: string): RunRow[] => readFileSync(join(outDir, `${p}-${l}.jsonl`), 'utf8').split('\n').filter((x) => x.trim()).map((x) => JSON.parse(x) as RunRow);
+  const rowsOf = (p: string, l: string): RunRow[] => readFileSync(fileInside(outDir, p, `${p}-${l}.jsonl`), 'utf8').split('\n').filter((x) => x.trim()).map((x) => JSON.parse(x) as RunRow);
   const [A, B] = labels;
+  const data: Record<string, Record<string, RunRow[]>> = Object.fromEntries(packs.map((p) => [p, { [A]: rowsOf(p, A), [B]: rowsOf(p, B) }]));
+  const runsLine = labels.map((l) => `${l}: ${packs.map((p) => `${data[p]![l]!.length} in ${p}`).join(', ')}`).join('; ');
   const o: string[] = [`# P1658 ${A} vs ${B}: counts from the .jsonl files`, '',
-    `Computed by \`scripts/p1658-rules-ab-eval.ts --compare ${A},${B}\` from \`<pack>-${A}.jsonl\` and \`<pack>-${B}.jsonl\`, each side run ${'twice'} per pack. No model judge.`, '',
-    `- Lead point: the FIRST point of a ranked box (${RANKED.map(titleOf).join(', ')}) holding best, biggest, first, chosen, ahead of, before, or ", not" (the spec's count). "(loose)" marks one that passes the spec's count but not the strict one: a choice word (best, biggest, first, chosen, next) AND an alternative (ahead of, before, ", not", instead of, rather than).`,
-    '- Pronouns: "I" (capital), "we", "my", "our" as whole words in point text; box titles are never counted.',
+    `Computed by \`scripts/p1658-rules-ab-eval.ts --compare ${A},${B}\` from \`<pack>-${A}.jsonl\` and \`<pack>-${B}.jsonl\`. Runs per side: ${runsLine}. No model judge.`, '',
+    `- Lead point (headline, strict): the FIRST point of a ranked box (${RANKED.map(titleOf).join(', ')}) holding a choice word (best, biggest, first, chosen, next) AND an alternative (ahead of, ", not", instead of, rather than) in the same point. "(loose)" marks a first point that has only one of the two (the secondary, lexical count); "before" counts as neither.`,
+    '- Pronouns: "I", "we", "my", "our", "ours", "us", "me", "mine" as whole words in point text ("I" and "US" as written); box titles are never counted.',
     '- Reason in a point: " because ", ", which ", " so they ", " so that ".',
-    '- Dropped: the engine\'s count; every point the model wrote and the engine did not keep is named with the engine\'s reason (only for runs made by this script version; earlier files carry no model actions).', ''];
+    '- Dropped: the engine\'s count; every point the model wrote and the engine did not keep is named with the engine\'s reason (only for runs made by a script version that keeps the model actions; earlier files carry none).', ''];
   const totals: Record<string, { leads: number; strict: number; pron: number; reasons: number; kept: number; dropped: number; named: number; runs: number }> = {};
   for (const l of labels) totals[l] = { leads: 0, strict: 0, pron: 0, reasons: 0, kept: 0, dropped: 0, named: 0, runs: 0 };
   for (const p of packs) {
-    const R: Record<string, RunRow[]> = { [A]: rowsOf(p, A), [B]: rowsOf(p, B) };
+    const R = data[p]!;
     const cols = labels.flatMap((l) => R[l]!.map((r) => `${l} r${r.run}`));
     o.push(`## ${p}`, '', '### Lead points per ranked box (the lead text, or "-")', '', `| Box | ${cols.join(' | ')} |`, `|---|${cols.map(() => '---').join('|')}|`);
     for (const box of RANKED) {
       const cells = labels.flatMap((l) => R[l]!.map((r) => {
-        const t = leadOf(r.points, box);
-        if (t) totals[l]!.leads++;
+        const loose = leadOf(r.points, box);
+        if (loose) totals[l]!.leads++;
         const strict = strictLeadOf(r.points, box);
         if (strict) totals[l]!.strict++;
-        return t ? `${strict ? '' : '(loose) '}${t.replace(/\|/g, '/')}` : '-';
+        const text = strict ? r.points.find((x) => x.box === box)!.text : loose;
+        return text ? `${strict ? '' : '(loose) '}${text.replace(/\|/g, '/')}` : '-';
       }));
       o.push(`| ${titleOf(box)} | ${cells.join(' | ')} |`);
     }
@@ -196,7 +258,7 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
     const per = (f: (r: RunRow, l: string) => number) => labels.flatMap((l) => R[l]!.map((r) => String(f(r, l)))).join(' | ');
     o.push(`| **Total kept** | ${per((r, l) => { totals[l]!.kept += r.points.length; totals[l]!.runs++; return r.points.length; })} |`);
     o.push(`| **Dropped (engine count)** | ${per((r, l) => { totals[l]!.dropped += r.dropped ?? 0; return r.dropped ?? 0; })} |`);
-    o.push(`| **Pronouns I/we/my/our** | ${per((r, l) => { const n = r.points.reduce((s, x) => s + pronounsIn(x.text).length, 0); totals[l]!.pron += n; return n; })} |`);
+    o.push(`| **Pronouns (I, we, my, our, us, me...)** | ${per((r, l) => { const n = r.points.reduce((s, x) => s + pronounsIn(x.text).length, 0); totals[l]!.pron += n; return n; })} |`);
     o.push(`| **Reason inside a point** | ${per((r, l) => { const n = r.points.filter((x) => REASON_RE.test(` ${x.text} `)).length; totals[l]!.reasons += n; return n; })} |`);
     o.push('');
     for (const l of labels) {
@@ -212,14 +274,20 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
   }
   o.push('## All packs', '', `| | ${A} | ${B} |`, '|---|---|---|');
   const t = (k: keyof (typeof totals)[string]) => `${totals[A]![k]} | ${totals[B]![k]}`;
-  o.push(`| Runs | ${t('runs')} |`, `| Lead points, spec count (of ${RANKED.length} ranked boxes x runs) | ${t('leads')} |`,
-    `| Lead points, strict (a choice word AND an alternative) | ${t('strict')} |`, `| Pronouns I/we/my/our | ${t('pron')} |`,
+  o.push(`| Runs | ${t('runs')} |`, `| **Lead points (strict: a choice word AND an alternative; of ${RANKED.length} ranked boxes x runs)** | ${t('strict')} |`,
+    `| Lead points, loose (secondary lexical count) | ${t('leads')} |`, `| Pronouns (I, we, my, our, us, me...) | ${t('pron')} |`,
     `| Reasons inside points | ${t('reasons')} |`, `| Kept points | ${t('kept')} |`, `| Dropped (engine count) | ${t('dropped')} |`, `| Drops named with a reason | ${t('named')} |`, '');
   return o.join('\n');
 }
 
 async function main(): Promise<void> {
   const refuse = (msg: string): never => { console.error(`refused: ${msg}`); process.exit(2); };
+  if (process.argv.includes('--self-test')) {
+    const fails = selfTest();
+    for (const f of fails) console.error(`self-test FAIL: ${f}`);
+    console.log(fails.length ? `self-test: ${fails.length} failed` : 'self-test: all checks hold');
+    process.exit(fails.length ? 1 : 0);
+  }
   const argv = process.argv.slice(2);
   argv.forEach((a, i) => {
     if (a.startsWith('--') && (argv[i + 1] === undefined || argv[i + 1]!.startsWith('--'))) refuse(`flag ${a} needs a value`);
@@ -232,8 +300,14 @@ async function main(): Promise<void> {
     const labels = cmp.split(',');
     const packs = (arg('packs') ?? '').split(',').filter(Boolean);
     if (labels.length !== 2 || !packs.length) refuse('--compare needs two labels A,B and --packs');
-    writeFileSync(join(outDir, `summary-${labels[1]}.md`), compare(outDir, labels as [string, string], packs));
-    console.log(`wrote ${join(outDir, `summary-${labels[1]}.md`)}`);
+    let target = '';
+    try {
+      for (const l of labels) fileInside(outDir, l, `summary-${l}.md`);
+      for (const p of packs) fileInside(outDir, p, `${p}.jsonl`);
+      target = fileInside(outDir, labels[1]!, `summary-${labels[1]}.md`);
+    } catch (e) { refuse(`--compare/--packs: ${(e as Error).message}`); }
+    writeFileSync(target, compare(outDir, labels as [string, string], packs));
+    console.log(`wrote ${target}`);
     return;
   }
   const key = process.env.EVAL_GEMINI_KEY ?? '';
@@ -287,17 +361,12 @@ async function main(): Promise<void> {
       try { result = await executeRun(deps, { ownerId: 'eval-owner' }, run); } finally { console.log = origLog; }
       const done = calls.find((c) => c.name === '_canvas_draft_run_complete')?.args;
       const failed = calls.find((c) => c.name === '_canvas_draft_run_fail')?.args;
-      const actions = ((done?.p_actions ?? []) as Array<{ action: string; box?: string; statement?: string }>).filter((a) => a.action === 'new' && a.box && a.statement);
+      // kept points: the run's written new AND reword actions (a first draft writes no reword, so this equals "new" here; both sides alike)
+      const actions = ((done?.p_actions ?? []) as Array<{ action: string; box?: string; statement?: string }>).filter((a) => (a.action === 'new' || a.action === 'reword') && a.box && a.statement);
       const points = actions.map((a) => ({ box: a.box!, text: a.statement! }));
       const rawActs = ((answerJson(seen.response)?.actions ?? []) as Array<Record<string, unknown>>)
         .filter((a) => (a.action === 'new' || a.action === 'reword') && typeof a.box === 'string' && typeof a.statement === 'string');
-      const norm = source.normalizeForQuote as (s: string) => string;
-      const keptTexts = new Set(points.map((p) => norm(p.text)));
-      const drops: Drop[] = [];
-      for (const a of rawActs) {
-        const reason = seen.material ? dropReason(mods, seen.material, tags, { ...a, action: 'new' }, keptTexts) : 'no material captured';
-        if (reason) drops.push({ box: String(a.box), text: String(a.statement), reason });
-      }
+      const drops = dropsOf(mods, seen.material, tags, rawActs, points);
       const row: RunRow = {
         pack, arm, run: n, state: result.state, code: result.code,
         usd: ((done ?? failed)?.p_usd ?? (failed as { p_actual_usd?: number } | undefined)?.p_actual_usd ?? null) as number | null,
@@ -311,13 +380,13 @@ async function main(): Promise<void> {
       for (const p of points) perBox[p.box] = (perBox[p.box] ?? 0) + 1;
       const viol: Record<string, number> = {};
       for (const v of row.violations) viol[v.rule] = (viol[v.rule] ?? 0) + 1;
-      const leads = RANKED.filter((b) => leadOf(points, b)).length;
+      const leads = RANKED.filter((b) => strictLeadOf(points, b)).length;
       const pron = points.reduce((s, p) => s + pronounsIn(p.text).length, 0);
       summary[pack]!.push({ run: n, state: row.state, code: row.code, pointsPerBox: perBox, pointsKept: points.length, dropped: row.dropped, dropsNamed: drops.length, leads, pronouns: pron, violationsByRule: viol, usd: row.usd });
       console.error(`${pack}#${n} ${row.state}${row.code ? `:${row.code}` : ''} points=${points.length} raw=${rawActs.length} drops=${drops.length} leads=${leads} pron=${pron} viol=${row.violations.length} usd=${row.usd}`);
     }
-    writeFileSync(join(outDir, `${pack}-${name}.md`), render(pack, `${arm}, ${name}`, rows));
-    writeFileSync(join(outDir, `${pack}-${name}.jsonl`), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    writeFileSync(fileInside(outDir, pack, `${pack}-${name}.md`), render(pack, `${arm}, ${name}`, rows));
+    writeFileSync(fileInside(outDir, pack, `${pack}-${name}.jsonl`), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
   }
   console.log(JSON.stringify({ arm, name, shared, repeat, usdTotal: Number(total.toFixed(4)), packs: summary }, null, 1));
 }

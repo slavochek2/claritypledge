@@ -44,7 +44,7 @@ export const CANVAS_OWN_AI_PROMPT = [
   'Rules:',
   globalRulesText('owner'),
   '',
-  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in order; the lines under each say what belongs there; do not copy them.',
+  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." naming who it is for. If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in order; do not copy the lines under them.',
   `- Under each heading write up to ${MAX_POINTS_PER_BOX} points, each one short sentence of at most ${MAX_STATEMENT_CHARS} characters, in its heading's voice.`,
   `- ${THIRD_PERSON_RULE.plain}`,
   `- ${LEAD_POINT_RULE.plain}`,

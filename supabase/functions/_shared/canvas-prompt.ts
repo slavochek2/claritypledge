@@ -27,6 +27,8 @@ ${globalRulesText()}
 
 The boxes (use exactly these tags):
 ${boxGuideText()}
+
+For all boxes:
 ${LEAD_POINT_RULE.text}
 ${THIRD_PERSON_RULE.text}
 

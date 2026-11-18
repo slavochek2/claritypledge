@@ -14,7 +14,7 @@ import {
   BOX_DEFINITIONS, GLOBAL_RULES, LEAD_POINT_RULE, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, ONE_SALE_LOOP_PLAIN, RANKED_BOXES,
   THIRD_PERSON_RULE, boxGuideEntry, copyPromptSection, emptyQuestionFor, globalRulesText,
 } from '../../supabase/functions/_shared/canvas-box-definitions';
-import { DRAFT_RULES, buildDraftRequest } from '../../supabase/functions/_shared/canvas-prompt';
+import { DRAFT_RULES, ROUND_RULES, buildDraftRequest } from '../../supabase/functions/_shared/canvas-prompt';
 import { questionsFor } from '../../supabase/functions/_shared/canvas-parse';
 import { buildDraftReply } from '../../supabase/functions/_shared/canvas-reply';
 import * as draft from '../../supabase/functions/_shared/canvas-draft';
@@ -175,13 +175,27 @@ describe('S2 box guidance', () => {
     for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toMatch(/\bbecause\b/i);
   });
 
-  it('P1658 revision 2: no good example says "I", "we", "my" or "our"', () => {
-    const PRONOUN = /\b(I|we|my|our)\b/i;
-    for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toMatch(PRONOUN);
-    expect('so I now do their books').toMatch(PRONOUN); // CONTROL: the old Hypotheses example fails it
-    expect('our chat thread').toMatch(PRONOUN); // CONTROL: the old Solution example fails it
-    expect(def('canvas:good-at').not).toMatch(PRONOUN); // CONTROL: the not-example still shows the first-person form it rejects
+  // The text of a box that reaches a prompt and shapes a point (voice, definition, shape, good example), with box titles taken out:
+  // "Hypotheses I've falsified" is a label, not point text. Definitions may say "you" (the owner); a point never says I/we/my/our/us/me.
+  const PRONOUN = /\b(?:I|we|my|our|us|me)\b/i;
+  const TITLES = new RegExp(BOX_DEFINITIONS.map((b) => b.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'g');
+  const pronounFields = (b: (typeof BOX_DEFINITIONS)[number]) =>
+    (['voice', 'definition', 'shape', 'good'] as const).filter((f) => PRONOUN.test(b[f].replace(TITLES, ''))).map((f) => `${b.tag}.${f}`);
+
+  it('P1658 revision 2: no voice, definition, shape or good example of any box says "I", "we", "my", "our", "us" or "me"', () => {
+    expect(BOX_DEFINITIONS.flatMap(pronounFields)).toEqual([]);
+    // CONTROL (gate 7d): the check is fed a REAL entry with its shape put back in the first person, and must name it
+    const sol = def('canvas:solution');
+    const mutated = { ...sol, shape: sol.shape.replace('"The business <does X>', '"I <do X>') };
+    expect(mutated.shape).not.toBe(sol.shape);
+    expect(pronounFields(mutated)).toEqual(['canvas:solution.shape']);
+    const seg = def('canvas:segments');
+    expect(pronounFields({ ...seg, good: seg.good.replace('The first customers are', 'Our first customers are') })).toEqual(['canvas:segments.good']);
   });
+
+  /** A lead shape's text with its <a | b> choice slots taken out: a ranking word left after that is hard-coded. */
+  const leadOfShape = (shape: string) => shape.slice(0, shape.indexOf(' Others: '));
+  const bareRanking = (shape: string) => /\b(?:best|biggest)\b/i.test(leadOfShape(shape).replace(/<[^<>]*\|[^<>]*>/g, ''));
 
   it('P1658 revision 2: each ranked box opens with a lead point that names an alternative; the rest have no lead', () => {
     expect([...RANKED_BOXES]).toEqual(['canvas:segments', 'canvas:problem', 'canvas:revenue', 'canvas:metrics', 'canvas:good-at']);
@@ -189,16 +203,59 @@ describe('S2 box guidance', () => {
       const ranked = (RANKED_BOXES as readonly string[]).includes(b.tag);
       expect(b.shape.startsWith('Lead: "'), b.tag).toBe(ranked);
       if (!ranked) continue;
-      const lead = b.shape.slice(0, b.shape.indexOf(' Others: '));
+      const lead = leadOfShape(b.shape);
       expect(lead, b.tag).toMatch(/, ahead of <[^>]+>/); // names the alternative it beats
       expect(lead, b.tag).toMatch(/\b(best|biggest|first|next)\b/);
       expect(b.good, b.tag).toMatch(/^"The (first|biggest|offer to sell first|next milestone)\b[^"]*, ahead of /);
     }
   });
 
-  it('P1658 revision 2: shapes never say "will not" ("will" is an UNSURE word), and the milestone and offer leads keep their parts', () => {
-    for (const b of BOX_DEFINITIONS) expect(b.shape, b.tag).not.toMatch(/\bwill not\b/i);
-    expect(THIRD_PERSON_RULE.text).toContain('Write "does not", never "will not".');
+  it('P1658 fix round: no lead shape hard-codes "best" or "biggest" outside a <first | biggest> slot', () => {
+    for (const tag of RANKED_BOXES) expect(bareRanking(def(tag).shape), tag).toBe(false);
+    for (const tag of ['canvas:segments', 'canvas:problem', 'canvas:good-at']) expect(leadOfShape(def(tag).shape), tag).toMatch(/<first \| (best|biggest)>/);
+    // CONTROL (gate 7d): the real Problem and challenge shapes with the slot written back as the bare word fail it
+    for (const tag of ['canvas:problem', 'canvas:good-at']) {
+      const mutated = def(tag).shape.replace('<first | biggest>', 'biggest');
+      expect(mutated, tag).not.toBe(def(tag).shape);
+      expect(bareRanking(mutated), tag).toBe(true);
+    }
+  });
+
+  it('P1658 fix round: a later option is "ahead of", a dropped one ", not"; the lead and third-person rules agree', () => {
+    expect(LEAD_POINT_RULE.text).toContain('"ahead of <Y>" for an option that comes later, ", not <Y>" for one the owner dropped or turned down');
+    expect(LEAD_POINT_RULE.plain).toContain('"ahead of <Y>" if later, ", not <Y>" if dropped');
+    expect(THIRD_PERSON_RULE.text).toContain('Write ", not <Y>" only when the owner\'s words drop, turn down or deny Y; a later option is "ahead of <Y>".');
+    expect(LEAD_POINT_RULE.text).not.toMatch(/dropped or turned down counts/); // the round-1 wording that put a dropped option behind "ahead of"
+  });
+
+  it('P1658 fix round: no rule forbids "will not"; a plan stays a plan', () => {
+    const all = [LEAD_POINT_RULE.text, LEAD_POINT_RULE.plain!, THIRD_PERSON_RULE.text, THIRD_PERSON_RULE.plain!, ...BOX_DEFINITIONS.flatMap((b) => [b.voice, b.definition, b.shape])].join('\n');
+    expect(all).not.toMatch(/never "will not"/);
+    expect(THIRD_PERSON_RULE.text).toContain('a plan stays a plan ("The business plans not to sell hand-run sessions")');
+  });
+
+  it('P1658 fix round: "the business" is for the business as actor, never its name; the Copy prompt line forbids "we" and "our" too', () => {
+    expect(THIRD_PERSON_RULE.text).toContain('When the business is the one acting, write "the business"');
+    expect(THIRD_PERSON_RULE.text).not.toMatch(/Its subject is "the business"/);
+    expect(THIRD_PERSON_RULE.plain).toContain('points never say "I", "we" or "our"');
+  });
+
+  it('P1658 fix round: the challenge box writes no unstated cause; "probably" is only in what it rejects', () => {
+    const c = def('canvas:good-at');
+    for (const f of [c.voice, c.definition, c.shape, c.good]) expect(f).not.toMatch(/\bprobably\b|\bI think\b/);
+    expect(c.definition).toContain('The obstacle only as you state it.');
+    expect(c.not).toContain('(a cause the owner never stated)');
+  });
+
+  it('P1658 fix round: role points drop "are the customers"; the Copy prompt names who the canvas is for; the shared rules stand apart from the last box', () => {
+    expect(def('canvas:segments').shape).toContain('A role point drops "are the customers".');
+    expect(CANVAS_OWN_AI_PROMPT).toContain('"This canvas is about <group>." naming who it is for.');
+    const block = `\n\nFor all boxes:\n${LEAD_POINT_RULE.text}\n${THIRD_PERSON_RULE.text}\n`;
+    expect(DRAFT_RULES).toContain(`${boxGuideEntry(BOX_DEFINITIONS[BOX_DEFINITIONS.length - 1]!)}${block}`);
+    expect(ROUND_RULES).toContain(block);
+  });
+
+  it('P1658 revision 2: the milestone and offer leads keep their parts', () => {
     expect(def('canvas:metrics').shape).toContain('(target)');
     expect(def('canvas:metrics').good).toContain('(target), ahead of');
     const offer = def('canvas:revenue');
@@ -207,14 +264,20 @@ describe('S2 box guidance', () => {
     expect(offer.good).toMatch(/, ahead of [^;\d]+; [\d,]+ baht per shop per month;/);
   });
 
-  it('P1658 revision 2: a ranked box asks for the ranking (gap) and for the core fact with the ranking (empty)', () => {
+  it('P1658 revision 2: a ranked box\'s gap asks for the missing part AND the ranking; its empty question asks the core fact with the ranking', () => {
+    // the part each box's gap must still ask for (boxGuideEntry shows the gap "when the box is empty or only part is supported")
+    const MISSING: Record<string, RegExp> = {
+      'canvas:segments': /\btoday\b/, 'canvas:problem': /\bcost\b.*\bwant\b.*\bstops\b/, 'canvas:revenue': /\bcost\b.*\bper what unit\b.*\bhow often\b.*\bpaid\b/,
+      'canvas:metrics': /\bnumber\b.*\bdate\b/, 'canvas:good-at': /\bwhere are you now\b.*\bin the way\b/i,
+    };
     for (const tag of RANKED_BOXES) {
       const b = def(tag);
+      expect(b.gap, tag).toMatch(MISSING[tag]!);
       expect(b.gap, tag).toMatch(/\b(best|most|biggest|first|next)\b/);
       expect(b.gap, tag).toMatch(/\b(after|other)\b/);
-      expect(b.empty, tag).toBeTruthy();
       expect(b.empty, tag).toMatch(/\b(best|most|biggest|first)\b|comes after/);
     }
+    for (const tag of ['canvas:problem', 'canvas:good-at']) expect(def(tag).empty, tag).toContain('ahead of which other');
   });
 
   it('P1658 revision 2: the lead rule and the third-person rule reach both prompts, the Copy prompt in the owner\'s words', () => {
@@ -222,7 +285,7 @@ describe('S2 box guidance', () => {
     expect(DRAFT_RULES).toContain(THIRD_PERSON_RULE.text);
     expect(CANVAS_OWN_AI_PROMPT).toContain(LEAD_POINT_RULE.plain!);
     expect(CANVAS_OWN_AI_PROMPT).toContain(THIRD_PERSON_RULE.plain!);
-    expect(THIRD_PERSON_RULE.plain).toMatch(/"I" and "you"; points never do/);
+    expect(THIRD_PERSON_RULE.plain).toMatch(/^Rules say "I" and "you"; points never say "I"/);
     expect(THIRD_PERSON_RULE.plain).toContain('"the business"');
     expect(LEAD_POINT_RULE.text).toMatch(/only if the owner ranked/);
     expect(LEAD_POINT_RULE.plain).toMatch(/only if I ranked/);
