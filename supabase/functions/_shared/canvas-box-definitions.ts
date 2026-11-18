@@ -77,17 +77,18 @@ export const RANKED_BOXES = ['canvas:segments', 'canvas:problem', 'canvas:revenu
  * P1658 revision 2: when a ranked box may open with a lead point. The chosen X, the other option Y and the ranking all trace to the owner's
  * words; "best" or "biggest" only when the owner ranked, "first" or "chosen" when they chose without ranking; no invented Y, and no lead
  * when nothing grounds one (round 1 review: an invented "costliest"). A later option is "ahead of <Y>"; an option the owner dropped or
- * turned down is ", not <Y>" ("ahead of" would say it comes later). The lead shapes write the choice word as a slot (<first | biggest>),
- * never a bare ranking word, because the model copies a template's words (rev2 A/B: an invented "best"). `plain` is the owner's wording.
+ * turned down is ", not <Y>" ("ahead of" would say it comes later). The lead shapes write both the choice word and the contrast as slots
+ * (<first|biggest>, <ahead of|not>), never a bare ranking word or a bare "ahead of", because the model copies a template's words (rev2 A/B:
+ * an invented "best"; fix round 3: a template with only "ahead of" never shows the dropped form). `plain` is the owner's wording.
  */
 export const LEAD_POINT_RULE: GlobalRule = {
   name: 'Lead point',
   text: `Lead point: a box whose shape has "Lead:" (Customer Segments, Problem, Offers & Pricing, My next milestone, My current biggest challenge) opens with one point naming the owner's choice and the option it beats, both from the owner's words: "ahead of <Y>" for an option that comes later, ", not <Y>" for one the owner dropped or turned down. Write "best" or "biggest" only if the owner ranked them, else "first" or "chosen". Order of mention, effort or pursuit is no ranking. No other option in the owner's words, no lead.`,
-  plain: `A "Lead:" point names my choice and, from my words, the option it beats: "ahead of <Y>" if later, ", not <Y>" if dropped. "Best" or "biggest" only if I ranked them, else "first" or "chosen"; order or effort is no ranking. No other option, no lead.`,
+  plain: `A "Lead:" point names my choice and, from my words, the option it beats ("not" only if I dropped it). "Best" or "biggest" only if I ranked them, else "first" or "chosen"; order or effort is no ranking. No other option, no lead.`,
 };
 
 /**
- * P1658 revision 2: no point says "I", "we", "my", "our", "us" or "me". When the business acts, the point says "the business", never its
+ * P1658 revision 2: no point says "I", "we", "my", "our", "us", "me" or "you" (the Copy prompt's line bans the same list). When the business acts, the point says "the business", never its
  * name (canvas-names.ts drops a point carrying a capitalised two-word name learned from an uploaded file); a box whose subject is the
  * customer or the offer keeps that subject. ", not <Y>" only where the owner's words drop, turn down or deny Y (negation parity in
  * canvas-support.ts); a later option is "ahead of <Y>". A plan stays a plan (GLOBAL_RULES "Statement type per box"): no rule forces
@@ -95,8 +96,8 @@ export const LEAD_POINT_RULE: GlobalRule = {
  */
 export const THIRD_PERSON_RULE: GlobalRule = {
   name: 'Third person',
-  text: `Every point is third person: never "I", "we", "my", "our", "us" or "me". When the business is the one acting, write "the business", never the business's or the owner's name. A stance stays a stance ("The business does not sell hand-run sessions") and a plan stays a plan ("The business plans not to sell hand-run sessions"). Write ", not <Y>" only when the owner's words drop, turn down or deny Y; a later option is "ahead of <Y>".`,
-  plain: `Rules say "I" and "you"; points never say "I", "we" or "our". When the business acts, a point says "the business", never its name.`,
+  text: `Every point is third person: never "I", "we", "my", "our", "us", "me" or "you". When the business is the one acting, write "the business", never the business's or the owner's name. A stance stays a stance ("The business does not sell hand-run sessions") and a plan stays a plan ("The business plans not to sell hand-run sessions"). Write ", not <Y>" only when the owner's words drop, turn down or deny Y; a later option is "ahead of <Y>".`,
+  plain: `Rules say "I" and "you"; a point never says "I", "we", "my", "our", "us", "me" or "you". When the business acts, a point says "the business", never its name.`,
 };
 
 export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
@@ -104,7 +105,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     tag: 'canvas:segments', title: 'Customer Segments',
     type: 'Claim about who the customer is, and who comes first', voice: 'third person',
     definition: `The specific people who have the problem and pay (or will). Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:". Each point needs a role or title, plus at least two of: industry, company size, demographics, psychographics.`,
-    shape: `Lead: "The <first | best> customers are <X>, ahead of <Y>." Others: "<role + qualifier> who <do X today> <when trigger> are the customers[, not <ruled-out lookalike>]." A role point drops "are the customers".`,
+    shape: `Lead: "The <first|best> customers are <X>, <ahead of|not> <Y>." Others: "<role + qualifier> who <do X today> <when trigger> are the customers[, not <ruled-out lookalike>]." Role points leave out "are the customers".`,
     good: `"The first customers are owners of 1-3 independent cafés who do their own books after closing, ahead of bakery owners." / "Owners of 1-3 independent cafés who file their own tax returns are the customers, not café chains with an in-house accountant."`,
     not: `"Owners of independent cafés." (a description nobody can disagree with) / "The best customers are cafés, ahead of bakeries." (the owner never ranked them) / "I sell to small businesses"`,
     gap: `Who exactly is the customer, what do they do about the problem today, and which kind is best to start with, ahead of which other?`,
@@ -114,7 +115,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     tag: 'canvas:problem', title: 'Problem',
     type: `Claim about the customer's problem, and which matters most`, voice: `third person`,
     definition: `The problem this customer has, before they hear of you: where they are and its cost (A), what they want (B), what stops them (obstacle). Leave out why.`,
-    shape: `Lead: "The <first | biggest> problem for <customer> is <A>, ahead of <other problem>." Others: "For <customer> the problem is <A + cost>[, not <other problem the owner named>]; they want <B>, but <obstacle>." The obstacle is a barrier, not a missing product.`,
+    shape: `Lead: "The <first|biggest> problem for <customer> is <A>, <ahead of|not> <other problem>." Others: "For <customer> the problem is <A + cost>[, not <ruled-out problem>]; they want <B>, but <obstacle>." The obstacle is a barrier, not a missing product.`,
     good: `"The biggest problem for café owners is the receipt pile-up in the week before the tax deadline, ahead of chasing late invoices." (the owner ranked them) / "For café owners the problem is sorting a quarter of receipts in the week before the deadline, not the bookkeeping itself; they want their books closed without losing evenings, but receipts pile up during 14-hour shifts."`,
     not: `"Café owners spend time on bookkeeping." (true, and nobody can disagree) / "The biggest problem for café owners is receipts, ahead of invoices." (the owner never ranked them) / "There is no simple bookkeeping app for cafés."`,
     gap: `What does the problem cost your customers, what do they want instead, what stops them, and which problem matters most, ahead of which other?`,
@@ -144,7 +145,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     tag: 'canvas:revenue', title: 'Offers & Pricing',
     type: 'Claim about the terms, and which offer comes first', voice: 'third person',
     definition: `What the customer buys, for how much, per what unit, how often, and its state (considering / quoted / paid by N).`,
-    shape: `Lead: "The offer to sell first is <offer>, ahead of <other offer>; <price + currency> per <unit> <cadence>; <state>." Others: "<offer>: <price + currency> per <unit> <cadence>; <state>."`,
+    shape: `Lead: "The offer to sell first is <offer>, <ahead of|not> <other offer>; <price + currency> per <unit> <cadence>; <state>." Others: "<offer>: <price + currency> per <unit> <cadence>; <state>."`,
     good: `"The offer to sell first is monthly books and tax filing, ahead of payroll; 2,500 baht per shop per month; 6 shops pay it today."`,
     not: `"Affordable packages." / "I charge 2,500 baht a month because cafés cannot afford an accountant." (first person, with the reason inside)`,
     gap: `What does it cost, per what unit, how often, has anyone paid it yet, and which offer do you sell first, ahead of which other?`,
@@ -154,7 +155,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     tag: 'canvas:metrics', title: 'My next milestone',
     type: 'Target, and what comes first', voice: 'third person',
     definition: `The next result customers produce (pay, renew, refer).`,
-    shape: `Lead: "The next milestone is <target>, ahead of <later goal>." Others: "<target>[; if missed, <change>]." Target: <number> <customers> <action> by <date> (target).`,
+    shape: `Lead: "The next milestone is <target>, <ahead of|not> <other goal>." Others: "<target>[; if missed, <change the owner stated>]." Target: <number> <customers> <action> by <date> (target).`,
     good: `"The next milestone is 10 cafés paying monthly by 31 March 2027 (target), ahead of opening a second city."`,
     not: `"I aim for 10 cafés paying monthly by 31 March 2027." (about the owner's aim, which nobody can dispute) / "Launch the new website and grow."`,
     gap: `What number, by what date, comes next, and which goal comes after it?`,
@@ -163,7 +164,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
   {
     tag: 'canvas:love', title: 'Guiding values',
     type: 'Decision policy', voice: 'as written',
-    definition: `A rule your business and partners live by, saying which good thing you give up when two good things conflict. Business culture, not a personal habit. Leave out why you hold it.`,
+    definition: `A rule your business and partners live by, saying which good thing you give up when two good things conflict. Both X and Y are good. Business culture, not a personal habit. Leave out why you hold it.`,
     shape: `"X over Y[, even when <what it costs>]."`,
     good: `"Filing on time over filing perfectly, even when a late receipt means correcting the return afterwards."`,
     not: `"Integrity and customer focus." / "I keep weekends for family." / "Accuracy over speed, because a wrong return costs the owner more." (the reason is inside the point)`,
@@ -175,11 +176,11 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // GLOBAL_RULES "Grounding" (never invent obstacles). The obstacle is written only as the owner states it; otherwise the gap question asks.
     type: `The business's constraint, and which is biggest`, voice: 'third person',
     definition: `The obstacle most likely to stop this working now: where you are (A, with a number if you have one), where you want to be (B). The obstacle only as you state it.`,
-    shape: `Lead: "The <first | biggest> challenge is <X>, ahead of <Y>." Others: "The business is at <A> and wants <B>; the obstacle is <barrier>."`,
+    shape: `Lead: "The <chosen|biggest> challenge is <X>, <ahead of|not> <Y>." Others: "The business is at <A> and wants <B>; the obstacle is <barrier>."`,
     good: `"The biggest challenge is getting first calls with café owners, ahead of setting a price." (the owner ranked them) / "The business is at 3 replies from its last 20 messages to café owners and wants 10 first calls this month; the obstacle is that strangers writing about money look like scams to them."`,
     not: `"Finding time." / "I think strangers see a scam." (first person) / "The business is at 3 replies; the obstacle is probably trust." (a cause the owner never stated) / a copy of the customer's Problem`,
+    // No `empty`: the gap already asks for the core fact and the ranking, so emptyQuestionFor falls back to it (fix round 3).
     gap: `Where are you now, where do you want to be, what is in the way, and which challenge is biggest, ahead of which other?`,
-    empty: `Where are you now, where do you want to be, what is in the way, and which challenge is biggest, ahead of which other?`,
   },
   {
     tag: 'canvas:world-needs', title: `Hypotheses I've falsified`,

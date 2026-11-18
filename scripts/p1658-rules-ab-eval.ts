@@ -29,7 +29,10 @@
  * --arm old without a --shared that differs from the working tree's, --repeat not an integer >= 1, any flag with a missing or --flag value.
  */
 /* eslint-disable @typescript-eslint/no-non-null-assertion -- a dev-only eval script; the engine modules are loaded by path, so their types are not known here */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { envFileValues, refuseNonTest } from './p1536-eval-guard.ts';
 import { CANVAS_BOXES } from '../src/lib/canvas-boxes.ts';
@@ -44,6 +47,8 @@ interface RunRow {
   raw?: Array<{ box: string; text: string; quote: string }>;
   /** Every model point the engine did not keep, with why. */
   drops?: Drop[];
+  /** Which wording produced the run: --shared's git short sha (+dirty) and a hash of the loaded BOX_DEFINITIONS. */
+  git?: string; boxDefinitionsSha256?: string;
 }
 
 function arg(name: string, fallback?: string): string | undefined {
@@ -64,7 +69,7 @@ export const RANKED = ['canvas:segments', 'canvas:problem', 'canvas:revenue', 'c
  * A lead point, loosely (the spec's first lexical count, kept as a secondary row): the box's FIRST point holding a choice word or an
  * alternative marker. "before" is not one (the fix round: "…understood before acting" is no lead).
  */
-export const LEAD_RE = /\b(?:best|biggest|first|chosen|ahead of)\b|, not\b/i;
+export const LEAD_RE = /\b(?:best|biggest|first|chosen|next|ahead of)\b|, not\b/i;
 /** A choice word and an alternative marker: a STRICT lead holds both, in the same point. This is the headline count. */
 export const CHOICE_RE = /\b(?:best|biggest|first|chosen|next)\b/i;
 export const ALTERNATIVE_RE = /\bahead of\b|, not\b|\binstead of\b|\brather than\b/i;
@@ -85,31 +90,81 @@ export function strictLeadOf(points: ReadonlyArray<{ box: string; text: string }
 }
 const titleOf = (tag: string) => CANVAS_BOXES.find((b) => b.tag === tag)?.title ?? tag;
 
-/** A label or pack id names a file in --out: lower-case letters, digits and dashes only, and the file must resolve inside --out. Throws otherwise. */
-export function fileInside(outDir: string, id: string, file: string): string {
-  if (!/^[a-z0-9-]+$/.test(id)) throw new Error(`not a safe label or pack id: ${JSON.stringify(id)}`);
-  const root = resolve(outDir);
-  const path = resolve(join(root, file));
-  if (!path.startsWith(`${root}/`)) throw new Error(`resolves outside --out: ${JSON.stringify(file)}`);
+/** A label (--name, --compare) or pack id (a --material file's basename): lower-case letters, digits and dashes only. Throws otherwise. */
+export function validId(id: string, what: string): string {
+  if (!/^[a-z0-9-]+$/.test(id)) throw new Error(`${what} is not lower-case letters, digits and dashes: ${JSON.stringify(id)}`);
+  return id;
+}
+
+/**
+ * The real --out directory: created if missing, then resolved through every symlink. It must still sit under a ".private" path segment
+ * after that, so a symlink cannot point --out at a public folder. Throws otherwise.
+ */
+export function realOutDir(outArg: string): string {
+  mkdirSync(outArg, { recursive: true });
+  const real = realpathSync(outArg);
+  if (!`${real}/`.includes('/.private/')) throw new Error(`--out resolves to ${JSON.stringify(real)}, which is not under a .private directory`);
+  return real;
+}
+
+/**
+ * A file named by a label or pack id, inside the REAL --out directory: the id must be valid, the path must resolve inside the root, and an
+ * existing file there must not be a symlink (writing through one would land wherever it points). Throws otherwise.
+ */
+export function fileInside(realRoot: string, id: string, file: string): string {
+  validId(id, 'label or pack id');
+  const path = resolve(join(realRoot, file));
+  if (!path.startsWith(`${realRoot}/`)) throw new Error(`resolves outside --out: ${JSON.stringify(file)}`);
+  if (existsSync(path) || lstatExists(path)) { if (lstatSync(path).isSymbolicLink()) throw new Error(`refusing to use a symlinked file: ${JSON.stringify(path)}`); }
   return path;
+}
+/** existsSync follows a symlink, so a dangling one reads as absent: lstat sees the link itself. */
+function lstatExists(path: string): boolean {
+  try { lstatSync(path); return true; } catch { return false; }
+}
+
+/** The git commit and the wording a run used: the short sha of --shared's checkout (with "+dirty" when it has uncommitted changes) and a hash of the loaded BOX_DEFINITIONS. */
+export function runIdentity(shared: string, boxDefinitions: unknown): { git: string; boxDefinitionsSha256: string } {
+  let git = 'not a git checkout';
+  try {
+    const sha = execFileSync('git', ['-C', shared, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const dirty = execFileSync('git', ['-C', shared, 'status', '--porcelain', '--', '.'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    git = `${sha}${dirty ? '+dirty' : ''}`;
+  } catch { /* the old rules live in an extracted copy, outside any repository */ }
+  return { git, boxDefinitionsSha256: createHash('sha256').update(JSON.stringify(boxDefinitions)).digest('hex').slice(0, 16) };
 }
 
 /** The counters' own controls, run by --self-test: each must hold or the script exits non-zero. */
 export function selfTest(): string[] {
   const fails: string[] = [];
   const check = (ok: boolean, what: string) => { if (!ok) fails.push(what); };
+  const throws = (f: () => unknown) => { try { f(); return false; } catch { return true; } };
   for (const t of ['The first customers are owners of 1-3 independent cafés, ahead of bakery owners.', 'The offer to sell first is monthly books, not payroll; 2,500 baht per shop per month; paid by 6.', 'The biggest challenge is first calls, rather than pricing.']) check(isStrictLead(t), `strict lead missed: ${t}`);
   // negative controls: a choice word with no alternative ("before" is none), an alternative with no choice word
   for (const t of ['The business sends its first invoice before the deadline.', 'Owners of 1-3 independent cafés who do their own books after closing are the customers, not café chains with an in-house accountant.', 'The first users are people who own what they sell.']) check(!isStrictLead(t), `strict lead wrongly found: ${t}`);
   check(!LEAD_RE.test('they want to know they understood before acting'), 'loose count still takes "before"');
   check(pronounsIn('so I now do their books; the clients refer us to me; ours and mine').length === 5, 'pronoun regex missed I/us/me/ours/mine');
   check(pronounsIn('4 of its 6 clients came via a technician who refers it; sold in the US; the business').length === 0, 'pronoun regex matched a clean point');
-  for (const bad of ['../x', 'a/b', 'A', '']) {
-    let threw = false;
-    try { fileInside('/tmp/out/.private', bad, `summary-${bad}.md`); } catch { threw = true; }
-    check(threw, `unsafe label accepted: ${JSON.stringify(bad)}`);
-  }
-  check(fileInside('/tmp/out/.private', 'rev2b', 'summary-rev2b.md') === '/tmp/out/.private/summary-rev2b.md', 'a safe label was refused');
+  check(LEAD_RE.test('The next milestone is 10 cafés paying by March (target).'), 'loose count misses "next"');
+  // ids: a bad --name and a bad pack id are refused, a good one passes
+  for (const bad of ['../x', 'a/b', 'A', '', 'Rev2c', 'rev 2']) check(throws(() => validId(bad, '--name')), `unsafe label accepted: ${JSON.stringify(bad)}`);
+  check(validId('rev2c', '--name') === 'rev2c', 'a safe label was refused');
+  // paths, in a real temp directory: a --out outside .private is refused, a symlinked output file is refused, a plain one is fine
+  const tmp = realpathSync(mkdtempSync(join(tmpdir(), 'p1658-selftest-')));
+  try {
+    check(throws(() => realOutDir(join(tmp, 'public'))), '--out outside .private accepted');
+    const outside = join(tmp, 'public-target');
+    mkdirSync(outside);
+    symlinkSync(outside, join(tmp, 'link-out'));
+    check(throws(() => realOutDir(join(tmp, 'link-out', '.private'))) === false, 'a real .private dir under a symlinked parent was refused');
+    const priv = realOutDir(join(tmp, 'store', '.private'));
+    symlinkSync(join(outside, 'x.md'), join(priv, 'pack-rev2c.md'));
+    check(throws(() => fileInside(priv, 'pack', 'pack-rev2c.md')), 'a symlinked output file accepted');
+    check(fileInside(priv, 'pack', 'pack-rev2d.md') === join(priv, 'pack-rev2d.md'), 'a plain output file refused');
+    check(throws(() => fileInside(priv, '../x', 'summary-../x.md')), 'a ../ label accepted');
+    symlinkSync(outside, join(tmp, 'sneaky'));
+    check(throws(() => realOutDir(join(tmp, 'sneaky'))), 'a --out symlinked to a non-.private dir accepted');
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
   return fails;
 }
 
@@ -230,8 +285,9 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
   const [A, B] = labels;
   const data: Record<string, Record<string, RunRow[]>> = Object.fromEntries(packs.map((p) => [p, { [A]: rowsOf(p, A), [B]: rowsOf(p, B) }]));
   const runsLine = labels.map((l) => `${l}: ${packs.map((p) => `${data[p]![l]!.length} in ${p}`).join(', ')}`).join('; ');
+  const wording = labels.map((l) => `${l}: ${[...new Set(packs.flatMap((p) => data[p]![l]!.map((r) => (r.boxDefinitionsSha256 ? `git ${r.git}, box definitions ${r.boxDefinitionsSha256}` : 'not recorded (older run)'))))].join(' / ')}`).join('; ');
   const o: string[] = [`# P1658 ${A} vs ${B}: counts from the .jsonl files`, '',
-    `Computed by \`scripts/p1658-rules-ab-eval.ts --compare ${A},${B}\` from \`<pack>-${A}.jsonl\` and \`<pack>-${B}.jsonl\`. Runs per side: ${runsLine}. No model judge.`, '',
+    `Computed by \`scripts/p1658-rules-ab-eval.ts --compare ${A},${B}\` from \`<pack>-${A}.jsonl\` and \`<pack>-${B}.jsonl\`. Runs per side: ${runsLine}. Wording: ${wording}. No model judge.`, '',
     `- Lead point (headline, strict): the FIRST point of a ranked box (${RANKED.map(titleOf).join(', ')}) holding a choice word (best, biggest, first, chosen, next) AND an alternative (ahead of, ", not", instead of, rather than) in the same point. "(loose)" marks a first point that has only one of the two (the secondary, lexical count); "before" counts as neither.`,
     '- Pronouns: "I", "we", "my", "our", "ours", "us", "me", "mine" as whole words in point text ("I" and "US" as written); box titles are never counted.',
     '- Reason in a point: " because ", ", which ", " so they ", " so that ".',
@@ -292,21 +348,28 @@ async function main(): Promise<void> {
   argv.forEach((a, i) => {
     if (a.startsWith('--') && (argv[i + 1] === undefined || argv[i + 1]!.startsWith('--'))) refuse(`flag ${a} needs a value`);
   });
+  /** Every check that can fail on a name, a path or a file goes through refuse(): one line and exit 2, never a raw stack. */
+  const orRefuse = <T>(what: string, f: () => T): T => { try { return f(); } catch (e) { return refuse(`${what}: ${(e as Error).message}`); } };
   const outArg = arg('out');
-  if (!outArg || !`${resolve(outArg)}/`.includes('/.private/')) refuse('--out is required and must be under a .private/ directory (the material is private)');
-  const outDir = outArg!;
+  if (!outArg) refuse('--out is required and must be under a .private/ directory (the material is private)');
   const cmp = arg('compare');
+  const arm = arg('arm', 'old')!;
+  const name = arg('name', arm)!;
+  // names are checked before anything is read, written or sent: --name, every --compare label and --packs id, every --material pack id
+  orRefuse('--name', () => validId(name, '--name'));
+  const files = (arg('material') ?? '').split(',').filter(Boolean);
+  for (const f of files) orRefuse('--material', () => validId(basename(f, '.md'), `pack id of ${JSON.stringify(f)}`));
+  const outDir = orRefuse('--out', () => realOutDir(outArg!));
   if (cmp) {
     const labels = cmp.split(',');
     const packs = (arg('packs') ?? '').split(',').filter(Boolean);
     if (labels.length !== 2 || !packs.length) refuse('--compare needs two labels A,B and --packs');
-    let target = '';
-    try {
-      for (const l of labels) fileInside(outDir, l, `summary-${l}.md`);
-      for (const p of packs) fileInside(outDir, p, `${p}.jsonl`);
-      target = fileInside(outDir, labels[1]!, `summary-${labels[1]}.md`);
-    } catch (e) { refuse(`--compare/--packs: ${(e as Error).message}`); }
-    writeFileSync(target, compare(outDir, labels as [string, string], packs));
+    const target = orRefuse('--compare/--packs', () => {
+      for (const l of labels) validId(l, '--compare label');
+      for (const p of packs) for (const l of labels) fileInside(outDir, p, `${p}-${l}.jsonl`);
+      return fileInside(outDir, labels[1]!, `summary-${labels[1]}.md`);
+    });
+    orRefuse('--compare', () => writeFileSync(target, compare(outDir, labels as [string, string], packs)));
     console.log(`wrote ${target}`);
     return;
   }
@@ -314,15 +377,13 @@ async function main(): Promise<void> {
   const workingShared = resolve('supabase/functions/_shared');
   const sharedArg = arg('shared');
   const shared = resolve(sharedArg ?? 'supabase/functions/_shared');
-  const arm = arg('arm', 'old')!;
-  const name = arg('name', arm)!;
   const repeat = Number(arg('repeat', '2'));
   if (arm !== 'old' && arm !== 'new' && arm !== 'rev2') refuse('--arm must be old, new or rev2');
-  if (!/^[a-z0-9-]+$/.test(name)) refuse('--name must be lower-case letters, digits and dashes');
   if (arm === 'old' && (!sharedArg || shared === workingShared)) refuse('--arm old needs --shared pointing at a copy of the old _shared, not the working tree');
   if (!Number.isInteger(repeat) || repeat < 1) refuse('--repeat must be an integer >= 1');
-  const files = (arg('material') ?? '').split(',').filter(Boolean);
   if (files.length === 0) { console.error('need --material'); process.exit(1); }
+  // every output file is checked (valid id, inside the real --out, not a symlink) before the first model call
+  for (const f of files) for (const ext of ['md', 'jsonl']) { const p = basename(f, '.md'); orRefuse('output file', () => fileInside(outDir, p, `${p}-${name}.${ext}`)); }
   const load = (f: string) => import(`${shared}/${f}.ts`);
   const [{ executeRun }, { geminiCaller }, { checkEvalPoints }, parse, source, support, defs] = await Promise.all([
     load('canvas-run'), load('canvas-model'), load('canvas-eval-rules'), load('canvas-parse'), load('canvas-source'), load('canvas-support'), load('canvas-box-definitions'),
@@ -331,7 +392,7 @@ async function main(): Promise<void> {
   const tags = (defs.BOX_DEFINITIONS as Array<{ tag: string }>).map((b) => b.tag);
   const refusal = refuseNonTest({ key, env: process.env, prodValues: prodEnvValues() });
   if (refusal) { console.error(refusal); process.exit(2); }
-  mkdirSync(outDir, { recursive: true });
+  const identity = runIdentity(shared, defs.BOX_DEFINITIONS);
 
   const summary: Record<string, Array<Record<string, unknown>>> = {};
   let total = 0;
@@ -372,7 +433,7 @@ async function main(): Promise<void> {
         usd: ((done ?? failed)?.p_usd ?? (failed as { p_actual_usd?: number } | undefined)?.p_actual_usd ?? null) as number | null,
         points, questions: done?.p_questions ?? null, reply: (done?.p_reply ?? failed?.p_reply ?? null) as string | null,
         focus: (done?.p_focus ?? null) as string | null, dropped: droppedLog, violations: checkEvalPoints(points, text), scope: ((done?.p_scope ?? []) as unknown[]).length,
-        raw: rawActs.map((a) => ({ box: String(a.box), text: String(a.statement), quote: String(a.quote ?? '') })), drops,
+        raw: rawActs.map((a) => ({ box: String(a.box), text: String(a.statement), quote: String(a.quote ?? '') })), drops, ...identity,
       };
       rows.push(row);
       total += row.usd ?? 0;
@@ -385,10 +446,10 @@ async function main(): Promise<void> {
       summary[pack]!.push({ run: n, state: row.state, code: row.code, pointsPerBox: perBox, pointsKept: points.length, dropped: row.dropped, dropsNamed: drops.length, leads, pronouns: pron, violationsByRule: viol, usd: row.usd });
       console.error(`${pack}#${n} ${row.state}${row.code ? `:${row.code}` : ''} points=${points.length} raw=${rawActs.length} drops=${drops.length} leads=${leads} pron=${pron} viol=${row.violations.length} usd=${row.usd}`);
     }
-    writeFileSync(fileInside(outDir, pack, `${pack}-${name}.md`), render(pack, `${arm}, ${name}`, rows));
-    writeFileSync(fileInside(outDir, pack, `${pack}-${name}.jsonl`), rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+    orRefuse('output file', () => writeFileSync(fileInside(outDir, pack, `${pack}-${name}.md`), render(pack, `${arm}, ${name}`, rows)));
+    orRefuse('output file', () => writeFileSync(fileInside(outDir, pack, `${pack}-${name}.jsonl`), rows.map((r) => JSON.stringify(r)).join('\n') + '\n'));
   }
-  console.log(JSON.stringify({ arm, name, shared, repeat, usdTotal: Number(total.toFixed(4)), packs: summary }, null, 1));
+  console.log(JSON.stringify({ arm, name, shared, ...identity, repeat, usdTotal: Number(total.toFixed(4)), packs: summary }, null, 1));
 }
 
 main().catch((e) => { console.error('eval crashed:', (e as Error).name); process.exit(1); });
