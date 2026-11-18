@@ -31,6 +31,16 @@ describe('carried notes near Start fixing', () => {
   })
 })
 
+describe('P1707 round 3 review: a carried question is labelled by its saved flag, not only by a trailing ?', () => {
+  it('an ask answer without ? reads "Your question:"; a plain note reads "Your note:"', () => {
+    const h = renderToStaticMarkup(
+      <CarriedNotes notes={[{ ...notes[0], text: 'which balance is right', is_question: true }, notes[0]]} open setOpen={() => {}} followUp={false} />,
+    )
+    expect(h).toContain('Your question: which balance is right')
+    expect(h).toContain('Your note: Balance was 412')
+  })
+})
+
 describe('P1707 round 2: the panel speaks the button\'s word, every row is dated, rows never share a key', () => {
   it('after a send the button reads "Send N changes", so the panel says Send too', () => {
     const h = renderToStaticMarkup(<CarriedNotes notes={notes} open={false} setOpen={() => {}} followUp />)

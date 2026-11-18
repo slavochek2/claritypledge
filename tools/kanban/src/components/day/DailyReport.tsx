@@ -754,7 +754,7 @@ export function CarriedNotes({ notes, open, setOpen, followUp }: { notes: Carrie
               {/* the founder's own text: kept whole and wrapped, never clipped (a URL has no break points) */}
               <span className="d-w d-carried-text" data-carried-text>
                 {/* P1707 round 3: say which line is the founder's own words */}
-                {n.text.trim().endsWith('?') ? 'Your question: ' : 'Your note: '}
+                {n.is_question || n.text.trim().endsWith('?') ? 'Your question: ' : 'Your note: '}
                 {n.text}
               </span>
             </span>

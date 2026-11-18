@@ -21,6 +21,8 @@ export interface CarriedNoteView {
   title: string
   text: string
   insight: boolean
+  /** the note was saved as a question (an `ask` answer, or text ending in ?): the same flag the prompt uses */
+  is_question?: boolean
 }
 
 export type RunPayload =

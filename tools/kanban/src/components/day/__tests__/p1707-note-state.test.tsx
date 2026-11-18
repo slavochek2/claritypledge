@@ -1,6 +1,7 @@
 // P1707 round 2 (visual QA on real data): a card with a typed note says it is a note and where it goes;
 // an answered insight is ticked in the list like any answered card; an insight's recommendation has no fit chip.
 import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { buildView, insightIssue, parseReport, sentKey, withInsights, type DayDecision, type DayReport } from '../../../lib/day'
 import type { Insight } from '../../../lib/weeklyRead'
@@ -155,5 +156,16 @@ describe('P1707 round 3', () => {
     expect(c).toMatch(/<b class="d-chose-note"[^>]*>I read it<\/b>/)
     const pick: DayDecision = { kind: 'option', target: 'credits:baseline', option_id: 'read', run_id: '2026-10-04T05-37-45Z', at: AT }
     expect(card(html([pick], { fp: 'credits:baseline' }), 'credits:baseline')).not.toContain('d-chose-note')
+  })
+
+  it('3b: a multi-line note keeps its line break in the markup, and the stylesheet keeps and wraps it', () => {
+    const c = card(html([own('credits:baseline', 'first line\nsecond line')], { fp: 'credits:baseline' }), 'credits:baseline')
+    expect(c).toMatch(/<b class="d-chose-note"[^>]*>first line\nsecond line<\/b>/)
+    const css = readFileSync(new URL('../day.css', import.meta.url), 'utf8')
+    for (const sel of ['.d-chose .d-chose-note', '.d-carried-text']) {
+      const rule = css.slice(css.indexOf(sel + ' {'), css.indexOf('}', css.indexOf(sel + ' {')))
+      expect(rule).toContain('white-space: pre-wrap')
+      expect(rule).toContain('overflow-wrap: anywhere')
+    }
   })
 })

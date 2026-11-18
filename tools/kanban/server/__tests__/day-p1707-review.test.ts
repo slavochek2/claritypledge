@@ -147,7 +147,7 @@ describe('C: carried notes are on the page', () => {
   it('the run payload lists each carried note: date, card title and text', async () => {
     await writeFile(join(dayDir, 'decisions.jsonl'), JSON.stringify({ kind: 'option', target: 'credits:baseline', option_id: 'own', text: 'Balance was 412', run_id: EARLIER, at: '2026-10-03T06:00:00Z' }) + '\n')
     const run = await (await fetch(`${API}/api/day/runs/${RUN}`)).json()
-    expect(run.carriedNotes).toEqual([{ at: '2026-10-03T06:00:00Z', title: 'Cloud credit balance is a guess', text: 'Balance was 412', insight: false }])
+    expect(run.carriedNotes).toEqual([{ at: '2026-10-03T06:00:00Z', title: 'Cloud credit balance is a guess', text: 'Balance was 412', insight: false, is_question: false }])
   })
 })
 

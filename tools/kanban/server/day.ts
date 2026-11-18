@@ -328,7 +328,7 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         decisionsBadLines: badLines,
         collectedCount: isLatest ? collect(view, sent.items, ledger, carried).count : collect(view, new Set<string>()).count,
         // P1707 review C: what the page lists beside Start fixing (date, card, text); never the fingerprint
-        carriedNotes: collect(view, sent.items, undefined, carried).carried.map((n) => ({ at: n.at, title: n.title, text: n.text, insight: n.insight })),
+        carriedNotes: collect(view, sent.items, undefined, carried).carried.map((n) => ({ at: n.at, title: n.title, text: n.text, insight: n.insight, is_question: n.is_question })),
         stories: storiesFor(run.parsed.report, isLatest, ledger),
         quotaHistory: quotaHistory(run.parsed.report, list.runs.flatMap((r) => (r.parsed.kind === 'ok' ? [r.parsed.report] : []))),
         lastSentAt: isLatest ? sent.lastAt ?? null : null,
