@@ -52,7 +52,7 @@ run() {
   return $?
 }
 
-LIST="gh issue list --state open --author app/github-actions --limit 100 --json number,title"
+LIST="gh issue list --state open --author github-actions[bot] --limit 100 --json number,title"
 # check <name> <block> <code> <open|none> <expected log, lines separated by \n>
 check() {
   local name="$1" blk="$2" code="$3" state="$4" want="$5"

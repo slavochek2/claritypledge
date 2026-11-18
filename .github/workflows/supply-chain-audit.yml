@@ -85,7 +85,10 @@ jobs:
             2) STATUS="INCOMPLETE (exit 2)" ;;
             *) STATUS="INCOMPLETE (audit did not finish)" ;;
           esac
-          existing=$(gh issue list --state open --author app/github-actions --limit 100 --json number,title \
+          # `gh --author` takes the REST login `github-actions[bot]`; `app/github-actions` (the
+          # `--json author` spelling the other producers match in jq) matches nothing here, so a
+          # CLEAN run never found issue #30 to close it (2026-11-18, checked against live gh).
+          existing=$(gh issue list --state open --author "github-actions[bot]" --limit 100 --json number,title \
             | jq -r --arg t "$TITLE" '[.[] | select(.title==$t) | .number] | first // empty') \
             || existing="" # a failed lookup must not stop the alert; a rare duplicate beats a missed one
           if [ "$STATUS" = "CLEAN" ]; then
