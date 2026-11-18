@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 /**
- * P1675 UAT round 1 R6 (client side): the event's two settings (hike_asks_transport, hike_asks_help) reach the answer model,
- * its validator, the signed-out draft, the registration step and return hooks, the RPC caller and the host line; Create and
- * Edit show the two checkboxes for hikes only, on by default; toggling them never sends the "event updated" email.
+ * P1675 UAT round 1 R6, moved to R18 (client side): the event's before-the-seat preset (hike_registration) reaches the answer model,
+ * its validator, the signed-out draft, the registration step and return hooks, the RPC caller and the host line; Edit shows the
+ * one four-way choice for hikes only; changing it never sends the "event updated" email.
  */
 import { renderHook, render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -29,8 +29,9 @@ vi.mock('@/app/data/events-service', () => ({ eventsService: { isEventFull: () =
 
 import { SILENT_KEYS, updateNeedsEmail } from '@/app/data/event-update-changes';
 import {
-  hikeAsksOf, isAsked, isValidHikeAnswers, normalizeHikeAnswers, type HikeAnswers, type HikeAsks,
+  DEFAULT_HIKE_REGISTRATION, hikeAsksOf, hikeRegistrationOf, isAsked, isValidHikeAnswers, normalizeHikeAnswers, type HikeAnswers, type HikeAsks,
 } from '@/app/data/hike-answer-model';
+import { eventAsksBeforeSeatSync, hikeAsksBeforeSeat } from '@/app/prototypes/events/form-first';
 import { registerForHike } from '@/app/data/hike-registration';
 import { readHikeDraft, saveHikeDraft } from '@/app/data/registration-draft';
 import { useRegistrationStep } from '@/app/prototypes/events/components/use-registration-step';
@@ -40,16 +41,40 @@ import { eventUpdateColumns } from '@/app/data/event-write-columns';
 import { eventOptionalCreateColumns } from '@/app/data/event-create-columns';
 
 const NO_TRANSPORT: HikeAsks = { transport: false, help: true };
+const NO_ASKS: HikeAsks = { transport: false, help: false }; // the 'when' preset
 const NO_HELP: HikeAsks = { transport: true, help: false };
 const BARE: HikeAnswers = { when: 'now', transport: null, freeSeats: null, help: null, helpOther: null };
 
 beforeEach(() => { localStorage.clear(); h.rpc.mockReset(); h.hike.mockReset(); });
 
 describe('answer model with the event settings', () => {
-  it('hikeAsksOf reads both settings and treats absent as asked', () => {
-    expect(hikeAsksOf({ hikeAsksTransport: false, hikeAsksHelp: true })).toEqual(NO_TRANSPORT);
+  it('hikeRegistrationOf defaults an absent or unknown value to all', () => {
+    expect(hikeRegistrationOf({})).toBe('all');
+    expect(hikeRegistrationOf(null)).toBe('all');
+    expect(hikeRegistrationOf({ hikeRegistration: 'nonsense' })).toBe('all');
+    expect(hikeRegistrationOf({ hikeRegistration: 'optional' })).toBe('optional');
+    expect(DEFAULT_HIKE_REGISTRATION).toBe('all');
+  });
+
+  it('hikeAsksOf is derived from the preset', () => {
+    expect(hikeAsksOf({ hikeRegistration: 'when' })).toEqual({ transport: false, help: false });
+    expect(hikeAsksOf({ hikeRegistration: 'when_transport' })).toEqual({ transport: true, help: false });
+    expect(hikeAsksOf({ hikeRegistration: 'all' })).toEqual({ transport: true, help: true });
+    expect(hikeAsksOf({ hikeRegistration: 'optional' })).toEqual({ transport: false, help: false });
     expect(hikeAsksOf({})).toEqual({ transport: true, help: true });
     expect(hikeAsksOf(null)).toEqual({ transport: true, help: true });
+  });
+
+  it('hikeAsksBeforeSeat and the shared form-first helper follow the preset and the flow', () => {
+    const hike = { seriesSlug: 'social-hike', flow: 'social-hike' };
+    expect(hikeAsksBeforeSeat({ ...hike, hikeRegistration: 'optional' })).toBe(false);
+    expect(hikeAsksBeforeSeat({ ...hike, hikeRegistration: 'when' })).toBe(true);
+    expect(hikeAsksBeforeSeat({ ...hike })).toBe(true);
+    expect(hikeAsksBeforeSeat({ seriesSlug: 'clarity-night', flow: 'clarity-night' })).toBe(false);
+    expect(eventAsksBeforeSeatSync({ ...hike, hikeRegistration: 'optional' })).toBe(false);
+    expect(eventAsksBeforeSeatSync({ ...hike, hikeRegistration: 'all' })).toBe(true);
+    expect(eventAsksBeforeSeatSync({ flow: 'sales-mastermind' })).toBe(true);
+    expect(eventAsksBeforeSeatSync({ flow: 'clarity-night' })).toBe(false);
   });
 
   it('transport off: null transport and seats are valid; a transport answer is not', () => {
@@ -128,9 +153,9 @@ describe('registration step and return hooks', () => {
   });
 
   it('the return hook reads the draft under the event settings and submits it', async () => {
-    saveHikeDraft('hike-1', BARE, NO_TRANSPORT);
+    saveHikeDraft('hike-1', BARE, NO_ASKS);
     const registration = { askHike: vi.fn(), keepHikeAnswers: vi.fn(), submitHike: vi.fn().mockResolvedValue(true) };
-    const event = { id: 'e1', slug: 'hike-1', seriesSlug: 'social-hike', status: 'published', hikeAsksTransport: false, hikeAsksHelp: true, datetime: new Date(Date.now() + 5 * 864e5).toISOString() };
+    const event = { id: 'e1', slug: 'hike-1', seriesSlug: 'social-hike', status: 'published', hikeRegistration: 'when', datetime: new Date(Date.now() + 5 * 864e5).toISOString() };
     renderHook(() => useRegistrationReturn({
       searchParams: new URLSearchParams('action=rsvp'), setSearchParams: vi.fn(), isLoggedIn: true, event: event as never,
       loading: false, asksBeforeSeat: true, isRsvpd: false, isHostOfEvent: false, registration: registration as never,
@@ -151,21 +176,23 @@ describe('registration step and return hooks', () => {
   });
 });
 
-describe('R6 host settings fields', () => {
-  it('shows both checkboxes on, with the founder text', () => {
-    render(<HikeQuestionsFields asksTransport asksHelp onAsksTransportChange={vi.fn()} onAsksHelpChange={vi.fn()} />);
-    expect(screen.getByText('Questions before the seat')).toBeTruthy();
-    expect(screen.getByLabelText("Ask how they're coming")).toBeTruthy();
-    expect(screen.getByLabelText("Ask if they'd like to help")).toBeTruthy();
-    expect(screen.getByTestId('hike-asks-transport').getAttribute('data-state')).toBe('checked');
-    expect(screen.getByTestId('hike-asks-help').getAttribute('data-state')).toBe('checked');
+describe('R18 host settings field', () => {
+  it('shows the four choices under "Before the seat", the stored one selected', () => {
+    render(<HikeQuestionsFields value="when_transport" onChange={vi.fn()} />);
+    expect(screen.getByText('Before the seat')).toBeTruthy();
+    expect(screen.getByLabelText('Introduction optional: one tap')).toBeTruthy();
+    expect(screen.getByLabelText('Introduction required: ask when only')).toBeTruthy();
+    expect(screen.getByLabelText("Introduction required: ask when and how they're coming")).toBeTruthy();
+    expect(screen.getByLabelText('Introduction required: ask all questions')).toBeTruthy();
+    expect((screen.getByTestId('hike-registration-when_transport') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByTestId('hike-registration-all') as HTMLInputElement).checked).toBe(false);
   });
 
   it('reports a change', () => {
     const t = vi.fn();
-    render(<HikeQuestionsFields asksTransport asksHelp onAsksTransportChange={t} onAsksHelpChange={vi.fn()} />);
-    fireEvent.click(screen.getByTestId('hike-asks-transport'));
-    expect(t).toHaveBeenCalledWith(false);
+    render(<HikeQuestionsFields value="all" onChange={t} />);
+    fireEvent.click(screen.getByTestId('hike-registration-optional'));
+    expect(t).toHaveBeenCalledWith('optional');
   });
 
   it('Create never shows the fields (a Create-form event is never a hike)', () => {
@@ -177,20 +204,18 @@ describe('R6 host settings fields', () => {
 
 describe('R6 event columns', () => {
   it('update writes the snake_case columns only when given; create writes neither', () => {
-    expect(eventUpdateColumns({ hikeAsksTransport: false, hikeAsksHelp: true })).toEqual({ hike_asks_transport: false, hike_asks_help: true });
-    expect(eventUpdateColumns({ title: 'x' })).not.toHaveProperty('hike_asks_transport');
-    const create = eventOptionalCreateColumns({ hikeAsksTransport: false } as never);
-    expect(create).not.toHaveProperty('hike_asks_transport');
-    expect(create).not.toHaveProperty('hike_asks_help');
+    expect(eventUpdateColumns({ hikeRegistration: 'when' })).toEqual({ hike_registration: 'when' });
+    expect(eventUpdateColumns({ title: 'x' })).not.toHaveProperty('hike_registration');
+    const create = eventOptionalCreateColumns({ hikeRegistration: 'when' } as never);
+    expect(create).not.toHaveProperty('hike_registration');
   });
 
-  it('SILENT_KEYS includes both keys, so toggling them never sends the event-updated email', () => {
-    expect(SILENT_KEYS).toContain('hike_asks_transport');
-    expect(SILENT_KEYS).toContain('hike_asks_help');
-    expect(updateNeedsEmail({ hike_asks_transport: false, hike_asks_help: true }, null)).toBe(false);
+  it('SILENT_KEYS includes the preset, so changing it never sends the event-updated email', () => {
+    expect(SILENT_KEYS).toContain('hike_registration');
+    expect(updateNeedsEmail({ hike_registration: 'optional' }, null)).toBe(false);
   });
 
-  it('the row mapper defaults both settings to true when absent (one shared helper)', () => {
+  it('the shared helper says absent means asked (one shared helper)', () => {
     // Behavioural: the one helper every reader of the column uses (mapper, host line, Edit form) says absent means asked.
     expect(isAsked(undefined)).toBe(true);
     expect(isAsked(null)).toBe(true);

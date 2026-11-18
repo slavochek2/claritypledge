@@ -260,7 +260,8 @@ describe('P1595 (founder-approved): the registered page names its organiser and 
     expect(screen.getByRole('heading', { level: 2, name: /This hike is organised by/ })).toHaveAttribute('id', 'learn-card-title');
     expect(screen.getByTestId('learn-card-reason')).toHaveTextContent('We welcome honest conversations with people who see the world differently. This short guide shows what to expect.');
     expect(screen.getByTestId('learn-card-cta')).toHaveTextContent(/^See how we talk/);
-    expect(screen.getByTestId('learn-card-optional')).toHaveTextContent('Optional. You can come without it.');
+    // P1675 R14: this hike asks the questions and starts within 24 hours, so the line is "required", without the reminder.
+    expect(screen.getByTestId('learn-card-optional')).toHaveTextContent(/^Required for this hike\.$/);
     expect(screen.getAllByRole('button')).toHaveLength(1); // one action
   });
 

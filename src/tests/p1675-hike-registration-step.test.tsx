@@ -113,11 +113,11 @@ describe('hike answer rules', () => {
 describe('close page and recipe routing (source contracts)', () => {
   it("the thank-you's next-event offer opens an asking event's page instead of a one-tap seat", () => {
     const src = readFileSync('src/app/prototypes/events/close/EventClosePage.tsx', 'utf8');
-    const i = src.indexOf('recipeForEvent(nextEvent).registration');
+    const i = src.indexOf('eventAsksBeforeSeatSync(nextEvent)');
     const tap = src.indexOf('rsvpToEvent(nextEvent.id');
     expect(i).toBeGreaterThan(0);
     expect(i).toBeLessThan(tap); // the page is chosen before the one-tap call can run
-    expect(src).toMatch(/recipeForEvent\(nextEvent\)\.registration\) return navigate\(`\/events\/\$\{nextEvent\.slug\}/);
+    expect(src).toMatch(/eventAsksBeforeSeatSync\(nextEvent\)\) return navigate\(`\/events\/\$\{nextEvent\.slug\}/);
   });
 
   it("the page navigates to the event's preparation route after a 'now' seat", () => {

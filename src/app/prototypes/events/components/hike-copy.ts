@@ -36,7 +36,7 @@ export const HIKE_ROLE_TRANSPORT_LEAD = "You help people who need a ride get the
 // ─── Client-only: the registration form (P1675, sections 1 to 3b). Spec text verbatim; lines marked PROPOSED are not in the spec. ───
 
 /** UAT round 1 R1 (founder): the lead line carries no minutes; they stay in the "now" option. */
-export const HIKE_LEAD_LINE = 'Everyone does a short introduction first: a few shared words and habits that make conversations with new people better.';
+export const HIKE_LEAD_LINE = 'Everyone does a short introduction first. We believe a few shared words and habits make every relationship better, at work and at home, and our community exists to spread them.';
 /** Founder (UAT round 3): say plainly it is required; shown in bold. */
 export const HIKE_REQUIRED_LINE = "It's required to join.";
 export const HIKE_LEAD_QUESTION = 'When will you do it?';
@@ -56,7 +56,7 @@ export const HIKE_FREE_SEATS_QUESTION = 'How many free seats do you have?';
 /** UAT round 1 R3 (founder): the question, the line under it, and the default option (stored as no help role). */
 export const HIKE_HELP_QUESTION = 'How would you like to take part?';
 export const HIKE_HELP_LINE = 'This is a social, non-commercial hike: nobody is paid, so a few of us help run it.';
-export const HIKE_JUST_ATTEND_OPTION = 'Just attend as a participant';
+export const HIKE_JUST_ATTEND_OPTION = 'Participant';
 export const HIKE_HELP_OPTIONS = [
   { value: 'lead', label: HIKE_ROLE_LABEL_LEAD },
   { value: 'sweep', label: HIKE_ROLE_LABEL_SWEEP },
@@ -67,10 +67,14 @@ export const HIKE_HELP_OPTIONS = [
 /** R4: the heading above a chosen role's text, e.g. "Sweep: what you'll do". */
 export const hikeRoleHeading = (label: string): string => `${label}${HIKE_ROLE_HEADING_SUFFIX}`;
 
-/** R6: the host settings block on Edit event (hikes only). */
-export const HIKE_QUESTIONS_HEADING = 'Questions before the seat';
-export const HIKE_ASKS_TRANSPORT_LABEL = "Ask how they're coming";
-export const HIKE_ASKS_HELP_LABEL = "Ask if they'd like to help";
+/** R18: the host's one "before the seat" choice on Edit event (hikes only), labels in the order of the preset values. */
+export const HIKE_REGISTRATION_HEADING = 'Before the seat';
+export const HIKE_REGISTRATION_OPTIONS = [
+  { value: 'optional', label: 'Introduction optional: one tap' },
+  { value: 'when', label: 'Introduction required: ask when only' },
+  { value: 'when_transport', label: "Introduction required: ask when and how they're coming" },
+  { value: 'all', label: 'Introduction required: ask all questions' },
+] as const;
 export const HIKE_HELP_OTHER_PLACEHOLDER = 'For example: dog food for the trail dogs, sweets to share, a bag to collect rubbish on the way';
 
 export const HIKE_PRIVACY_LINE = 'Only you and the host see these answers.';
@@ -85,6 +89,20 @@ export const HIKE_MISSING = {
   other: 'Say how you would like to help, in a few words.',
 } as const;
 export const HIKE_CLOSED_UNFINISHED = "You're not registered yet.";
+
+// ─── Client-only: the plan page and confirmation line of a hike that asks the questions (P1675 R13, R14) ───
+
+/** R13: the plan page's title on a hike that asks the questions. */
+export const HIKE_PLAN_TITLE = 'Your short introduction';
+/** R13: the line under it, brand-new person ("About 15 minutes.", the number is the recipe's statedMinutes). */
+export const hikePlanLineNew = (stated: number): string => `About ${stated} minutes.`;
+/** R13: the line under it, anyone else (N is the R10 number). */
+export const hikePlanLineReturning = (n: number): string => `About ${n} minutes left: you've done part of it before.`;
+/** R14: the confirmation page's line, before the event's start minus 24 hours (the reminder is still to come) and after it. */
+export const HIKE_REQUIRED_REMINDER = "Required for this hike. We'll remind you by email.";
+export const HIKE_REQUIRED = 'Required for this hike.';
+/** R14: the 24-hour reminder's lead time. */
+export const HIKE_REMINDER_LEAD_MS = 24 * 3600 * 1000;
 
 // ─── Client-only: the host's answers line and the room's count line (P1675, sections 3b and 6) ───
 
@@ -101,5 +119,16 @@ export const hikeHostSeats = (n: number): string => `${n} free seat${n === 1 ? '
 export const HIKE_HOST_OTHER_PREFIX = 'Other: ';
 /** R6: an answer that is not stored, or a question the event does not ask. */
 export const HIKE_HOST_DASH = '—';
-/** R6: "Just attend" on an event that asks the help question. */
+/** R6/R16: help NULL ("Participant", the first help option) on an event that asks the help question. */
 export const HIKE_HOST_PARTICIPANT = 'Participant';
+/** UAT round 3 R17: the host's roles count line, "Roles: 1 Lead · 2 Welcomers · 12 Participants". "Other" never pluralizes. */
+export const HIKE_ROLES_PREFIX = 'Roles: ';
+export const HIKE_ROLES_SEPARATOR = ' · ';
+export const HIKE_ROLE_PLURALS = {
+  lead: 'Leads',
+  sweep: 'Sweeps',
+  welcomer: 'Welcomers',
+  transport_lead: 'Transport leads',
+  other: 'Other',
+  participant: 'Participants',
+} as const;

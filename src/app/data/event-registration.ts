@@ -52,10 +52,10 @@ export async function registerForEvent(
  * the sign-in page must not load the events' recipes until an event link is actually being returned to.
  */
 export async function eventAsksBeforeSeat(slug: string): Promise<boolean> {
-  const [{ eventsService }, { recipeForEvent }] = await Promise.all([
+  const [{ eventsService }, { eventAsksBeforeSeatSync }] = await Promise.all([
     import('./events-service'),
-    import('@/app/prototypes/events/series-recipes'),
+    import('@/app/prototypes/events/form-first'),
   ]);
   const event = await eventsService.getEventBySlug(slug, { attendees: false });
-  return !!event && !!recipeForEvent(event).registration;
+  return !!event && eventAsksBeforeSeatSync(event); // P1675 R18: the one "form first" helper (an optional hike registers in one tap)
 }

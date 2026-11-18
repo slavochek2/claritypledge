@@ -15,7 +15,7 @@ import { useAuth } from '@/auth';
 import { useGoBack } from '@/app/hooks/use-go-back';
 import { FocusHeader } from '@/app/components/layout/focus-header';
 import { eventsService } from '@/app/data/events-service';
-import { isAsked } from '@/app/data/hike-answer-model';
+import { hikeRegistrationOf, DEFAULT_HIKE_REGISTRATION, type HikeRegistration } from '@/app/data/hike-answer-model';
 import type { EventWithHost } from '@/app/types';
 import { DURATIONS, TIMEZONES } from '../utils';
 import { HiddenEventField } from './HiddenEventField';
@@ -47,8 +47,7 @@ export function EditEvent() {
   const [preparationEnabled, setPreparationEnabled] = useState(false);
   const [statementTag, setStatementTag] = useState('');
   const [isHidden, setIsHidden] = useState(false); // P1603
-  const [hikeAsksTransport, setHikeAsksTransport] = useState(true); // P1675 R6
-  const [hikeAsksHelp, setHikeAsksHelp] = useState(true);
+  const [hikeRegistration, setHikeRegistration] = useState<HikeRegistration>(DEFAULT_HIKE_REGISTRATION); // P1675 R18
   const [canvasTiming, setCanvasTiming] = useState<CanvasTiming>('at_event'); // P1529 E1
   // P1194: true when the existing link could not be READ. An empty field then means
   // "unknown", not "the host cleared it" — and the two must not submit the same value.
@@ -81,8 +80,7 @@ export function EditEvent() {
         setPreparationEnabled(eventData.preparationEnabled ?? false);
         setStatementTag(eventData.statementTag ?? '');
         setIsHidden(eventData.isHidden === true);
-        setHikeAsksTransport(isAsked(eventData.hikeAsksTransport));
-        setHikeAsksHelp(isAsked(eventData.hikeAsksHelp));
+        setHikeRegistration(hikeRegistrationOf(eventData));
         setCanvasTiming(canvasTimingOf(eventData.canvasTiming));
         // P1194: the group chat link lives in the RLS-gated side table, not on the
         // event row. The host passes that gate, so this returns their own value.
@@ -217,7 +215,7 @@ export function EditEvent() {
       preparationEnabled,
       statementTag: normalizeStatementTag(statementTag),
       isHidden,
-      ...(event && recipeForEvent(event).registration === 'hike' ? { hikeAsksTransport, hikeAsksHelp } : {}), // P1675 R6
+      ...(event && recipeForEvent(event).registration === 'hike' ? { hikeRegistration } : {}), // P1675 R18
       ...(event && eventFlow(event) === 'sales-mastermind' ? { canvasTiming } : {}), // P1529 E1
     });
 
@@ -412,12 +410,7 @@ export function EditEvent() {
           />
 
           {event && recipeForEvent(event).registration === 'hike' && (
-            <HikeQuestionsFields
-              asksTransport={hikeAsksTransport}
-              onAsksTransportChange={setHikeAsksTransport}
-              asksHelp={hikeAsksHelp}
-              onAsksHelpChange={setHikeAsksHelp}
-            />
+            <HikeQuestionsFields value={hikeRegistration} onChange={setHikeRegistration} />
           )}
 
           {event && eventFlow(event) === 'sales-mastermind' && <CanvasTimingField value={canvasTiming} onChange={setCanvasTiming} />}

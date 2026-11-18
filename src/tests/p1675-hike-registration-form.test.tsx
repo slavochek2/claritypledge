@@ -27,7 +27,7 @@ beforeEach(() => vi.clearAllMocks());
 describe('P1675 hike form: copy', () => {
   it('lead line, the two options and the privacy line, verbatim, with the computed minutes in both places', () => {
     open();
-    expect(screen.getByTestId('hike-lead-line').textContent).toBe("Everyone does a short introduction first: a few shared words and habits that make conversations with new people better. It's required to join. When will you do it?"); // UAT round 3 (founder): says why, says required (bold), no minutes
+    expect(screen.getByTestId('hike-lead-line').textContent).toBe("Everyone does a short introduction first. We believe a few shared words and habits make every relationship better, at work and at home, and our community exists to spread them. It's required to join. When will you do it?"); // UAT round 3 R12 (founder): says why, says required (bold), no minutes
     expect(screen.getByTestId('hike-lead-line').querySelector('strong')?.textContent).toBe("It's required to join.");
     expect(screen.getByLabelText("I have 9 minutes, I'll do it now")).toBeTruthy();
     expect(screen.getByLabelText("I'll do it later, remind me by email")).toBeTruthy();
@@ -40,7 +40,7 @@ describe('P1675 hike form: copy', () => {
     for (const l of ['Car', 'Motorbike', 'Bicycle or on foot', 'I need a ride']) expect(screen.getByLabelText(l)).toBeTruthy();
     expect(screen.getByText('How would you like to take part?')).toBeTruthy(); // UAT round 1 R3
     expect(screen.getByTestId('hike-help-line').textContent).toBe('This is a social, non-commercial hike: nobody is paid, so a few of us help run it.'); // R3 line
-    for (const l of ['Just attend as a participant', 'Lead', 'Sweep', 'Welcomer', 'Other']) expect(screen.getByLabelText(l)).toBeTruthy();
+    for (const l of ['Participant', 'Lead', 'Sweep', 'Welcomer', 'Other']) expect(screen.getByLabelText(l)).toBeTruthy();
   });
 
   it('R10: the "now" option says the recipe\'s stated minutes', () => {
@@ -116,6 +116,8 @@ describe('P1675 hike form: transport, seats and roles', () => {
     expect(screen.queryByTestId('hike-free-seats')).toBeNull();
     pick('hike-transport-motorbike');
     const seats = screen.getByTestId('hike-free-seats');
+    expect((seats as HTMLInputElement).value).toBe('0'); // R15: the box opens at 0
+    expect(screen.queryByTestId('hike-whatsapp-line')).toBeNull();
     fireEvent.change(seats, { target: { value: '0' } });
     expect(screen.queryByTestId('hike-whatsapp-line')).toBeNull();
     fireEvent.change(seats, { target: { value: '2' } });
@@ -123,6 +125,18 @@ describe('P1675 hike form: transport, seats and roles', () => {
     pick('hike-transport-bike_or_foot');
     expect(screen.queryByTestId('hike-free-seats')).toBeNull();
     expect(screen.queryByTestId('hike-whatsapp-line')).toBeNull();
+  });
+
+  it('R15: choosing Car shows 0 and an untouched box submits freeSeats 0; a typed number survives a switch to Motorbike', () => {
+    open();
+    pick('hike-when-now');
+    pick('hike-transport-car');
+    expect((screen.getByTestId('hike-free-seats') as HTMLInputElement).value).toBe('0');
+    submit();
+    expect(onSubmit).toHaveBeenCalledWith({ when: 'now', transport: 'car', freeSeats: 0, help: null, helpOther: null });
+    fireEvent.change(screen.getByTestId('hike-free-seats'), { target: { value: '3' } });
+    pick('hike-transport-motorbike');
+    expect((screen.getByTestId('hike-free-seats') as HTMLInputElement).value).toBe('3');
   });
 
   it('seatsOf accepts whole numbers 0 to 20 only', () => {

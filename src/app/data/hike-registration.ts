@@ -10,9 +10,9 @@ import { guardSeatWrite, isAnonymousRlsDenial, SessionMismatchError } from '@/li
 import { logDbError } from './db-error-logger';
 import { DEFAULT_HIKE_ASKS, normalizeHikeAnswers, type HikeAnswers, type HikeAsks } from './hike-answer-model';
 
-export type HikeRegisterResult = 'ok' | 'already' | 'full' | 'cancelled' | 'not_found' | 'now_only' | 'failed';
+export type HikeRegisterResult = 'ok' | 'already' | 'full' | 'cancelled' | 'not_found' | 'now_only' | 'optional' | 'failed';
 
-const RESULTS: readonly string[] = ['ok', 'already', 'full', 'cancelled', 'not_found', 'now_only'];
+const RESULTS: readonly string[] = ['ok', 'already', 'full', 'cancelled', 'not_found', 'now_only', 'optional'];
 
 export async function registerForHike(
   event: { id: string; slug: string },

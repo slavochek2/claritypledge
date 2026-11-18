@@ -120,9 +120,8 @@ export interface CreateEventInput {
   groupChatUrl?: string | null;
   /** P1336: preparation flow + room gate on/off. */
   preparationEnabled?: boolean;
-  /** P1675 R6: hike questions before the seat (hikes only; default true). */
-  hikeAsksTransport?: boolean;
-  hikeAsksHelp?: boolean;
+  /** P1675 R18: what a hike asks before the seat (hikes only; default 'all'). */
+  hikeRegistration?: 'optional' | 'when' | 'when_transport' | 'all';
   /** P1336: point tag for the positions step; '' clears it. */
   statementTag?: string;
   /** P1603: hidden = not listed, readable only with the link (plus its host and the registered). */

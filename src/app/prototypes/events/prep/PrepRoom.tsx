@@ -22,6 +22,8 @@ import { gatesRoomOnPreparation, offersPreparation, recipeForEvent } from '../se
 import { MEMBERSHIP_READ_TIMEOUT_MS, useEventCommunity, useEventCommunityName, useEventMembership } from '../use-event-community';
 import { whenVisible } from '../when-visible';
 import { cn } from '@/lib/utils';
+import { hikeAsksBeforeSeat } from '../form-first';
+import { HIKE_REMINDER_LEAD_MS, HIKE_REQUIRED, HIKE_REQUIRED_REMINDER } from '../components/hike-copy';
 
 const bypassKey = (eventId: string, viewerId: string) => `p1336-room-bypass:${viewerId}:${eventId}`;
 export function hasBypassedPrep(eventId: string, viewerId: string): boolean {
@@ -314,10 +316,15 @@ export function LearnInvitation({ event, className }: { event: EventWithHost; cl
     writeJson(learnCardEventKey(viewerId, event.id), { started: state.progress.done > 0 });
   }, [applies, viewerId, trusted, actualShow, communityKey, community, event.id, state.progress.done]);
 
-  if (restoring && offer) return <LearnCard skeleton className={className} />;
+  // P1675 R14: a hike that asks the questions says "required"; the reminder is only still to come before start minus 24 h.
+  // Computed before the skeletons too, so the placeholder holds the line it settles into (review fix, Gemini).
+  const optionalLine = hikeAsksBeforeSeat(event)
+    ? (Date.now() < new Date(event.datetime).getTime() - HIKE_REMINDER_LEAD_MS ? HIKE_REQUIRED_REMINDER : HIKE_REQUIRED)
+    : LEARN_INVITATION_OPTIONAL;
+  if (restoring && offer) return <LearnCard skeleton optionalLine={optionalLine} className={className} />;
   if (!applies || !offer) return null;
   const show = decisionTimedOut ? (memory?.show ?? false) : (actualShow ?? memory?.show ?? null);
-  if (show === null) return <LearnCard skeleton className={className} />;
+  if (show === null) return <LearnCard skeleton optionalLine={optionalLine} className={className} />;
   return (
     <LearnCard
       className={className}
@@ -330,6 +337,7 @@ export function LearnInvitation({ event, className }: { event: EventWithHost; cl
       titleHidden={!display.titleKnown && !decisionTimedOut}
       started={display.started}
       minutes={display.minutes}
+      optionalLine={optionalLine}
       // Round 6d (Codex): NO fromEvent marker — the page below the learning is this thank-you, not the event page,
       // so the learning's "Back to the event" must replace with the event rather than pop back here.
       onClick={() => navigate(`/events/${event.slug}/prepare`)}
@@ -344,7 +352,8 @@ export function LearnInvitation({ event, className }: { event: EventWithHost; cl
  * button keep their real size, so the card that replaces it moves nothing. The skeleton has no button — a shape, never a
  * dead control.
  */
-function LearnCard({ className, settled = false, name = null, slug = null, offered = true, titleHidden = false, started = false, minutes = null, onClick, skeleton = false }: {
+function LearnCard({ className, settled = false, name = null, slug = null, offered = true, titleHidden = false, started = false, minutes = null, optionalLine = LEARN_INVITATION_OPTIONAL, onClick, skeleton = false }: {
+  optionalLine?: string;
   className?: string;
   settled?: boolean;
   name?: string | null;
@@ -400,7 +409,7 @@ function LearnCard({ className, settled = false, name = null, slug = null, offer
           )}
         </div>
         <p className="text-xs text-muted-foreground" data-testid="learn-card-optional">
-          {skeleton ? <Skeleton as="span" className={bone}>{LEARN_INVITATION_OPTIONAL}</Skeleton> : LEARN_INVITATION_OPTIONAL}
+          {skeleton ? <Skeleton as="span" className={bone}>{optionalLine}</Skeleton> : optionalLine}
         </p>
         </>
       )}

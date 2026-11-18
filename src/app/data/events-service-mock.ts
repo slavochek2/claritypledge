@@ -1,7 +1,7 @@
 import type { EventsService, CreateEventInput, UpdateEventInput } from './events-service.interface';
 import type { MyEvents } from './event-list-reads';
 import type { EventWithHost, EventAttendee, EventPracticeRoom, SeriesContent } from '@/app/types';
-import { isAsked } from './hike-answer-model';
+import { hikeRegistrationOf, type HikeRegistration } from './hike-answer-model';
 // Mock data archived after P61.1 production backend implementation
 import {
   getUpcomingEvents as mockGetUpcoming,
@@ -34,7 +34,7 @@ export function mockHasGroupChat(eventId: string): boolean {
 }
 
 // P1675 R6: the hike question settings an edit saved, per event (a Map for the same reason as the group chat link).
-const mockHikeAsks = new Map<string, { transport?: boolean; help?: boolean }>();
+const mockHikeRegistrations = new Map<string, HikeRegistration>();
 
 // Transform MockEvent to EventWithHost (same shape, just type alignment)
 function toEventWithHost(mock: MockEvent): EventWithHost {
@@ -48,8 +48,7 @@ function toEventWithHost(mock: MockEvent): EventWithHost {
     timezone: mock.timezone,
     location: mock.location,
     hasGroupChat: mockGroupChatUrls.has(mock.id), // P1194
-    hikeAsksTransport: isAsked(mockHikeAsks.get(mock.id)?.transport), // P1675 R6: absent means asked
-    hikeAsksHelp: isAsked(mockHikeAsks.get(mock.id)?.help),
+    hikeRegistration: hikeRegistrationOf({ hikeRegistration: mockHikeRegistrations.get(mock.id) }), // P1675 R18: absent means all
     hostId: mock.hostId,
     hostName: mock.hostName,
     hostSlug: mock.hostSlug,
@@ -216,13 +215,7 @@ export const mockEventsService: EventsService = {
     if (data.location) event.location = data.location;
     if (data.maxAttendees !== undefined) event.maxAttendees = data.maxAttendees ?? undefined;
     if (data.groupChatUrl !== undefined) setMockGroupChatUrl(eventId, data.groupChatUrl);
-    if (data.hikeAsksTransport !== undefined || data.hikeAsksHelp !== undefined) {
-      const prev = mockHikeAsks.get(eventId) ?? {};
-      mockHikeAsks.set(eventId, {
-        transport: data.hikeAsksTransport ?? prev.transport,
-        help: data.hikeAsksHelp ?? prev.help,
-      });
-    }
+    if (data.hikeRegistration !== undefined) mockHikeRegistrations.set(eventId, data.hikeRegistration);
 
     return true;
   },

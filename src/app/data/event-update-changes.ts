@@ -10,7 +10,7 @@ import { eventUpdateColumns } from './event-write-columns';
 import type { UpdateEventInput } from './events-service.interface';
 
 /** Columns whose change tells attendees nothing (banner, preparation and canvas settings, hidden flag, hike questions). */
-export const SILENT_KEYS = ['banner_url', 'preparation_enabled', 'statement_tag', 'is_hidden', 'canvas_timing', 'hike_asks_transport', 'hike_asks_help'];
+export const SILENT_KEYS = ['banner_url', 'preparation_enabled', 'statement_tag', 'is_hidden', 'canvas_timing', 'hike_registration'];
 
 const loudKeys = (updateData: Record<string, unknown>): string[] => Object.keys(updateData).filter((k) => !SILENT_KEYS.includes(k));
 

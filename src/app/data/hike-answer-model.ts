@@ -3,7 +3,10 @@
  * @description P1675: the answers a hike asks before the seat (when the person will do the short introduction, how they are
  * coming, how they would help) and the rules the server enforces on them (register_for_hike, event_hike_answers checks).
  * The client applies the same rules so a form can never send what the server would refuse.
+ * The "form first" decision, which needs the series recipes, lives in `@/app/prototypes/events/form-first`, so this data
+ * model imports no prototype code (review fix, P1675 round 3).
  */
+
 export type HikeWhen = 'now' | 'later';
 export type HikeTransport = 'car' | 'motorbike' | 'bike_or_foot' | 'need_ride';
 export type HikeHelp = 'lead' | 'sweep' | 'welcomer' | 'transport_lead' | 'other';
@@ -24,11 +27,20 @@ export const DEFAULT_HIKE_ASKS: HikeAsks = { transport: true, help: true };
 /** "Absent means asked": a question is on unless it is explicitly false (null, undefined and a missing column all mean asked). */
 export const isAsked = (v: boolean | null | undefined): boolean => v !== false;
 
-/** The event's two settings as a HikeAsks (absent means asked). */
-export const hikeAsksOf = (e: { hikeAsksTransport?: boolean | null; hikeAsksHelp?: boolean | null } | null | undefined): HikeAsks => ({
-  transport: isAsked(e?.hikeAsksTransport),
-  help: isAsked(e?.hikeAsksHelp),
-});
+/** P1675 R18: what a hike asks before the seat. 'optional' = one tap, no form; the others ask more and more. */
+export type HikeRegistration = 'optional' | 'when' | 'when_transport' | 'all';
+export const HIKE_REGISTRATIONS: readonly HikeRegistration[] = ['optional', 'when', 'when_transport', 'all'];
+export const DEFAULT_HIKE_REGISTRATION: HikeRegistration = 'all';
+
+/** The event's preset; an absent or unknown value means 'all' (every existing hike asks everything). */
+export const hikeRegistrationOf = (e: { hikeRegistration?: string | null } | null | undefined): HikeRegistration =>
+  HIKE_REGISTRATIONS.find((r) => r === e?.hikeRegistration) ?? DEFAULT_HIKE_REGISTRATION;
+
+/** The event's preset as a HikeAsks. 'optional' asks nothing and is never used for a form. */
+export const hikeAsksOf = (e: { hikeRegistration?: string | null } | null | undefined): HikeAsks => {
+  const preset = hikeRegistrationOf(e);
+  return { transport: preset === 'when_transport' || preset === 'all', help: preset === 'all' };
+};
 
 export interface HikeAnswers {
   when: HikeWhen;

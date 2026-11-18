@@ -23,14 +23,12 @@ export function canvasTimingOf(raw: string | null | undefined): CanvasTiming {
   return raw === 'before' ? 'before' : DEFAULT_CANVAS_TIMING;
 }
 
-/** P1675 R6: a hike asks how people are coming / if they'd help. Absent means asked. Lives here so types/index.ts does not grow. */
+/** P1675 R18: what a hike asks before the seat. Absent means 'all'. Lives here so types/index.ts does not grow. */
 export interface HikeAsksFields {
-  hikeAsksTransport?: boolean;
-  hikeAsksHelp?: boolean;
+  hikeRegistration?: 'optional' | 'when' | 'when_transport' | 'all';
 }
 
-/** The two columns behind HikeAsksFields, as stored on `events`. */
+/** The column behind HikeAsksFields, as stored on `events`. */
 export interface DbHikeAsksFields {
-  hike_asks_transport?: boolean;
-  hike_asks_help?: boolean;
+  hike_registration?: 'optional' | 'when' | 'when_transport' | 'all';
 }

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 /**
- * P1675 UAT round 1 R6: the RENDERED Edit event form. A hike shows the "Questions before the seat" settings and unticking
- * "Ask how they're coming" sends hikeAsksTransport:false to updateEvent; a Clarity Night shows none and sends neither key.
+ * P1675 UAT round 3 R18: the RENDERED Edit event form. A hike shows the four-way "Before the seat" choice with the stored one
+ * selected, and saving sends the chosen preset; a Clarity Night shows none and sends no hikeRegistration key.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -23,7 +23,7 @@ const base = {
   id: 'ev-1', slug: 'walk', title: 'Doi Suthep walk', description: 'A long enough description for the form to accept it.',
   datetime: '2099-01-01T11:00:00Z', timezone: 'Asia/Bangkok', durationMinutes: 60, location: 'Somewhere',
   hostId: 'host-1', hasGroupChat: false, preparationEnabled: false, statementTag: null,
-  hikeAsksTransport: true, hikeAsksHelp: true,
+  hikeRegistration: 'when_transport',
 };
 const hike = { ...base, seriesSlug: 'social-hike', flow: 'social-hike' };
 const night = { ...base, slug: 'night', seriesSlug: 'clarity-night', flow: 'clarity-night' };
@@ -46,17 +46,18 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe('P1675 R6: Edit event hike question settings', () => {
-  it('a hike shows the settings, and unticking "how they are coming" sends hikeAsksTransport:false (help stays true)', async () => {
+describe('P1675 R18: Edit event before-the-seat choice', () => {
+  it('a hike shows four choices, the stored one selected, and saving sends the chosen preset', async () => {
     svc.getEventBySlug.mockResolvedValue(hike);
     mount('walk');
     expect(await screen.findByTestId('hike-questions-settings')).toBeInTheDocument();
-    expect(screen.getByRole('group', { name: 'Questions before the seat' })).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('hike-asks-transport'));
+    expect(screen.getByRole('group', { name: 'Before the seat' })).toBeInTheDocument();
+    expect(screen.getAllByRole('radio')).toHaveLength(4);
+    expect((screen.getByTestId('hike-registration-when_transport') as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByTestId('hike-registration-optional'));
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(svc.updateEvent).toHaveBeenCalledTimes(1));
-    expect(lastUpdate().hikeAsksTransport).toBe(false);
-    expect(lastUpdate().hikeAsksHelp).toBe(true);
+    expect(lastUpdate().hikeRegistration).toBe('optional');
   });
 
   it('a Clarity Night shows no settings and sends neither key', async () => {
@@ -66,7 +67,6 @@ describe('P1675 R6: Edit event hike question settings', () => {
     expect(screen.queryByTestId('hike-questions-settings')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(svc.updateEvent).toHaveBeenCalledTimes(1));
-    expect(lastUpdate()).not.toHaveProperty('hikeAsksTransport');
-    expect(lastUpdate()).not.toHaveProperty('hikeAsksHelp');
+    expect(lastUpdate()).not.toHaveProperty('hikeRegistration');
   });
 });

@@ -13,7 +13,7 @@ const h = vi.hoisted(() => ({ counts: vi.fn(), rpc: vi.fn(), from: vi.fn() }));
 vi.mock('@/app/data/event-room-counts', () => ({ getEventRoomCounts: (...a: unknown[]) => h.counts(...a) }));
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc: (...a: unknown[]) => h.rpc(...a), from: (...a: unknown[]) => h.from(...a) } }));
 
-import { hikeHostLine } from '@/app/prototypes/events/components/hike-host-line';
+import { hikeHostLine, hikeRolesLine } from '@/app/prototypes/events/components/hike-host-line';
 import { useEventRoomCounts } from '@/app/prototypes/events/components/use-event-room-counts';
 import { getHikeAnswersForHost, type HikeAnswerRow } from '@/app/data/hike-answers-host';
 
@@ -27,6 +27,28 @@ describe('hikeHostLine R6', () => {
     expect(hikeHostLine({ ...base, help: null })).toBe('Later · Car, 2 free seats · Participant');
     expect(hikeHostLine({ ...base, help: null, askedHelp: true })).toBe('Later · Car, 2 free seats · Participant');
     expect(hikeHostLine({ ...base, help: null, askedHelp: false })).toBe('Later · Car, 2 free seats · —');
+  });
+});
+
+describe('hikeRolesLine R17', () => {
+  const r = (help: HikeAnswerRow['help'], askedHelp?: boolean): HikeAnswerRow => ({ ...base, help, askedHelp });
+  const many = (help: HikeAnswerRow['help'], n: number) => Array.from({ length: n }, () => r(help));
+  it('the spec example', () => {
+    expect(hikeRolesLine([r('lead'), r('sweep'), ...many('welcomer', 2), r('transport_lead'), r('other'), ...many(null, 12)]))
+      .toBe('Roles: 1 Lead · 1 Sweep · 2 Welcomers · 1 Transport lead · 1 Other · 12 Participants');
+  });
+  it('plurals of every role at 2, Other stays "Other"', () => {
+    expect(hikeRolesLine([...many('lead', 2), ...many('sweep', 2), ...many('welcomer', 2), ...many('transport_lead', 2), ...many('other', 2), ...many(null, 2)]))
+      .toBe('Roles: 2 Leads · 2 Sweeps · 2 Welcomers · 2 Transport leads · 2 Other · 2 Participants');
+  });
+  it('zero counts are left out; participants only', () => {
+    expect(hikeRolesLine([r('sweep')])).toBe('Roles: 1 Sweep');
+    expect(hikeRolesLine(many(null, 3))).toBe('Roles: 3 Participants');
+  });
+  it('asked_help false is not counted, and no asked row gives null', () => {
+    expect(hikeRolesLine([r(null, false), r('lead')])).toBe('Roles: 1 Lead');
+    expect(hikeRolesLine([r(null, false), r(null, false)])).toBeNull();
+    expect(hikeRolesLine([])).toBeNull();
   });
 });
 
@@ -109,6 +131,14 @@ describe('host page wiring (EventDetail source shape)', () => {
     expect(DETAIL).toMatch(/useHostPrepMarks\(event\?\.id, hostGroupsOn\)/);
     expect(DETAIL).toMatch(/useHostOptIns\(event\?\.id, hostGroupsOn\)/);
     expect(DETAIL).toMatch(/if \(!hostGroupsOn\) \{/);
+  });
+
+  it('R17: the roles line is host-and-hike only, above the people list, counts active registrations only, and is left out when null', () => {
+    expect(DETAIL).toMatch(/\{isHost && isHikeEvent && \(\(\) => \{/);
+    expect(DETAIL).toMatch(/hikeRolesLine\(\[\.\.\.hikeAnswers\.values\(\)\]\.filter\(a => active\.has\(a\.profileId\)\)\)/);
+    expect(DETAIL).toMatch(/return rolesLine \? \(/);
+    expect(DETAIL).toContain('data-testid="host-hike-roles"');
+    expect(DETAIL.indexOf('data-testid="host-hike-roles"')).toBeLessThan(DETAIL.indexOf('data-testid="host-hike-answers"'));
   });
 
   it('answers and merged count are read for the host of a hike only; the answers line never uses innerHTML', () => {

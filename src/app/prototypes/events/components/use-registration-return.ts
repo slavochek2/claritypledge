@@ -13,7 +13,7 @@ import { eventsService } from '@/app/data/events-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { readHikeDraft, readRegistrationDraft } from '@/app/data/registration-draft';
 import { hikeAsksOf } from '@/app/data/hike-answer-model';
-import { recipeForEvent } from '../series-recipes';
+import { hikeAsksBeforeSeat } from '../form-first';
 import type { EventWithHost } from '@/app/types';
 import type { useRegistrationStep } from './use-registration-step';
 
@@ -39,7 +39,7 @@ export function useRegistrationReturn(a: {
     const open = asksBeforeSeat && !isRsvpd && !isHostOfEvent && event.status !== 'cancelled' && Date.now() < new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000;
     if (asksBeforeSeat && isRsvpd) return; // already registered: nothing to ask, nothing to announce
     if (!open) { toast.success('Account created! Click "Reserve a seat" to confirm your spot.'); return; }
-    if (recipeForEvent(event).registration === 'hike') {
+    if (hikeAsksBeforeSeat(event)) {
       // P1675: a hike has no waiting list. Saved answers register without asking again (a retry reopens the form with them).
       const saved = readHikeDraft(event.slug, hikeAsksOf(event));
       if (!saved) { registration.askHike(); return; }

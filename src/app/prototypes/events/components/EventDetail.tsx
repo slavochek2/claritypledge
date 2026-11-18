@@ -60,8 +60,9 @@ import { HikeRegistrationQuestions } from './HikeRegistrationQuestions';
 import { hikeStatedMinutes } from './use-hike-minutes';
 import { useEventRoomCounts } from './use-event-room-counts';
 import { useHikeAnswersForHost } from './use-hike-answers-for-host';
-import { hikeHostLine } from './hike-host-line';
+import { hikeHostLine, hikeRolesLine } from './hike-host-line';
 import { hikeAsksOf } from '@/app/data/hike-answer-model';
+import { eventAsksBeforeSeatSync, hikeAsksBeforeSeat } from '../form-first';
 import { refusalMessage, useRegistrationStep } from './use-registration-step';
 import { useRegistrationReturn } from './use-registration-return';
 import { classifyGroupChat } from '../group-chat-utils';
@@ -432,7 +433,7 @@ export function EventDetail() {
   // P1529 D16, P1675: `asksBeforeSeat` is true for the mastermind and for hikes (the form comes first); `asksMastermind` keeps what
   // only the mastermind has (places left, waiting list, its own form). False for both on Clarity Night.
   const registrationKind = recipeForEvent(event).registration;
-  const asksBeforeSeat = !!registrationKind;
+  const asksBeforeSeat = eventAsksBeforeSeatSync(event); // P1675 R18: an optional hike is one tap, like Clarity Night
   const asksMastermind = registrationKind === 'mastermind';
   const hikeMinutes = hikeStatedMinutes(event, registrationKind === 'hike');
   const myArrival = useMyRegistrationArrival(event, user?.id);
@@ -477,7 +478,7 @@ export function EventDetail() {
     onRegistered: () => { setIsRsvpd(true); navigate(`/events/${slug}/confirm`, { state: { fromEvent: true } }); },
     onRefused: showRefusal,
     onSessionLost: () => { if (event) signInAgain(event.slug); },
-    hikeAsks: hikeAsksOf(event), // P1675 R6
+    hikeAsks: hikeAsksOf(event), // P1675 R18 (the preset's asks)
     // D24: full means the same form joins the waiting list; signed out, the form ends in Continue and sign-up comes next.
     full: registrationFull,
     readsWaitlist: asksMastermind && !isRsvpd,
@@ -1311,6 +1312,14 @@ export function EventDetail() {
               {hostMicLine && (
                 <p className="text-sm text-foreground -mt-2 mb-3" data-testid="prep-mic-line">{hostMicLine}</p>
               )}
+              {/* P1675 UAT round 3 R17: host only, answers of active registrations only (no new read). */}
+              {isHost && isHikeEvent && (() => {
+                const active = new Set((event.attendees ?? []).map(a => a.profileId));
+                const rolesLine = hikeRolesLine([...hikeAnswers.values()].filter(a => active.has(a.profileId)));
+                return rolesLine ? (
+                  <p className="text-xs text-muted-foreground mb-3" data-testid="host-hike-roles">{rolesLine}</p>
+                ) : null;
+              })()}
               {(() => {
                 const attendees = event.attendees ?? [];
                 // Host only, and never the host's own row.
@@ -1436,7 +1445,7 @@ export function EventDetail() {
       )}
 
       {/* Cancel RSVP Confirmation Dialog */}
-      {registrationKind === 'hike' && (
+      {hikeAsksBeforeSeat(event) && (
         <HikeRegistrationQuestions
           open={registration.asking}
           datetime={event.datetime}

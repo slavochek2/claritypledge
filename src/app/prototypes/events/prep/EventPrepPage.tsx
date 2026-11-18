@@ -70,6 +70,8 @@ import { resumeScreenOf } from './prep-resume';
 import { useClipState, VideoActions } from './prep-video-actions';
 import { GutFeelNudge } from './GutFeelNudge';
 import { isAnswered, usePrepState, type PrepState } from './use-prep-state';
+import { hikeAsksBeforeSeat } from '../form-first';
+import { HIKE_PLAN_TITLE, hikePlanLineNew, hikePlanLineReturning } from '../components/hike-copy';
 import { defaultRoomStep, feedbackAlwaysOpen, feedbackOpenAnytime, offersPreparation, recipeForEvent } from '../series-recipes';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
 import type { PrepRoomEmbed } from './prep-room-embed';
@@ -238,6 +240,8 @@ export function PrepFlow({
   const { prep, plan } = state;
   // P1542 founder round 3: a hike's flow is learning about the named community, never "preparing".
   const { words } = recipeForEvent(event).prepare;
+  const introPlan = !embedded && hikeAsksBeforeSeat(event);
+  const nothingLeft = plan.length > 0 && plan.every((s) => state.stepsDone.includes(s));
   // P1542 founder UAT round 5: learning opened from the room (its Learn step, or the feedback thank-you's Join) stays
   // INSIDE the room's frame: the app menu, and the room's step bar with Learn as the shown step. Its finish returns to
   // the room's Opt in step, or (then=join) to the group terms on the feedback thank-you.
@@ -773,12 +777,23 @@ export function PrepFlow({
               <div className="space-y-1">
                 {/* [DRAFT] */}
                 {/* Visual review round 5: the resolved name at every width (never the fallback while the name is loading). */}
-                <Title>{words ? (community === undefined ? '\u00a0' : words.planTitle(community)) : 'Your preparation'}</Title>
+                {/* P1675 R13: on a hike that asks the questions the /prepare page continues from the form; the room keeps today's page. */}
+                <Title>{introPlan ? HIKE_PLAN_TITLE : words ? (community === undefined ? '\u00a0' : words.planTitle(community)) : 'Your preparation'}</Title>
+                {introPlan ? (
+                  !nothingLeft && (
+                    <p className="text-base text-muted-foreground" data-testid="plan-summary">
+                      {state.minutes === null ? '\u00a0'
+                        : state.brandNew ? hikePlanLineNew(recipeForEvent(event).prepare.statedMinutes ?? state.minutes)
+                        : hikePlanLineReturning(state.minutes)}
+                    </p>
+                  )
+                ) : <>
                 <p className="text-base text-muted-foreground" data-testid="plan-summary">
                   {plan.length} {plan.length === 1 ? 'step' : 'steps'}
                   {state.minutes !== null && <> · about {state.minutes} min</>}
                 </p>
                 <PrepWhy paragraphs={recipeForEvent(event).prepare.why ?? WHY_COMMUNITY} />
+                </>}
               </div>
               <ol data-testid="agenda">
                 {plan.map((s, i) => {

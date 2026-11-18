@@ -142,7 +142,9 @@ export function HikeRegistrationQuestions({
   const chooseTransport = (next: HikeTransport) => {
     if (next === transport) return;
     setTransport(next);
+    // UAT round 3 R15: a driver's empty box becomes 0, so an untouched box submits 0; a kept number stays; other transport clears it.
     if (!drivesCar(next)) setSeatsText('');
+    else if (seatsText.trim() === '') setSeatsText('0');
     // Transport lead exists only with "I need a ride": changing the answer away from it clears the choice.
     if (next !== 'need_ride' && help === 'transport_lead') setHelp(null);
   };

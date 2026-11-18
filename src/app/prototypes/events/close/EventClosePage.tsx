@@ -41,6 +41,7 @@ import { BAR_INNER_CLASS } from '@/app/components/agreements/meeting-principle-v
 import { StakePage } from '@/app/pages/stake-page';
 import { TopicVotingList } from '@/app/components/topics/topic-parts';
 import { eventsService } from '@/app/data/events-service';
+import { eventAsksBeforeSeatSync } from '../form-first';
 import { getProfile } from '@/app/data/api';
 import {
   answerPersonalAsk,
@@ -931,7 +932,7 @@ export function CloseFlow({ event, initial, viewerId, room }: { event: EventWith
                     onClick={async () => {
                       // P1675 section 4b: an event that asks before the seat (a hike, the mastermind) is registered for on its own
                       // page, where the form is; a one-tap seat here would be refused by the server.
-                      if (recipeForEvent(nextEvent).registration) return navigate(`/events/${nextEvent.slug}?action=rsvp`); // the page opens the form for a signed-in person
+                      if (eventAsksBeforeSeatSync(nextEvent)) return navigate(`/events/${nextEvent.slug}?action=rsvp`); // the page opens the form for a signed-in person
                       let ok: boolean | undefined;
                       try {
                         ok = await once(() => eventsService.rsvpToEvent(nextEvent.id, viewerId, nextEvent.slug));

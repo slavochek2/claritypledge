@@ -72,6 +72,8 @@ export interface PrepState {
   minutes: number | null;
   /** The mastermind's plan shows one total and no row minutes: its total is the role's own time, not the rows' sum. */
   totalOnly: boolean;
+  /** P1675 R13: nothing of the learning is done here or anywhere else (the plan page's "About 15 minutes." case). */
+  brandNew: boolean;
   /** P1529: the person's role and arrival in a flow that asks; null elsewhere and until it is read. */
   arrival: MyArrival | null;
   /** The registration read failed twice: the plan is empty (never derived from it) and the page offers Retry. */
@@ -225,7 +227,7 @@ export function usePrepState(event: EventWithHost | null, viewerId: string | und
     const minutes = planTotalMinutes({ mastermind, untouched, roleMinutes: arrival ? (canvasAtEvent(event) ? PREP_MINUTES : arrival.owner ? OWNER_PREP_MINUTES : OBSERVER_PREP_MINUTES) : null, computed, statedMinutes, brandNew });
     // When the stated number is the one shown, the rows' computed minutes (which would not sum to it) are hidden with it.
     const totalOnly = planTotalOnly({ mastermind, computed, statedMinutes, brandNew });
-    return { plan, stepsDone, progress, withPrincipleIntro, cards, minutes, totalOnly, learned: hasLearned(parts, prep?.completedAt) };
+    return { plan, stepsDone, progress, withPrincipleIntro, cards, minutes, totalOnly, brandNew, learned: hasLearned(parts, prep?.completedAt) };
   }, [parts, prep, tag, eventPoints, cmp7Points, event?.seriesSlug, event?.flow, event?.canvasTiming, arrival, arrivalError]);
 
   // Disabled inputs (no event, no viewer, preparation off) answer "idle" on the same render — never one extra

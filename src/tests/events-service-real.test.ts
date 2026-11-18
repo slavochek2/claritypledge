@@ -651,9 +651,9 @@ describe('realEventsService', () => {
         mockInvokeEmails.mockClear();
       }
 
-      it('an Edit that only flips hike_asks_* (other fields resent unchanged) sends no update email', async () => {
+      it('an Edit that only flips hike_registration (other fields resent unchanged) sends no update email', async () => {
         hostUpdates({ data: stored, error: null });
-        const ok = await realEventsService.updateEvent('evt-1', { ...resend, hikeAsksTransport: false, hikeAsksHelp: true });
+        const ok = await realEventsService.updateEvent('evt-1', { ...resend, hikeRegistration: 'optional' });
         expect(ok).toBe(true);
         expect(mockInvokeEmails).not.toHaveBeenCalled();
       });
@@ -667,10 +667,10 @@ describe('realEventsService', () => {
 
       it('a failed read of the current values keeps today\'s behaviour: it sends', async () => {
         hostUpdates({ data: null, error: { message: 'read failed' } });
-        await realEventsService.updateEvent('evt-1', { ...resend, hikeAsksTransport: false });
+        await realEventsService.updateEvent('evt-1', { ...resend, hikeRegistration: 'optional' });
         expect(mockInvokeEmails).toHaveBeenCalledTimes(1);
         hostUpdates('throws');
-        await realEventsService.updateEvent('evt-1', { ...resend, hikeAsksTransport: false });
+        await realEventsService.updateEvent('evt-1', { ...resend, hikeRegistration: 'optional' });
         expect(mockInvokeEmails).toHaveBeenCalledTimes(1);
       });
 
