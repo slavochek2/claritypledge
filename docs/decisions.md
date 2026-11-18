@@ -58,6 +58,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-18 [product]: Record H-VerifiedMeritocracy — verified understanding makes "the better-understood argument wins" available as a group decision rule
+
+**Context:** After P1702, the founder asked whether the point of the work is really a decision rule: groups default to autocracy or democracy, and verified understanding might allow something more meritocratic, a "next evolution of Locke's ideas", with competition and cooperation between groups on top. Asked whether this belongs in the P1702 model, the answer was no. Who decides (the rule) and whether people understood each other before deciding (the check) are different questions, and the check improves the inputs to any rule.
+
+**Decision:** Record H-VerifiedMeritocracy in hypotheses.md at P2, `scientific`, UNTESTED, n=0, scoped to high-stakes decisions using the founder's criteria (alignment determines success, fuzzy intent, delayed feedback, concentrated consequences, explanatory divergence). Do not model it until a customer question needs it.
+
+**Alternatives rejected:**
+- Adding group decision rules and intergroup dynamics to the P1702 model now. That would blur a clean result for a question with no buyer.
+- Leaving it unrecorded (epistemic gate 8).
+
+**Falsifier:** in groups that verify first, on high-stakes decisions, the chosen option tracks seniority or headcount as closely as in groups that do not.
+
+**Consequences:** Links to the "Locke to Ladischenski" thesis in lean-canvas and to H-GroupCounterparty. The 2026 lean-canvas rejection of "idea-meritocracy orgs as commercial buyers" stands: that was a market, and this is a mechanism.
+
+**References:** hypotheses.md H-VerifiedMeritocracy · lean-canvas.md "Locke to Ladischenski" thesis
+
+---
+
 ## 2026-11-18 [product]: Correction to "H-CheapGapReveal refuted in the P1702 model": three review rounds moved two of its numbers and one verdict
 
 **Context:** The 2026-11-17 entry "H-CheapGapReveal refuted in the P1702 model" reported the first model run. That code then went through three review rounds: Gemini, Codex and a criteria reviewer, about 42 findings, all fixed or set aside as latent. The final round found no defect that could change a verdict (branch `feature/p1702-cheap-gap-reveal-model`, commit `685fd6abe`, `docs/research/p1702/RESULTS.md`).
