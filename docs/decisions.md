@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-18 [technical]: Preparation funnel events: "finished" means every step gone through, once, for learning not done before
+
+**Context:** The invite-to-room funnel (P1709, P1708) had view events but nothing between "opened preparation" and "came". Added `prepare_started`, `prepare_step_completed` and `prepare_finished` (helpers in `src/app/prototypes/events/prep/prep-analytics.ts`) plus `event_page_viewed`, `event_room_viewed` and `prepare_viewed`; nothing renamed. Every event carries `prep_context` (`event` / `standalone` / `group_join`). Spec of the stages: `docs/technical/analytics.md` "Preparation funnel". Mixpanel board "6 · Preparation funnel".
+**Decision:** On /prepare, `prepare_finished` fires only when every step was left forward this visit or was already done, at most once per visit, and never when all of it was done before the visit. "Done before" is read at the first step left, not on mount, because signed-in progress loads after mount. Event preparation fires it after the end save succeeds, and only when `completedAt` was empty. Review re-visits send nothing.
+**Alternatives rejected:** Firing on reaching the end screen: a run-through showed that skipping straight to the last step from the list counted as finished.
+**Consequences:** `prepare_started` and step events fire before the save, so a failed save can count a step that was not stored (rare; accepted). The event-side events are unproven until a signed-in prod registration runs through. The `/events/<word>` fixed-page list in `route-view-events.ts` must be updated when a static events route is added. UNTESTED falsifier: in the first two weeks, `prepare_finished` counts above `prepare_started` for any `prep_context`.
+**References:** feature/prep-funnel, landed on main as one commit; `docs/technical/analytics.md`
+
 ## 2026-11-18 [technical]: Migration versions come from the current UTC time to the second, never typed by hand
 
 **Context:** Hand-typed round versions (`…120000`, `…190000`) kept colliding across concurrent sessions; five collisions are logged (decisions.md 2026-08-24 "Two migration-collision guards", latest P1703), and most existing migration files end in `0000`.
