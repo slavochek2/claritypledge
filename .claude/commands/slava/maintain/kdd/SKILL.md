@@ -82,7 +82,7 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 ```bash
 ~/.agents/bin/precompact-digest        # this session; pass a session id to recover another
 ```
-Exit 3 = never compacted, continue. Exit 0 = the session was auto-compacted: read the printed digest (user + assistant text from before the last compaction) and treat it as part of "this session" for every step below — the compact summary is lossy and decisions made before it are otherwise missed. Exit 2 = transcript not found: say so in the output, never claim full coverage.
+Exit 3 = never compacted, continue. Exit 0 = the session was compacted (auto or `/compact`): it prints the digest, or the path of a file holding it when large (read the whole file). Treat that pre-compaction text as part of "this session" for every step below. The compact summary is lossy; the digest is text only (tool output omitted, long messages trimmed), so it narrows the gap rather than closing it. Any other exit = the digest could not be read: say so in the output and never claim full-session coverage.
 
 0. **Branch check (non-blocking):**
    ```bash
