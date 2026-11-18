@@ -94,3 +94,10 @@ Rejected-alternatives check: `docs/decisions.md` 2026-11-13 (P1673) rejected "Se
 - [ ] A delivered note with no later `evaluated` record for its fingerprint is raised on the next run as a finding naming the card and date.
 - [ ] Regression tests cover all of the above, including a must-allow case: an ordinary card's note sends exactly as before.
 - [ ] No console errors on the Day page during these flows.
+
+## Known Limitations
+
+- The insight-ledger lock (`ledger.jsonl.lock`) is taken over as stale after 30 s, so a writer that pauses more than 30 s between its check and its append can still race a second writer into a double decision.
+- Copy mode writes no `sent` receipt, so a note delivered only through the copied prompt is carried again on the next send.
+- The unanswered-note check counts any `evaluated` record on the card (after the delivery) as the answer; a record does not say which note it answers.
+- The carried-notes row key fix (rows keyed by position, since a batch shares one `at` and no-longer-raised insights share a title) has no client-render test: the suite renders on the server, where React never checks keys.

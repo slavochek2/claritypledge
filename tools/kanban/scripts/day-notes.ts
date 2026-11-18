@@ -78,7 +78,8 @@ function cardTitle(target: string, runId: string, earlier: DayReport[]): string 
   const runs = [...earlier].sort((a, b) => Number(b.pass_id === runId) - Number(a.pass_id === runId) || b.started_at.localeCompare(a.started_at))
   for (const r of runs) {
     const i = r.issues.find((x) => x.fp === target)
-    if (i) return `"${i.title}"`
+    // one line: the title goes into the finding's title and Point A, which the prompt prints as they are
+    if (i) return `"${i.title.replace(/\s+/g, ' ').trim()}"`
   }
   return `the card ${target}`
 }

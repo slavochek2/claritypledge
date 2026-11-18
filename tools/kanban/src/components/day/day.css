@@ -244,6 +244,8 @@ button.d-chip:hover { border-color: var(--amber); }
 .d-tech { display: grid; gap: 2px; }
 .d-tech b { font-weight: 600; color: var(--fg3); font-size: 12px; margin-right: 6px; }
 .d-ownro { margin: 0 14px 12px 44px; font-size: 14px; color: var(--fg2); white-space: pre-wrap; overflow-wrap: anywhere; }
+/* P1707: a carried note wraps like a saved answer: newlines kept, a long URL broken anywhere, never clipped */
+.d-carried-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* key hints: quiet, desktop with a pointer only */
 .d-key, .d-hint { display: none; }

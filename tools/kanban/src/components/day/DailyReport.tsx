@@ -112,15 +112,32 @@ const STATE_WORD: Record<CardState['kind'], string> = {
 }
 const isDone = isAnswered
 
-function StateLine({ st, readOnly }: { st: CardState; readOnly: boolean }) {
+function StateLine({ st, readOnly, note }: { st: CardState; readOnly: boolean; note?: NoteState | null }) {
   return (
-    <div className={`d-state ${isDone(st) ? 'done' : st.kind}`} data-state={st.kind} {...(st.kind === 'before' ? { 'data-answered-before': '' } : {})}>
+    <div className={`d-state ${isDone(st) ? 'done' : st.kind}`} data-state={st.kind} {...(st.kind === 'before' ? { 'data-answered-before': '' } : {})} {...(note ? { 'data-note-state': '' } : {})}>
       <span className="d-sdot" aria-hidden="true">
         {isDone(st) ? '✓' : ''}
       </span>
-      <span>{stateText(st, readOnly)}</span>
+      <span>{note ? `${note.label} · ${note.where}` : stateText(st, readOnly)}</span>
     </div>
   )
+}
+
+/**
+ * P1707 round 2: a typed note (or question) on this run says so, and says where it goes: to the
+ * fixing agent with the next press of the bottom button (its own word: "Start fixing" before the
+ * first send, "Send" after), or that it already went. Option picks keep "Your answer" / "You chose".
+ */
+interface NoteState {
+  label: 'Your note' | 'Your question'
+  where: string
+}
+function noteState(issue: IssueView, st: CardState, readOnly: boolean, followUp: boolean): NoteState | null {
+  const d = issue.decision
+  if (readOnly || d?.option_id !== OWN || !d.text?.trim()) return null
+  const label = d.is_question || d.text.trim().endsWith('?') ? 'Your question' : 'Your note'
+  if (st.kind === 'sent') return { label, where: `Sent to the fixing agent on ${shortDate(st.at)}, ${clock(st.at)}` }
+  return { label, where: `Goes to the fixing agent when you press ${followUp ? 'Send' : 'Start fixing'}` }
 }
 
 /** P1468: the list shows when the queue holds two rows or more (cards + the parked row + statements). */
@@ -141,8 +158,8 @@ function CardList(p: { issues: IssueView[]; index: number; cardOpen: boolean; se
       rows={p.issues.map((i, k) => ({
         key: i.fp,
         title: i.title,
-        // P1673: an insight is done only when decided, and then it is gone: a saved note never ticks its row
-        done: isDone(states[k]) && !isInsightCard(i),
+        // P1707 round 2: an answered insight is ticked like any answered card (its answer is sent to the agent)
+        done: isDone(states[k]),
         kind: states[k].kind,
         // P1463: a done row's ✓ already says it — the word is only for what is not done
         word: isInsightCard(i) ? 'Insight' : isDone(states[k]) ? '' : STATE_WORD[states[k].kind],
@@ -200,7 +217,7 @@ export function DailyReport(p: Props) {
           <div className="d-mdmain">
             {p.statement ?? <IssueCard {...p} />}
             <AgentList agent={p.agent} sent={p.sent} />
-            {!readOnly && <CarriedNotes notes={p.carried ?? []} open={carriedOpen} setOpen={setCarriedOpen} />}
+            {!readOnly && <CarriedNotes notes={p.carried ?? []} open={carriedOpen} setOpen={setCarriedOpen} followUp={p.agent.header === 'follow-up'} />}
             <Waiting view={view} />
             <Evaluated view={view} />
             {p.statement && p.afterStatement}
@@ -485,6 +502,7 @@ function IssueCard(p: Props) {
 
   const days = daysOpen(issue.first_seen, report.started_at)
   const st = cardState(issue, p.sent)
+  const note = noteState(issue, st, readOnly, p.agent.header === 'follow-up')
   if (arrival.current?.fp !== issue.fp) arrival.current = { fp: issue.fp, done: isDone(st) }
   const folded = arrival.current.done && isDone(st) && !reopened[issue.fp]
   const more = !!moreOpen[issue.fp]
@@ -568,11 +586,12 @@ function IssueCard(p: Props) {
     return (
       <article className="d-card d-focus d-folded" data-issue={issue.fp} data-folded>
         {head}
-        <StateLine st={st} readOnly={readOnly} />
+        <StateLine st={st} readOnly={readOnly} note={note} />
         <h2>{issue.title}</h2>
         <div className="d-chose" data-chosen>
           <span>
-            You chose: <b>{chosen}</b>
+            {note ? `${note.label}: ` : 'You chose: '}
+            <b>{chosen}</b>
           </span>
           <button type="button" className="d-link d-tap" onClick={() => setReopened((r) => ({ ...r, [issue.fp]: true }))}>
             {readOnly ? 'Show the card' : 'Change'}
@@ -586,7 +605,7 @@ function IssueCard(p: Props) {
     <>
       <article className="d-card d-focus" data-issue={issue.fp}>
         {head}
-        <StateLine st={st} readOnly={readOnly} />
+        <StateLine st={st} readOnly={readOnly} note={note} />
         {loopNotices(issue.loop).map((n) => (
           <div className={`d-loop ${n.kind}`} key={n.kind} data-loop={n.kind}>
             {n.text}
@@ -689,7 +708,10 @@ function IssueCard(p: Props) {
               <>
                 <span className="d-l">{o.label}</span>
                 {i === issue.recommended_index && (
-                  <span className={`d-rec ${fitRated ? '' : 'dim'}`} title="Fit: how likely this fixes the real cause without breaking something else">{fitRated ? `Recommended · Fit ${fit}%` : 'Recommended · Fit not rated'}</span>
+                  <span className={`d-rec ${fitRated ? '' : 'dim'}`} title="Fit: how likely this fixes the real cause without breaking something else">
+                    {/* P1707 round 2: no fit is ever computed for a weekly insight, so it gets no fit words */}
+                    {fitRated ? `Recommended · Fit ${fit}%` : isInsightCard(issue) ? 'Recommended' : 'Recommended · Fit not rated'}
+                  </span>
                 )}
                 {i === issue.recommended_index && issue.risk && <span className="d-risk">Main risk: {issue.risk}</span>}
               </>,
@@ -707,20 +729,27 @@ function IssueCard(p: Props) {
  * P1707: notes typed on earlier runs that no launch delivered. Start fixing sends them with today's
  * answers; this fold says so and shows each one (date, card, the note), so nothing goes unseen.
  */
-export function CarriedNotes({ notes, open, setOpen }: { notes: CarriedNoteView[]; open: boolean; setOpen: (o: boolean) => void }) {
+export function CarriedNotes({ notes, open, setOpen, followUp }: { notes: CarriedNoteView[]; open: boolean; setOpen: (o: boolean) => void; followUp: boolean }) {
   if (!notes.length) return null
+  // P1707 round 2: the bottom button's own word — "Start fixing" before the first send, "Send N changes" after
+  const lead = followUp ? `Send also includes ${plural(notes.length, 'earlier note')}` : `Start fixing also sends ${plural(notes.length, 'earlier note')}`
   return (
     <div className="d-card d-parked" data-carried-notes>
       <button type="button" className="d-fold" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="d-tri">▶</span>Start fixing also sends {plural(notes.length, 'earlier note')}
+        <span className="d-tri">▶</span>
+        {lead}
       </button>
       {open &&
-        notes.map((n) => (
-          <div className="d-row" key={`${n.at}\u0000${n.title}`} data-carried-note={n.at}>
+        notes.map((n, k) => (
+          // by position: notes saved in one batch share their time, and insights no longer raised share a title
+          <div className="d-row" key={k} data-carried-note={n.at}>
             <span className="d-tx">
-              <span className="d-ptitle">{n.insight ? `Weekly insight: ${n.title}` : n.title}</span>
-              <span className="d-w">
-                {shortDate(n.at)} · {n.text}
+              <span className="d-ptitle">
+                <span className="d-age" data-carried-date={n.at}>{shortDate(n.at)}</span> {n.insight ? `Weekly insight: ${n.title}` : n.title}
+              </span>
+              {/* the founder's own text: kept whole and wrapped, never clipped (a URL has no break points) */}
+              <span className="d-w d-carried-text" data-carried-text>
+                {n.text}
               </span>
             </span>
           </div>

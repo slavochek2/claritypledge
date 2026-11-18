@@ -162,12 +162,15 @@ test('report: a note on an insight survives a reload, is counted on Start fixing
   await box.fill('Which page was it?')
   await expect(btn).toHaveAttribute('data-send-count', String(n0 + 1))
   await box.blur()
-  await expect(page.getByText(/Your answer · saved/)).toBeVisible()
+  // P1707 round 2: a typed note says it is a note and where it goes
+  await expect(card.locator('[data-note-state]')).toHaveText(/Your question · Goes to the fixing agent when you press Start fixing/) // the note ends in ?
   const run = page.waitForResponse((r) => /\/api\/day\/runs\//.test(r.url()))
   await page.reload()
   await run
   // the page opens on the first card that still needs an answer; the answered insight stays in the list
   await expect(page.locator('[data-list-card^="insight:"]')).toHaveAttribute('data-list-state', 'answered')
+  // P1707 round 2: ticked like any answered card
+  await expect(page.locator('[data-list-card^="insight:"] .d-sdot')).toHaveText('✓')
   await expect(page.locator('button[data-send-count]')).toHaveAttribute('data-send-count', String(n0 + 1))
   expect(insightDecisions().map((l) => l.text)).toEqual(['Which page was it?'])
   expect(ledger()).toEqual([])
@@ -221,8 +224,25 @@ test('report: an earlier, never-sent note is listed as also sent by Start fixing
   await expect(box).toContainText('Start fixing also sends 1 earlier note')
   await box.getByRole('button').click()
   await expect(box.locator('[data-carried-note]')).toHaveCount(1)
+  await expect(box.locator('[data-carried-date]')).toHaveText('3 Oct')
   await expect(box).toContainText('Cloud credit balance is a guess')
   await expect(box).toContainText('Balance was 412 when I looked')
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)
+})
+
+// P1707 round 2 addendum 7: a long unbroken note (a URL) wraps inside the panel at phone width, never clipped
+test('report: a long unbroken carried note wraps at 320px (P1707)', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 1400 })
+  seedDay(DAY_E2E_DIR, 'default')
+  const long = `https://example.com/${'a'.repeat(160)}`
+  writeFileSync(join(DAY_E2E_DIR, 'decisions.jsonl'), JSON.stringify({ kind: 'option', target: 'credits:baseline', option_id: 'own', text: long, run_id: EARLIER_ID, at: '2026-10-03T06:00:00Z' }) + '\n')
+  await page.goto('/')
+  await page.locator('button').filter({ hasText: /^\W*Day$/u }).first().click()
+  const box = page.locator('[data-carried-notes]')
+  await box.getByRole('button').click()
+  const text = box.getByText(long, { exact: true })
+  await expect(text).toBeVisible()
+  const clipped = await text.evaluate((el) => el.scrollWidth > el.clientWidth + 1 || el.getBoundingClientRect().right > (el.closest('[data-carried-notes]') as HTMLElement).getBoundingClientRect().right + 1)
+  expect(clipped).toBe(false)
 })
