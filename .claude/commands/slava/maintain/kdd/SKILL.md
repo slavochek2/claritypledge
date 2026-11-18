@@ -78,6 +78,12 @@ Recommendation: Remove from README.md, link to definitions.md instead.
 
 ## Workflow
 
+**Pre-step — recover pre-compaction context (always run):**
+```bash
+~/.agents/bin/precompact-digest        # this session; pass a session id to recover another
+```
+Exit 3 = never compacted, continue. Exit 0 = the session was auto-compacted: read the printed digest (user + assistant text from before the last compaction) and treat it as part of "this session" for every step below — the compact summary is lossy and decisions made before it are otherwise missed. Exit 2 = transcript not found: say so in the output, never claim full coverage.
+
 0. **Branch check (non-blocking):**
    ```bash
    git branch --show-current
