@@ -21,10 +21,10 @@ export const LISTENING_GAME_COPY = {
 } as const;
 
 /** P1706 (exploration): the printed lanyard card's two sides, wording as printed (docs/events/badges/single.html).
- *  The job text addresses the partner, who reads it off the wearer's chest. Caption is an agent draft. */
+ *  The job text addresses the partner, who reads it off the wearer's chest. Caption: founder-approved. */
 export const ROLE_CARDS = {
   heading: 'The cards',
-  caption: 'At an event, speaker and listener each wear one two-sided card. The job on it is for the person facing you. Flip it when you switch roles.',
+  caption: 'Speaker and listener each wear a two-sided card, with the job written for the person facing them. Flip it when you switch roles.',
   sides: [
     { id: 'speaker', role: 'SPEAKER', color: '#C2410C', label: 'Front', job: ['Explain back what I mean.', 'Ask me open questions.'] },
     { id: 'listener', role: 'LISTENER', color: '#1864AB', label: 'Back', job: ['Ask me, “How well do you think you understand me, from 0 to 10?”'] },
