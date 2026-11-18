@@ -1,25 +1,28 @@
 /**
- * P1691: the base address of links in mail we send.
+ * P1691 / P1705: the base address of links in mail we send.
  *
- * It is the configured app address (APP_URL). The one exception lets local development get local
- * links: a request origin that matches the exact development rule in cors.ts, on a project that
- * is positively known not to be prod. Any other request value never reaches a link, and a
- * project address that is unset, unreadable or simply not recognised counts as prod.
+ * This is the ONLY module that reads APP_URL. Every function that puts an action link in mail
+ * takes its base from linkBaseFor() and reads no request header or body field for that purpose
+ * itself (src/tests/p1691-link-host-source.test.ts keeps it so).
  *
- * Every function that puts a link in mail takes its base from here and reads no request header
- * for that purpose itself (src/tests/p1691-link-host-source.test.ts keeps it so).
- *
- * The development rule is reused through resolveAllowedOrigin rather than copied: it returns the
- * request's own origin only when one of its exact rules matched, and the other two rules are
- * https, so an http origin that comes back unchanged matched the development rule.
+ * The result is APP_URL (default https://claritypledge.com, trailing slashes stripped) in every
+ * case except one. The request's Origin is returned only when ALL of these hold:
+ *   1. a request is given (scheduled senders pass none);
+ *   2. its Origin is exactly one of the allocator's dev origins (_shared/dev-origins.ts);
+ *   3. the project address is positively known not to be prod (isKnownNonProdProject);
+ *   4. APP_URL itself is a localhost address (http, host localhost or 127.0.0.1).
+ * Gates 3 and 4 are independent: a prod-shaped or unrecognised project address, or a deployed
+ * APP_URL, keeps the configured address whatever the request says.
  *
  * No project is named here. Prod is recognised by the one place that names it (isProdProject),
  * and a test target is recognised by the kind of address a self-hosted or local stack has, which
  * a hosted project never has. A hosted project other than prod is therefore not recognised and
  * gets the configured app address, like prod.
  */
-import { resolveAllowedOrigin } from './cors.ts';
+import { isDevOrigin } from './dev-origins.ts';
 import { isProdProject } from './nonprod-image-guard.ts';
+
+const DEFAULT_APP_URL = 'https://claritypledge.com';
 
 // Inside a self-hosted or local stack a function reaches its project through the gateway
 // service or the loopback address.
@@ -41,20 +44,26 @@ export function isKnownNonProdProject(supabaseUrl: string | null | undefined): b
   return IN_STACK_HOSTS.has(host) || SELF_HOSTED_SUFFIXES.some((suffix) => host.endsWith(suffix));
 }
 
-/** The request's origin when it is an exact development origin, otherwise null. */
-function exactDevOrigin(req: Request): string | null {
-  const origin = req.headers.get('Origin') ?? '';
-  // The scheme test only tells the development rule apart from the two https rules; whether the
-  // origin is accepted at all is decided by cors.ts, whose rules are anchored at both ends.
-  if (!origin.startsWith('http://')) return null;
-  return resolveAllowedOrigin(req) === origin ? origin : null;
+/** True only for an http address on localhost or 127.0.0.1. */
+function isLocalhostAddress(address: string): boolean {
+  try {
+    const url = new URL(address);
+    return url.protocol === 'http:' && (url.hostname === 'localhost' || url.hostname === '127.0.0.1');
+  } catch {
+    return false;
+  }
 }
 
 /**
- * Base address for links in mail: `appUrl`, or the request's development origin on a known
- * test or local project.
+ * Base address for links in mail: APP_URL, or the request's dev origin on a known test or local
+ * project whose APP_URL is itself a localhost address. Pass no request for a scheduled send.
  */
-export function resolveLinkBase(req: Request, appUrl: string, supabaseUrl: string | null | undefined): string {
-  if (!isKnownNonProdProject(supabaseUrl)) return appUrl;
-  return exactDevOrigin(req) ?? appUrl;
+export function linkBaseFor(req?: Request): string {
+  const appUrl = (Deno.env.get('APP_URL') ?? DEFAULT_APP_URL).replace(/\/+$/, '');
+  if (!req) return appUrl;
+  const origin = req.headers.get('Origin') ?? '';
+  if (!isDevOrigin(origin)) return appUrl;
+  if (!isKnownNonProdProject(Deno.env.get('SUPABASE_URL'))) return appUrl;
+  if (!isLocalhostAddress(appUrl)) return appUrl;
+  return origin;
 }

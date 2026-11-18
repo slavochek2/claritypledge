@@ -58,6 +58,17 @@ else
   fi
 fi
 
+# 2b. Sign-in links go back to the worktree port they came from (P1705). Public HTTPS like 1 and 2, so
+# it runs from every source. auth-redirects.sh prints one line in this script's own format; its
+# verdict is re-read through report() so a warn or unknown sets the exit code here too.
+ar_line="$("$(dirname "$0")/auth-redirects.sh" --check --quiet 2>&1 | tail -n 1)"
+case "$ar_line" in
+  "auth-redirects: ok: "*) report auth-redirects ok "${ar_line#auth-redirects: ok: }" ;;
+  "auth-redirects: warn: "*) report auth-redirects warn "${ar_line#auth-redirects: warn: }" ;;
+  "auth-redirects: unknown: "*) report auth-redirects unknown "${ar_line#auth-redirects: unknown: }" ;;
+  *) report auth-redirects unknown "auth-redirects.sh gave no verdict" ;;
+esac
+
 # 3-4. Disk and WAL.
 [ "$SOURCE" = none ] && { [ "$WARN" = 1 ] && exit 1; [ "$UNKNOWN" = 1 ] && exit 2; exit 0; }
 command -v gcloud >/dev/null 2>&1 || PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"

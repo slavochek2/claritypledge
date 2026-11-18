@@ -16,6 +16,7 @@ import {
 } from '../_shared/email-helpers.ts';
 import { choseToObserve, withSeriesBlock } from '../_shared/series-email-block.ts';
 import { mintEmailLink } from '../_shared/event-links.ts';
+import { linkBaseFor } from '../_shared/link-base.ts';
 import {
   dispatchStartingSoon,
   STARTING_SOON_SELECT,
@@ -50,17 +51,17 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 
 // P1603: the confirmation carries the event's title and link. Only someone holding an RSVP row gets it; anyone else
 // gets the same plain success and nothing is sent (an event id must not reveal a hidden event).
-async function handleRsvpIfRegistered(supabase: SupabaseClient, eventId: string, userId: string) {
-  if (await callerHasRsvp(supabase, eventId, userId)) await handleRsvp(supabase, eventId, userId);
+async function handleRsvpIfRegistered(supabase: SupabaseClient, eventId: string, userId: string, req: Request) {
+  if (await callerHasRsvp(supabase, eventId, userId)) await handleRsvp(supabase, eventId, userId, req);
 }
 
 /** P1529 D24: the confirmation goes to the caller, or to the person the event's host just added from the waiting list. */
-async function handleRsvpFor(supabase: SupabaseClient, eventId: string, caller: string, target?: string) {
+async function handleRsvpFor(supabase: SupabaseClient, eventId: string, caller: string, req: Request, target?: string) {
   const recipient = target && target !== caller ? await hostAddRecipient(supabase, eventId, caller, target) : caller;
-  if (recipient) await handleRsvpIfRegistered(supabase, eventId, recipient);
+  if (recipient) await handleRsvpIfRegistered(supabase, eventId, recipient, req);
 }
 
-async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: string) {
+async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: string, req: Request) {
   const { data: event } = await supabase
     .from('events')
     .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id, status, preparation_enabled, series_slug, flow, canvas_timing')
@@ -97,10 +98,10 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
         .eq('profile_id', userId)
         .maybeSingle();
       rsvpId = (rsvpRow?.id as string | undefined) ?? null;
-      if (rsvpId) prepareUrl = await mintEmailLink(supabase, rsvpId, 'prepare', event);
+      if (rsvpId) prepareUrl = await mintEmailLink(supabase, rsvpId, 'prepare', event, req);
     }
     // P1529: the series block; an observer gets no laptop line. Other series: byte-identical.
-    const confirmation = withSeriesBlock(buildConfirmation(event, profileName, prepareUrl), event, { observer: await choseToObserve(supabase, eventId, userId) });
+    const confirmation = withSeriesBlock(buildConfirmation(event, profileName, prepareUrl, linkBaseFor(req)), event, { observer: await choseToObserve(supabase, eventId, userId) });
     const confirmationId = await sendEmail({ to: email, ...confirmation });
     await logEmailSend(supabase, {
       eventId,
@@ -150,7 +151,7 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
   }
 }
 
-async function handleCancel(supabase: SupabaseClient, eventId: string) {
+async function handleCancel(supabase: SupabaseClient, eventId: string, req: Request) {
   const { data: event } = await supabase
     .from('events')
     .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
@@ -182,7 +183,7 @@ async function handleCancel(supabase: SupabaseClient, eventId: string) {
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
     if (email) {
-      const cancellation = buildCancellation(event, profileData?.name);
+      const cancellation = buildCancellation(event, profileData?.name, linkBaseFor(req));
       const cancellationId = await sendEmail({ to: email, ...cancellation });
       await logEmailSend(supabase, {
         eventId,
@@ -195,7 +196,7 @@ async function handleCancel(supabase: SupabaseClient, eventId: string) {
   }));
 }
 
-async function handleUncancel(supabase: SupabaseClient, eventId: string) {
+async function handleUncancel(supabase: SupabaseClient, eventId: string, req: Request) {
   const { data: event } = await supabase
     .from('events')
     .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
@@ -226,7 +227,7 @@ async function handleUncancel(supabase: SupabaseClient, eventId: string) {
     const profileData = rsvp.profiles as unknown as { email: string; name: string | null } | null;
     const email = profileData?.email;
     if (email) {
-      const uncancel = buildUncancel(event, profileData?.name);
+      const uncancel = buildUncancel(event, profileData?.name, linkBaseFor(req));
       const uncancelId = await sendEmail({ to: email, ...uncancel });
       await logEmailSend(supabase, {
         eventId,
@@ -239,7 +240,7 @@ async function handleUncancel(supabase: SupabaseClient, eventId: string) {
   }));
 }
 
-async function handleUpdate(supabase: SupabaseClient, eventId: string) {
+async function handleUpdate(supabase: SupabaseClient, eventId: string, req: Request) {
   const { data: event } = await supabase
     .from('events')
     .select('id, title, datetime, duration_minutes, timezone, location, description, slug, host_id')
@@ -288,7 +289,7 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string) {
     const profileName = profileData?.name;
 
     // Send update notice email
-    const updateEmail = buildUpdate(event, profileName);
+    const updateEmail = buildUpdate(event, profileName, linkBaseFor(req));
     const updateId = await sendEmail({ to: email, ...updateEmail });
     await logEmailSend(supabase, {
       eventId,
@@ -449,16 +450,16 @@ serve(async (req: Request) => {
 
     switch (action) {
       case 'rsvp':
-        await handleRsvpFor(supabaseClient, eventId, authenticatedUserId, targetUserId);
+        await handleRsvpFor(supabaseClient, eventId, authenticatedUserId, req, targetUserId);
         break;
       case 'cancel':
-        await handleCancel(supabaseClient, eventId);
+        await handleCancel(supabaseClient, eventId, req);
         break;
       case 'uncancel':
-        await handleUncancel(supabaseClient, eventId);
+        await handleUncancel(supabaseClient, eventId, req);
         break;
       case 'update':
-        await handleUpdate(supabaseClient, eventId);
+        await handleUpdate(supabaseClient, eventId, req);
         break;
       default:
         return new Response(

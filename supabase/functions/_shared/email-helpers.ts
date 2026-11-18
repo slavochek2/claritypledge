@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import { isOnlineLocation, onTimeLine, venueName } from './event-links.ts';
+import { eventPageUrl, isOnlineLocation, onTimeLine, venueName } from './event-links.ts';
+import { linkBaseFor } from './link-base.ts';
 import { PREP_WHY_BODY, PREP_WHY_TITLE, prepPayoffOf, prepQuestionOf, prepReminderSubject, prepSubject } from './mastermind-prep-email.ts';
 
 // ── Environment (callers pass these in via module-level constants) ─────────────
@@ -177,8 +178,9 @@ function tallyUrl(eventId: string): string {
   return `https://tally.so/r/${TALLY_FORM_ID}?event_id=${eventId}`;
 }
 
-function eventPageUrl(slug: string): string {
-  return `https://claritypledge.com/events/${slug}`;
+/** The "View event page" paragraph, or nothing when the event has no page. */
+function viewEventPageLink(event: EventRow, base: string): string {
+  return event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug, base))}" style="color:#2563eb;">View event page →</a></p>` : '';
 }
 
 function formatICSDate(date: Date): string {
@@ -281,8 +283,10 @@ function focusEmail(opts: {
   actions: string;
   event: EventRow;
   startLine: boolean;
+  /** Base address of the event-page link (link-base.ts). */
+  base: string;
 }): string {
-  const { event } = opts;
+  const { event, base } = opts;
   const date = shortDate(event);
   const locationLine = formatLocation(event.location);
   const box = `
@@ -291,7 +295,7 @@ function focusEmail(opts: {
       <p style="margin:0 0 6px;font-size:14px;color:#4b5563;">📅 ${escapeHtml(date)}</p>
       ${locationLine ? `<p style="margin:0 0 6px;font-size:14px;color:#4b5563;">${locationLine}</p>` : ''}
       ${opts.startLine ? `<p style="margin:10px 0 0;font-size:14px;font-weight:600;color:#111827;">${escapeHtml(onTimeLine(event))}</p>` : ''}
-      ${event.slug ? `<p style="margin:12px 0 0;font-size:13px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">Event page →</a></p>` : ''}
+      ${event.slug ? `<p style="margin:12px 0 0;font-size:13px;"><a href="${escapeHtml(eventPageUrl(event.slug, base))}" style="color:#2563eb;">Event page →</a></p>` : ''}
       ${calendarLinks(event)}
     </div>`;
   return htmlEmail(opts.title, `
@@ -318,6 +322,8 @@ export function buildConfirmation(
   name?: string | null,
   /** P1380: set only for a Preparation-on event; the button opens the preparation signed in. */
   prepareUrl?: string | null,
+  /** Base for the event-page link; the caller takes it from link-base.ts. */
+  base: string = linkBaseFor(),
 ): { subject: string; html: string; text: string } {
   const first = firstName(name);
   const hi = first ? `Hi ${first},\n\n` : '';
@@ -335,19 +341,19 @@ export function buildConfirmation(
       payoff: prepPayoffOf(event),
       actions: center(emailButton('Prepare now', prepareUrl)),
       event,
+      base,
       startLine: true,
     });
     const text = `${hi}You're registered for ${event.title}.\n\n${PREP_WHY_TITLE}. ${PREP_WHY_BODY}\n${prepQuestionOf(event)}\n${prepPayoffOf(event)}\nPrepare now: ${prepareUrl}\n\n${onTimeLine(event)}\n${details}\n\nSee you there!\nClarity Pledge`;
     return { subject, html, text };
   }
   const subject = `You're in: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">You're confirmed! 🎉</h1>
     <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">We're looking forward to seeing you.</p>
     ${eventCard(event)}
-    ${eventLink}
+    ${viewEventPageLink(event, base)}
     ${calendarLinks(event)}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
       Questions? Reply to this email and we'll get back to you.
@@ -369,13 +375,14 @@ export function buildReminder(
   event: EventRow,
   name?: string | null,
   opts: { prep?: ReminderPrep | null; prepareUrl?: string | null } = {},
+  base: string = linkBaseFor(),
 ): { subject: string; html: string; text: string } {
   const prepOn = !!event.preparation_enabled && !!opts.prep;
   const first = firstName(name);
   const hi = first ? `Hi ${first},\n\n` : '';
   const details = `${formatDate(event.datetime, event.timezone)}\n${event.location ?? ''}`;
   if (prepOn) {
-    const target = opts.prepareUrl ?? (event.slug ? eventPageUrl(event.slug) : null);
+    const target = opts.prepareUrl ?? (event.slug ? eventPageUrl(event.slug, base) : null);
     const started = opts.prep === 'started';
     const done = opts.prep === 'complete';
     const at = startTime(event);
@@ -401,6 +408,7 @@ export function buildReminder(
       payoff: done ? null : prepPayoffOf(event),
       actions: done || !target ? '' : center(emailButton(label, target)),
       event,
+      base,
       startLine: true,
     });
     const text = done
@@ -409,13 +417,12 @@ export function buildReminder(
     return { subject, html, text };
   }
   const subject = `Tomorrow: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">See you tomorrow! 👋</h1>
     <p style="margin:0 0 4px;font-size:16px;color:#4b5563;">Just a reminder about tomorrow's event.</p>
     ${eventCard(event)}
-    ${eventLink}
+    ${viewEventPageLink(event, base)}
     ${calendarLinks(event)}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
       Questions? Reply to this email.
@@ -436,10 +443,11 @@ export function buildStartingSoon(
   event: EventRow,
   _name: string | null | undefined,
   links: { arrivedUrl: string | null; notYetUrl: string | null; roomUrl: string | null },
+  base: string = linkBaseFor(),
 ): { subject: string; html: string; text: string } {
   const online = isOnlineLocation(event.location);
   const venue = venueName(event.location);
-  const fallback = event.slug ? eventPageUrl(event.slug) : 'https://claritypledge.com/events';
+  const fallback = event.slug ? eventPageUrl(event.slug, base) : `${base}/events`;
   const kicker = `${event.title} starts in 15 minutes`;
 
   if (online) {
@@ -491,9 +499,8 @@ export function buildFeedback(event: EventRow, name?: string | null): { subject:
   return { subject, html, text };
 }
 
-export function buildCancellation(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
+export function buildCancellation(event: EventRow, name?: string | null, base: string = linkBaseFor()): { subject: string; html: string; text: string } {
   const subject = `Event cancelled: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Event cancelled</h1>
@@ -501,7 +508,7 @@ export function buildCancellation(event: EventRow, name?: string | null): { subj
       Unfortunately, <strong>${escapeHtml(event.title)}</strong> has been cancelled.
     </p>
     ${eventCard(event)}
-    ${eventLink}
+    ${viewEventPageLink(event, base)}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
       We're sorry this didn't work out. Questions? Reply to this email.
     </p>
@@ -510,9 +517,8 @@ export function buildCancellation(event: EventRow, name?: string | null): { subj
   return { subject, html, text };
 }
 
-export function buildUncancel(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
+export function buildUncancel(event: EventRow, name?: string | null, base: string = linkBaseFor()): { subject: string; html: string; text: string } {
   const subject = `It's back on: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Good news — the event is back on! 🎉</h1>
@@ -520,7 +526,7 @@ export function buildUncancel(event: EventRow, name?: string | null): { subject:
       <strong>${escapeHtml(event.title)}</strong> is back on — here are the details:
     </p>
     ${eventCard(event)}
-    ${eventLink}
+    ${viewEventPageLink(event, base)}
     ${calendarLinks(event)}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
       Questions? Reply to this email.
@@ -530,9 +536,8 @@ export function buildUncancel(event: EventRow, name?: string | null): { subject:
   return { subject, html, text };
 }
 
-export function buildUpdate(event: EventRow, name?: string | null): { subject: string; html: string; text: string } {
+export function buildUpdate(event: EventRow, name?: string | null, base: string = linkBaseFor()): { subject: string; html: string; text: string } {
   const subject = `Updated: ${event.title}`;
-  const eventLink = event.slug ? `<p style="margin:16px 0 0;font-size:14px;"><a href="${escapeHtml(eventPageUrl(event.slug))}" style="color:#2563eb;">View event page →</a></p>` : '';
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${greeting(name)}</p>
     <h1 style="margin:0 0 8px;font-size:24px;font-weight:700;color:#111827;">Event updated</h1>
@@ -540,7 +545,7 @@ export function buildUpdate(event: EventRow, name?: string | null): { subject: s
       The details for <strong>${escapeHtml(event.title)}</strong> have changed. Here's what changed:
     </p>
     ${eventCard(event)}
-    ${eventLink}
+    ${viewEventPageLink(event, base)}
     <p style="margin:16px 0 0;font-size:14px;color:#6b7280;">
       Questions? Reply to this email.
     </p>

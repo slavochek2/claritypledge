@@ -10,7 +10,7 @@
  * module that moves any other slot fails this file instead of redefining "correct".
  *
  * Three layers:
- *   1. The shared module, for every slot w1..w99, legacy1..9, named and main.
+ *   1. The shared module, for every slot w1..w49 (w50.. throw), legacy1..9, named and main.
  *   2. Each real call site, evaluated from a fake checkout directory named like the slot —
  *      vite.config.ts and playwright.config.ts loaded through Vite's config loader,
  *      check-worktree-env.sh executed with bash. A copy of the config is placed in the fake
@@ -47,10 +47,10 @@ const FETCH_BAD_PORTS = [
   6669, 6679, 6697, 10080,
 ]
 
-/** Today's port for slot N, before P1480: 5000 + N*100. Only 6000 (w10) moves, to 6050. */
+/** Port for slot N: 5000 + N*100. 6000 (w10, browser-restricted) and 7000 (w20, Mac AirPlay) move +50. */
 function expectedSlotPort(n: number): number {
   const legacy = 5000 + n * 100
-  return legacy === 6000 ? 6050 : legacy
+  return legacy === 6000 || legacy === 7000 ? legacy + 50 : legacy
 }
 
 type PortModule = {
@@ -74,12 +74,16 @@ describe('P1480 shared port module', () => {
     expect([...m.CHROMIUM_RESTRICTED_PORTS].sort((a, b) => a - b)).toEqual(FETCH_BAD_PORTS)
   })
 
-  it('maps w1..w99 to 5000 + N*100 except w10, which moves off 6000 to 6050', async () => {
+  it('maps w1..w49 to 5000 + N*100 except w10 -> 6050 and w20 -> 7050; w50..w99 throw (P1705)', async () => {
     const m = await loadModule()
-    for (let n = 1; n <= 99; n++) {
+    for (let n = 1; n <= 49; n++) {
       expect(m.worktreePort(wt(`w${n}`)), `w${n}`).toBe(expectedSlotPort(n))
     }
     expect(m.worktreePort(wt('w10'))).toBe(6050)
+    expect(m.worktreePort(wt('w20'))).toBe(7050)
+    for (let n = 50; n <= 99; n++) {
+      expect(() => m.worktreePort(wt(`w${n}`)), `w${n}`).toThrow()
+    }
   })
 
   it('maps legacy claritypledge-1..9 exactly like wN', async () => {
@@ -91,17 +95,20 @@ describe('P1480 shared port module', () => {
     }
   })
 
-  it('gives no slot a restricted port, and the w1..w99 ports are unique', async () => {
+  it('gives no slot a restricted or Mac-reserved port, and the w1..w49 ports are unique', async () => {
     const m = await loadModule()
-    const ports = Array.from({ length: 99 }, (_, i) => m.worktreePort(wt(`w${i + 1}`)))
-    for (const p of ports) expect(FETCH_BAD_PORTS, `port ${p}`).not.toContain(p)
-    expect(new Set(ports).size).toBe(99)
+    const ports = Array.from({ length: 49 }, (_, i) => m.worktreePort(wt(`w${i + 1}`)))
+    for (const p of ports) {
+      expect(FETCH_BAD_PORTS, `port ${p}`).not.toContain(p)
+      expect([5000, 7000], `port ${p}`).not.toContain(p)
+    }
+    expect(new Set(ports).size).toBe(49)
   })
 
   it('keeps the remapped port clear of every other slot, the 5800-5899 hash range and 5001', async () => {
     const m = await loadModule()
     const w10 = m.worktreePort(wt('w10'))
-    const others = Array.from({ length: 99 }, (_, i) => i + 1)
+    const others = Array.from({ length: 49 }, (_, i) => i + 1)
       .filter((n) => n !== 10)
       .map((n) => m.worktreePort(wt(`w${n}`)))
     expect(others).not.toContain(w10)
@@ -114,7 +121,7 @@ describe('P1480 shared port module', () => {
     expect(m.worktreePort('/home/dev/Projects/public/claritypledge')).toBe(5001)
     for (const name of ['landing-v4-artistic', 'p1234canary', 'x']) {
       const p = m.worktreePort(wt(name))
-      expect(p >= 5800 && p <= 5899, `${name} -> ${p}`).toBe(true)
+      expect(p >= 5801 && p <= 5899, `${name} -> ${p}`).toBe(true)
       expect(FETCH_BAD_PORTS).not.toContain(p)
     }
   })
@@ -214,7 +221,8 @@ describe('P1480 call sites agree from a slot-named checkout', () => {
     { rel: 'worktrees/w9', expected: 5900 },
     { rel: 'worktrees/w11', expected: 6100 },
     { rel: 'worktrees/w1', expected: 5100 },
-    { rel: 'worktrees/w99', expected: 14900 },
+    { rel: 'worktrees/w49', expected: 9900 },
+    { rel: 'worktrees/w20', expected: 7050 },
     { rel: 'legacy/claritypledge-3', expected: 5300 },
     { rel: 'worktrees/p1480-named', expected: 'named' },
     { rel: 'main/claritypledge', expected: 5001 },
@@ -227,7 +235,7 @@ describe('P1480 call sites agree from a slot-named checkout', () => {
       const checker = Number(checkerPort(dir))
 
       if (expected === 'named') {
-        expect(probe.vite >= 5800 && probe.vite <= 5899).toBe(true)
+        expect(probe.vite >= 5801 && probe.vite <= 5899).toBe(true)
       } else {
         expect(probe.vite).toBe(expected)
       }

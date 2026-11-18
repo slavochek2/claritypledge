@@ -299,6 +299,15 @@ if [ "$MODE" = "check-secrets" ] || [ "$MODE" = "secrets" ]; then
   missing_optional="$(printf '%s\n' $missing_optional | sort -u | tr '\n' ' ')"
   echo "MISSING required (names only): ${missing_required:-none}"
   echo "missing optional (code default applies): ${missing_optional:-none}"
+  # P1705: on TEST, mail links honour a dev server's port only while APP_URL is a localhost address
+  # (_shared/link-base.ts, second gate). Absent, the code falls back to the prod address. APP_URL is
+  # not a secret, so its value may be read and named here.
+  app_url="$( [ -f "$MAC_FN_ENV" ] && sed -n 's/^APP_URL=//p' "$MAC_FN_ENV" | tail -n 1 )"
+  case "$app_url" in
+    http://localhost:[0-9]*|http://127.0.0.1:[0-9]*) echo "APP_URL: ok: $app_url" ;;
+    "") echo "APP_URL: warn: not set in $MAC_FN_ENV; TEST mail links would point at the prod address. Set APP_URL=http://localhost:5001 (P1705)" ;;
+    *) echo "APP_URL: warn: $app_url is not a localhost address; TEST mail links will ignore dev ports. Expected http://localhost:5001 (P1705)" ;;
+  esac
   if [ "$MODE" = "check-secrets" ]; then
     [ -z "$missing_required" ]; exit $?
   fi

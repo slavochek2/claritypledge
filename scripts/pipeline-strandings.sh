@@ -284,7 +284,8 @@ if [[ ${#SLOT_ARGS[@]} -gt 0 ]]; then
     [[ "$_slot" =~ ^w[0-9]+$ ]] || continue
     _wt="$WORKTREES_DIR/$_slot"
     # Gone (shipped and removed) or released: nothing of this session's is left open.
-    [[ -d "$_wt" && -f "$_wt/.lock" ]] || continue
+    # P1705: a slot without a lock is still judged by its own .hold (tidy asks about lockless slots).
+    [[ -d "$_wt" && ( -f "$_wt/.lock" || -f "$_wt/.hold" ) ]] || continue
     _br="$(git -C "$_wt" rev-parse --abbrev-ref HEAD 2>/dev/null || echo '?')"
     _pn="$(printf '%s' "$_br" | $GREP -oE 'p[0-9]+' | head -1)"
     IFS=$'\t' read -r _state _detail < <(classify_slot "$_wt")

@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 348
 workstream: infrastructure
 created_date: '2026-11-18'
 tags: [worktrees, test-server, self-hosted, edge-functions]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -64,6 +64,7 @@ Blast radius: medium. Every edge function's CORS (prod included) and every maile
 - The P1691 guard test gains rules, each with a control built by mutating a real function file (gate 7d): no module other than `link-base.ts` reads `APP_URL` in any spelling; no function reads an `origin` field from a request body; no function parses an origin and compares its host to localhost; no app-route link (`/events/`, `/letters`, `/agreements/`) is built on a literal prod address. Its link-builder list is derived from the functions that send mail, not hand-kept.
 - **P1675 coordination.** P1675 is unshipped on w21 and is not edited by this work. Whichever of the two lands second removes `siteFor`, `localSiteFor` and the client's body `origin` field. Both change `mintEmailLink` in `_shared/event-links.ts`, so the second to land resolves a real merge conflict there, and the extended guard test fails that rebase until P1675's rule is gone. P1675's spec gets a one-line pointer.
 - TEST's `APP_URL` becomes `http://localhost:5001` (the main checkout). Function settings have one writer: the Mac's `functions.env`, pushed by `deploy-functions.sh --secrets`, which replaces the server's file (`/dev` first finds where today's 5173 comes from). `deploy-functions.sh` warns when `APP_URL` is absent from that file or is not a localhost address, so it cannot silently drift back. That puts both gates on TEST and on lanes, which copy `APP_URL` from main (`lanectl.py` `FN_ENV_ALLOW`).
+  - **As built, a deviation (2026-11-18).** The one-writer path is not usable today: the Mac's `functions.env` lacks 18 names the server's file holds, and P1602 makes `deploy-functions.sh --secrets` refuse a push that would drop server names. So the server's `APP_URL` line was edited in place (backup `functions.env.bak-p1705-<timestamp>` beside it on the VM, functions container recreated), and the Mac file gained the same line so a later `--secrets` push keeps it. The warning in `deploy-functions.sh` reads the Mac file, as designed. Bringing the two files level (copying 18 server-only values to the Mac) is a founder decision about where those values may live, not part of this spec. Lanes copy `APP_URL` only when provisioned, so a lane created before this change keeps its old value; none is claimed today.
 
 ### B. One port scheme (symptom 3)
 
@@ -76,7 +77,7 @@ Blast radius: medium. Every edge function's CORS (prod included) and every maile
   - The type file `worktree-port.d.mts` follows.
 - **CORS.** Edge functions cannot import `scripts/`, so a generated `_shared/dev-origins.ts` holds `devOrigins()` exactly, and a test asserts it equals the allocator's output (regenerate command in its header). `cors.ts` and `link-base.ts` both read it. The CORS test derives every slot from the allocator up to `MAX_SLOT`. Controls: 5000, 6000, 7000, 3000, 10000 and a non-slot port such as 5150 are refused.
 - **TEST auth.** Add `http://localhost:*` and `http://localhost:*/**` to the VM's `ADDITIONAL_REDIRECT_URLS`, keeping every existing entry, then restart the auth container. Why a wildcard here and nowhere else: GoTrue v2.189.0 already accepts a redirect to **any port on a loopback IP** (`internal/utilities/request.go`, `IsRedirectURLValid`: `ip.IsLoopback()`), so `localhost:*` adds no new class of trust. It covers every future slot with nothing to regenerate. It also removes the generator, the apply script and the drift comparator a generated list would need. Lanes copy main's list when created (`lanectl.py:390`), so new lanes inherit it. No lane is claimed today.
-- **TEST auth check.** A repo script runs the read-only verify probe from the Problem for every port in the allocator's set (expect a 303 to that port), plus two controls (an external host and `SITE_URL`'s fallback must still behave as today). It becomes part of the existing TEST health check, so a hand edit that drops the wildcard shows up as a failure, not a silent fallback to 5001.
+- **TEST auth check.** A repo script runs the read-only verify probe from the Problem for every port in the allocator's set (expect a 303 to that port), plus two controls (an external host and `SITE_URL`'s fallback must still behave as today). It becomes part of the existing TEST health check, so a hand edit that drops the wildcard shows up as a failure, not a silent fallback to 5001. As built: `scripts/selfhosted/auth-redirects.sh --check` (and `--apply`, which made the change). The two controls are one probe: an external host must still land on `SITE_URL`; if it does not, the check reports `unknown`, never `ok`. `health.sh` runs it as check `auth-redirects` from every source, since it needs only public HTTPS.
 - **GCS lists.** `gcs-chat-voice-bucket.sh` and `gcs-cors.json` keep exact origins (GCS takes no wildcard). Their localhost entries are checked equal to `slotOrigins()` by a test (no named or load-test ports: none is used against a bucket, and GCS lists are exact origins). Applying a changed list to a live bucket is a separate step run with a human watching (each script says so), announced first.
 
 ### C. Show foreign server code where people test (symptom 4)
@@ -95,7 +96,7 @@ Blast radius: medium. Every edge function's CORS (prod included) and every maile
 ### D. Slots that read as finished when they are (symptom 5)
 
 - The cleanup check ignores any `.env*.local` that is a symlink, in both places the ignore list appears, rather than naming a third file. A real file of that name still counts.
-- **Ship and archive-spec respect holds.** `teardown_worktree_if_clean` keeps a slot whose hold blocks (the same `tidy_hold_blocks` classifier), printing the hold's reason and the clear command. This lands in the same commit as the symlink change.
+- **Ship and archive-spec respect holds.** `teardown_worktree_if_clean` keeps a slot whose hold blocks (the same `tidy_hold_blocks` classifier), printing the hold's reason and the clear command. This lands in the same commit as the symlink change. As built, `park` goes through the same check with no bypass: the `.hold` file lives inside the worktree, so a park that removed a held slot would end the hold, which only `hold --clear` may do. A lockless slot is told to delete its `.hold` by hand, since `hold --clear` needs the lock's nonce.
 - `tidy` reads a slot's hold from the slot itself, so a slot without a `.lock` is judged by its real hold.
 - Holds are not cleared by ship, archive-spec or tidy. A finished slot with a founder hold stays a one-line question until the founder runs `hold --clear`, which the strandings report already prompts for.
 - Removal itself stays where it is (`/day`'s tidy step, ship, archive-spec). This work removes no worktree.
@@ -151,7 +152,7 @@ Blast radius: medium. Every edge function's CORS (prod included) and every maile
 
 ## Rollback Strategy
 
-Code: revert the commit. TEST auth: restore the `ADDITIONAL_REDIRECT_URLS` value saved on the VM before the edit, then restart auth. TEST `APP_URL`: restore the previous value through the same path. GCS lists: re-apply the previous JSON with the existing set script.
+Code: revert the commit. TEST auth: restore the `ADDITIONAL_REDIRECT_URLS` value saved on the VM before the edit (`/opt/supabase/docker/.env.pre-p1705-<timestamp>`), then recreate the auth container. TEST `APP_URL`: restore the server's `functions.env.bak-p1705-<timestamp>` and recreate the functions container, and drop the appended line from the Mac's `functions.env`. GCS lists: re-apply the previous JSON with the existing set script.
 
 ## Related
 

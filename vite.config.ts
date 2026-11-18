@@ -13,6 +13,7 @@ import { worktreeSlot, portForSlot } from './scripts/lib/worktree-port.mjs'
 import { refuseHostedTestRun } from './scripts/lib/hosted-test-guard.mjs'
 import { sizeTestWorkers, configShouldSize, dropInvalidMaxWorkersEnv } from './scripts/lib/test-worker-share.mjs'
 import { UNIT_TEST_ENV } from './src/tests/unit-test-env'
+import { testFunctionsCheckPlugin } from './src/dev/test-functions-plugin'
 
 // P1666: a unit run sees the same VITE_* values on a laptop as in CI, which has no env file and
 // no exports. envDir:false (below) keeps env files out; this drops VITE_* values exported in the
@@ -56,8 +57,9 @@ function getWorktreeSlot(): string | null {
   return worktreeSlot(process.cwd())
 }
 
-// Main repo: 5001, worktrees w1, w2, … : 5100, 5200, … (w10 is 6050 — 6000 is
-// browser-restricted), named worktrees: 5800-5899
+// Main repo: 5001; worktrees w1..w49 get one port per slot in hundreds (w1 is 5100, w10 is 6050,
+// w20 is 7050, since a browser-refused or macOS-reserved port shifts by 50); named worktrees
+// 5801-5899. The rule lives only in scripts/lib/worktree-port.mjs (P1480, P1705).
 function getPort(): number {
   return portForSlot(getWorktreeSlot())
 }
@@ -141,6 +143,9 @@ export default defineConfig({
         refuseHostedTestRun({ url: config.env.VITE_SUPABASE_URL, surface: 'dev-server' })
       },
     },
+    // P1705: dev server only. Runs the TEST functions check at start and every 30 minutes, in the
+    // background, and pushes the result to the page. Skips itself under Vitest, Playwright and the load driver.
+    testFunctionsCheckPlugin({ repoDir: __dirname }),
     // P1685: media not yet uploaded to the public bucket sits in a gitignored folder OUTSIDE public/, so a build never
     // packages it. The dev server alone serves it at /local-media/* (with Range, so a video can seek).
     {

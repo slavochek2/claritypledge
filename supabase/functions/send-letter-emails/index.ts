@@ -11,14 +11,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
-import { resolveLinkBase } from '../_shared/link-base.ts';
+import { linkBaseFor } from '../_shared/link-base.ts';
 import { resetUnconfirmedAccount } from '../_shared/unconfirmed-account.ts';
 import { deliveriesToMail } from './one-per-mailbox.ts';
 
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
 const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
 
 const MAILGUN_BASE = MAILGUN_REGION === 'eu'
   ? 'https://api.eu.mailgun.net/v3'
@@ -149,7 +148,7 @@ serve(async (req: Request) => {
 
     // Links point at the configured app address; local development on a test project gets
     // local links. The rule is shared: _shared/link-base.ts.
-    const appUrl = resolveLinkBase(req, APP_URL, supabaseUrl);
+    const appUrl = linkBaseFor(req);
 
     // P884: caller authorization — both call sites (seal + add-recipient) run
     // with a signed-in sender, so supabase.functions.invoke forwards the user

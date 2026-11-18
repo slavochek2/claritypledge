@@ -43,11 +43,19 @@ ORIGINS=(
   "https://claritypledge.com"
   "http://localhost:5001" "http://localhost:5100" "http://localhost:5200" "http://localhost:5300"
   "http://localhost:5400" "http://localhost:5500" "http://localhost:5600" "http://localhost:5700"
-  # Worktree slots w8+ (scripts/lib/worktree-port.mjs; w10 is 6050, Chromium refuses 6000).
+  # Worktree slots w8..w49 (scripts/lib/worktree-port.mjs slotOrigins(); w10 is 6050, Chromium refuses
+  # 6000; w20 is 7050, macOS AirPlay holds 7000). src/tests/p1705-gcs-origins.test.ts checks this list.
   "http://localhost:5800" "http://localhost:5900" "http://localhost:6050" "http://localhost:6100"
   "http://localhost:6200" "http://localhost:6300" "http://localhost:6400" "http://localhost:6500"
   "http://localhost:6600" "http://localhost:6700" "http://localhost:6800" "http://localhost:6900"
-  "http://localhost:7000"
+  "http://localhost:7050" "http://localhost:7100" "http://localhost:7200" "http://localhost:7300"
+  "http://localhost:7400" "http://localhost:7500" "http://localhost:7600" "http://localhost:7700"
+  "http://localhost:7800" "http://localhost:7900" "http://localhost:8000" "http://localhost:8100"
+  "http://localhost:8200" "http://localhost:8300" "http://localhost:8400" "http://localhost:8500"
+  "http://localhost:8600" "http://localhost:8700" "http://localhost:8800" "http://localhost:8900"
+  "http://localhost:9000" "http://localhost:9100" "http://localhost:9200" "http://localhost:9300"
+  "http://localhost:9400" "http://localhost:9500" "http://localhost:9600" "http://localhost:9700"
+  "http://localhost:9800" "http://localhost:9900"
 )
 # Request headers the signed upload and playback use. Explicit names only.
 RESPONSE_HEADERS=("Content-Type" "x-goog-content-length-range" "x-goog-if-generation-match" "Range")

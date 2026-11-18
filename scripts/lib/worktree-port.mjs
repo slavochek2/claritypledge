@@ -10,18 +10,10 @@
 //   main checkout                      5001  (5000 is taken by macOS AirPlay)
 //   .claude/worktrees/wN               5000 + N*100, 1 <= N <= MAX_SLOT (49; top port 9900)
 //   legacy sibling claritypledge-N     5000 + N*100, same cap
-//   .claude/worktrees/<name>           5811 + hash(name) % 79  (5811..5889)
-// If a port above is browser-restricted (CHROMIUM_RESTRICTED_PORTS) or Mac-reserved
-// (MAC_RESERVED_PORTS: 5000 and 7000, macOS AirPlay), it moves by RESTRICTED_PORT_SHIFT.
+//   .claude/worktrees/<name>           5801 + hash(name) % 99  (5801..5899, never 5800 = w8)
+// then, if the result is a browser-restricted port (CHROMIUM_RESTRICTED_PORTS) or a Mac-reserved
+// one (MAC_RESERVED_PORTS: 5000 and 7000, macOS AirPlay), it moves by RESTRICTED_PORT_SHIFT.
 // Slots that move: w10 (6000 -> 6050) and w20 (7000 -> 7050).
-//
-// The named range keeps clear of load-test ports on both sides: w8 (5800) runs load tests on
-// 5801..5809, and the top named port plus LOADTEST_MAX_LEVEL is 5898, below w9's 5900.
-// Two NAMED worktrees are not kept apart: names within nine of each other share load-test ports,
-// and two names can hash to one port. A shared dev port is loud (Vite's strictPort refuses it); a
-// load test reaching the other's dev port is silent, because Playwright's reuseExistingServer
-// uses whatever answers there. Spacing named bases ten apart would leave 8 ports and make a shared
-// dev port ten times likelier; no named worktree is in use (P1705).
 //
 // Origin sets, both derived here and nowhere else:
 //   slotOrigins()  main and w1..w49 after shifts (the GCS CORS lists)
@@ -47,7 +39,7 @@ export const CHROMIUM_RESTRICTED_PORTS = new Set([
 ]);
 
 // Half a slot's stride: a shifted port can never equal another slot's 5000 + N*100, and 6050
-// sits outside the 5811-5889 named range.
+// sits outside the 5800-5899 hash range.
 export const RESTRICTED_PORT_SHIFT = 50;
 
 export const MAIN_PORT = 5001;
@@ -63,8 +55,8 @@ export const MAC_RESERVED_PORTS = new Set([5000, 7000]);
 // Highest E2E load-test run index (scripts/lib/e2e-loadtest.mjs: loadTestPort = base + index).
 export const LOADTEST_MAX_LEVEL = 9;
 
-const NAMED_BASE = 5811;
-const NAMED_COUNT = 79;
+const NAMED_BASE = 5801;
+const NAMED_COUNT = 99;
 
 /**
  * Slot name for a checkout directory: "wN", "legacyN", a named worktree's directory name, or

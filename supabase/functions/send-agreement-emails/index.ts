@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
-import { resolveLinkBase } from '../_shared/link-base.ts';
+import { linkBaseFor } from '../_shared/link-base.ts';
 import {
   type BucketLimit,
   mailLimitResponse,
@@ -13,7 +13,6 @@ import {
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
 const MAILGUN_DOMAIN = Deno.env.get('MAILGUN_DOMAIN') ?? '';
 const MAILGUN_REGION = Deno.env.get('MAILGUN_REGION') ?? 'us';
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 // P1178: shared secret proving an internal edge-function caller (create-and-sign).
 // Such a caller has no user to resolve, so auth.getUser() can never authorize it.
@@ -246,7 +245,8 @@ async function handleInvitation(
 
 async function handleAccepted(
   supabase: SupabaseClient,
-  agreementId: string
+  agreementId: string,
+  appUrl: string
 ) {
   const { data: agreement } = await supabase
     .from('clarity_agreements')
@@ -272,7 +272,7 @@ async function handleAccepted(
 
   const partnerName = partner?.name ?? 'Your partner';
   const safePartnerName = escapeHtml(partnerName);
-  const agreementUrl = `${APP_URL}/agreements/${agreementId}`;
+  const agreementUrl = `${appUrl}/agreements/${agreementId}`;
   const subject = `${partnerName} co-signed your Clarity Partner Agreement`;
   const html = htmlEmail(subject, `
     <p style="margin:0 0 16px;font-size:16px;color:#111827;">${escapeHtml(greeting(creator?.name))}</p>
@@ -326,7 +326,8 @@ async function handleDeclined(
 
 async function handleTerminated(
   supabase: SupabaseClient,
-  agreementId: string
+  agreementId: string,
+  appUrl: string
 ) {
   const { data: agreement } = await supabase
     .from('clarity_agreements')
@@ -343,7 +344,7 @@ async function handleTerminated(
     .select('id, name, email')
     .in('id', profileIds) as { data: ProfileRow[] | null };
 
-  const agreementUrl = `${APP_URL}/agreements/${agreementId}`;
+  const agreementUrl = `${appUrl}/agreements/${agreementId}`;
   const subject = 'Your Clarity Partner Agreement has been terminated';
 
   // Collect recipients with names for personalization
@@ -447,7 +448,7 @@ serve(async (req: Request) => {
 
     // Links point at the configured app address; local development on a test project gets
     // local links. The rule is shared: _shared/link-base.ts.
-    const appUrl = resolveLinkBase(req, APP_URL, supabaseUrl);
+    const appUrl = linkBaseFor(req);
 
     const { action, agreementId } = await req.json() as {
       action: 'invitation' | 'accepted' | 'declined' | 'terminated' | 'resend';
@@ -541,13 +542,13 @@ serve(async (req: Request) => {
         await handleInvitation(supabaseClient, agreementId, appUrl);
         break;
       case 'accepted':
-        await handleAccepted(supabaseClient, agreementId);
+        await handleAccepted(supabaseClient, agreementId, appUrl);
         break;
       case 'declined':
         await handleDeclined(supabaseClient, agreementId);
         break;
       case 'terminated':
-        await handleTerminated(supabaseClient, agreementId);
+        await handleTerminated(supabaseClient, agreementId, appUrl);
         break;
       case 'resend':
         await handleResend(supabaseClient, agreementId, appUrl);

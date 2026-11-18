@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import * as dotenv from 'dotenv';
 import { loadTestRefusal, loadTestPort } from './lib/e2e-loadtest.mjs';
 import { WORKLOAD } from './lib/e2e-load-workload.mjs';
-import { worktreePort } from './lib/worktree-port.mjs';
+import { worktreePort, LOADTEST_MAX_LEVEL } from './lib/worktree-port.mjs';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -138,6 +138,7 @@ function scanReport(file) {
 
 async function main() {
   const level = Number(arg('--level'));
+  if (Number.isInteger(level) && level > LOADTEST_MAX_LEVEL) { console.error(`[P1705] --level ${level} is above LOADTEST_MAX_LEVEL (${LOADTEST_MAX_LEVEL}): ports base+1..base+${LOADTEST_MAX_LEVEL} are the only load-test origins CORS accepts (scripts/lib/worktree-port.mjs)`); process.exit(2); }
   if (!Number.isInteger(level) || level < 1 || level > 4) { console.error('usage: e2e-load-test.mjs --level <1-4> [--out dir] [--repeat 6] [--stop-ms 8000] [--no-ssh]'); process.exit(2); }
   const stopMs = Number(arg('--stop-ms', '8000'));
   const useSsh = !process.argv.includes('--no-ssh');

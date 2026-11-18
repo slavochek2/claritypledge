@@ -193,15 +193,27 @@ Deno.test('with the live site as request origin, links use the configured app ad
   assertLinksUnder(APP, ctx, 'site origin');
 });
 
-Deno.test('on a recognised test project, an exact development origin still yields local links', opts, async () => {
-  for (const project of [TEST_STACK, 'https://203-0-113-7.sslip.io', 'https://test-server.tailnet-name.ts.net:8443']) {
-    for (const origin of ['http://localhost:5001', 'http://localhost:5200', 'http://localhost:6100']) {
-      const ctx = setup(project);
-      const res = await ctx.send(origin);
-      assertEquals(res.status, 200, `${origin} on ${project}`);
-      assertLinksUnder(origin, ctx, `${origin} on ${project}`);
+Deno.test('on a recognised test project with a localhost APP_URL, an exact development origin yields local links', opts, async () => {
+  Deno.env.set('APP_URL', 'http://localhost:5001');
+  try {
+    for (const project of [TEST_STACK, 'https://203-0-113-7.sslip.io', 'https://test-server.tailnet-name.ts.net:8443']) {
+      for (const origin of ['http://localhost:5001', 'http://localhost:5200', 'http://localhost:6100']) {
+        const ctx = setup(project);
+        const res = await ctx.send(origin);
+        assertEquals(res.status, 200, `${origin} on ${project}`);
+        assertLinksUnder(origin, ctx, `${origin} on ${project}`);
+      }
     }
+  } finally {
+    Deno.env.set('APP_URL', APP);
   }
+});
+
+Deno.test('on a recognised test project whose APP_URL is not localhost, an exact development origin yields APP_URL', opts, async () => {
+  const ctx = setup(TEST_STACK);
+  const res = await ctx.send('http://localhost:5200');
+  assertEquals(res.status, 200);
+  assertLinksUnder(APP, ctx, 'dev origin, deployed APP_URL');
 });
 
 Deno.test('each delivery is mailed once: a second request sends nothing', opts, async () => {

@@ -46,6 +46,7 @@ const BYSTANDER = '99999999-9999-4999-8999-999999999999';
 const TO_NEW = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const TO_KNOWN = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const ACTIVE = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const ENDED = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const NEW_ADDRESS = 'new-partner@example.com';
 const KNOWN_ADDRESS = 'known-partner@example.com';
 const CREATOR_ADDRESS = 'creator@example.com';
@@ -88,6 +89,10 @@ function setup(project: string, rpc: Record<string, (args: Record<string, unknow
         {
           id: ACTIVE, creator_profile_id: CREATOR, partner_profile_id: PARTNER, partner_email: KNOWN_ADDRESS,
           invitation_token: 'token-active', invitation_expires_at: '2099-01-01T00:00:00Z', status: 'active',
+        },
+        {
+          id: ENDED, creator_profile_id: CREATOR, partner_profile_id: PARTNER, partner_email: KNOWN_ADDRESS,
+          invitation_token: 'token-ended', invitation_expires_at: '2099-01-01T00:00:00Z', status: 'terminated',
         },
       ],
     },
@@ -190,11 +195,45 @@ Deno.test('with the live site as request origin, links use the configured app ad
   await assertInvitationLinksUnder(APP, 'https://claritypledge.com', PROD_PROJECT);
 });
 
-Deno.test('on a recognised test project, an exact development origin still yields local links', opts, async () => {
-  for (const project of [TEST_STACK, 'https://203-0-113-7.sslip.io', 'https://test-server.tailnet-name.ts.net:8443']) {
-    for (const origin of ['http://localhost:5001', 'http://localhost:5200', 'http://localhost:6100']) {
-      await assertInvitationLinksUnder(origin, origin, project);
+Deno.test('on a recognised test project with a localhost APP_URL, an exact development origin yields local links', opts, async () => {
+  Deno.env.set('APP_URL', 'http://localhost:5001');
+  try {
+    for (const project of [TEST_STACK, 'https://203-0-113-7.sslip.io', 'https://test-server.tailnet-name.ts.net:8443']) {
+      for (const origin of ['http://localhost:5001', 'http://localhost:5200', 'http://localhost:6100']) {
+        await assertInvitationLinksUnder(origin, origin, project);
+      }
     }
+  } finally {
+    Deno.env.set('APP_URL', APP);
+  }
+});
+
+Deno.test('on a recognised test project whose APP_URL is not localhost, an exact development origin yields APP_URL', opts, async () => {
+  await assertInvitationLinksUnder(APP, 'http://localhost:5200', TEST_STACK);
+});
+
+Deno.test('accepted and terminated notices use the dev origin on a test project with a localhost APP_URL, and APP_URL otherwise', opts, async () => {
+  const DEV = 'http://localhost:5200';
+  const call = async (action: string, appUrl: string, project: string, origin: string, base: string) => {
+    Deno.env.set('APP_URL', appUrl);
+    try {
+      const ctx = setup(project);
+      const res = await ctx.send(origin, action, action === 'terminated' ? ENDED : ACTIVE, { Authorization: 'Bearer partner-token' });
+      assertEquals(res.status, 200, `${action} ${appUrl} ${project}`);
+      assert(ctx.sent.length >= 1, `${action}: mailed`);
+      for (const mail of ctx.sent) {
+        assertMailLinksUnder(base, mail, action);
+        assert(mail.text.includes(`${base}/agreements/${action === 'terminated' ? ENDED : ACTIVE}`), `${action}: agreement link under ${base}`);
+      }
+    } finally {
+      Deno.env.set('APP_URL', APP);
+    }
+  };
+  for (const action of ['accepted', 'terminated']) {
+    await call(action, 'http://localhost:5001', TEST_STACK, DEV, DEV);
+    await call(action, APP, TEST_STACK, DEV, APP);
+    await call(action, 'http://localhost:5001', PROD_PROJECT, DEV, 'http://localhost:5001');
+    await call(action, 'http://localhost:5001', TEST_STACK, 'http://localhost:6000', 'http://localhost:5001');
   }
 });
 

@@ -25,6 +25,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { linkBaseFor } from '../_shared/link-base.ts';
 import {
   SIGNIN_MAIL_LIMITS,
   ipLimitKey,
@@ -242,7 +243,7 @@ serve(async (req: Request) => {
     // ── Env guard ──────────────────────────────────────────────────────────────
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const appUrl = Deno.env.get('APP_URL') ?? 'https://claritypledge.com';
+    const appUrl = linkBaseFor(req);
 
     if (!supabaseUrl || !serviceRoleKey) {
       console.error('[request-letter-response-signin] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');

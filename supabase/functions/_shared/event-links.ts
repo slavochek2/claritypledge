@@ -11,6 +11,7 @@
  * sha256(ticket) is stored; the plaintext exists in the email alone.
  */
 import type { SupabaseClient } from './email-helpers.ts';
+import { linkBaseFor } from './link-base.ts';
 
 export type LinkPurpose = 'prepare' | 'room' | 'arrived' | 'not_yet';
 
@@ -60,9 +61,8 @@ export function ticketExpiry(event: { datetime: string; duration_minutes: number
  * the link gets a page, and only a human press redeems the ticket (event-email-link header).
  * APP_URL (the convention send-letter-emails uses) lets the test project point at a dev/preview site; prod defaults to claritypledge.com.
  */
-function linkBase(): string {
-  const site = (Deno.env.get('APP_URL') ?? 'https://claritypledge.com').replace(/\/+$/, '');
-  return `${site}/auth/event-link`;
+function linkBase(req?: Request): string {
+  return `${linkBaseFor(req)}/auth/event-link`;
 }
 
 /**
@@ -74,6 +74,8 @@ export async function mintEmailLink(
   rsvpId: string,
   purpose: LinkPurpose,
   event: { datetime: string; duration_minutes: number | null },
+  /** The request being answered, if any; scheduled senders pass none (link-base.ts decides). */
+  req?: Request,
 ): Promise<string | null> {
   const ticket = newTicket();
   const { error } = await supabase.from('event_email_links').insert({
@@ -86,12 +88,17 @@ export async function mintEmailLink(
     console.error(`mintEmailLink(${purpose}) failed:`, error.message);
     return null;
   }
-  return `${linkBase()}?ticket=${encodeURIComponent(ticket)}`;
+  return `${linkBase(req)}?ticket=${encodeURIComponent(ticket)}`;
 }
 
 // ── Text rules shared with the app (src/app/prototypes/events/arrival/arrival-text.ts) ──
 
 /** A location that is a URL is an online event: no arrival question. */
+/** The public event page under the given base (link-base.ts decides the base). */
+export function eventPageUrl(slug: string, base: string): string {
+  return `${base}/events/${slug}`;
+}
+
 export function isOnlineLocation(location: string | null): boolean {
   if (!location) return false;
   try {

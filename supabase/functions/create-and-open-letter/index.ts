@@ -15,6 +15,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { buildCorsHeaders } from '../_shared/cors.ts';
+import { linkBaseFor } from '../_shared/link-base.ts';
 import { createHandler, type SignInEmail } from './handler.ts';
 
 const MAILGUN_API_KEY = Deno.env.get('MAILGUN_API_KEY') ?? '';
@@ -134,7 +135,7 @@ serve(async (req: Request) => {
 
   return createHandler({
     supabase: createClient(supabaseUrl, serviceRoleKey),
-    appUrl: Deno.env.get('APP_URL') ?? 'https://claritypledge.com',
+    appUrl: linkBaseFor(req),
     sendSignInEmail,
     ipHashSecret,
   })(req);
