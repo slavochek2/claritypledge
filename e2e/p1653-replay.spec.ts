@@ -193,7 +193,7 @@ const rows = (what: string, r: { data: unknown; error: { message: string } | nul
 
 /**
  * Runs scripts/selfhosted/branch-functions-check.sh. Passing needs exit 0, a first line that starts with "match:" (the server serves this
- * branch's functions: "no changed functions" makes no network call and proves nothing) and a STARTED: line. Anything else throws.
+ * branch's functions, and main's tip for every function the branch does not change) and a STARTED: line. Anything else throws.
  */
 function functionsCheck(when: string): Check {
   let out: string;

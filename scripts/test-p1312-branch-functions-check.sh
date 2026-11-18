@@ -296,17 +296,49 @@ checkout feature/a; run_check; check "A, behind main, with main's _shared on the
 first_line_is "  reads match" "$W/cout" "match: "
 
 # ---------------------------------------------------------------- 5 no network
-echo "5. a branch that changed no deployed file makes no network call"
+echo "5. a branch that changed no deployed file still reads the server (P1705: no-change gap)"
+# Deliberate change from P1312: this section used to assert "no changed functions" and no gcloud call.
+# A branch with no function changes now compares every function on the server with main's tip.
 mk_world s5
 run_deploy; branch feature/docs
 : > "$W/stubstate/gcloud-calls.log"
 commit_on feature/docs README.md 'readme v2' "docs"
 commit_on feature/docs supabase/functions/fn-a/index.test.ts 'a test only' "test only"
-run_check; check "only a README and a .test.ts changed" 0 "$CRC"
-first_line_is "  says no changed functions" "$W/cout" "no changed functions"
-check "  gcloud was never called" 0 "$(gcloud_calls)"
-checkout main; run_check; check "on main itself" 0 "$CRC"
-check "  gcloud still never called" 0 "$(gcloud_calls)"
+run_check; check "only a README and a .test.ts changed, server holds main" 0 "$CRC"
+first_line_is "  reads match, not no changed functions" "$W/cout" "match: "
+has "  and reports the container start" "$W/cout" "^STARTED: [0-9]"
+if [ "$(gcloud_calls)" -gt 0 ]; then ok "  gcloud was called (the server was read)"; else bad "  gcloud was never called"; fi
+checkout main; run_check; check "on main itself, server holds main" 0 "$CRC"
+first_line_is "  reads match" "$W/cout" "match: "
+
+echo "5b. no function changes, but the server holds another branch's copy of a function"
+mk_world s5b
+run_deploy; branch feature/other
+commit_on feature/other supabase/functions/fn-a/index.ts 'other branch work' "other: fn-a"
+run_deploy fn-a; check "setup: feature/other deploys its fn-a over main's" 0 "$RC"
+checkout main; branch feature/docs
+commit_on feature/docs README.md 'readme v2' "docs"
+run_check; check "a docs-only branch sees the server differ from main's tip" 1 "$CRC"
+first_line_is "  names fn-a" "$W/cout" "differs: fn-a"
+has "  names the branch the server holds" "$W/cout" "feature/other from 20"
+has "  second line is STARTED" "$W/cout" "^STARTED: [0-9]"
+checkout main; run_check; check "on main itself it differs too" 1 "$CRC"
+first_line_is "  names fn-a on main" "$W/cout" "differs: fn-a"
+run_fixes; check "  the printed fix command works" 0 "$FRC"
+run_check; check "  then matches" 0 "$CRC"
+
+echo "5c. a branch that changes one function also sees another function differing from main"
+mk_world s5c
+run_deploy; branch feature/other
+commit_on feature/other supabase/functions/fn-b/index.ts 'other branch work' "other: fn-b"
+run_deploy fn-b; check "setup: feature/other deploys fn-b" 0 "$RC"
+checkout main; branch feature/mine
+commit_on feature/mine supabase/functions/fn-a/index.ts 'mine' "mine: fn-a"
+run_deploy fn-a; check "setup: mine deploys fn-a" 0 "$RC"
+run_check; check "my fn-a matches but fn-b is another branch's" 1 "$CRC"
+first_line_is "  names fn-b" "$W/cout" "differs: fn-b"
+has "  names the other branch" "$W/cout" "feature/other from 20"
+has "  says it is not this branch's change" "$W/cout" "not changed by this branch: fn-b"
 
 # ---------------------------------------------------------------- 6 unknown
 echo "6. every way the check cannot tell exits 2, never a pass"

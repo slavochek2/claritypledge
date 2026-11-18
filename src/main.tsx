@@ -96,6 +96,12 @@ stampHistoryBoot();
 // it); finish that clear now. Fire-and-forget: the block holds until it succeeds.
 void retryPendingOfflineClear();
 
+// P1705: dev server only. Shows whether shared TEST serves this branch's edge functions; the module
+// and its marker string are absent from a production build.
+if (import.meta.env.DEV) {
+  void import("./dev/test-functions-banner").then((m) => m.mountFunctionsBanner());
+}
+
 const root = createRoot(document.getElementById("root") as HTMLElement);
 root.render(<Main />);
 

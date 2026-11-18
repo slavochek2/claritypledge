@@ -9,7 +9,6 @@
 # container's health and start time, and the newest function file's mtime, closed by a sentinel.
 # Never reads or deploys prod; needs no keychain item (the same gcloud login the drift check uses).
 # First line of output is the status, the exit code is the contract:
-#   no changed functions            exit 0   nothing deployed was changed: no network call at all
 #   match: <n> file(s)              exit 0, then STARTED: <container start, integer nanoseconds>
 #   differs: <names> (server has <branch> from <time>[, uncommitted])   exit 1, then STARTED:, then the fix
 # The STARTED line is always the second line of a match or differs. Any deploy recreates the container,
@@ -19,6 +18,12 @@
 # the whole directory of each changed function, all of _shared, deno.json, deno.lock, the router and
 # the JWT list. A file in that wider set the branch did NOT change differs only when the server's
 # copy is also not main's tip copy (the state a rebase would give).
+# No-change gap (P1705): a branch that changes no function (main included) is no longer waved through
+# without a look. It still makes the one SSH call and compares EVERY function file on the server with
+# main's tip. A branch that changes functions compares those against the branch and every other file
+# the server holds or main ships against main's tip. A function differing from both is differs, naming
+# the branch the server's deploy manifest records. The old line "no changed functions" is no longer
+# printed by this script (the parser in scripts/lib/branch-functions-verdict.mjs still accepts it).
 # The container must be healthy and started after the newest function file, else unknown: files on
 # disk the running process has not loaded are not served code.
 #
@@ -60,7 +65,6 @@ base="$(git -C "$REPO" merge-base HEAD "$DG_MAIN_REF" 2>/dev/null)" || unknown "
 tracked="$(git -C "$REPO" -c core.quotepath=off diff --no-renames --name-only "$base" -- "${DG_INPUT_PATHS[@]}" 2>/dev/null)" || unknown "git could not list this branch's changes"
 untracked="$(git -C "$REPO" -c core.quotepath=off ls-files --others --exclude-standard -- "${DG_INPUT_PATHS[@]}" 2>/dev/null)" || unknown "git could not list untracked files"
 printf '%s\n%s\n' "$tracked" "$untracked" | dg_filter_deployed_repo_paths | LC_ALL=C sort -u > "$T/changed.repo"
-if [ ! -s "$T/changed.repo" ]; then say 0 "no changed functions"; fi
 : > "$T/changed.rel"
 while IFS= read -r p; do dg_rel_of_repo_path "$p"; done < "$T/changed.repo" | LC_ALL=C sort -u > "$T/changed.rel"
 
@@ -199,11 +203,28 @@ dg_filter_deployed_repo_paths < "$T/wide.raw" > "$T/wide.repo"
   done
 } | LC_ALL=C sort -u | grep -v '^$' > "$T/rels" || true
 
+main_hash() { # rel -> hash of main's tip copy, or MISSING
+  git -C "$REPO" cat-file blob "$DG_MAIN_REF:$(dg_repo_path_of_rel "$1")" > "$T/blob" 2>/dev/null && dg_sha256 "$T/blob" || echo MISSING
+}
+
 : > "$T/local.files"
 while IFS= read -r rel; do
   p="$(dg_repo_path_of_rel "$rel")"
   if [ -f "$REPO/$p" ]; then printf '%s\t%s\n' "$rel" "$(dg_sha256 "$REPO/$p")"; else printf '%s\tMISSING\n' "$rel"; fi
 done < "$T/rels" | LC_ALL=C sort > "$T/local.files"
+
+# Every other file the server holds is compared against main's tip (P1705): a branch that changed no
+# function still reads the server, and a branch that changed some also sees the others. A function
+# differing from both the branch and main shows up as differs. A function the server does not hold
+# is not foreign code, so main's files absent from the server are not compared.
+{
+  cut -f1 "$T/server.files" | while IFS= read -r rel; do dg_repo_path_of_rel "$rel"; done |
+    dg_filter_deployed_repo_paths | while IFS= read -r p; do dg_rel_of_repo_path "$p"; done
+} | LC_ALL=C sort -u | grep -v '^$' > "$T/others.all" || true
+LC_ALL=C comm -23 "$T/others.all" "$T/rels" > "$T/extra.rel"
+while IFS= read -r rel; do printf '%s\t%s\n' "$rel" "$(main_hash "$rel")"; done < "$T/extra.rel" >> "$T/local.files"
+LC_ALL=C sort -o "$T/local.files" "$T/local.files"
+LC_ALL=C sort -u "$T/rels" "$T/extra.rel" -o "$T/rels"
 # Server side, restricted to the compared set.
 LC_ALL=C join -t "$(printf '\t')" -a1 -e MISSING -o 0,2.2 "$T/local.files" "$T/server.files" > "$T/server.cmp" ||
   unknown "the comparison could not be completed (join failed)"
@@ -216,9 +237,6 @@ if [ "${n_rels:-0}" -lt 1 ] || [ "$n_files" != "$n_rels" ] || [ "$n_local" != "$
   unknown "the comparison is incomplete (compared ${n_files:-0} of ${n_rels:-0} files)"
 fi
 
-main_hash() { # rel -> hash of main's tip copy, or MISSING
-  git -C "$REPO" cat-file blob "$DG_MAIN_REF:$(dg_repo_path_of_rel "$1")" > "$T/blob" 2>/dev/null && dg_sha256 "$T/blob" || echo MISSING
-}
 : > "$T/differs"
 while IFS=$'\t' read -r rel lhash shash; do
   [ "$lhash" != "$shash" ] || continue
@@ -256,6 +274,32 @@ names="$(printf '%s\n' $tops | tr '\n' ' ' | sed 's/ $//; s/ /, /g')"
 
 # ---- the fix, as commands that work ----
 fixes=()
+# Functions among the differences that this branch did not change (main's tip is the reference).
+: > "$T/maindeploy"; others_note=""
+for top in $tops; do
+  case "$top" in _shared|main|deno.json|deno.lock) continue ;; esac
+  grep -qxF -- "$top" "$T/fns" && continue
+  echo "$top" >> "$T/maindeploy"
+done
+if [ -s "$T/maindeploy" ]; then others_note="$(tr '\n' ' ' < "$T/maindeploy" | sed 's/ $//; s/ /, /g')"; fi
+if [ ! -s "$T/changed.repo" ]; then
+  # Nothing here changed a function: the server differs from main's tip, so main's code is the fix.
+  fixes+=("Fix: TEST holds code that is not main's tip. From a clean checkout of main, deploy main's version:")
+  ndeploy=0
+  while IFS= read -r fn; do
+    [ -n "$fn" ] || continue
+    if git -C "$REPO" cat-file -e "$DG_MAIN_REF:supabase/functions/$fn/index.ts" 2>/dev/null; then
+      fixes+=("  scripts/selfhosted/deploy-functions.sh $fn"); ndeploy=$((ndeploy+1))
+    else
+      fixes+=("WARNING: main has no copy of $fn; only a full deploy from main removes it, and a full deploy replaces every function.")
+    fi
+  done < "$T/maindeploy"
+  if [ "$ndeploy" = 0 ] && [ ! -s "$T/maindeploy" ]; then
+    # Only shared files differ: any named deploy carries them.
+    first="$(git -C "$REPO" ls-tree --name-only "$DG_MAIN_REF" supabase/functions/ 2>/dev/null | sed 's|.*/||' | grep -v -e '^_shared$' -e '^main$' -e '[.]' | head -1)"
+    fixes+=("  scripts/selfhosted/deploy-functions.sh ${first:-}")
+  fi
+else
 stale="$(dg_stale_files "$REPO" HEAD 2>/dev/null)" || stale=""
 if [ -n "$stale" ]; then
   # A rebase refuses a tree with uncommitted changes to tracked files; stash is not an option here.
@@ -297,6 +341,10 @@ else
   first="$(sed -n 1p "$T/fnlist")"
   fixes+=("  scripts/selfhosted/deploy-functions.sh ${first:-<function>}")
   fixes+=("(any named deploy carries _shared, deno.json, deno.lock, the router and the JWT list)")
+fi
+fi
+if [ -s "$T/changed.repo" ] && [ -n "$others_note" ]; then
+  fixes+=("Also differing from main's tip, and not changed by this branch: $others_note. Deploy those from a clean checkout of main, not from this branch.")
 fi
 fixes+=("A deploy recreates the shared functions container, which interrupts any run using TEST right now.")
 say 1 "differs: $names (server has $labels)" "STARTED: $started" "${fixes[@]}"
