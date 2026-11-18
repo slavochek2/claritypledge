@@ -347,6 +347,9 @@ export default defineConfig({
     // 5000ms default while the same test passes alone; 15s absorbs harness load, a real hang still fails.
     testTimeout: 15000,
     setupFiles: './src/tests/setup.tsx',
+    // P1710: keep the real console in workers. Vitest's intercepting console sends each log to the main
+    // process over RPC; a log fired while a worker closes failed whole full-suite runs with every test passing.
+    disableConsoleIntercept: true,
     env: { ...UNIT_TEST_ENV }, // P1666: the only VITE_* values a unit run sees
     exclude: [
       '**/node_modules/**',
