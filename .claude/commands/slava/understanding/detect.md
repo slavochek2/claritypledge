@@ -183,8 +183,8 @@ CANDIDATE ‹n›
   stakeholders:  ‹everyone involved + relation + align-relevance — e.g.
                   "Marco (contractor: can call, won't onboard) · Katrin (adversary: not an align-target) · no partner"›
   align-target:  ‹the stakeholder(s) whose comprehension actually matters — or NONE›
-  arbiter-failure: ‹which mode fires — fuzzy intent · delayed feedback · concentrated stakes ·
-                 explanatory divergence — or NONE. Where a specifying interface already carries
+  arbiter-failure: ‹which mode fires — fuzzy intent · delayed feedback · concentrated consequences ·
+                 irreversible · explanatory divergence — or NONE. Where a specifying interface already carries
                  the coordination: "SKIP — interface: ‹the interface› · ‹why it arbitrates this›"›
   stake:         ‹the loss in ITS OWN currency — time (default, unconverted) · real money · a
                   burned read. Plus the noticing-ceiling. e.g. "~20 hrs over 2 months — you'd
@@ -210,12 +210,12 @@ CANDIDATE ‹n›
 
   **Read the model there and apply it. It is deliberately not restated here** — this file held the only copy of the operational layer until P1190 extracted it, which is how a third consumer found nothing it could point at. What this stage needs from that file:
 
-  - the **four modes** — `fuzzy intent` · `delayed feedback` · `concentrated stakes` · `explanatory divergence` — plus `NONE`, each with what breaks about arbitration;
+  - the **five modes** — `fuzzy intent` · `delayed feedback` · `concentrated consequences` · `irreversible` · `explanatory divergence` — plus `NONE`, each with what breaks about arbitration;
   - **the firing-conditions table for *this* consumer**: §Firing conditions, by consumer → ***a private corpus, one bearer***. That file also carries a *public-claim* column for the disagreement pipeline; it is a different consumer's evidence standard and does **not** apply here;
   - the **interface disqualifier** and the two rules that bound it, written on the card as `SKIP — interface: ‹the interface› · ‹the one line saying why it arbitrates this item›`;
   - the **reader translation** for each mode, needed at the render step below.
 
-  **Two of its rules are violated at this stage specifically — read them there before you tag anything:** the **epistemic-status rule** on `explanatory divergence` (§The four modes — defined, not listed, status column) and **`NONE` is a finding, not a defect** (§The four modes, immediately below the table). They are named here, not restated, because a second copy of a rule about how to weight evidence is exactly the drift this extraction removed.
+  **Two of its rules are violated at this stage specifically — read them there before you tag anything:** the **epistemic-status rule** on `explanatory divergence` (§The modes — defined, not listed, status column) and **`NONE` is a finding, not a defect** (§The modes — defined, not listed, immediately below the table). They are named here, not restated, because a second copy of a rule about how to weight evidence is exactly the drift this extraction removed.
 - **provenance** — **stake-adjacent history, and explicitly not a score.** A high-stakes item you have restated five times without resolving is a different signal from one raised yesterday, and a card carrying neither fact hides that difference. Three parts: **first seen** (earliest appearance in the corpus) · **reformulations** (distinct restatements of the same item) · **related work** (what was actually produced since).
 
   - **It is not a ranking input, and it never becomes one.** Ranking is by unguarded stake, below. Provenance sits on the card so a reader can weigh it; feed it into an ordering and it becomes a number people optimise — restate a thing five times and watch it climb.
@@ -300,7 +300,7 @@ Write them to `## Run` in the run state instead, under the headings already in t
 ### Counts
 - rungs:   none ‹n› · one-sided ‹n› · confirmed-unnumbered ‹n› · confirmed-numbered ‹n› · predicted+scored ‹n› · both-at-10 ‹n›
 - dropped: ‹n› lacking verbatim evidence · ‹n› excluded-speaker · ‹n› unattributable (exchange mode)
-- arbiter: fuzzy intent ‹n› · delayed feedback ‹n› · concentrated stakes ‹n› · explanatory divergence ‹n› · NONE ‹n› · interface-skip ‹n›
+- arbiter: fuzzy intent ‹n› · delayed feedback ‹n› · concentrated consequences ‹n› · irreversible ‹n› · explanatory divergence ‹n› · NONE ‹n› · interface-skip ‹n›
 - provenance: ‹n› with a first-seen date · ‹n› UNKNOWN reformulation count
 ```
 
@@ -501,5 +501,5 @@ If any gate fails, fix the output before showing it.
 - `/slava:understanding:create-letter` — files an approved decomposition as a private letter on prod. Two skills downstream of here; never reached directly from a pick.
 - `docs/story-point-model.md` — the story↔point link, the two axes, the unit of analysis.
 - `CLAUDE.md` "Decisive Action — Reversibility classifier" — the irreversible class behind trigger (c).
-- `docs/arbiter-failure-model.md` — **the single home** for the arbiter-failure criteria (four modes, per-consumer firing conditions, the interface disqualifier, reader translations, falsifiers) behind the `arbiter-failure` field. `docs/lean-canvas.md` §Customer Segments keeps the derivation, provenance and GTM reading, and points there.
+- `docs/arbiter-failure-model.md` — **the single home** for the arbiter-failure criteria (the entry condition, five modes, per-consumer firing conditions, the interface disqualifier, reader translations, falsifiers) behind the `arbiter-failure` field. `docs/lean-canvas.md` §Customer Segments keeps the derivation, provenance and GTM reading, and points there.
 - `docs/definitions.md` §When the Protocol Applies — the interface disqualifier behind the `SKIP` tag.

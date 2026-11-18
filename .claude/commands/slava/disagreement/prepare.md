@@ -267,7 +267,7 @@ statement from 4a, after 4b and 4b-ii have finished rebuilding the set.
 > **(3)** The freeze must precede 4c: bald restatement deliberately sharpens the wording, so a gate
 > run after it scores the sharpening rather than the claim. **Freeze here, then restate.**
 
-Read the model from **[arbiter-failure-model.md](../../../../docs/arbiter-failure-model.md)** — the four
+Read the model from **[arbiter-failure-model.md](../../../../docs/arbiter-failure-model.md)** — the five
 modes, the interface disqualifier and its two bounding rules, and the firing-conditions table for
 **this** consumer (§Firing conditions, by consumer → *a public claim, a room as bearer*). That file
 also carries a *private-corpus* column for `/slava:understanding:detect`; it is a different consumer's
@@ -439,7 +439,7 @@ Story drafting, the P1141 voice rules, the per-quote timecode resolution and the
 ```
 Room: <as confirmed by the user>
 Framing origin tally: <source A: n> / <source B: n>
-Arbiter tag distribution: fuzzy intent <n> · delayed feedback <n> · concentrated stakes <n> · explanatory divergence <n> · NONE <n>
+Arbiter tag distribution: fuzzy intent <n> · delayed feedback <n> · concentrated consequences <n> · irreversible <n> · explanatory divergence <n> · NONE <n>
   <if every statement fired a mode, say so here: the tag did not discriminate on this corpus>
 
 Not for this instrument — <n> set aside   (printed even when n = 0)

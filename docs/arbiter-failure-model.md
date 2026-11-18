@@ -33,8 +33,8 @@ consequences are the 2026-07-03 re-derivation and have field contact. Explanator
 
 **Renamed 2026-11-18:** `concentrated stakes` is now **`concentrated consequences`** (founder
 decision, [decisions.md](decisions.md) 2026-11-18 [product]). The detect and prepare skills and the
-generated product prompt still emit the old tag `concentrated stakes` and do not yet emit
-`irreversible`; read the old tag as the new name until they are updated.
+generated product prompt were updated the same day to emit the new tag and `irreversible`. Output
+written before then carries the old tag `concentrated stakes`; read it as the new name.
 
 ---
 
