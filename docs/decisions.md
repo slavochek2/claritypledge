@@ -8,6 +8,13 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-18 [technical]: In `gh`, the Actions bot's author name is `github-actions[bot]`, not `app/github-actions`; the supply-chain alert now closes on a clean audit (P1567, commit 5d513d914)
+
+**Context:** The weekly supply-chain audit (P1567) opens an issue when the audit fails and is meant to close its own open issue when a later run is clean. The 2026-11-09 and 2026-11-16 CLEAN runs never closed issue #30: the clean branch looked up its own issue with `gh issue list --author app/github-actions`, which matches nothing. A live check returned `[]` for `app/github-actions` and `[38, 30]` for `github-actions[bot]`.
+**Decision:** The workflow filters on `--author github-actions[bot]`, and `scripts/test-p1567-supply-chain-alert.sh` asserts that spelling.
+**Consequences:** Any other workflow that finds its own issues by author must use the `[bot]` spelling (`app/github-actions` returned nothing in the live check). Falsifier: a CLEAN run that leaves its open alert issue open.
+**References:** `.github/workflows/supply-chain-audit.yml`, commit 5d513d914
+
 ## 2026-11-18 [technical]: Vitest workers keep the real console; a log during worker teardown no longer fails a full run (P1710)
 
 **Context:** The full pre-commit suite blocked 4 of 8 commits in one session with "Closing rpc while onUserConsoleLog was pending" and every test passing, attributed to a different file each time. Vitest replaces the worker console with one that sends each log over RPC; a log fired while a worker closes is cut off and counted as an unhandled error.
