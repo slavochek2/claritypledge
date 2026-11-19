@@ -22,6 +22,10 @@ spec_review_vendors: [gemini]
 > Founder framing, verbatim: *"If all 6 pass, update Done-When 6 (it is currently ticked on the
 > failure branch) and file the step-two spec from "Carried to step two"."*
 
+> Founder direction, verbatim, 2026-11-19: *"our goal is having video calls like a mixture of how
+> Telegram calls video calls by the way at the end right now we do audio and then we release right
+> and then maybe we do video and then parallel develop our idea that to integrate listening game"*
+
 **Situation:** P1688 step one built the call logic on a development-only page and proved it on a
 real Android phone: with a call connected, the room's transcript capture kept hearing and
 transcribing the whole spoken script in 6 of 6 three-minute runs, in both orders (call first,
@@ -42,6 +46,26 @@ medium (P1688 adds a per-chat switch, off by default; it reaches main when P1688
 Decision density: high. This spec is filed before its design: the founder decisions below come
 first, then the implementing agent proposes a design for each open requirement and the founder
 approves it before `/dev`.
+
+## Release order
+
+Decided by the founder, 2026-11-19 (quoted above):
+
+1. **First release: audio calls in the room.** Voice only. The camera control is not offered.
+2. **Then video**, aiming at calls that feel like Telegram's video calls. Not specified here.
+3. **In parallel: the Listening Game inside calls.** Not specified here; it needs its own spec.
+
+Everything below is scoped to the first release unless it says otherwise.
+
+**Build order (founder decision A, 2026-11-19):** P1688's step-one checks that were not proven on
+the development page ("Moved to P1711" in the P1688 spec) are proven here, on the room call. The
+checks on the shared call logic are written **first**, before the room screen is built, so a fault
+in the logic is caught before room work rests on it: the transcript keeps arriving while the call
+is muted; pausing capture does not mute the call; refusing the microphone leaves a running capture
+untouched; signing out with the camera on releases everything; an abandoned capture start then
+leaving the call leaves no microphone open; capture first, join, leave, with the transcript text
+asserted. The rest (two networks, the unplug decision, Decision Criteria 3 and 4) are in the
+acceptance criteria below.
 
 ## Solution
 
@@ -67,9 +91,11 @@ recommendation) approved by the founder; the agent does not settle them silently
    out live. Two fixes are on record: keep mute unavailable during a replacement, or always hand the
    engine an already-wrapped track and write silence before waiting on it (read in the client's
    source, version 2.23.0).
-7. **The live site's headers:** the camera is forbidden today and no call host is allowed; whether
-   remote video needs a media rule is unverified. Pass condition: no report at the site's
-   policy-report address during a two-person video call on a preview with production headers.
+7. **The live site's headers:** no call host is allowed today, so the first release needs the
+   call host allowed. The camera is forbidden today, and whether remote video needs a media rule
+   is unverified; both belong to the video release. Pass condition for the first release: no
+   report at the site's policy-report address during a two-person audio call on a preview with
+   production headers.
 8. **Ending capture on the phone during a call** timed out once in a call-first run (2026-11-19)
    and once before (2026-11-17), without failing a run. Reproduce it; fix it, or the founder
    accepts it with what is lost when it happens.
@@ -125,6 +151,8 @@ with an observer and no breakouts").]`
 | The free allowance is one cap shared by every free project | MITIGATE | Requirement 10, before calls open |
 
 **Non-Goals**
+- Do NOT ship the camera or video in the first release (release order above).
+- Do NOT build the Listening Game integration here; it gets its own spec.
 - Do NOT build breakouts or tables here; that waits on the founder decision above.
 - Do NOT change capture's own rules (decisions.md 2026-10-02 [technical]), except as the founder's
   unplug decision directs.
@@ -133,8 +161,9 @@ with an observer and no breakouts").]`
 ## Acceptance Criteria
 
 - [ ] On Android Chrome and desktop Chrome, two people in a chat with calls switched on start or join
-      a call from the room, see and hear each other, and the transcript of a spoken script still
+      an audio call from the room, hear each other, and the transcript of a spoken script still
       holds its words (the P1688 measure: script words found in the capture room's transcript).
+- [ ] No camera control is offered in the first release.
 - [ ] A person removed from the chat, blocked, signed out elsewhere, or in a chat whose switch is
       turned off is out of the call within the founder's bound and cannot rejoin, observed on a
       second device.
@@ -149,15 +178,16 @@ with an observer and no breakouts").]`
 - [ ] The three call-panel defects are fixed, and the panel does not cover the transcript bar at 375
       and 320 pixels.
 - [ ] Mute pressed during a microphone replacement sends no sound.
-- [ ] On a preview with production headers, a two-person video call shows both cameras and remote
-      video, and no report reaches the site's policy-report address (checked that the address
-      receives a deliberately triggered report first).
+- [ ] On a preview with production headers, a two-person audio call connects and no report reaches
+      the site's policy-report address (checked that the address receives a deliberately triggered
+      report first).
 - [ ] The consent decision is implemented as decided and observed in a call, including for a late
       joiner and for someone who starts transcribing mid-call.
 - [ ] No call is offered on an iPhone.
 - [ ] P1688 Decision Criteria 3 and 4 pass their thresholds, or the founder accepts the recorded
       result.
 - [ ] Ending capture on the phone during a call is reproduced and fixed, or accepted by the founder.
+- [ ] Two people on different networks (Wi-Fi and mobile data) hear each other in a room call.
 
 ## Done-When
 
@@ -166,10 +196,8 @@ with an observer and no breakouts").]`
 - [ ] The Cost Budget table is filled with arithmetic, the paid-tier decision is made, and our own
       server is costed (requirement 11).
 - [ ] The privacy items (requirement 9) are done before the founder-accounts-only invariant is lifted.
-- [ ] P1688's open acceptance criteria (10 at filing: microphone and camera toggles, capture first
-      then join and leave, pausing capture, refusing the microphone, unplug with capture, sign-out,
-      two networks, Decision Criteria 3 and 4, an abandoned capture start) are either ticked in
-      P1688 or carried here by the founder.
+- [ ] The checks moved from P1688 (10, "Moved to P1711" in the P1688 spec) are each proven on the
+      room call, the shared-logic ones written before the room screen (build order above).
 
 ## Cost Budget
 
