@@ -8,6 +8,27 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-19 [process]: The Gemini code reviewer stays on Gemini 4 Carbon through its December price doubling; Gemini 4 Neon is not the default
+
+**Context:** Gemini 4 Neon shipped 2026-11-18 at $3/$15 per million tokens. Google's pricing page shows Carbon, the ask-model default and the `/finish` Gemini reviewer, at an introductory $2/$10 until 2026-11-30, then $4/$20. From December, Neon is the cheaper model per token. Public benchmarks (Artificial Analysis, Cursor, Google) put it level with Carbon on coding, or slightly ahead.
+**Decision (founder, 2026-11-19):** Keep Carbon as the default and accept December's higher review spend. Neon stays available per call (`ask-model gemini --model gemini-4-neon`).
+**Evidence:** The November reviewer benchmark (12 real bugs from this repo's history plus 3 controls, same judge) was rerun on 2026-11-19. Known-bug score out of 12: Carbon at low effort about 5.5 (the judge recorded 6.0, but its reasoning on one case said partial), Neon at low 1.6, Neon at high 4.9. Neon wrongly reported "no defects" on 3 real bugs at either effort; Carbon on none. Neon at high spent about 14,400 thinking tokens per review. Small sample with one judge.
+**Alternatives rejected:** Switching the default to Neon (fewer bugs found, and at high effort no cheaper per review). Running the Gemini reviewer only on high-stakes changes (founder chose spend over coverage while credits cover it).
+**Consequences:** Gemini review spend roughly doubles from 2026-12-01. Revisit when the cloud credits run low, or when a newer Gemini model scores at least Carbon's on the same benchmark. Falsifier: a rerun where Neon matches Carbon's known-bug score with no false "no defects".
+**References:** model-watch dated items (private inventory); the benchmark method and results sit next to the November benchmark in the private repo.
+
+## 2026-11-19 [technical]: Mixpanel "dead clicks" are mostly links that open a new tab, taps on text, and founder traffic; check those before calling one a user problem
+
+**Context:** A weekly product read raised "Dead clicks" (102 in 11-05..11-12) as a new failure, plus Rage clicks (1) and Not-found views (13). The card sat on the Day page for four days before anyone opened the events.
+**Finding (2026-11-19, 149 events over 11-05..11-19):**
+- 45 came from the founder's account, and about 9 more probably did (unverified).
+- Links with `target="_blank"` account for about 35. Examples: the /cm Google Calendar subscribe link (14 of 15 taps dead), AllTrails and map links, and every markdown link (`src/lib/markdown.ts`). The page does not change when a new tab opens, so autocapture records a dead click. A control link that stays inside the app (/events/list) had 53 clicks and 0 dead.
+- About 30 are taps on text or images, and 9 are taps on a video's native controls.
+- Rage clicks were one user exploring the menu (it responded every time) and one tap without a replay. Not-found views were mostly the founder typing short paths; `src/` contains no in-app link to any 404'd path.
+**Decision:** All three insights were dismissed as not real user problems. Three small leads were filed instead: INBOX-379 (Confirm on event prepare shows no pending state), INBOX-380 (calendar subscribe may not finish on phones), INBOX-381 (Refresh Page error screens, and a stale client on /prepare).
+**Consequences:** Before treating a dead-click count as a failure, exclude the founder's accounts and new-tab links, and compare against an in-app control link. Dismiss currently hides a key permanently, and P1712 changes how a confirm expires. Falsifier: a dead-click spike on an in-app control or button with no new-tab link.
+**References:** [P1712](../features/p1712_day_cards_an_agent_cannot_close.md), `src/app/pages/chiang-mai-page.tsx`, `src/lib/markdown.ts`
+
 ## 2026-11-18 [technical]: In `gh`, the Actions bot's author name is `github-actions[bot]`, not `app/github-actions`; the supply-chain alert now closes on a clean audit (P1567, commit 5d513d914)
 
 **Context:** The weekly supply-chain audit (P1567) opens an issue when the audit fails and is meant to close its own open issue when a later run is clean. The 2026-11-09 and 2026-11-16 CLEAN runs never closed issue #30: the clean branch looked up its own issue with `gh issue list --author app/github-actions`, which matches nothing. A live check returned `[]` for `app/github-actions` and `[38, 30]` for `github-actions[bot]`.
