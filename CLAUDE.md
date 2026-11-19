@@ -74,7 +74,7 @@ When the claim can be tested: simulate the failure, apply the fix, simulate agai
 
 > **Principle:** No completion claim without per-AC evidence. Provide evidence; the user decides completion.
 
-Present observable output — test results, screenshots, query output, command logs — and say: "Evidence produced: [output]. Awaiting your confirmation." Reasoning about code ("this should work because...") is not evidence. Running it and pasting the result is. Completion claims on any spec'd work require per-AC evidence — see the `/ship` gate. "Tests pass" is evidence for the ACs the tests cover, nothing more.
+Present observable output — test results, screenshots, query output, command logs — and say: "Evidence produced: [output]. Awaiting your confirmation." Reasoning about code ("this should work because...") is not evidence. Running it and pasting the result is. Completion claims on any spec'd work require per-AC evidence — see the `/ship` gate. "Tests pass" is evidence for the ACs the tests cover, nothing more. Before handing over a URL, server or "fixed" claim, exercise the exact route or behavior in the intended environment yourself (for a URL: that host, port and path, following any redirect to its final destination) and paste the result; never open a one-time link meant for the founder or any other recipient (opening it spends the token) — use a separate test credential or say the link is unverified, and keep credentials out of the output.
 
 ---
 
@@ -124,11 +124,11 @@ When asked for an opinion — give one. "It depends" when you have a view is a f
 
 **Reversibility classifier — three lists, no judgment needed:**
 
-ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits in skills context (see Commit Discipline for the open-conversation default), running tests, reading/searching code, reverting a single uncommitted edit you made yourself this session (Edit-tool inverse only — NEVER via `git checkout HEAD --`/`git restore`, which is ALWAYS-ASK), npm install (devDependencies).
+ALWAYS-ACT (never ask): code changes on a branch, lint/format fixes, creating files in `.private/`, local git commits in skills context (see Commit Discipline for the open-conversation default), running tests, reading/searching code, reverting a single uncommitted edit you made yourself this session (Edit-tool inverse only — NEVER via `git checkout HEAD --`/`git restore`, which is ALWAYS-ASK).
 
-ALWAYS-ASK (never skip): `git push`, `git checkout HEAD --`/`git restore` (no reflog recovery — see git.md), deploy to prod, send email/message/social post, DELETE/TRUNCATE/DROP on any DB (any env), merge to main, run migrations on prod (except the exact set `/push` step 2.5 or step 6 applies for the SHA it is pushing — P1211 D1), modify `.env.prod`, create/modify GitHub PR, publish anything.
+ALWAYS-ASK (never skip): `git push`, `git checkout HEAD --`/`git restore` (no reflog recovery — see git.md), deploy to prod, send email/message/social post, DELETE/TRUNCATE/DROP on any DB (any env), merge to main, run migrations on prod (except the exact set `/push` step 2.5 or step 6 applies for the SHA it is pushing — P1211 D1), modify `.env.prod`, create/modify GitHub PR, publish anything, install via any package manager including project dependencies (explicit approval of the install satisfies the gate; a worktree install mutates the shared `node_modules`).
 
-JUDGMENT (use context): npm install (dependencies), DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes — see [.claude/rules/git.md](.claude/rules/git.md).
+JUDGMENT (use context): DB migrations on test, modifying shared config (`CLAUDE.md`, `.claude/rules/`), bulk file operations (5+ files), infrastructure changes — see [.claude/rules/git.md](.claude/rules/git.md).
 
 **Latest vs stable:** Always surface both; never silently default to stable. Applies to: models, libraries, APIs, framework versions.
 
@@ -144,7 +144,6 @@ When the user pushes back: name what would change your view. Update explicitly w
 
 ### Working Style Patterns
 
-- **Overintellectualization:** when facing uncertainty, Slava expands scope. Flag it: "The lean path is to validate [current hypothesis] first. Should we stay focused?"
 - **Workflow context gap:** before designing any skill, ask "How do you actually do this today?" Don't design from abstract need.
 - **"Don't see it" after a UI change:** if the user reports not seeing a visual change AND no browser check has confirmed it rendered this session — take a screenshot first (`/screenshot-debug`) before editing again. Skip if the user names a specific code cause ("typo in the class", "wrong selector") — then just fix it. A second blind edit to the same UI without a render check = re-diagnose, don't re-patch.
 
@@ -170,11 +169,11 @@ Tests are specs — fix code, not tests. Full rules in [.claude/rules/tests.md](
 
 > **Pattern to watch:** The founder accumulates changes rather than commits incrementally.
 
-**Commit autonomous, push always needs your OK.** In skills running in the main session: commit when tests pass — no need to ask. A skill running as a subagent stages only; the main session commits ([git.md](.claude/rules/git.md)). In open conversation: suggest "Good checkpoint for a commit?" When user says "commit": fix blockers inline (lint → `npx eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. The index may hold files that aren't yours — parallel founder edits, prior-session leftovers, subagent staging. Verify `git diff --cached --name-only` before commit and unstage any bystander, then `git add` exactly your files and commit with a plain `git commit -m "..."` — no path arguments on the commit itself, which silently re-reads the working tree instead of the index for the paths listed ([git.md](.claude/rules/git.md)).
+**Commit autonomous, push always needs your OK.** In skills running in the main session: commit when tests pass — no need to ask. A skill running as a subagent stages only; the main session commits ([git.md](.claude/rules/git.md)). In open conversation: suggest "Good checkpoint for a commit?" When user says "commit": fix blockers inline (lint → `npx --no-install eslint --fix`; TS errors → fix the type; frontmatter → `python3 scripts/fix-frontmatter.py`), then commit. The index may hold files that aren't yours — parallel founder edits, prior-session leftovers, subagent staging. In a private worktree: verify `git diff --cached --name-only`, unstage any bystander, `git add` exactly your files, then a plain `git commit -m "..."` — no path arguments, which re-read the working tree instead of the index. For an authorized direct commit on the shared main checkout, never a raw add-then-commit: `./scripts/git-ops.sh commit-to-main --message "..." --files <paths>` (P1209, P1279; failure handling in [git.md](.claude/rules/git.md)).
 
 Run `./scripts/pre-commit-checks.sh` before committing. Full workflow [git-workflow.md](docs/technical/git-workflow.md); banned commands in [.claude/rules/git.md](.claude/rules/git.md). Port cleanup: `lsof -ti:PORT | xargs kill` — never `pkill -f "PORT"`.
 
-After ship/deploy-adjacent work, state explicitly whether the change is live in prod or still local/staged — don't leave the user to ask.
+At the final handoff of implementation or operational work, end with one line: `Handoff: nothing open`, or `Handoff: open — <item, who owns it, can it wait>; <next item>…` (uncommitted files, commits awaiting the founder's push, `/kdd` not run, prod deploy pending, dev server kept on :PORT for UAT). Finish authorized close-out work rather than listing it; never kill a UAT server to make the line clean; when asked "can I close?", answer directly. After ship/deploy-adjacent work, also say whether the change is live in prod or still local/staged.
 
 ---
 

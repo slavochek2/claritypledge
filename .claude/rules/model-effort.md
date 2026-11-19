@@ -14,8 +14,9 @@ Claude subscription lanes, its live quota, native model roster, and the optional
 executor. This rule is only the Claude always-on trigger. (The former cp per-command list lived in the
 deprecated `/pick-flow`; use `/recommend-model-effort`.)
 
-**Three cp facts that rule doesn't cover:**
+**cp-specific facts that rule doesn't cover:**
 
+- **Reviewer rosters are already chosen** — spec review: `/create-spec` § Spec Review; build review: `/finish` Step 4b. Both apply by default at review time; the founder names only deviations. An explicit founder instruction changes which reviewers run, never the skill's own evidence or disclosure requirements; the task-start call above is about the execution model only.
 - **Never ask the user for their quota** — read `~/.claude/.quota-cache.json`. Missing file → fall back to default lanes and say so; never guess a percentage.
 - **Subagent execution is already pinned to `sonnet` across the build/maintain skills** — no per-task call needed there.
 - **Eligible external Gemini work goes through `~/.agents/bin/delegate-gemini`** (REST, served model verified; Codex reviews via `codex-review`, model from `~/.agents/model-defaults.env`) — eligibility must be established before the wrapper's defense-in-depth scan, which only catches credential shapes (exit 2 = do it inline, never edit the payload to get past it).
