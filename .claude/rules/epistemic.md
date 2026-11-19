@@ -91,9 +91,10 @@ single-line pipelines, and the grep/head shapes above; it is a prompt, not a pro
 
 **The agent shell is zsh, where `${PIPESTATUS[0]}` expands to EMPTY** — zsh's array is `$pipestatus` and is 1-indexed (`${pipestatus[1]}`). A failure proof that reads `PIPESTATUS` prints no exit code and reports nothing wrong, silently destroying the one artifact this gate demands. Paste a real non-zero status or the proof does not count.
 
-**A background task's reported exit code is its LAST statement's.** `cmd > log 2>&1; echo exit=$?`
-therefore always reports 0, whatever `cmd` did; end with `rc=$?; echo "exit=$rc"; (exit $rc)`, or
-read the echoed `exit=` line or the log, never the notification. Incident 2026-11-19 (P1688): a
+**A background task's reported exit code is its LAST statement's.** After `cmd > log 2>&1; echo
+exit=$?` the echoed line is correct, but the task reports 0 whatever `cmd` did. Judge the result
+from the echoed `exit=` line or the log, not from the task's reported code. To make the reported
+code `cmd`'s own, put `rc=$?` immediately after `cmd`, then `echo "exit=$rc"; (exit $rc)`. Incident 2026-11-19 (P1688): a
 `commit-to-main` that failed on the main lock was reported to the founder as landed.
 
 ## 7b. Green bounds what was MODELLED, not what is true
