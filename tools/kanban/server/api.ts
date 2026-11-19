@@ -1094,7 +1094,7 @@ registerInboxRoutes(app, DEFAULT_PROJECT_ROOT, (target, res) => openInVSCode(['-
 
 // P1399: the Day page — /day runs and the founder's decisions. Off unless KANBAN_DAY_DIR is set.
 registerDayRoutes(app)
-// P1669: the Analytics tab's five public Mixpanel boards, links read from .env.local per request.
+// P1669: the Analytics tab's public Mixpanel boards, links read from .env.local per request.
 registerMixpanelBoardRoutes(app)
 
 // GET /api/weekly - read weekly commitment from ~/.claude_weekly_last_run

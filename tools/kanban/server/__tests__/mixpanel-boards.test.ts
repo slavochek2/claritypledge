@@ -1,4 +1,4 @@
-// P1669: the Analytics tab embeds the five public Mixpanel boards. Their links live only in the
+// P1669: the Analytics tab embeds the public Mixpanel boards. Their links live only in the
 // gitignored .env.local; nothing in committed code names them (fake tokens only here).
 import { describe, expect, it } from 'vitest'
 import { parseBoards, BOARD_KEYS, BOARD_LABELS } from '../mixpanelBoards'
@@ -66,8 +66,8 @@ describe('parseBoards', () => {
     expect(parseBoards('OTHER=1')).toEqual({ boards: [], invalid: [] })
   })
 
-  it('knows all five boards', () => {
-    expect(BOARD_KEYS).toHaveLength(5)
+  it('knows all six boards', () => {
+    expect(BOARD_KEYS).toHaveLength(6)
   })
 })
 

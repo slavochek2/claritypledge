@@ -1,4 +1,4 @@
-// P1669: the Analytics tab embeds the five public Mixpanel boards. The links are read from the
+// P1669: the Analytics tab embeds the public Mixpanel boards. The links are read from the
 // project's gitignored .env.local (MIXPANEL_BOARD_*) so committed code never names them. Only
 // https Mixpanel public-board links (/p/<token> or /public/<token>) are accepted, and they are
 // embedded unchanged: Mixpanel documents public boards as embeddable, and no other form is verified.
@@ -7,7 +7,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { dayEnabled } from './day'
 
-export const BOARD_KEYS = ['pulse', 'path', 'return', 'friction', 'use'] as const
+export const BOARD_KEYS = ['pulse', 'path', 'return', 'friction', 'use', 'prep'] as const
 export type BoardKey = (typeof BOARD_KEYS)[number]
 
 export const BOARD_LABELS: Record<BoardKey, string> = {
@@ -17,6 +17,7 @@ export const BOARD_LABELS: Record<BoardKey, string> = {
   return: 'Do they come back?',
   friction: 'Friction — what is broken for people?',
   use: 'What do people use?',
+  prep: 'Preparation funnel — invite to room',
 }
 
 const PUBLIC_BOARD = /^https:\/\/(?:eu\.)?mixpanel\.com\/(?:p|public)\/([A-Za-z0-9_-]+)$/

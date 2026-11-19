@@ -1,10 +1,10 @@
-// P1669: Analytics — the five public Mixpanel boards, embedded. The links come from the server
+// P1669: Analytics — the public Mixpanel boards, embedded. The links come from the server
 // (read from .env.local per request); this file never names one.
 
 import { useEffect, useState } from 'react'
 import { getMixpanelBoards, type BoardsPayload } from './api'
 
-const BOARD_ENV_VARS = ['MIXPANEL_BOARD_PULSE', 'MIXPANEL_BOARD_PATH', 'MIXPANEL_BOARD_RETURN', 'MIXPANEL_BOARD_FRICTION', 'MIXPANEL_BOARD_USE']
+const BOARD_ENV_VARS = ['MIXPANEL_BOARD_PULSE', 'MIXPANEL_BOARD_PATH', 'MIXPANEL_BOARD_RETURN', 'MIXPANEL_BOARD_FRICTION', 'MIXPANEL_BOARD_USE', 'MIXPANEL_BOARD_PREP']
 
 export function BoardsView({ data }: { data: BoardsPayload }) {
   const { boards, invalid } = data
