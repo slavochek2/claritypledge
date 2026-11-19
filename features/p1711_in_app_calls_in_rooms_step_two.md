@@ -57,15 +57,13 @@ Decided by the founder, 2026-11-19 (quoted above):
 
 Everything below is scoped to the first release unless it says otherwise.
 
-**Build order (founder decision A, 2026-11-19):** P1688's step-one checks that were not proven on
-the development page ("Moved to P1711" in the P1688 spec) are proven here, on the room call. The
-checks on the shared call logic are written **first**, before the room screen is built, so a fault
-in the logic is caught before room work rests on it: the transcript keeps arriving while the call
-is muted; pausing capture does not mute the call; refusing the microphone leaves a running capture
-untouched; signing out with the camera on releases everything; an abandoned capture start then
-leaving the call leaves no microphone open; capture first, join, leave, with the transcript text
-asserted. The rest (two networks, the unplug decision, Decision Criteria 3 and 4) are in the
-acceptance criteria below.
+**Build order (founder decision B, 2026-11-19, replacing A the same day):** P1688's open step-one
+checks are proven on P1688's development page before P1688 ships, as permanent regression tests
+for the shared call logic (`e2e/p1688-calls.spec.ts`, opt-in). This spec starts from those passing
+tests and keeps them passing; the room screen adds its own checks on top. Two items are carried
+here by name ("Carried to P1711 by name" in the P1688 spec): Decision Criteria 4 (echo and bleed)
+and the founder's choice for an unplug during a call with capture running. Decision Criteria 3 and
+the two-networks check run on P1688.
 
 ## Solution
 
@@ -184,8 +182,8 @@ with an observer and no breakouts").]`
 - [ ] The consent decision is implemented as decided and observed in a call, including for a late
       joiner and for someone who starts transcribing mid-call.
 - [ ] No call is offered on an iPhone.
-- [ ] P1688 Decision Criteria 3 and 4 pass their thresholds, or the founder accepts the recorded
-      result.
+- [ ] P1688 Decision Criteria 4 (carried here by name) passes its threshold, or the founder accepts
+      the recorded result; Criteria 3's result is read from P1688.
 - [ ] Ending capture on the phone during a call is reproduced and fixed, or accepted by the founder.
 - [ ] Two people on different networks (Wi-Fi and mobile data) hear each other in a room call.
 
@@ -196,8 +194,9 @@ with an observer and no breakouts").]`
 - [ ] The Cost Budget table is filled with arithmetic, the paid-tier decision is made, and our own
       server is costed (requirement 11).
 - [ ] The privacy items (requirement 9) are done before the founder-accounts-only invariant is lifted.
-- [ ] The checks moved from P1688 (10, "Moved to P1711" in the P1688 spec) are each proven on the
-      room call, the shared-logic ones written before the room screen (build order above).
+- [ ] P1688's regression tests for the shared call logic (`e2e/p1688-calls.spec.ts`) still pass
+      against the room build, and the two items carried here by name (Decision Criteria 4; the
+      unplug choice) are each run or decided (build order above).
 
 ## Cost Budget
 
