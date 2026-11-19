@@ -1534,8 +1534,9 @@ Scan git log since `$SINCE` for commits touching:
 - `docs/technical/`
 
 **P1647: decide capture by script when it is on this checkout.** `scripts/day-kdd-capture.sh --since "$SINCE"`
-prints `CAPTURED <pN>` for every infra commit whose P-number has a decision entry (both logs), and
-`UNCAPTURED <pN or sha> <subject>` for the rest, including commits naming no P-number. File only on
+prints `CAPTURED <pN or sha>` for every infra commit whose P-number has a decision entry (both logs),
+or, for a commit naming no P-number, whose sha a decision entry cites (a hex token of at least 7
+characters that is a prefix of the full sha, P1712), and `UNCAPTURED <pN or sha> <subject>` for the rest. File only on
 `KDD-STATUS uncaptured <n>`, and name the uncaptured items in the body. Exit 2 means it could not
 decide: file `kdd:uncaptured` anyway, listing the infra commits since `$SINCE`, with "capture could
 not be checked (exit 2)" in the body. Never fall back to the judgment below once the script exists.
@@ -1701,13 +1702,16 @@ Empty verdict → nothing to do. Otherwise (the rows are no longer printed — P
 the review's issues and its badge instead):
 
 1. **Max one review per run.** If both are OVERDUE, run the one with more days past its
-   threshold and name the other: "monthly is also overdue — it'll run on the next /day."
+   threshold and name the other: "monthly is also overdue — it'll run on the next /day." When weekly
+   runs only because monthly could not (below), say instead: "monthly is overdue and needs your yes
+   at the next /day start."
    **A review that cannot run in this pass never blocks the other (P1712).** The monthly review
-   needs about 5 analysts, over the founder's 3-subagent limit, so it runs only when
+   runs 4 parallel analysts plus the programme-health check (its SKILL.md steps 2 and 2.5), over the founder's 3-subagent limit, so it runs only when
    `$MONTHLY_FANOUT` is `yes` (the dispatcher asked at /day start; this subagent cannot ask). When
    monthly is chosen but `$MONTHLY_FANOUT` is not `yes`: record it as a finding
-   (`--check cp.monthly --fault-key monthly:not-run-fanout`, option "Say yes at the next /day
-   start", recommended), then run weekly instead if weekly is OVERDUE. Without this, monthly is
+   (`--check cp.monthly --fault-key monthly:not-run-fanout --option yes="Say yes at the next /day
+   start" --option later="Not now" --recommend yes --evidence verified`), then run weekly instead if
+   weekly is OVERDUE. Without this, monthly is
    always the more overdue from its 29th day, weekly never runs again, and the weekly analytics
    read (which feeds the insight cards) freezes.
 
