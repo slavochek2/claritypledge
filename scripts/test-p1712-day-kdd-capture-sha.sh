@@ -46,13 +46,13 @@ hasline "cited sha is CAPTURED" "$OUT" "CAPTURED $SHA_CITED"
 has "uncited sha stays UNCAPTURED" "$OUT" "UNCAPTURED $SHA_UNCITED"
 has "count is 1 (only the uncited commit)" "$OUT" "KDD-STATUS uncaptured 1"
 
-echo "== the citation sits behind more than 20 decoy tokens sharing its 7-char prefix =="
+echo "== the citation is matching line 500, behind 499 decoy tokens sharing its 7-char prefix (pins the 500 cap) =="
 FULL_CITED="$(git -C "$d" rev-parse "$SHA_CITED")"
 P7="${FULL_CITED:0:7}"; C8="${FULL_CITED:7:1}"; [ "$C8" = "0" ] && D8=1 || D8=0
-decoys=(); for i in $(seq 1 25); do decoys+=("decoy $P7$D8$i"); done
+decoys=(); for i in $(seq 1 499); do decoys+=("decoy $P7$D8$i"); done
 dec "## 2026-11-18 [technical]: Decoys" "${decoys[@]}" "**Commit:** $SHA_CITED"
 run
-hasline "cited sha is CAPTURED behind 25 decoys" "$OUT" "CAPTURED $SHA_CITED"
+hasline "cited sha is CAPTURED as matching line 500" "$OUT" "CAPTURED $SHA_CITED"
 
 echo "== no decision entry cites either sha =="
 dec "## 2026-11-18 [technical]: unrelated entry"

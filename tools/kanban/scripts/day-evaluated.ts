@@ -18,7 +18,7 @@ import { statSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
-import { EVALUATED_VERDICTS, FP, INSIGHT_FP, MAX_EVALUATED_FPS, parseEvaluated, validDay, type EvaluatedVerdict } from '../src/lib/day'
+import { EVALUATED_VERDICTS, FP, INSIGHT_FP, INSIGHT_FP_RE, MAX_EVALUATED_FPS, parseEvaluated, validDay, type EvaluatedVerdict } from '../src/lib/day'
 import { appendDecisionLines, readDecisionsText } from '../server/dayStore'
 
 export interface IO { out: (s: string) => void; err: (s: string) => void }
@@ -76,7 +76,7 @@ export async function run(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
   for (const fp of a.fps) {
     // Format first (P1712 review): a malformed insight-looking fp gets this refusal, never the
     // day-insight pointer, which would also reject it and would echo the bad text back.
-    if (!FP.test(fp)) return refuse('a --fp is not a valid fingerprint')
+    if (!FP.test(fp) || (fp.startsWith(INSIGHT_FP) && !INSIGHT_FP_RE.test(fp))) return refuse('a --fp is not a valid fingerprint')
     if (fp.startsWith('check:')) return refuse('a check: fingerprint is the "check did not report" card and cannot be recorded')
     // P1712: an insight card is added by the server, never in the report, so a record here would never hide it
     if (fp.startsWith(INSIGHT_FP)) return refuse(`${fp} is a weekly insight: record its verdict with scripts/day-insight.ts --fp ${fp} --decision confirm|dismiss`)

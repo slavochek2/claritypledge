@@ -238,16 +238,20 @@ const seenIn = (key: string, priors: StoredRead[]) => priors.filter((p) => p.ins
 
 export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntry[]): { headline: string; insights: Insight[] } {
   if (read.status === 'not-collected') return { headline: NOT_COLLECTED, insights: [] }
-  // P1712: a confirm that still hides its key (confirmHides: 30 days, or until the count doubles) is
-  // filtered here, BEFORE the cap, like a dismissal: hidden insights never take a slot, so three of them
-  // cannot leave a fourth, undecided one unraised.
-  const hidden = new Set(ledger.filter((e) => e.decision === 'dismiss' || confirmHides(e, read)).map((e) => e.key))
+  // P1712: a confirm that still hides its key (confirmHides: 30 days, or until the count doubles) never
+  // takes one of the MAX_INSIGHTS slots, so three of them cannot leave a fourth, undecided one unraised.
+  // It is still STORED, after the capped list (review round 2): later reads count earlier appearances
+  // from the stored lists (seenIn, pattern), and dropping it would make a doubled return read as new.
+  // The Day page hides it (analyticsStore.undecidedInsights applies the same confirmHides rule).
+  const dismissed = new Set(ledger.filter((e) => e.decision === 'dismiss').map((e) => e.key))
+  const confirmedHidden = new Set(ledger.filter((e) => confirmHides(e, read)).map((e) => e.key))
   const inLedger = new Set(ledger.map((e) => e.key))
   const out: Insight[] = []
+  const kept: Insight[] = []
   const add = (i: Omit<Insight, 'seen_count' | 'pattern' | 'next_step'>) => {
-    if (hidden.has(i.key)) return
+    if (dismissed.has(i.key)) return
     const seen_count = seenIn(i.key, priorReads)
-    out.push({ ...i, next_step: insightNextStep(i.key), seen_count, pattern: seen_count >= 2 })
+    ;(confirmedHidden.has(i.key) ? kept : out).push({ ...i, next_step: insightNextStep(i.key), seen_count, pattern: seen_count >= 2 })
   }
 
   // A failure stays up until the founder decides on it, so a repeat becomes a pattern. Those never
@@ -263,7 +267,7 @@ export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntr
       observation: `${repeats ? 'A failure is still happening' : 'A new kind of failure appeared'}: ${f.label}.`,
       numbers: `${f.count} this week`,
       base: repeats ? `raised in ${repeats} earlier weekly read(s)` : 'no earlier weekly read raised this failure',
-      comparison: repeats ? 'repeat of an undecided failure' : 'first week it is raised',
+      comparison: repeats ? 'raised by an earlier weekly read too' : 'first week it is raised',
       ...(f.link ? { link: f.link } : {}),
       confidence: f.count >= 3 ? 'medium' : 'low',
     })
@@ -299,6 +303,6 @@ export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntr
       })
     }
   }
-  const insights = out.slice(0, MAX_INSIGHTS)
-  return { headline: insights.length ? `${insights.length} ${insights.length === 1 ? 'thing' : 'things'} worth your attention` : NO_CHANGE, insights }
+  const shown = out.slice(0, MAX_INSIGHTS)
+  return { headline: shown.length ? `${shown.length} ${shown.length === 1 ? 'thing' : 'things'} worth your attention` : NO_CHANGE, insights: [...shown, ...kept] }
 }

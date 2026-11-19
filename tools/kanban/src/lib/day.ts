@@ -1781,6 +1781,8 @@ const fnv = (s: string, seed = 0x811c9dc5): string => {
 const insightHash = (key: string) => fnv(key) + fnv(key, 0x9747b28c)
 /** P1673: an insight card's fingerprint, from its ledger key (P1707 review F: the unanswered-note check maps ledger verdicts back to cards). */
 export const insightFp = (key: string) => `${INSIGHT_FP}${insightHash(key)}`
+/** P1712 review: the exact shape insightFp produces (16 hex characters), so a malformed id is refused as malformed. */
+export const INSIGHT_FP_RE = /^insight:[0-9a-f]{16}$/
 
 /** P1707: the choices of an insight card. The founder is never asked whether it is real (spec P1707). */
 export const INSIGHT_LOOK_LABEL = "Look into it and fix it if it's real"
@@ -1806,7 +1808,9 @@ function readAgeDays(date: string, asOf?: string): number | null {
  */
 function datedTitle(observation: string, date: string | undefined, age: number | null): string {
   if (!date || !(age !== null && age > 0)) return observation
-  return observation.replace(/^A new kind of failure appeared:/i, `A new kind of failure, first seen in the weekly read of ${date}:`)
+  if (/^A new kind of failure appeared:/i.test(observation)) return observation.replace(/^A new kind of failure appeared:/i, `A new kind of failure, first seen in the weekly read of ${date}:`)
+  // Every other kind (a shift, a first, a repeat) names the dated read too, so no week-old title reads as today's.
+  return `${observation.replace(/\.$/, '')} (weekly read of ${date}).`
 }
 
 /**

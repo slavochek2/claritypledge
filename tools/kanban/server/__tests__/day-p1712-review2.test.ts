@@ -45,7 +45,21 @@ describe('review 1: a confirm that still hides is filtered before the cap, never
       { key: 'd', count: 10 },
     ])
     const ledger = ['a', 'b', 'c'].map((k) => confirm(`failure:${k}`, '2026-10-02T09:00:00Z', 10))
-    expect(gate(r, [], ledger).insights.map((i) => i.key)).toEqual(['failure:d'])
+    const g = gate(r, [], ledger)
+    // shown first, within the cap; the hidden confirms are stored after it (round 3), never taking a slot
+    expect(g.insights[0].key).toBe('failure:d')
+    expect(g.headline).toBe('1 thing worth your attention')
+  })
+
+  it('round 3: a hidden confirm is still stored, so a later doubled return counts as a repeat, not as new', () => {
+    const first = gate(raw('2026-10-08', [{ key: 'a', count: 10 }]), [], [confirm('failure:a', '2026-10-02T09:00:00Z', 10)])
+    expect(first.insights.map((i) => i.key)).toContain('failure:a')
+    const prior = stored('2026-10-08', { insights: first.insights })
+    const later = gate(raw('2026-10-15', [{ key: 'a', count: 20 }]), [prior], [confirm('failure:a', '2026-10-02T09:00:00Z', 10)])
+    const a = later.insights.find((i) => i.key === 'failure:a')!
+    expect(a.seen_count).toBe(1)
+    expect(a.observation).toMatch(/^A failure is still happening/)
+    expect(a.comparison).not.toMatch(/undecided/)
   })
 
   it('a confirm whose count has since doubled is raised again by the gate', () => {
@@ -88,6 +102,10 @@ describe('review 4: an old read never presents its observation as new in the tit
     expect(c.title).not.toMatch(/appeared/i)
     expect(c.title).toBe('A new kind of failure, first seen in the weekly read of 2026-09-27: Dead clicks.')
   })
+  it('round 3: a shift from a 7-day-old read names the dated read in its title', () => {
+    const shift = deadClicks({ key: 'shift:who:Visitors:up', observation: 'Visitors moved from 100 to 300.' })
+    expect(insightIssue(shift, { date: '2026-09-27', asOf: '2026-10-04T05:37:45Z' }).title).toBe('Visitors moved from 100 to 300 (weekly read of 2026-09-27).')
+  })
   it('must-allow: a read from the run day keeps its own title', () => {
     expect(insightIssue(deadClicks(), { date: '2026-10-04', asOf: '2026-10-04T05:37:45Z' }).title).toBe('A new kind of failure appeared: Dead clicks.')
   })
@@ -119,6 +137,34 @@ describe('review 6: a malformed fingerprint starting "insight:" gets the malform
       expect(err).toContain('not a valid fingerprint')
       expect(err).not.toContain('day-insight.ts')
       expect(err).not.toContain('rm -rf')
+    } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('round 3: an insight id that is not 16 hex characters is malformed', () => {
+  it('insight:abc passes the generic format but is refused as malformed, never pointed at day-insight.ts', async () => {
+    const d = mkdtempSync(join(tmpdir(), 'p1712-r6b-'))
+    try {
+      mkdirSync(join(d, 'reports'))
+      let err = ''
+      const code = await evaluatedCli(['--dir', d, '--fp', 'insight:abc', '--cause', 'c', '--verdict', 'fixed', '--expires', '2026-11-20'], { out: () => {}, err: (s) => (err += s) }, {}, () => new Date('2026-11-01T00:00:00Z'))
+      expect(code).toBe(1)
+      expect(err).toContain('not a valid fingerprint')
+      expect(err).not.toContain('day-insight.ts')
+    } finally {
+      rmSync(d, { recursive: true, force: true })
+    }
+  })
+  it('must-allow: a real 16-hex insight id still gets the day-insight pointer', async () => {
+    const d = mkdtempSync(join(tmpdir(), 'p1712-r6c-'))
+    try {
+      mkdirSync(join(d, 'reports'))
+      let err = ''
+      const code = await evaluatedCli(['--dir', d, '--fp', 'insight:5fdd9c986d80f6c7', '--cause', 'c', '--verdict', 'fixed', '--expires', '2026-11-20'], { out: () => {}, err: (s) => (err += s) }, {}, () => new Date('2026-11-01T00:00:00Z'))
+      expect(code).toBe(1)
+      expect(err).toContain('day-insight.ts')
     } finally {
       rmSync(d, { recursive: true, force: true })
     }
