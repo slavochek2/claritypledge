@@ -23,8 +23,9 @@ inside a public repo.
 | The day report and its terminal card (P1399) | Record checks, findings and people; print nothing for the founder |
 | Every `~/.claude*` marker | No personal state is read **in this file** (weekly/monthly still read their own — known gap) |
 
-**Inputs from the dispatcher:** `$SINCE` (ISO 8601) and `$DUE_VERDICT` (the Due Board
-rows, or empty). If `$SINCE` is not supplied — you were invoked directly, not by `/day` —
+**Inputs from the dispatcher:** `$SINCE` (ISO 8601), `$DUE_VERDICT` (the Due Board
+rows, or empty) and `$MONTHLY_FANOUT` (`yes` only when the founder said yes at /day start to the
+monthly review's analysts; anything else, including unset, means `no` — see Due Board step 1). If `$SINCE` is not supplied — you were invoked directly, not by `/day` —
 fall back to `date -u -v-24H` and **say so in the output**, because every delta below is
 then a 24h delta rather than a since-last-run delta.
 
@@ -69,8 +70,8 @@ clean morning.
 and move on. Only a wave that never executed is missing, and `day-gates.sh --mode=finish` will
 name it.
 
-**Export `SINCE`, `DUE_VERDICT` and `DAY_STEP` at the start of every Bash call that runs a step**
-(`export SINCE='…' DUE_VERDICT='…' DAY_STEP='…'`). The runner executes each body in a fresh shell,
+**Export `SINCE`, `DUE_VERDICT`, `MONTHLY_FANOUT` and `DAY_STEP` at the start of every Bash call that runs a step**
+(`export SINCE='…' DUE_VERDICT='…' MONTHLY_FANOUT='…' DAY_STEP='…'`). The runner executes each body in a fresh shell,
 which sees only exported variables — a body that reads an unexported `$SINCE` queries an empty
 window, and one that calls an unexported `"$DAY_STEP"` fails.
 
@@ -1701,6 +1702,15 @@ the review's issues and its badge instead):
 
 1. **Max one review per run.** If both are OVERDUE, run the one with more days past its
    threshold and name the other: "monthly is also overdue — it'll run on the next /day."
+   **A review that cannot run in this pass never blocks the other (P1712).** The monthly review
+   needs about 5 analysts, over the founder's 3-subagent limit, so it runs only when
+   `$MONTHLY_FANOUT` is `yes` (the dispatcher asked at /day start; this subagent cannot ask). When
+   monthly is chosen but `$MONTHLY_FANOUT` is not `yes`: record it as a finding
+   (`--check cp.monthly --fault-key monthly:not-run-fanout`, option "Say yes at the next /day
+   start", recommended), then run weekly instead if weekly is OVERDUE. Without this, monthly is
+   always the more overdue from its 29th day, weekly never runs again, and the weekly analytics
+   read (which feeds the insight cards) freezes.
+
 2. **Announce, then invoke** — no y/n gate:
    > weekly is Nd overdue — running it now.
    (The dispatcher announced this before spawning you, which is the only point where the founder
