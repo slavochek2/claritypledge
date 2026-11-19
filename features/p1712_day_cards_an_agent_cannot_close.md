@@ -10,8 +10,8 @@ exec_model: opus
 exec_effort: high
 tags: [day, kanban, insights, founder-input]
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 date_resolved: 2026-11-19
 root_cause: "Items 1-5 and 7 as reproduced: the insight card printed the stored read's wording with no read date; the fixing prompt offered insight fps to day-evaluated, which cannot hide a server-added card; a confirm hid a key only until the next read; carriedNotes kept only the latest choice per card; day-kdd-capture.sh never searched for a P-less commit's sha. Item 6 (Due Board) is handled separately on main."
 resolution: "insightIssue dates each card from the read and its age, re-words the read's this-week text, and rebuilds the next step by insight kind; evaluatedFingerprints skips insights and day-evaluated.ts refuses an insight fp, naming day-insight.ts; a confirm records the read's count and hides the key for 30 days unless the count doubles (confirmHides, shared by the Day page and the analytics route); carriedNotes carries every undelivered note per card, each run's last choice counting, a Park withdrawing earlier notes, and the prompt prints one insight block per insight; day-kdd-capture.sh captures a P-less commit when a decision entry cites a 7+ character bounded prefix of its full sha, failing closed on a search error."
