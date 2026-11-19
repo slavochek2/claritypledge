@@ -236,8 +236,9 @@ export function confirmHides(e: LedgerEntry, read: CountedRead): boolean {
 
 const seenIn = (key: string, priors: StoredRead[]) => priors.filter((p) => p.insights?.some((i) => i.key === key)).length
 
-export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntry[]): { headline: string; insights: Insight[] } {
-  if (read.status === 'not-collected') return { headline: NOT_COLLECTED, insights: [] }
+/** `insights` is what is stored (shown first, then confirms that still hide); `shown` is how many of them are for review. */
+export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntry[]): { headline: string; insights: Insight[]; shown: number } {
+  if (read.status === 'not-collected') return { headline: NOT_COLLECTED, insights: [], shown: 0 }
   // P1712: a confirm that still hides its key (confirmHides: 30 days, or until the count doubles) never
   // takes one of the MAX_INSIGHTS slots, so three of them cannot leave a fourth, undecided one unraised.
   // It is still STORED, after the capped list (review round 2): later reads count earlier appearances
@@ -304,5 +305,5 @@ export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntr
     }
   }
   const shown = out.slice(0, MAX_INSIGHTS)
-  return { headline: shown.length ? `${shown.length} ${shown.length === 1 ? 'thing' : 'things'} worth your attention` : NO_CHANGE, insights: [...shown, ...kept] }
+  return { headline: shown.length ? `${shown.length} ${shown.length === 1 ? 'thing' : 'things'} worth your attention` : NO_CHANGE, insights: [...shown, ...kept], shown: shown.length }
 }

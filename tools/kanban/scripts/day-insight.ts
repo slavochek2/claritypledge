@@ -13,7 +13,7 @@
 
 import { resolve } from 'path'
 import { pathToFileURL } from 'url'
-import { FP, INSIGHT_CONFIRM, INSIGHT_DISMISS, insightIssue } from '../src/lib/day'
+import { INSIGHT_CONFIRM, INSIGHT_DISMISS, INSIGHT_FP_RE, insightIssue } from '../src/lib/day'
 import { analyticsDir, recordInsightDecision, undecidedInsights } from '../server/analyticsStore'
 
 export interface IO {
@@ -46,7 +46,8 @@ export async function run(argv: string[], io: IO, now: () => Date = () => new Da
     return 1
   }
   const fp = a['--fp']
-  if (!FP.test(fp) || !fp.startsWith('insight:')) return refuse('--fp is not an insight fingerprint')
+  // P1712 review: the same exact shape day-evaluated.ts uses (16 hex characters after insight:)
+  if (!INSIGHT_FP_RE.test(fp)) return refuse('--fp is not an insight fingerprint')
   const dir = resolve(a['--dir'] ?? analyticsDir())
   const open = undecidedInsights(dir)
   if (open.error) return refuse('the insight ledger could not be read')

@@ -121,7 +121,7 @@ describe('P1640 gate', () => {
 
   it('a not-collected read raises nothing and says so', () => {
     const g = gate({ ...calm(), status: 'not-collected', reason: 'mcp down', failures: [{ key: 'z', label: 'Z', count: 9 }] }, [], [])
-    expect(g).toEqual({ headline: NOT_COLLECTED, insights: [] })
+    expect(g).toEqual({ headline: NOT_COLLECTED, insights: [], shown: 0 })
   })
 })
 

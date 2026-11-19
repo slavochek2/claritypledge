@@ -4,7 +4,10 @@ import { describe, it, expect } from 'vitest'
 import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { confirmHides } from '../analyticsStore'
+import { appendLedger, confirmHides, undecidedInsights } from '../analyticsStore'
+import { run as weeklyCli } from '../../scripts/weekly-analytics'
+import { run as insightCli } from '../../scripts/day-insight'
+import { writeFileSync } from 'fs'
 import { run as evaluatedCli } from '../../scripts/day-evaluated'
 import { buildPrompt, buildView, carriedNotes, insightIssue, insightNextStep, parseReport, withInsights, type DayDecision, type DayReport } from '../../src/lib/day'
 import { SECTION_KEYS, emptySections, gate, type Insight, type LedgerEntry, type RawRead, type StoredRead } from '../../src/lib/weeklyRead'
@@ -65,6 +68,37 @@ describe('review 1: a confirm that still hides is filtered before the cap, never
   it('a confirm whose count has since doubled is raised again by the gate', () => {
     const r = raw('2026-10-08', [{ key: 'a', count: 20 }])
     expect(gate(r, [], [confirm('failure:a', '2026-10-02T09:00:00Z', 10)]).insights.map((i) => i.key)).toEqual(['failure:a'])
+  })
+})
+
+describe('round 4: stored hidden confirms never reach the Day page or the review count', () => {
+  it('a mixed read stores all four keys; the Day page (undecidedInsights) offers only the undecided one; the CLI counts 1', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'p1712-r4-'))
+    const inDir = mkdtempSync(join(tmpdir(), 'p1712-r4in-'))
+    try {
+      for (const k of ['a', 'b', 'c']) appendLedger(dir, `failure:${k}`, 'confirm', new Date('2026-10-02T09:00:00Z'), 10)
+      const input = join(inDir, 'raw.json')
+      writeFileSync(input, JSON.stringify(raw('2026-10-08', [{ key: 'a', count: 10 }, { key: 'b', count: 10 }, { key: 'c', count: 10 }, { key: 'd', count: 10 }])))
+      let out = ''
+      expect(weeklyCli(['--input', input, '--dir', dir], { out: (s) => (out += s), err: () => {} }, new Date('2026-10-08T12:00:00Z'))).toBe(0)
+      expect(out).toContain('collected 2026-10-08: 1 insight(s) (3 more still hidden by a confirm)')
+      const open = undecidedInsights(dir)
+      expect(open.error).toBe(false)
+      expect(open.insights.map((i) => i.key)).toEqual(['failure:d'])
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+      rmSync(inDir, { recursive: true, force: true })
+    }
+  })
+  it('day-insight.ts refuses insight:abc as not an insight fingerprint, before reading any ledger', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'p1712-r4b-'))
+    try {
+      let err = ''
+      expect(await insightCli(['--dir', dir, '--fp', 'insight:abc', '--decision', 'confirm'], { out: () => {}, err: (s) => (err += s) }, () => new Date('2026-10-08T09:00:00Z'))).toBe(1)
+      expect(err).toContain('not an insight fingerprint')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 

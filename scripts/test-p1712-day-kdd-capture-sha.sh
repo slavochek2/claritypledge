@@ -54,6 +54,12 @@ dec "## 2026-11-18 [technical]: Decoys" "${decoys[@]}" "**Commit:** $SHA_CITED"
 run
 hasline "cited sha is CAPTURED as matching line 500" "$OUT" "CAPTURED $SHA_CITED"
 
+echo "== the citation is matching line 501, behind 500 decoys: past the cap, so it stays UNCAPTURED (pins the upper bound) =="
+decoys=(); for i in $(seq 1 500); do decoys+=("decoy $P7$D8$i"); done
+dec "## 2026-11-18 [technical]: Decoys" "${decoys[@]}" "**Commit:** $SHA_CITED"
+run
+has "cited sha past the cap stays UNCAPTURED" "$OUT" "UNCAPTURED $SHA_CITED"
+
 echo "== no decision entry cites either sha =="
 dec "## 2026-11-18 [technical]: unrelated entry"
 run

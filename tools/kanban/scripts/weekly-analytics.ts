@@ -79,14 +79,16 @@ export function run(argv: string[], io: IO, now: Date = new Date()): number {
   const read = v.read
   // Earlier reads only: a re-run of the same day must not count itself as history.
   const priors = listReads(dir).filter((p) => p.date < read.date)
-  const { headline, insights } = gate(read, priors, readLedger(dir))
+  const { headline, insights, shown } = gate(read, priors, readLedger(dir))
   const stored: StoredRead = { ...read, headline, insights }
   if (read.status === 'collected' || !keepsGoodRead(dir, read.date)) writeRead(dir, stored)
   if (read.status === 'not-collected') {
     io.err(`not collected: ${read.reason ?? 'no reason given'}\n`)
     return 3
   }
-  io.out(`collected ${read.date}: ${insights.length} insight(s)\n`)
+  // P1712: count only the insights for review; confirms that still hide are stored but not shown
+  const hiddenCount = insights.length - shown
+  io.out(`collected ${read.date}: ${shown} insight(s)${hiddenCount ? ` (${hiddenCount} more still hidden by a confirm)` : ''}\n`)
   return 0
 }
 
