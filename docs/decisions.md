@@ -8,6 +8,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-19 [process]: A Day card must be closable by the agent it is handed to; the monthly review asks one yes/no at /day start and never blocks the weekly one (P1712)
+
+**Context:** One weekly insight card ("Dead clicks") came back on four days running. The founder's notes on it on 11-16, 11-17 and 11-18 never reached an agent. Nobody opened the clicks themselves, and the read behind the card was a week old but shown as this week's. Three other cards could not be closed by any agent at all: the fixing prompt offered a verdict command that cannot hide an insight; the KDD check could never count a commit with no P-number as captured; and the monthly review could not run inside /day (its 4 analysts plus programme-health exceed the founder's 3-subagent rule, and the sub-day cannot ask). Because /day runs only the most overdue review, the monthly would also have blocked the weekly review, the one that writes the analytics read, from its 29th day on.
+**Decision (founder, 2026-11-19):**
+- Insight cards show the read's date and age, never "this week" or "first week it is raised" for an old read, and never ask whether a problem is "real".
+- One verdict command per insight. A confirm hides it for 30 days, counted by calendar day to the read's date, or until its count doubles (failures and upward shifts only).
+- Hidden confirms are stored after the 3-slot cap, so they never crowd out an undecided insight and their repeat history survives.
+- Every undelivered note on a card is carried.
+- A commit with no P-number counts as captured when a decision entry cites a 7+ hex prefix of its sha.
+- The dispatcher asks one yes/no for the monthly review at /day start, only when monthly is the review the Due Board will pick, and never with nobody at the keyboard. A monthly that cannot run never blocks the weekly one.
+**Alternatives rejected:** Weakening the 3-subagent rule so monthly runs unasked (the founder's ok is the point of the rule). Editing old decision entries to cite a sha (this log is append-only).
+**Consequences:** Commit 4f0087f4c (preparation funnel events) is captured by the 2026-11-18 entry "Preparation funnel events: finished means every step gone through, once, for learning not done before". This line cites the sha so the KDD check can see it. Known limitations are listed in the spec. Falsifier: an insight card, or the KDD or monthly card, returning on three consecutive /day runs with no change in its cause.
+**References:** [P1712](../features/p1712_day_cards_an_agent_cannot_close.md), `.claude/commands/slava/maintain/day-cp.md` (Due Board), `scripts/day-kdd-capture.sh`
+
 ## 2026-11-19 [product]: Record H-CheckBeforeActing: where a misunderstanding wastes the work, a check before acting keeps what forgiveness cannot (new bet, not a rescue of H-CheapGapReveal)
 
 **Context:** A viewer showed that the published Third Condition film (draft 5) drew its numbers from a model in which any move can flip, so a Taker shares by accident; with mistakes as the film's own story tells them (the helper misunderstood the request and did the work for the wrong day: paid for, never useful), nobody takes over and the room just gets poorer. Draft 6 of the film (private events folder) was rebuilt on that story. It argues that forgiveness stops the punishing but cannot bring back lost work, while a quick check before acting can. Meanwhile H-CheapGapReveal was refuted in the P1702 model (2026-11-17, corrected 2026-11-18), and that model states "No check can prevent a slip": its check covers only misreading what the partner did. The founder approved recording the corrected bet on 2026-11-19.
