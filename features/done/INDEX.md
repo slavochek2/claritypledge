@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-18
+Last updated: 2026-11-19
 
 ---
 
@@ -284,6 +284,7 @@ Last updated: 2026-11-18
 - **P1682** (Nov 26) Manifesto film on /manifesto + YouTube — one embed, links elsewhere; poster text must not sit under a centred play button
 - **P1674** (Nov 13) /hiring, /coach, /founder, /hospitals, /communities in the fable style — five-person picture where the story is a group, two-person pair where it is two people; each page keeps its own actions, exact event values, redirects, SEO and copy; shared fable components take caller-owned options that default to /builders' output
 - **P1673** (Nov 26) Weekly insights became ordinary finding cards — the ledger refuses a second decision; analytics text never reaches the agent.
+- **P1712** (Nov 26) Day cards an agent can close: dated insight cards, one verdict command, confirm hides 30 days or until the count doubles, notes never dropped — a card no agent can close returns daily.
 - **P1618** (Nov 26) Canvas upload icon reads as attach — one icon, one meaning; users missed upload behind the attach paperclip.
 - **P1600** (Nov 26) Hike page reviews show in full — arrows follow pointer type, not width; jsdom needs mocked dimensions to reach them.
 - **P1593** (Oct 26) Install as app in avatar menu + return-visit nudge — gate on "not installed", never on beforeinstallprompt: dev has no SW, so it never fires
