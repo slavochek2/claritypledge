@@ -8,6 +8,23 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-19 [product]: The demo film shows the check as the app does it: each person's own drawer, and the lower number shown as verified shared understanding
+
+**Context:** The founder reviewed demo film 4.3. Its words were accurate line by line, but the picture argued with them: the narrator said "the app asks Tessa" while a question card sat over the speaker's face; the speaker said "there may be a gap" while nothing on screen showed one; "the question is expected" was said of everyone, including people who opted out. The film's call screen is designed, not built, so it can show anything, which is exactly why it needs a rule.
+**Decision:**
+- **Pitch material shows an interaction the way the product already does it.** A designed screen follows the built component for the same job. The rating question rises as a drawer in the person's own screen, as in `/live` and in letters, never as an overlay on someone's video ("somewhere in the app they must do it, so why not show it properly").
+- **The app asks both people**, each their own version, hidden from each other. From one person's screen the other's question is private, so a film shows it as that person's screen, labelled.
+- **The lower of the two numbers is their verified shared understanding, and the app shows it.** It is a fact once both numbers are in, not a "potential gap", so nobody has to say a gap may exist. The same element later shows the verified level after the explain-back (3, then 9).
+- **The norm binds those who opt in:** "for those who opt in, the question is expected."
+- **"Not every gap needs bridging" is shown by the pair's choice** ("Is it worth explaining back?" / "Yes, this one matters"), not narrated.
+- **Calibration is described by what it measures:** a person's sense of how well they understand others, against what the speakers report ("a little overconfident").
+- **The ending closes the loop the opening names:** asking used to be quietly punished; now it is expected, so gaps in high-stakes meetings are revealed and bridged before they become rework, mistrust or a lost client (final wording is the founder's).
+**Alternatives rejected:** question cards over faces "for demonstration"; "there may be a gap in our shared understanding"; a narrator line "anyone can still say nine" (answers a question nobody raised); a second, skipped gap to demonstrate choice (about 15 s for one idea the dialogue already shows); showing the letter in this film (default: a separate short film, founder to confirm).
+**Consequences:** Demo film 4.4 is built on these rulings, after a design round on the four open screens: two designers from different model families (Fable 5.2, Codex Astra) working independently from the built components, one image-capable judge from a third (Gemini Carbon), merged by the build session; the founder approved this three-model fan-out. **Open product question:** whether `/live` itself shows the pair's lower number as one labelled figure is unchecked; the film's design should not get ahead of the product without a spec. **UNTESTED** as messaging. Falsifier: people new to the product watch 4.4 and still say the app asked only the listener, or cannot say what the lower number is.
+**References:** decisions.md 2026-11-19 [product] "How the demo film words the check" (narrowed by this entry); `src/app/components/partners/live-mode-view.tsx` (rating drawers, round history); `src/app/components/letters/letter-prediction-walk.tsx` (rating drawer). Details private: the film brief 4.4 in the private events folder.
+
+---
+
 ## 2026-11-19 [process]: A Day card must be closable by the agent it is handed to; the monthly review asks one yes/no at /day start and never blocks the weekly one (P1712)
 
 **Context:** One weekly insight card ("Dead clicks") came back on four days running. The founder's notes on it on 11-16, 11-17 and 11-18 never reached an agent. Nobody opened the clicks themselves, and the read behind the card was a week old but shown as this week's. Three other cards could not be closed by any agent at all: the fixing prompt offered a verdict command that cannot hide an insight; the KDD check could never count a commit with no P-number as captured; and the monthly review could not run inside /day (its 4 analysts plus programme-health exceed the founder's 3-subagent rule, and the sub-day cannot ask). Because /day runs only the most overdue review, the monthly would also have blocked the weekly review, the one that writes the analytics read, from its 29th day on.
@@ -39,6 +56,8 @@ Append-only log of architectural and product decisions. Newest entries at top.
 ---
 
 ## 2026-11-19 [product]: How the demo film words the check: the lower number is the level of shared understanding, and the app asks the question
+
+**Reversed in part 2026-11-19, see "The demo film shows the check as the app does it: each person's own drawer, and the lower number shown as verified shared understanding".** Still in force: everything except "a *potential* gap" before the explain-back and "the app asks the listener" (the app asks both).
 
 **Context:** The founder reviewed demo film 4.2 and found it used loose words where the product has precise ones ("a gap in understanding" of what, "the lower number counts" as what) and showed the check in ways the product does not work (the listener asking about herself, an agent posting on someone's behalf, the app prompting the explain-back). These rulings govern how the product's check is described in pitch material, not only this film.
 **Decision:**
