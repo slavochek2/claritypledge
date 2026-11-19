@@ -82,7 +82,9 @@ sha_hit() {
   sha7="${full:0:7}"
   printf '%s' "$sha7" | grep -Eq '^[0-9a-f]{7}$' || return 2
   pattern="(^|[^0-9A-Za-z])${sha7}[0-9a-fA-F]*([^0-9A-Za-z]|\$)"
-  out="$(cd "$REPO" && "$DCMD" "$pattern" 20 </dev/null 2>/dev/null)"; rc=$?
+  # Cap 500 (P1712 review): the cap applies per log before perl filters, so a popular 7-char prefix
+  # shared by many unrelated hex tokens must not push the real citation past it.
+  out="$(cd "$REPO" && "$DCMD" "$pattern" 500 </dev/null 2>/dev/null)"; rc=$?
   [ "$rc" -eq 0 ] || return 2
   printf '%s\n' "$out" | grep -v '^PRIVATE LOG:' | perl -e '
     my $full = $ARGV[0]; my $hit = 0;

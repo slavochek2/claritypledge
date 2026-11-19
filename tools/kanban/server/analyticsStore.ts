@@ -9,7 +9,7 @@
 import { appendFileSync, chmodSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
-import { CONFIRM_HIDE_DAYS, type Insight, type LedgerEntry, type StoredRead } from '../scripts/analytics-gate'
+import { confirmHides, insightCount, type Insight, type LedgerEntry, type StoredRead } from '../scripts/analytics-gate'
 import { acquireLock, releaseLock } from './dayStore'
 
 export const analyticsDir = (): string => process.env.KANBAN_ANALYTICS_DIR?.trim() || join(homedir(), '.claude-analytics')
@@ -106,42 +106,9 @@ export function appendLedger(dir: string, key: string, decision: 'confirm' | 'di
   chmodSync(join(dir, 'ledger.jsonl'), 0o600)
 }
 
-const DAY_MS = 24 * 3_600_000
-
-/**
- * P1712: the number a confirm is compared against, from the read's structured data, never from its
- * display text: a failure's weekly count (`failures[].count`), or a 7-day shift's current value (its
- * section row's `current`). A first, or a read that does not carry the row, has none (undefined): only
- * the 30 days then bring the insight back.
- */
-export function insightCount(read: StoredRead, key: string): number | undefined {
-  const ok = (n: unknown): number | undefined => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : undefined)
-  if (key.startsWith('failure:')) return ok(read.failures?.find((f) => `failure:${f.key}` === key)?.count)
-  const shift = /^shift:([^:]+):(.*):(up|down)$/.exec(key)
-  if (shift) {
-    const section = (read.sections as Record<string, { rows?: { label: string; current: number | null }[] }> | undefined)?.[shift[1]]
-    return ok(section?.rows?.find((r) => r.label === shift[2])?.current)
-  }
-  return undefined
-}
-
-/**
- * P1712: does this confirm still hide its insight on `read`? For CONFIRM_HIDE_DAYS from the confirm
- * (measured to the read's day, so the answer depends on the read, never on today's clock), unless the
- * read's count is at least double the count recorded at the confirm. A confirm with no recorded count,
- * or a read with none, only expires. Before P1712 a confirm hid only the read it was made on, so a
- * problem confirmed and fixed came back with the next read (dead clicks never reach zero).
- */
-export function confirmHides(e: LedgerEntry, read: StoredRead): boolean {
-  if (e.decision !== 'confirm') return false
-  const at = Date.parse(e.at ?? '')
-  const readDay = Date.parse(`${read.date}T00:00:00Z`)
-  if (!Number.isFinite(at) || !Number.isFinite(readDay)) return (e.at ?? '') >= read.date // the pre-P1712 rule for an undated entry
-  if (readDay - at >= CONFIRM_HIDE_DAYS * DAY_MS) return false
-  const then = typeof e.count === 'number' && e.count > 0 ? e.count : undefined
-  const now = insightCount(read, e.key)
-  return !(then !== undefined && now !== undefined && now >= 2 * then)
-}
+// P1712: insightCount and confirmHides live in src/lib/weeklyRead.ts, so the weekly gate (pure, no IO)
+// applies the same confirm rule before its cap. Re-exported here for the server and scripts.
+export { confirmHides, insightCount }
 
 /**
  * P1673: the weekly insights still waiting for a decision. `error` is a read that could not be

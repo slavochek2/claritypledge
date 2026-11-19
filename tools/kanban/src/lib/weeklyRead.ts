@@ -12,7 +12,7 @@ export const SECTION_KEYS = ['who', 'what', 'time', 'returns', 'explore', 'stuck
 export type SectionKey = (typeof SECTION_KEYS)[number]
 
 export const MAX_INSIGHTS = 3
-/** P1712, founder 2026-11-19: a confirmed insight stays hidden this many days, unless its count doubles first (analyticsStore confirmHides). */
+/** P1712, founder 2026-11-19: a confirmed insight stays hidden this many days, unless its count doubles first (confirmHides, below). */
 export const CONFIRM_HIDE_DAYS = 30
 /** No percentage and no shift test on a previous base below this. */
 export const MIN_BASE = 30
@@ -87,7 +87,7 @@ export interface LedgerEntry {
   decision: 'confirm' | 'dismiss'
   /** ISO time of the decision */
   at?: string
-  /** P1712: a confirm's count on the read it was made on (analyticsStore insightCount); a doubling brings the insight back */
+  /** P1712: a confirm's count on the read it was made on (insightCount, below); a doubling brings the insight back */
   count?: number
 }
 
@@ -171,24 +171,91 @@ export function emptySections(): Record<SectionKey, Section> {
   return out
 }
 
+/**
+ * P1712: an insight's suggested next step, by its kind (the key's prefix). An action for whoever looks
+ * into it, never a question of whether the problem is real (P1707). The gate stores it on each new
+ * read, and the Day page card rebuilds it from the key (day.ts insightIssue), so a read written before
+ * P1712 never shows its old "decide whether it is a real user problem".
+ */
+export function insightNextStep(key: string): string {
+  if (key.startsWith('failure:')) return 'Open the linked replay or report, see what users ran into, and fix the cause if users are hurt.'
+  if (key.startsWith('first:')) return 'Look at what this person did next.'
+  if (key.startsWith('shift:')) return 'Check the four-week context before reading a cause into one week.'
+  return 'Open the linked replay or report and look at what users did around it.'
+}
+
+/** What confirmHides needs from a read: a stored read or the raw read the gate is scoring. */
+export type CountedRead = Pick<StoredRead, 'date' | 'failures'> & { sections?: Partial<Record<string, { rows?: Row[] }>> }
+
+/**
+ * P1712: the number a confirm is compared against, from the read's structured data, never from its
+ * display text: a failure's weekly count (`failures[].count`), or an UPWARD 7-day shift's current value
+ * (its section row's `current`). Only those can "double" in the sense the founder meant (the problem
+ * got twice as big). A downward shift (its value doubling means the drop eased), a shift on a duration
+ * or rate (`time`, `returns`, a `rate` row: not a count), a first, or a read that does not carry the row
+ * has none (undefined): only the 30 days then bring the insight back.
+ */
+export function insightCount(read: CountedRead, key: string): number | undefined {
+  const ok = (n: unknown): number | undefined => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : undefined)
+  if (key.startsWith('failure:')) return ok(read.failures?.find((f) => `failure:${f.key}` === key)?.count)
+  const shift = /^shift:([^:]+):(.*):up$/.exec(key)
+  if (!shift || shift[1] === 'time' || shift[1] === 'returns') return undefined
+  const row = read.sections?.[shift[1]]?.rows?.find((r) => r.label === shift[2])
+  return row && !row.rate ? ok(row.current) : undefined
+}
+
+const DAY_MS = 24 * 3_600_000
+/** The UTC calendar day of an ISO time, as a midnight-UTC epoch; NaN when it does not parse. */
+const utcDay = (iso: string): number => {
+  const t = Date.parse(iso)
+  return Number.isFinite(t) ? Date.parse(`${new Date(t).toISOString().slice(0, 10)}T00:00:00Z`) : NaN
+}
+
+/**
+ * P1712: does this confirm still hide its insight on `read`? For CONFIRM_HIDE_DAYS calendar days, from
+ * the confirm's UTC date to the read's date (so a read dated exactly 30 days later shows it whatever
+ * the confirm's time of day, and the answer depends on the read, never on today's clock), unless the
+ * read's count is at least double the count recorded at the confirm (insightCount: failures and upward
+ * shifts only). A confirm with no recorded count, or a read with none, only expires.
+ * While no newer read exists, the latest read keeps answering the same way, so its cards keep their
+ * state: intended, it is the same data (a new read is what can change the answer).
+ * Shared by the weekly gate (before its cap), the Day page and the analytics route.
+ * Before P1712 a confirm hid only the read it was made on, so a problem confirmed and fixed came back
+ * with the next read (dead clicks never reach zero).
+ */
+export function confirmHides(e: LedgerEntry, read: CountedRead): boolean {
+  if (e.decision !== 'confirm') return false
+  const confirmDay = utcDay(e.at ?? '')
+  const readDay = Date.parse(`${read.date}T00:00:00Z`)
+  if (!Number.isFinite(confirmDay) || !Number.isFinite(readDay)) return (e.at ?? '') >= read.date // the pre-P1712 rule for an undated entry
+  if (readDay - confirmDay >= CONFIRM_HIDE_DAYS * DAY_MS) return false
+  const then = typeof e.count === 'number' && e.count > 0 ? e.count : undefined
+  const now = insightCount(read, e.key)
+  return !(then !== undefined && now !== undefined && now >= 2 * then)
+}
+
 const seenIn = (key: string, priors: StoredRead[]) => priors.filter((p) => p.insights?.some((i) => i.key === key)).length
 
 export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntry[]): { headline: string; insights: Insight[] } {
   if (read.status === 'not-collected') return { headline: NOT_COLLECTED, insights: [] }
-  const dismissed = new Set(ledger.filter((e) => e.decision === 'dismiss').map((e) => e.key))
+  // P1712: a confirm that still hides its key (confirmHides: 30 days, or until the count doubles) is
+  // filtered here, BEFORE the cap, like a dismissal: hidden insights never take a slot, so three of them
+  // cannot leave a fourth, undecided one unraised.
+  const hidden = new Set(ledger.filter((e) => e.decision === 'dismiss' || confirmHides(e, read)).map((e) => e.key))
   const inLedger = new Set(ledger.map((e) => e.key))
   const out: Insight[] = []
-  const add = (i: Omit<Insight, 'seen_count' | 'pattern'>) => {
-    if (dismissed.has(i.key)) return
+  const add = (i: Omit<Insight, 'seen_count' | 'pattern' | 'next_step'>) => {
+    if (hidden.has(i.key)) return
     const seen_count = seenIn(i.key, priorReads)
-    out.push({ ...i, seen_count, pattern: seen_count >= 2 })
+    out.push({ ...i, next_step: insightNextStep(i.key), seen_count, pattern: seen_count >= 2 })
   }
 
   // A failure stays up until the founder decides on it, so a repeat becomes a pattern. Those never
   // raised come first, so the cap cannot starve one forever.
   const unseenFirst = [...read.failures].sort((a, b) => seenIn(`failure:${a.key}`, priorReads) - seenIn(`failure:${b.key}`, priorReads))
   for (const f of unseenFirst) {
-    // Only a dismissal suppresses a failure (spec step 14); a confirmed one that repeats is a pattern.
+    // A dismissal suppresses a failure (spec step 14); a confirm hides it for 30 days or until its count
+    // doubles (P1712), and after that a repeat is a pattern.
     if (f.count <= 0) continue
     const repeats = seenIn(`failure:${f.key}`, priorReads)
     add({
@@ -199,7 +266,6 @@ export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntr
       comparison: repeats ? 'repeat of an undecided failure' : 'first week it is raised',
       ...(f.link ? { link: f.link } : {}),
       confidence: f.count >= 3 ? 'medium' : 'low',
-      next_step: 'Open the linked replay or report and decide whether it is a real user problem.',
     })
   }
   for (const f of read.firsts) {
@@ -212,7 +278,6 @@ export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntr
       comparison: 'not seen in any confirmed or dismissed earlier read',
       ...(f.link ? { link: f.link } : {}),
       confidence: 'low',
-      next_step: 'Look at what this person did next, then confirm or dismiss.',
     })
   }
   for (const k of SECTION_KEYS) {
@@ -231,7 +296,6 @@ export function gate(read: RawRead, priorReads: StoredRead[], ledger: LedgerEntr
         comparison: four ? `last four weeks: ${four.join(', ')}` : 'last 7 days against the 7 before',
         ...(row.link ? { link: row.link } : {}),
         confidence: (row.previous as number) >= 100 ? 'high' : 'medium',
-        next_step: 'Check the four-week context before reading a cause into one week.',
       })
     }
   }

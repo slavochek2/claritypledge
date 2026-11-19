@@ -29,7 +29,10 @@
 //   - A story is a work item, not a record (P1440 A): it goes out until the agent marks that version
 //     done, or until 3 sends leave it stuck on the board. Editing it makes it a new version.
 
-import { CONFIRM_HIDE_DAYS, type Insight } from './weeklyRead'
+import { CONFIRM_HIDE_DAYS, insightNextStep, type Insight } from './weeklyRead'
+
+// P1712: the next step lives with the gate that stores it (weeklyRead.ts); re-exported for the card's callers
+export { insightNextStep }
 
 export const DAY_SCHEMA = 2
 
@@ -1797,14 +1800,13 @@ function readAgeDays(date: string, asOf?: string): number | null {
 }
 
 /**
- * P1712: an insight card's suggested next step, by the kind of insight (its key's prefix). An action
- * for whoever looks into it, never a question of whether the problem is real (P1707).
+ * P1712: the read's own title ("A new kind of failure appeared: X.") is true only on the read's day.
+ * On a later run it says where the failure was first seen instead, so a week-old observation is never
+ * shown as new.
  */
-export function insightNextStep(key: string): string {
-  if (key.startsWith('failure:')) return 'Open the linked replay or report, see what users ran into, and fix the cause if users are hurt.'
-  if (key.startsWith('first:')) return 'Look at what this person did next.'
-  if (key.startsWith('shift:')) return 'Check the four-week context before reading a cause into one week.'
-  return 'Open the linked replay or report and look at what users did around it.'
+function datedTitle(observation: string, date: string | undefined, age: number | null): string {
+  if (!date || !(age !== null && age > 0)) return observation
+  return observation.replace(/^A new kind of failure appeared:/i, `A new kind of failure, first seen in the weekly read of ${date}:`)
 }
 
 /**
@@ -1829,7 +1831,7 @@ export function insightIssue(i: Insight, read?: InsightReadDate): DayIssue {
   return {
     fp: insightFp(i.key),
     topic: 'Weekly insight',
-    title: i.observation,
+    title: datedTitle(i.observation, date, age),
     point_a: `${dated(i.numbers)}, ${before}${when}`,
     obstacle: `What is behind this number is not known yet (confidence: ${i.confidence})`,
     point_b: 'The agent has found out whether real users are hurt by it, and fixed it if they are',
@@ -2595,7 +2597,8 @@ export function buildPrompt(
         if (blocked.has(n.fp)) continue
         blocked.add(n.fp)
         const notes = carriedRest.filter((m) => m.fp === n.fp)
-        L.push(...insightBlock({ issue: card, option_id: OWN, text: undefined, is_question: false }, `- ${day}`, stories?.insightCli, notes))
+        // P1712 review: no date on the block's own line; each note in it carries its own date
+        L.push(...insightBlock({ issue: card, option_id: OWN, text: undefined, is_question: false }, '-', stories?.insightCli, notes))
         continue
       }
       L.push(`- ${day} ${carriedTitle(n)} → ${n.is_question ? 'My question' : 'My note'}: ${cont(n.text)}`)

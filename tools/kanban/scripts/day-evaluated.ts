@@ -74,10 +74,12 @@ export async function run(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
 
   if (!a.fps.length) return refuse('no --fp given')
   for (const fp of a.fps) {
+    // Format first (P1712 review): a malformed insight-looking fp gets this refusal, never the
+    // day-insight pointer, which would also reject it and would echo the bad text back.
+    if (!FP.test(fp)) return refuse('a --fp is not a valid fingerprint')
     if (fp.startsWith('check:')) return refuse('a check: fingerprint is the "check did not report" card and cannot be recorded')
     // P1712: an insight card is added by the server, never in the report, so a record here would never hide it
     if (fp.startsWith(INSIGHT_FP)) return refuse(`${fp} is a weekly insight: record its verdict with scripts/day-insight.ts --fp ${fp} --decision confirm|dismiss`)
-    if (!FP.test(fp)) return refuse('a --fp is not a valid fingerprint')
   }
   const cause = (a.v['--cause'] ?? '').replace(/\s+/g, ' ').trim()
   if (!cause) return refuse('--cause is missing or empty: name the cause')

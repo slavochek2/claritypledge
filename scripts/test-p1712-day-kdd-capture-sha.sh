@@ -21,7 +21,7 @@ STUB="$TMP/stub.sh"
 cat > "$STUB" <<'EOF'
 #!/bin/bash
 echo "PRIVATE LOG: searched"
-grep -niE -- "$1" "$DEC_FILE" | sed 's/^/public:/'
+grep -niE -- "$1" "$DEC_FILE" | head -n "${2:-20}" | sed 's/^/public:/'
 exit 0
 EOF
 chmod +x "$STUB"
@@ -45,6 +45,14 @@ hasnt "cited sha is not UNCAPTURED" "$OUT" "UNCAPTURED $SHA_CITED"
 hasline "cited sha is CAPTURED" "$OUT" "CAPTURED $SHA_CITED"
 has "uncited sha stays UNCAPTURED" "$OUT" "UNCAPTURED $SHA_UNCITED"
 has "count is 1 (only the uncited commit)" "$OUT" "KDD-STATUS uncaptured 1"
+
+echo "== the citation sits behind more than 20 decoy tokens sharing its 7-char prefix =="
+FULL_CITED="$(git -C "$d" rev-parse "$SHA_CITED")"
+P7="${FULL_CITED:0:7}"; C8="${FULL_CITED:7:1}"; [ "$C8" = "0" ] && D8=1 || D8=0
+decoys=(); for i in $(seq 1 25); do decoys+=("decoy $P7$D8$i"); done
+dec "## 2026-11-18 [technical]: Decoys" "${decoys[@]}" "**Commit:** $SHA_CITED"
+run
+hasline "cited sha is CAPTURED behind 25 decoys" "$OUT" "CAPTURED $SHA_CITED"
 
 echo "== no decision entry cites either sha =="
 dec "## 2026-11-18 [technical]: unrelated entry"

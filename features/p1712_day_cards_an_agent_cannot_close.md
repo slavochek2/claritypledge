@@ -111,9 +111,20 @@ The same three insight cards (Dead clicks `insight:5fdd9c986d80f6c7`, Rage click
 3. Give a confirm the same threshold/expiry semantics as `day-evaluated`: 30 days, or until the count doubles (founder, 2026-11-19).
 4. `carriedNotes`: when the latest option is a pick and an earlier note on the same target was never delivered, carry that note with the pick.
 5. Due Board: when the review chosen this pass cannot run, run the other overdue one. For the monthly fan-out, apply the founder's decision above.
-6. `day-kdd-capture.sh`: for a P-less commit, search the decisions logs for its short sha with a bounded pattern; add test cases for "cited sha captures" and "uncited sha stays uncaptured".
+6. `day-kdd-capture.sh`: for a P-less commit, search the decisions logs for its short sha with a bounded pattern (decided 2026-11-19: a citation counts when it is a hex token of at least 7 characters, bounded by non-alphanumerics, that is a prefix of the full sha, so a 7-character citation matches git's 9-character short sha; the search cap is 500 lines per log so decoys sharing the prefix cannot hide it); add test cases for "cited sha captures" and "uncited sha stays uncaptured".
 
 Rejected alternative, per P1673: sending insight text unfenced. Decisions grep run for "insight", "Due Board" and "kdd-capture": no entry contradicts this approach.
+
+## Known Limitations
+
+Set aside after the 2026-11-19 review (6 reviewers), each judged not a realistic open failure:
+- A verdict command retried after a later read has doubled the count can record the verdict on the newer raising. It needs an old command re-run a week later.
+- A note and a different pick on the same run: the pick replaces the note. Unchanged P1707 behaviour.
+- A Park whose line is later removed lets earlier undelivered notes return.
+- A note reworded on a later day is carried as two notes.
+- `carriedNotes` orders runs by their position in `decisions.jsonl`, which is append-only.
+- The live `UNCAPTURED 4f0087f4c` is cleared by a new decision entry citing its sha in the closing KDD on main; old entries are append-only.
+- `scripts/test-p1712-day-kdd-capture-sha.sh`, like the existing `test-p1647-day-kdd-capture.sh`, is run by no runner (checked: pre-commit, CI workflows, package.json). Run by hand.
 
 ## Acceptance Criteria
 
@@ -121,6 +132,7 @@ Rejected alternative, per P1673: sending insight text unfenced. Decisions grep r
 - [x] The fixing prompt for an insight card names exactly one verdict command, and running it removes the card on reload.
 - [x] A confirmed insight does not return on the next read for 30 days unless its count doubles.
 - [x] A note typed on a card, followed by a different pick the next day, reaches the next Start fixing. When several notes on one card were never delivered (the real case: 11-16, 11-17, 11-18), all of them reach it, not only the newest.
+- [ ] [post-deploy] On the next /day with the monthly review chosen, the dispatcher asks one yes/no before the cp sub-day; on no, or with nobody at the keyboard, weekly runs. (Item 6, on main as ffb952906 plus a review-wording commit, and ~/.claude 83ff7d7 plus its review-wording commit.)
 - [ ] [post-deploy] With monthly and weekly both overdue and monthly unable to run in the pass, the weekly review runs and writes a new analytics read. (Item 6 is prose in day-cp.md and the global dispatcher, committed on main as ffb952906 and ~/.claude 83ff7d7; there is no executable selection logic to test, so this is verified on the next /day run with both reviews overdue.)
 - [x] `scripts/day-kdd-capture.sh` reports a P-less commit as captured when a decision entry cites its short sha, and as uncaptured when none does (new test cases, plus a mutation of the real decisions file per epistemic gate 7d).
-- [x] Existing day-page and kanban tests pass. (Kanban vitest 48 files / 915 tests; P1647 KDD test 59/0. Two day-page e2e tests fail identically on clean main ffb952906 without this change, a P1707 regression filed as INBOX-382.)
+- [x] Existing day-page and kanban tests pass. (Kanban vitest 49 files / 926 tests, all passing on their own; P1647 KDD test 59/0. Two day-page e2e tests, "a long unbroken carried note wraps at 320px (P1707)" and "a folded note with a long URL wraps at 320px (P1707)" in `tools/kanban/e2e-day/day-analytics.spec.ts`, fail identically on clean main ffb952906 without this change: a P1707 regression filed as INBOX-382 in `docs/process-learnings.md`. In full-suite runs `opportunities.test.ts` and `security.test.ts` failed intermittently and pass on their own; not touched by this change.)
