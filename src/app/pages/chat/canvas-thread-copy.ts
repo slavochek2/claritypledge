@@ -35,7 +35,7 @@ export const CANVAS_REPLY_HINT = 'Reply, or upload a file';
  * order) and, under each heading, its definition and shape. Every box word comes from the shared definitions module.
  */
 export const CANVAS_OWN_AI_PROMPT = [
-  'Help me draft my Clarity Canvas: nine short sections about my business others can agree or disagree with.',
+  'Help me draft my Clarity Canvas: nine short sections about my business, open to disagreement.',
   '',
   // P1658 founder test: an owner's AI that read one file asked five questions instead of looking. It looks first (own business only, this chat or
   // project, never the web), and asks only when most headings would stay empty. No "newest wins": rule 7 keeps dropped directions. The "Source:" line below names these sources, so rule 1 covers them.
@@ -44,7 +44,7 @@ export const CANVAS_OWN_AI_PROMPT = [
   'Rules:',
   globalRulesText('owner'),
   '',
-  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." naming who it is for. If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in order; never copy the lines under them.',
+  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." naming who it is for. If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in order, without the lines under them.',
   `- Under each heading write up to ${MAX_POINTS_PER_BOX} points, each one short sentence of at most ${MAX_STATEMENT_CHARS} characters.`,
   `- ${THIRD_PERSON_RULE.plain}`,
   `- ${ROUTING_RULE.plain}`,

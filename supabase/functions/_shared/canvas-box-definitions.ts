@@ -22,7 +22,7 @@ export const MAX_STATEMENT_CHARS = 300;
  * (canvas-names.ts) is unchanged by this.
  */
 export const NAMING_RULE =
-  `Never use the names of other people or private companies; write their role instead ("a coffee supplier"). Public platforms and marketplaces (Facebook, LinkedIn, an app store) may be named.`;
+  `Never use the names of other people or private companies; write their role ("a coffee supplier"). Public platforms and marketplaces (Facebook, LinkedIn, an app store) may be named.`;
 
 export interface BoxDefinition {
   tag: string;
@@ -83,8 +83,8 @@ export const RANKED_BOXES = ['canvas:segments', 'canvas:problem', 'canvas:revenu
  */
 export const LEAD_POINT_RULE: GlobalRule = {
   name: 'Lead point',
-  text: `Lead point: a box whose shape has "Lead:" (Customer Segments, Problem, Offers & Pricing, My next milestone, My current biggest challenge) opens with one point naming the owner's choice and the option it beats, both from the owner's words: "ahead of <Y>" for an option that comes later, ", not <Y>" for one the owner dropped or turned down. Write "best" or "biggest" only if the owner ranked them, else "first" or "chosen". Order of mention, effort or pursuit is no ranking. No other option in the owner's words, no lead. "Lead:" only marks the template: never write it in a point.`,
-  plain: `A "Lead:" point names my choice and, from my words, the option it beats ("not" only if I dropped or turned it down). "Best" or "biggest" only if I ranked them, else "first" or "chosen"; order or effort is no ranking. No other option, no lead. Never write "Lead:" itself.`,
+  text: `Lead point: a box whose shape has "Lead:" (Customer Segments, Problem, Offers & Pricing, My next milestone, My current biggest challenge) opens with one point naming the owner's choice and the option it beats, both from the owner's words: "ahead of <Y>" for an option that comes later, ", not <Y>" for one the owner dropped or turned down. My next milestone's lead is always "ahead of <Y>": a later goal is never turned down. Write "best" or "biggest" only if the owner ranked them, else "first" or "chosen". Order of mention, effort or pursuit is no ranking. No other option in the owner's words, no lead. "Lead:" only marks the template: never write it in a point.`,
+  plain: `A "Lead:" point names my choice and, from my words, the option it beats ("not" only if I dropped or turned it down; milestones: never). "Best" or "biggest" only if I ranked them, else "first" or "chosen"; order or effort is no ranking. No other option, no lead. Never write "Lead:".`,
 };
 
 /**
@@ -105,7 +105,7 @@ export const ROUTING_RULE: GlobalRule = {
  * vetEvidence checks the owner's whole text), so moving a sentence to another box cannot get its quote refused.
  */
 export const CANVAS_MATERIAL_RULE =
-  `When the material is already a canvas (headings such as Customer Segments, Problem, Solution), its headings are not evidence of the box: place each point by the rule above, in that box's shape, quoting the owner's sentence as before.`;
+  `When the material is already a canvas (headings such as Customer Segments, Problem, Solution), its headings are not evidence of the box: place each point by the rule above, in that box's shape, keeping its quote as before.`;
 
 /**
  * P1658 revision 2: no point says "I", "we", "my", "our", "us", "me" or "you" (the Copy prompt's line bans the same list). When the business acts, the point says "the business", never its
@@ -138,8 +138,8 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     type: `Claim about the customer's problem, and which matters most`, voice: `third-person`,
     definition: `The problem this customer has, before they hear of you: where they are and its cost (A), what they want (B), what stops them (obstacle). Leave out why.`,
     // P1658 v8: the lead keeps A, B and the obstacle (v7's Problem lead had only A against another problem).
-    shape: `Lead: "The <first|biggest> problem for <customer> is <A + cost>, <ahead of|not> <other problem>; they want <B>, but <obstacle>." Others open "For <customer> the problem is <A + cost>[, not <ruled-out problem>]". The obstacle is a barrier, not a missing product.`,
-    good: `"The biggest problem for café owners is two evenings lost sorting receipts in the week before the tax deadline, ahead of chasing late invoices; they want their books closed without losing evenings, but receipts pile up during 14-hour shifts." (the owner ranked them) / "For café owners the problem is a late-filing fine, not the bookkeeping itself; they want to file on time, but the receipts are in three places."`,
+    shape: `Lead: "The <first|biggest> problem for <customer> is <A + cost>, <ahead of|not> <other problem>; they want <B>, but <obstacle>." Others: "For <customer> the problem is <A + cost>[, not <ruled-out problem>]; they want <B>, but <obstacle>." The obstacle is a barrier, not a missing product.`,
+    good: `"The biggest problem for café owners is two evenings lost to receipts before each tax deadline, ahead of chasing late invoices; they want their books done without losing evenings, but receipts pile up in 14-hour shifts." (the owner ranked them) / "For café owners the problem is a late-filing fine, not the bookkeeping itself; they want to file on time, but the receipts are in three places."`,
     not: `"Café owners spend time on bookkeeping." (true, and nobody can disagree) / "The biggest problem for café owners is receipts, ahead of invoices." (the owner never ranked them) / "There is no simple bookkeeping app for cafés."`,
     gap: `What does the problem cost your customers, what do they want instead, what stops them, and which problem matters most, ahead of which other?`,
     empty: `Which problem do your customers have today, what stops them, and which problem matters most, ahead of which other?`,

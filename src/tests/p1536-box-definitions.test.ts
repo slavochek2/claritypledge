@@ -274,7 +274,7 @@ describe('S2 box guidance', () => {
   it('P1658 v8e: canvas-shaped material is placed by the routing rule, not its own headings; the agent gets it, the Copy prompt does not', () => {
     const follows = (rules: string) => rules.includes(`${ROUTING_RULE.text}\n${CANVAS_MATERIAL_RULE}\n`);
     expect(CANVAS_MATERIAL_RULE).toContain('its headings are not evidence of the box');
-    expect(CANVAS_MATERIAL_RULE).toContain('quoting the owner\'s sentence as before');
+    expect(CANVAS_MATERIAL_RULE).toContain('keeping its quote as before');
     expect(follows(DRAFT_RULES)).toBe(true);
     expect(follows(ROUND_RULES)).toBe(true);
     expect(CANVAS_OWN_AI_PROMPT).not.toContain(CANVAS_MATERIAL_RULE);
@@ -320,7 +320,7 @@ describe('S2 box guidance', () => {
     for (const tag of RANKED_BOXES) expect(leadTemplateWritesLabel(def(tag).shape), tag).toBe(false);
     for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toMatch(/^"Lead:/);
     expect(LEAD_POINT_RULE.text).toContain('"Lead:" only marks the template: never write it in a point.');
-    expect(LEAD_POINT_RULE.plain).toContain('Never write "Lead:" itself.');
+    expect(LEAD_POINT_RULE.plain).toContain('Never write "Lead:".');
     // CONTROL (gate 7d): a real lead shape whose template carries the label, as v7 wrote it ("- Lead: The first customers are …"), fails it
     const seg = def('canvas:segments').shape;
     const mutated = seg.replace('Lead: "The <first|best>', 'Lead: "Lead: The <first|best>');
@@ -343,7 +343,8 @@ describe('S2 box guidance', () => {
 
   it('P1658 fix round: a later option is "ahead of", a dropped one ", not"; the lead and third-person rules agree', () => {
     expect(LEAD_POINT_RULE.text).toContain('"ahead of <Y>" for an option that comes later, ", not <Y>" for one the owner dropped or turned down');
-    expect(LEAD_POINT_RULE.plain).toContain('the option it beats ("not" only if I dropped or turned it down)');
+    expect(LEAD_POINT_RULE.plain).toContain('the option it beats ("not" only if I dropped or turned it down; milestones: never)');
+    expect(LEAD_POINT_RULE.text).toContain('My next milestone\'s lead is always "ahead of <Y>": a later goal is never turned down.');
     expect(THIRD_PERSON_RULE.text).toContain('Write ", not <Y>" only when the owner\'s words drop, turn down or deny Y; a later option is "ahead of <Y>".');
     expect(LEAD_POINT_RULE.text).not.toMatch(/dropped or turned down counts/); // the round-1 wording that put a dropped option behind "ahead of"
   });
@@ -457,4 +458,14 @@ describe('S2 box guidance', () => {
     expect(CANVAS_OWN_AI_PROMPT).toContain('one section per canvas');
     expect(CANVAS_OWN_AI_PROMPT).toContain('my main focus first');
   });
+
+  it('P1658 v8f: the Problem "Others" form keeps B and the obstacle; every good example point fits MAX_STATEMENT_CHARS; Segments in canvas-prompt asks values, not feelings', () => {
+    expect(def('canvas:problem').shape).toContain('Others: "For <customer> the problem is <A + cost>[, not <ruled-out problem>]; they want <B>, but <obstacle>."');
+    const points = BOX_DEFINITIONS.flatMap((b) => [...b.good.matchAll(/"([^"]+)"/g)].map((m) => ({ tag: b.tag, p: m[1] })));
+    expect(points.length).toBeGreaterThan(BOX_DEFINITIONS.length - 1);
+    for (const { tag, p } of points) expect(p.length, `${tag}: ${p}`).toBeLessThanOrEqual(MAX_STATEMENT_CHARS);
+    expect(Math.max(...points.map((x) => x.p.length))).toBeLessThanOrEqual(220); // the reviewed bound, tighter than the cap
+    expect(DRAFT_RULES).toContain('their values or attitudes; never how they feel about the problem');
+  });
 });
+
