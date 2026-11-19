@@ -11,7 +11,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CANVAS_BOXES } from '../lib/canvas-boxes';
 import {
-  BOX_DEFINITIONS, GLOBAL_RULES, LEAD_POINT_RULE, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, ONE_SALE_LOOP_PLAIN, RANKED_BOXES,
+  BOX_DEFINITIONS, CANVAS_MATERIAL_RULE, GLOBAL_RULES, LEAD_POINT_RULE, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, ONE_SALE_LOOP_PLAIN, RANKED_BOXES, ROUTING_RULE,
   THIRD_PERSON_RULE, boxGuideEntry, copyPromptSection, emptyQuestionFor, globalRulesText,
 } from '../../supabase/functions/_shared/canvas-box-definitions';
 import { DRAFT_RULES, ROUND_RULES, buildDraftRequest } from '../../supabase/functions/_shared/canvas-prompt';
@@ -172,7 +172,8 @@ describe('S2 box guidance', () => {
   });
 
   it('P1658 revision 2: every box is third person, stance boxes say "The business", no good example carries a reason', () => {
-    for (const tag of ['canvas:solution', 'canvas:channels', 'canvas:world-needs']) expect(def(tag).good.startsWith('"The business '), tag).toBe(true);
+    for (const tag of ['canvas:channels', 'canvas:world-needs']) expect(def(tag).good.startsWith('"The business '), tag).toBe(true);
+    expect(def('canvas:solution').shape).toContain('A stance: "The business does not <Y>."'); // v8: Solution's good example is the steps, its stance form stays
     for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toMatch(/\bbecause\b/i);
   });
 
@@ -187,7 +188,7 @@ describe('S2 box guidance', () => {
     expect(BOX_DEFINITIONS.flatMap(pronounFields)).toEqual([]);
     // CONTROL (gate 7d): the check is fed a REAL entry with its shape put back in the first person, and must name it
     const sol = def('canvas:solution');
-    const mutated = { ...sol, shape: sol.shape.replace('"The business <does X>', '"I <do X>') };
+    const mutated = { ...sol, shape: sol.shape.replace('"The business does not <Y>."', '"I do not <Y>."') };
     expect(mutated.shape).not.toBe(sol.shape);
     expect(pronounFields(mutated)).toEqual(['canvas:solution.shape']);
     const seg = def('canvas:segments');
@@ -213,8 +214,8 @@ describe('S2 box guidance', () => {
   /** A lead names its alternative through the contrast slot, so the dropped form (", not <Y>") is in every template the model copies. */
   const hasContrastSlot = (shape: string) => /, <ahead of\|not> <[^<>]+>/.test(leadOfShape(shape));
 
-  it('P1658 fix round 3: every lead writes its contrast as the slot <ahead of|not>, never a bare "ahead of"', () => {
-    for (const tag of RANKED_BOXES) {
+  it('P1658 fix round 3: every lead except the milestone writes its contrast as the slot <ahead of|not>, never a bare "ahead of"', () => {
+    for (const tag of RANKED_BOXES.filter((t) => t !== 'canvas:metrics')) {
       expect(hasContrastSlot(def(tag).shape), tag).toBe(true);
       expect(leadOfShape(def(tag).shape).replace('<ahead of|not>', ''), tag).not.toMatch(/\bahead of\b/);
     }
@@ -223,6 +224,108 @@ describe('S2 box guidance', () => {
     const mutated = seg.replace('<ahead of|not>', 'ahead of');
     expect(mutated).not.toBe(seg);
     expect(hasContrastSlot(mutated)).toBe(false);
+  });
+
+  /** A milestone lead's contrast is "ahead of" only: a later goal is never rejected. */
+  const milestoneLeadOk = (shape: string) => { const lead = leadOfShape(shape); return /, ahead of <later goal>\."/.test(lead) && !/\bnot\b/.test(lead); };
+
+  it('P1658 v8: the milestone lead never uses "not" (a later goal comes after; it is not turned down)', () => {
+    expect(milestoneLeadOk(def('canvas:metrics').shape)).toBe(true);
+    // CONTROL (gate 7d): the real milestone shape with the round-3 slot put back fails it
+    const mutated = def('canvas:metrics').shape.replace('ahead of <later goal>', '<ahead of|not> <later goal>');
+    expect(mutated).not.toBe(def('canvas:metrics').shape);
+    expect(milestoneLeadOk(mutated)).toBe(false);
+  });
+
+  /** Segments names who the customer is: its definition and shape never speak of the problem, its trigger, pain or cost (that is Problem). */
+  const segmentsSpeaksOfProblem = (b: { definition: string; shape: string }) => /\b(problem|trigger|pain|cost)\b/i.test(`${b.definition} ${b.shape}`);
+
+  it('P1658 v8: Customer Segments is defined by who the customer is, never by the problem', () => {
+    const seg = def('canvas:segments');
+    expect(segmentsSpeaksOfProblem(seg)).toBe(false);
+    for (const v of ['a role', 'industry', 'company size', 'place', 'age, life stage', 'values', 'attitudes', 'what they buy or use today']) expect(seg.definition, v).toContain(v);
+    expect(seg.not).toContain('(a problem and its trigger: those go in Problem)');
+    // CONTROL (gate 7d): the real entry with the old definition and shape put back fails it
+    expect(segmentsSpeaksOfProblem({ ...seg, definition: seg.definition.replace('Who the customers are:', 'The specific people who have the problem and pay (or will):') })).toBe(true);
+    expect(segmentsSpeaksOfProblem({ ...seg, shape: seg.shape.replace('<role + two qualifiers>', '<role + qualifier> who <do X today> <when trigger>') })).toBe(true);
+  });
+
+  /** The routing rule names the five customer-facing boxes, in canvas order. */
+  const routesAllFive = (text: string) => {
+    const names = ['Customer Segments', 'Problem', 'Solution', 'Go-to-market strategy', 'Offers & Pricing'];
+    const at = names.map((n) => text.indexOf(n));
+    return at.every((i) => i >= 0) && at.every((i, k) => k === 0 || i > at[k - 1]!);
+  };
+
+  it('P1658 v8: a box never holds another box\'s point; the agent gets the map, the Copy prompt the founder\'s sentence', () => {
+    expect(ROUTING_RULE.text.startsWith('A box never holds another box\'s point:')).toBe(true);
+    expect(routesAllFive(ROUTING_RULE.text)).toBe(true);
+    expect(ROUTING_RULE.plain).toBe('A heading never holds another heading\'s point.');
+    expect(DRAFT_RULES).toContain(`For all boxes:\n${ROUTING_RULE.text}\n`);
+    expect(ROUND_RULES).toContain(`For all boxes:\n${ROUTING_RULE.text}\n`);
+    expect(CANVAS_OWN_AI_PROMPT).toContain(`- ${ROUTING_RULE.plain}\n`);
+    expect(GLOBAL_RULES.map((r) => r.name)).not.toContain(ROUTING_RULE.name); // a shared rule, not an eighth global rule
+    // CONTROL (gate 7d): the real rule text with one box taken out of the map fails it
+    const mutated = ROUTING_RULE.text.replace(', what is sold and for how much in Offers & Pricing', '');
+    expect(mutated).not.toBe(ROUTING_RULE.text);
+    expect(routesAllFive(mutated)).toBe(false);
+  });
+
+  it('P1658 v8e: canvas-shaped material is placed by the routing rule, not its own headings; the agent gets it, the Copy prompt does not', () => {
+    const follows = (rules: string) => rules.includes(`${ROUTING_RULE.text}\n${CANVAS_MATERIAL_RULE}\n`);
+    expect(CANVAS_MATERIAL_RULE).toContain('its headings are not evidence of the box');
+    expect(CANVAS_MATERIAL_RULE).toContain('quoting the owner\'s sentence as before');
+    expect(follows(DRAFT_RULES)).toBe(true);
+    expect(follows(ROUND_RULES)).toBe(true);
+    expect(CANVAS_OWN_AI_PROMPT).not.toContain(CANVAS_MATERIAL_RULE);
+    expect(CANVAS_OWN_AI_PROMPT).not.toContain('not evidence of the box');
+    // CONTROL (gate 7d): the real DRAFT_RULES with the line taken out fails the check
+    const mutated = DRAFT_RULES.replace(`${CANVAS_MATERIAL_RULE}\n`, '');
+    expect(mutated).not.toBe(DRAFT_RULES);
+    expect(follows(mutated)).toBe(false);
+  });
+
+  /** Solution is the customer's path in steps: no package, price, unit or channel in its shape. */
+  const solutionIsSteps = (shape: string) => /"<step 1>, then <step 2>/.test(shape) && !/\b(price|package|per <unit>|channel|offer)\b/i.test(shape);
+
+  it('P1658 v8: Solution is up to five steps from the problem to what the customer wants, with no package, price or channel', () => {
+    const sol = def('canvas:solution');
+    expect(solutionIsSteps(sol.shape)).toBe(true);
+    expect(sol.definition).toContain('up to five steps of what happens for them');
+    expect(sol.definition).toContain('Not the package, price or channel.');
+    expect(sol.shape).toContain('<planned / piloted / live>');
+    expect(sol.good.split(/,| then /).length).toBeGreaterThanOrEqual(4); // the example is itself a path of several steps
+    expect(sol.good).not.toMatch(/\bbaht\b|\bper\b/);
+    // CONTROL (gate 7d): the real shape back in v7's form, and with a price slipped in, both fail it
+    expect(solutionIsSteps('"The business <does X>[, not <ruled-out Y>]." Status: planned / piloted / live.')).toBe(false);
+    expect(solutionIsSteps(sol.shape.replace('<planned / piloted / live>', '<price + currency>; <planned / piloted / live>'))).toBe(false);
+  });
+
+  /** A Problem lead carries A with its cost, the contrast, and B and the obstacle. */
+  const problemLeadWhole = (shape: string) => /<A \+ cost>, <ahead of\|not> <other problem>; they want <B>, but <obstacle>\."/.test(leadOfShape(shape));
+
+  it('P1658 v8: the Problem lead keeps A + cost, B and the obstacle', () => {
+    expect(problemLeadWhole(def('canvas:problem').shape)).toBe(true);
+    expect(def('canvas:problem').good).toMatch(/^"The biggest problem[^"]*, ahead of [^"]*; they want [^"]*, but [^"]*\."/);
+    // CONTROL (gate 7d): the real shape with v7's lead (A against another problem only) fails it
+    const mutated = def('canvas:problem').shape.replace('; they want <B>, but <obstacle>." Others', '." Others');
+    expect(mutated).not.toBe(def('canvas:problem').shape);
+    expect(problemLeadWhole(mutated)).toBe(false);
+  });
+
+  /** The text a lead shape tells the model to write: the first quoted template after "Lead:". It must not itself contain "Lead:". */
+  const leadTemplateWritesLabel = (shape: string) => /Lead:/.test((/^Lead: "([^"]*)"/.exec(shape) ?? ['', ''])[1]!);
+
+  it('P1658 v8: "Lead:" marks the template only and is never written into a point', () => {
+    for (const tag of RANKED_BOXES) expect(leadTemplateWritesLabel(def(tag).shape), tag).toBe(false);
+    for (const b of BOX_DEFINITIONS) expect(b.good, b.tag).not.toMatch(/^"Lead:/);
+    expect(LEAD_POINT_RULE.text).toContain('"Lead:" only marks the template: never write it in a point.');
+    expect(LEAD_POINT_RULE.plain).toContain('Never write "Lead:" itself.');
+    // CONTROL (gate 7d): a real lead shape whose template carries the label, as v7 wrote it ("- Lead: The first customers are …"), fails it
+    const seg = def('canvas:segments').shape;
+    const mutated = seg.replace('Lead: "The <first|best>', 'Lead: "Lead: The <first|best>');
+    expect(mutated).not.toBe(seg);
+    expect(leadTemplateWritesLabel(mutated)).toBe(true);
   });
 
   it('P1658 fix round: no lead shape hard-codes "best" or "biggest" outside a <first|biggest> slot', () => {
@@ -276,11 +379,11 @@ describe('S2 box guidance', () => {
   });
 
   it('P1658 fix round: role points drop "are the customers"; the Copy prompt names who the canvas is for; the shared rules stand apart from the last box', () => {
-    // an exception for the role points the definition names ("Pays:", "Uses:", "Approves:"), not a second order next to "are the customers"
-    expect(def('canvas:segments').shape).toMatch(/are the customers\[, not <ruled-out lookalike>\]\." Role points leave out "are the customers"\.$/);
-    expect(def('canvas:segments').definition).toContain('Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:".');
+    // v8: the exception sits in the one sentence that names the role points, so it can never read as a second order next to "are the customers"
+    expect(def('canvas:segments').definition).toContain('Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:", without "are the customers".');
+    expect(def('canvas:segments').shape).toMatch(/are the customers\[, not <ruled-out lookalike>\]\."$/);
     expect(CANVAS_OWN_AI_PROMPT).toContain('"This canvas is about <group>." naming who it is for.');
-    const block = `\n\nFor all boxes:\n${LEAD_POINT_RULE.text}\n${THIRD_PERSON_RULE.text}\n`;
+    const block = `\n\nFor all boxes:\n${ROUTING_RULE.text}\n${CANVAS_MATERIAL_RULE}\n${LEAD_POINT_RULE.text}\n${THIRD_PERSON_RULE.text}\n`;
     expect(DRAFT_RULES).toContain(`${boxGuideEntry(BOX_DEFINITIONS[BOX_DEFINITIONS.length - 1]!)}${block}`);
     expect(ROUND_RULES).toContain(block);
   });

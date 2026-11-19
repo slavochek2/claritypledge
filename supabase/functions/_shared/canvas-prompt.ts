@@ -8,7 +8,7 @@ import { quoteData, type GeminiRequest } from './mirror-agent.ts';
 import {
   MAX_OUT_TOKENS, MAX_POINTS_PER_BOX, MAX_QUOTE_CHARS, MAX_STATEMENT_CHARS,
 } from './canvas-draft.ts';
-import { BOX_DEFINITIONS, LEAD_POINT_RULE, NAMING_RULE, THIRD_PERSON_RULE, boxGuideText, globalRulesText } from './canvas-box-definitions.ts';
+import { BOX_DEFINITIONS, CANVAS_MATERIAL_RULE, LEAD_POINT_RULE, NAMING_RULE, ROUTING_RULE, THIRD_PERSON_RULE, boxGuideText, globalRulesText } from './canvas-box-definitions.ts';
 import { cutChars } from './canvas-source.ts';
 import { titleOf } from './canvas-draft.ts';
 import { FOCUS_REASONS, type DraftContext, type Material, type RunFrame } from './canvas-types.ts';
@@ -29,6 +29,8 @@ The boxes (use exactly these tags):
 ${boxGuideText()}
 
 For all boxes:
+${ROUTING_RULE.text}
+${CANVAS_MATERIAL_RULE}
 ${LEAD_POINT_RULE.text}
 ${THIRD_PERSON_RULE.text}
 

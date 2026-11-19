@@ -81,7 +81,9 @@ describe('Q1: the Customer Segments specificity rule', () => {
 
 describe('Q1: the one module carries the rule into the prompt, the Copy prompt and the box guide', () => {
   const seg = BOX_DEFINITIONS.find((b) => b.tag === 'canvas:segments')!;
-  const RULE = 'Each point needs a role or title, plus at least two of: industry, company size, demographics, psychographics.';
+  // P1658 v8: the dimensions are named as who-the-customer-is variables (demographics as place, age and life stage; psychographics as values
+  // and attitudes; plus what they buy or use today). The eval lexicon (classifySegment) still scores the same four dimensions.
+  const RULE = 'a role, plus at least two of industry, company size, place (consumers: age, life stage), values, attitudes, what they buy or use today.';
 
   it('the Customer Segments definition says it, once', () => {
     expect(seg.definition).toContain(RULE);
@@ -93,7 +95,7 @@ describe('Q1: the one module carries the rule into the prompt, the Copy prompt a
     expect(DRAFT_RULES).toContain(RULE);
     expect(CANVAS_OWN_AI_PROMPT).toContain(copyPromptSection(seg));
     expect(CANVAS_OWN_AI_PROMPT).toContain(RULE);
-    for (const b of BOX_DEFINITIONS.filter((x) => x.tag !== seg.tag)) expect(b.definition).not.toContain('psychographics');
+    for (const b of BOX_DEFINITIONS.filter((x) => x.tag !== seg.tag)) expect(b.definition).not.toContain('life stage');
   });
 });
 
