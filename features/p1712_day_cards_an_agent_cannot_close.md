@@ -62,10 +62,10 @@ Verified by command on 2026-11-19 unless marked otherwise.
 
 - An insight card states the read's date and age, never says "this week" or "first week it is raised" for an old read, and never asks whether a problem is "real".
 - The fixing prompt names one verdict command per insight, and that command removes the card.
-- A problem the agent confirmed and fixed stays hidden until it crosses a threshold or an expiry, like `day-evaluated --threshold/--expires`. `[FOUNDER DECISION: default threshold and expiry for a confirmed insight]`
+- A problem the agent confirmed and fixed stays hidden until it crosses a threshold or an expiry, like `day-evaluated --threshold/--expires`. Founder decision 2026-11-19: hidden for 30 days, or sooner if the count doubles.
 - A founder note replaced by a later pick before it was sent is carried with that pick.
 - An overdue monthly review that cannot run in this pass does not block an overdue weekly review: the weekly one runs.
-- The monthly review gets a way to run with the founder's ok, asked where the founder can answer. `[FOUNDER DECISION: ask at /day start (the dispatcher's announce point), or always in its own session]`
+- The monthly review gets a way to run with the founder's ok, asked where the founder can answer. Founder decision 2026-11-19: one yes/no at /day start, at the dispatcher's announce point.
 - A P-number-less infra commit is captured when a decision entry cites its short sha.
 
 ## Actual Behavior
@@ -91,7 +91,7 @@ The same three insight cards (Dead clicks `insight:5fdd9c986d80f6c7`, Rage click
 
 1. `insightIssue`: put the read date and age in `point_a`; drop "first week it is raised" when the read is older than the run; replace the obstacle wording; rebuild `next_step` at card time instead of showing the stored text.
 2. Leave insight fps out of `evaluatedFingerprints`, or make `day-evaluated.ts` refuse an `insight:` fp with a message naming `day-insight.ts`.
-3. Give a confirm the same threshold/expiry semantics as `day-evaluated` (founder decision on defaults).
+3. Give a confirm the same threshold/expiry semantics as `day-evaluated`: 30 days, or until the count doubles (founder, 2026-11-19).
 4. `carriedNotes`: when the latest option is a pick and an earlier note on the same target was never delivered, carry that note with the pick.
 5. Due Board: when the review chosen this pass cannot run, run the other overdue one. For the monthly fan-out, apply the founder's decision above.
 6. `day-kdd-capture.sh`: for a P-less commit, search the decisions logs for its short sha with a bounded pattern; add test cases for "cited sha captures" and "uncited sha stays uncaptured".
@@ -102,7 +102,7 @@ Rejected alternative, per P1673: sending insight text unfenced. Decisions grep r
 
 - [ ] On a run seven days after the newest read, the insight card shows the read's date and age and does not say "first week it is raised" or "real user problem" anywhere a founder sees it.
 - [ ] The fixing prompt for an insight card names exactly one verdict command, and running it removes the card on reload.
-- [ ] A confirmed insight does not return on the next read unless it crosses the decided threshold or expiry.
+- [ ] A confirmed insight does not return on the next read for 30 days unless its count doubles.
 - [ ] A note typed on a card, followed by a different pick the next day, reaches the next Start fixing.
 - [ ] With monthly and weekly both overdue and monthly unable to run in the pass, the weekly review runs and writes a new analytics read.
 - [ ] `scripts/day-kdd-capture.sh` reports a P-less commit as captured when a decision entry cites its short sha, and as uncaptured when none does (new test cases, plus a mutation of the real decisions file per epistemic gate 7d).
