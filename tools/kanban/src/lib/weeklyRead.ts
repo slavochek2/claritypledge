@@ -12,6 +12,8 @@ export const SECTION_KEYS = ['who', 'what', 'time', 'returns', 'explore', 'stuck
 export type SectionKey = (typeof SECTION_KEYS)[number]
 
 export const MAX_INSIGHTS = 3
+/** P1712, founder 2026-11-19: a confirmed insight stays hidden this many days, unless its count doubles first (analyticsStore confirmHides). */
+export const CONFIRM_HIDE_DAYS = 30
 /** No percentage and no shift test on a previous base below this. */
 export const MIN_BASE = 30
 export const NO_CHANGE = 'No change worth your attention.'
@@ -85,6 +87,8 @@ export interface LedgerEntry {
   decision: 'confirm' | 'dismiss'
   /** ISO time of the decision */
   at?: string
+  /** P1712: a confirm's count on the read it was made on (analyticsStore insightCount); a doubling brings the insight back */
+  count?: number
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/

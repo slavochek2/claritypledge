@@ -25,7 +25,7 @@ import { KANBAN_CONFIG } from '../config'
 import { ackWaitMs, collectionHash, dayClock, dayLauncher, launchWorkdir, sweepLaunchDirs, waitForAck, writePromptFile } from './dayLaunch'
 import { appendDecisionLines, parseLines, readDecisionsText, Refusal } from './dayStore'
 import { ledgerOf, markLine, resendLine } from './dayStories'
-import { analyticsDir, latestRead, latestReadFileDate, readLedger, recordInsightDecision, undecidedInsights } from './analyticsStore'
+import { analyticsDir, confirmHides, latestRead, latestReadFileDate, readLedger, recordInsightDecision, undecidedInsights } from './analyticsStore'
 import {
   buildPrompt,
   buildView,
@@ -174,7 +174,7 @@ function readDecisions(dir: string): { lines: DayDecision[]; badLines: number } 
 }
 
 /** P1673: the weekly insights still waiting for a decision, from the analytics dir (the rule lives in analyticsStore). */
-const undecidedInsightsNow = (): { insights: Insight[]; error: boolean } => {
+const undecidedInsightsNow = (): { insights: Insight[]; error: boolean; date?: string } => {
   try {
     return undecidedInsights(analyticsDir())
   } catch {
@@ -188,9 +188,10 @@ function latestReadable(dir: string): { id: string; report: DayReport; history: 
   const latest = list.runs[0]
   if (!latest) return { refused: 'No run to decide on' }
   if (latest.parsed.kind !== 'ok') return { refused: 'The latest run cannot be read' }
+  const weekly = undecidedInsightsNow()
   return {
     id: latest.id,
-    report: withInsights(latest.parsed.report, undecidedInsightsNow().insights, readSent(dir)),
+    report: withInsights(latest.parsed.report, weekly.insights, readSent(dir), weekly.date),
     history: traces(list.runs),
     statements: statementsByRun(reportsOf(list.runs)),
     reports: reportsOf(list.runs),
@@ -308,8 +309,8 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
       if (run.parsed.kind !== 'ok') return res.json({ id, isLatest, kind: 'unreadable' })
       const { lines, badLines } = readDecisions(dir)
       // P1673: the latest run also shows the undecided weekly insights; an earlier run shows none
-      const weekly = isLatest ? undecidedInsightsNow() : { insights: [], error: false }
-      const withWeekly = withInsights(run.parsed.report, weekly.insights, isLatest ? readSent(dir) : [])
+      const weekly = isLatest ? undecidedInsightsNow() : { insights: [], error: false, date: undefined }
+      const withWeekly = withInsights(run.parsed.report, weekly.insights, isLatest ? readSent(dir) : [], weekly.date)
       const view = buildView(withWeekly, lines, traces(list.runs))
       // An earlier run shows what was sent from it too (P1432); the bar's lastSentAt stays latest-only.
       const sent = sentForRun(dir, run.parsed.report)
@@ -402,8 +403,8 @@ export function registerDayRoutes(app: Express, now: () => Date = () => new Date
         status: read.status,
         read,
         dismissed: ledger.filter((e) => e.decision === 'dismiss').map((e) => e.key),
-        // Only a confirm of THIS read hides its card; a later repeat must still show, as a pattern.
-        confirmed: ledger.filter((e) => e.decision === 'confirm' && (e.at ?? '') >= read.date).map((e) => e.key),
+        // P1712: a confirm hides its card for 30 days or until its count doubles (the Day page's rule, confirmHides)
+        confirmed: ledger.filter((e) => confirmHides(e, read)).map((e) => e.key),
       })
     } catch {
       console.error('[kanban] GET /api/day/analytics failed')

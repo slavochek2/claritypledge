@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 353
 severity: high
@@ -10,8 +10,20 @@ exec_model: opus
 exec_effort: high
 tags: [day, kanban, insights, founder-input]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: fix
+pipeline_ran: [create-bug, reproduce, fix]
+date_resolved: 2026-11-19
+root_cause: "Items 1-5 and 7 as reproduced: the insight card printed the stored read's wording with no read date; the fixing prompt offered insight fps to day-evaluated, which cannot hide a server-added card; a confirm hid a key only until the next read; carriedNotes kept only the latest choice per card; day-kdd-capture.sh never searched for a P-less commit's sha. Item 6 (Due Board) is handled separately on main."
+resolution: "insightIssue dates each card from the read and its age, re-words the read's this-week text, and rebuilds the next step by insight kind; evaluatedFingerprints skips insights and day-evaluated.ts refuses an insight fp, naming day-insight.ts; a confirm records the read's count and hides the key for 30 days unless the count doubles (confirmHides, shared by the Day page and the analytics route); carriedNotes carries every undelivered note per card, each run's last choice counting, a Park withdrawing earlier notes, and the prompt prints one insight block per insight; day-kdd-capture.sh captures a P-less commit when a decision entry cites a 7+ character bounded prefix of its full sha, failing closed on a search error."
+reproduce_artifact:
+  test_file: [tools/kanban/server/__tests__/day-p1712-reproduce.test.ts, scripts/test-p1712-day-kdd-capture-sha.sh]
+  root_cause: "insightIssue prints the stored read's 'this week / first week it is raised / real user problem' text with no read date; evaluatedFingerprints offers insight fps that day-evaluated cannot clear; undecidedInsights lets a confirm hide a key only until the next read; carriedNotes drops an undelivered note once a later pick replaces it; day-kdd-capture.sh lists every P-less infra commit UNCAPTURED unconditionally"
+  confidence: high
+  surfaces_in_scope: [insight-card-text, fixing-prompt-verdict-list, insight-confirm-suppression, carried-notes, kdd-capture-p-less, due-board-prose]
+  surfaces_deferred: []
+  reproduced_at: 2026-11-19
+  fix_shape: decided
+  fix_shape_why: "decided per Fix Approach and the founder's 2026-11-19 decisions; item 6 has no executable canary (prose in day-cp.md plus the global dispatcher)"
 ---
 
 # P1712: Day cards an agent cannot close come back every day (insight cards, monthly review, KDD capture)
@@ -38,6 +50,11 @@ Verified by command on 2026-11-19 unless marked otherwise.
    - From 2026-11-20 monthly is always more overdue than weekly, so weekly is never picked. Weekly writes the analytics read (`/weekly` step 2.9.0), so the insight cards stay frozen on the 11-12 read.
    - Predicted from the selection rule; not yet observed on a run.
 7. **A P-number-less infra commit can never count as captured.** `scripts/day-kdd-capture.sh:76-78` lists any infra commit whose subject has no P-number as `UNCAPTURED`, unconditionally. No decision entry can capture it. Commit 4f0087f4c has an entry ("Preparation funnel events…", 2026-11-18) and was still reported on 11-19.
+
+**Reproduction, 2026-11-19 (/reproduce).** Canaries fail before the fix: items 1+2, 3, 4 and 5 in `tools/kanban/server/__tests__/day-p1712-reproduce.test.ts`, item 7 in `scripts/test-p1712-day-kdd-capture-sha.sh`. Item 6 has no canary: the Due Board choice is prose in `day-cp.md` and the global dispatcher, with no executable selection logic in this repo. Found while reproducing:
+- The real 2026-11-18 entry for 4f0087f4c cites P1709 and P1708, never the sha (`grep 4f0087f docs/decisions.md` finds nothing). The sha rule alone will not clear the live `UNCAPTURED 4f0087f4c`: the fix must also add the sha to that entry. Decide too whether a 7-character citation matches git's 9-character short sha.
+- The `unansweredNotes` half of item 5 is a documented rule (`day-notes.ts` header: a replaced note "is no longer the founder's question"). It covers delivered notes only, so it is not the 11-16..19 symptom. No canary was written for it.
+- Existing tests assert the current behaviour and must change with the fix: `day-p1673-insights.test.ts` (point_a "first week it is raised", obstacle "real user problem"), `day-p1707-notes.test.ts` (`→ --fp ${fp}` in the evaluated list, and the `answeredToday` case expecting a replaced note not to be carried).
 
 ## Invariants
 
@@ -100,10 +117,10 @@ Rejected alternative, per P1673: sending insight text unfenced. Decisions grep r
 
 ## Acceptance Criteria
 
-- [ ] On a run seven days after the newest read, the insight card shows the read's date and age and does not say "first week it is raised" or "real user problem" anywhere a founder sees it.
-- [ ] The fixing prompt for an insight card names exactly one verdict command, and running it removes the card on reload.
-- [ ] A confirmed insight does not return on the next read for 30 days unless its count doubles.
-- [ ] A note typed on a card, followed by a different pick the next day, reaches the next Start fixing.
-- [ ] With monthly and weekly both overdue and monthly unable to run in the pass, the weekly review runs and writes a new analytics read.
-- [ ] `scripts/day-kdd-capture.sh` reports a P-less commit as captured when a decision entry cites its short sha, and as uncaptured when none does (new test cases, plus a mutation of the real decisions file per epistemic gate 7d).
-- [ ] Existing day-page and kanban tests pass.
+- [x] On a run seven days after the newest read, the insight card shows the read's date and age and does not say "first week it is raised" or "real user problem" anywhere a founder sees it.
+- [x] The fixing prompt for an insight card names exactly one verdict command, and running it removes the card on reload.
+- [x] A confirmed insight does not return on the next read for 30 days unless its count doubles.
+- [x] A note typed on a card, followed by a different pick the next day, reaches the next Start fixing. When several notes on one card were never delivered (the real case: 11-16, 11-17, 11-18), all of them reach it, not only the newest.
+- [ ] [post-deploy] With monthly and weekly both overdue and monthly unable to run in the pass, the weekly review runs and writes a new analytics read. (Item 6 is prose in day-cp.md and the global dispatcher, committed on main as ffb952906 and ~/.claude 83ff7d7; there is no executable selection logic to test, so this is verified on the next /day run with both reviews overdue.)
+- [x] `scripts/day-kdd-capture.sh` reports a P-less commit as captured when a decision entry cites its short sha, and as uncaptured when none does (new test cases, plus a mutation of the real decisions file per epistemic gate 7d).
+- [x] Existing day-page and kanban tests pass. (Kanban vitest 48 files / 915 tests; P1647 KDD test 59/0. Two day-page e2e tests fail identically on clean main ffb952906 without this change, a P1707 regression filed as INBOX-382.)

@@ -60,11 +60,15 @@ describe('P1673 insight cards in the view', () => {
     expect(c.fp).toMatch(/^[A-Za-z0-9._:-]{1,100}$/) // the decision route's fingerprint rule
     expect(c.title).toBe(`Obs ${SHIFT}`)
     expect(c.point_a).toBe('102 dead clicks, first week it is raised')
-    expect(c.obstacle).toContain('Not yet known whether this is a real user problem')
+    // P1712: the obstacle never asks whether it is "a real user problem" (the founder rejected that judgement)
+    expect(c.obstacle).toContain('What is behind this number is not known yet')
+    expect(c.obstacle).not.toMatch(/real user problem/i)
     expect(c.obstacle).toContain('medium')
     // P1707: Point B is the outcome; the read's own next step (which asks to "decide") moved to More info
     expect(c.point_b).not.toMatch(/decide/i)
-    expect(c.more_info).toContain('Suggested next step: Open the linked replay or report and decide whether it is a real user problem')
+    // P1712: the next step is rebuilt from the insight's kind, never the stored text that asked to "decide whether it is a real user problem"
+    expect(c.more_info).toContain('Suggested next step: Check the four-week context before reading a cause into one week.')
+    expect(c.more_info).not.toMatch(/real user problem/i)
     expect(c.more_info).toContain('Base: base 40 sessions')
     expect(c.more_info).toContain('Comparison: vs 12 last week')
     expect(c.more_info).toContain('Confidence: medium')
@@ -78,9 +82,10 @@ describe('P1673 insight cards in the view', () => {
     expect(c.insight_link).toBe('https://eu.mixpanel.com/p/AAA111')
   })
 
-  it('the insight own next step is kept (More info, P1707), whatever its type; the repeat pattern is in More info', () => {
+  it('the next step is rebuilt by the insight kind, never the stored text (P1712); the repeat pattern is in More info', () => {
     const c = insightIssue(insight('failure:k', { next_step: 'Look at the failing step', seen_count: 3, pattern: true }))
-    expect(c.more_info).toContain('Suggested next step: Look at the failing step')
+    expect(c.more_info).toContain('Suggested next step: Open the linked replay or report, see what users ran into, and fix the cause if users are hurt.')
+    expect(c.more_info).not.toContain('Look at the failing step')
     expect(c.more_info).toContain('Pattern: seen 3 times before')
     expect(c.point_a).toContain('raised 3 times before')
     expect(insightIssue(insight('failure:k2')).more_info).not.toContain('Pattern')

@@ -186,8 +186,10 @@ describe('P1707 AC1 + AC3: a note on an insight reaches the agent, with the anal
     const p = buildPrompt(report(), v, new Set(), undefined, { ledger: [], cli: 's', evaluatedCli: 'ev', insightCli: 'insight-cli' })
     expect(p).toContain(`«${HOSTILE} (a)»`)
     expect(outsideFences(p)).not.toContain(HOSTILE)
-    // the evaluated fingerprint list names the insight by its fenced title, never raw
-    expect(p).toContain(`→ --fp ${fp}`)
+    // P1712: the insight's one verdict command is day-insight; the day-evaluated list never offers its fp
+    expect(p).toContain(`insight-cli --fp ${fp} --decision confirm|dismiss`)
+    const recordList = p.includes('Fingerprints to record') ? p.slice(p.indexOf('Fingerprints to record')) : ''
+    expect(recordList).not.toContain(fp)
   })
 
   it('a note typed on an insight but not yet saved counts on the Start fixing button', () => {
@@ -244,14 +246,14 @@ describe('P1707 AC4 + AC5: notes of a run that was never sent carry forward', ()
     expect(carriedNotes([earlyNote], today(), [{ ...launch(sentKey.option('credits:baseline', 'own', 'Balance was 412 when I looked')), state: 'failed' }], [earlier(), today()])).toHaveLength(1)
   })
 
-  it('the 2026-10-12 shape: a note replaced by a later choice on the same card is not carried', () => {
+  it('the 2026-10-12 shape: a note withdrawn on its own run (Park, or cleared) is not carried; a later pick no longer withdraws it (P1712)', () => {
     const replaced = [earlyNote, opt('credits:baseline', PARK, EARLIER, '2026-10-03T06:05:00Z')]
     expect(carriedNotes(replaced, today(), [], [earlier(), today()])).toHaveLength(0)
     const removed = [earlyNote, { ...opt('credits:baseline', 'own', EARLIER, '2026-10-03T06:05:00Z'), option_id: undefined, remove: true }]
     expect(carriedNotes(removed, today(), [], [earlier(), today()])).toHaveLength(0)
-    // a choice on today's run replaces it too: today's answer is what goes
+    // P1712 reverses this case: a pick on today's run no longer drops an earlier note no launch sent; it goes with the pick
     const answeredToday = [earlyNote, opt('credits:baseline', 'read')]
-    expect(carriedNotes(answeredToday, today(), [], [earlier(), today()])).toHaveLength(0)
+    expect(carriedNotes(answeredToday, today(), [], [earlier(), today()]).map((n) => n.text)).toEqual(['Balance was 412 when I looked'])
   })
 
   it('today\'s own notes are never "carried": they go through the normal path once', () => {

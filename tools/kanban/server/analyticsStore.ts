@@ -9,7 +9,7 @@
 import { appendFileSync, chmodSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
-import type { Insight, LedgerEntry, StoredRead } from '../scripts/analytics-gate'
+import { CONFIRM_HIDE_DAYS, type Insight, type LedgerEntry, type StoredRead } from '../scripts/analytics-gate'
 import { acquireLock, releaseLock } from './dayStore'
 
 export const analyticsDir = (): string => process.env.KANBAN_ANALYTICS_DIR?.trim() || join(homedir(), '.claude-analytics')
@@ -99,31 +99,70 @@ export function readLedgerStrict(dir: string): LedgerEntry[] {
   }
 }
 
-export function appendLedger(dir: string, key: string, decision: 'confirm' | 'dismiss', at: Date): void {
+/** `count`: the insight's count on the read it was confirmed on (insightCount), when that read has one (P1712). */
+export function appendLedger(dir: string, key: string, decision: 'confirm' | 'dismiss', at: Date, count?: number): void {
   ensureDirs(dir)
-  appendFileSync(join(dir, 'ledger.jsonl'), JSON.stringify({ key, decision, at: at.toISOString() }) + '\n', { mode: 0o600 })
+  appendFileSync(join(dir, 'ledger.jsonl'), JSON.stringify({ key, decision, at: at.toISOString(), ...(count !== undefined ? { count } : {}) }) + '\n', { mode: 0o600 })
   chmodSync(join(dir, 'ledger.jsonl'), 0o600)
+}
+
+const DAY_MS = 24 * 3_600_000
+
+/**
+ * P1712: the number a confirm is compared against, from the read's structured data, never from its
+ * display text: a failure's weekly count (`failures[].count`), or a 7-day shift's current value (its
+ * section row's `current`). A first, or a read that does not carry the row, has none (undefined): only
+ * the 30 days then bring the insight back.
+ */
+export function insightCount(read: StoredRead, key: string): number | undefined {
+  const ok = (n: unknown): number | undefined => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? n : undefined)
+  if (key.startsWith('failure:')) return ok(read.failures?.find((f) => `failure:${f.key}` === key)?.count)
+  const shift = /^shift:([^:]+):(.*):(up|down)$/.exec(key)
+  if (shift) {
+    const section = (read.sections as Record<string, { rows?: { label: string; current: number | null }[] }> | undefined)?.[shift[1]]
+    return ok(section?.rows?.find((r) => r.label === shift[2])?.current)
+  }
+  return undefined
+}
+
+/**
+ * P1712: does this confirm still hide its insight on `read`? For CONFIRM_HIDE_DAYS from the confirm
+ * (measured to the read's day, so the answer depends on the read, never on today's clock), unless the
+ * read's count is at least double the count recorded at the confirm. A confirm with no recorded count,
+ * or a read with none, only expires. Before P1712 a confirm hid only the read it was made on, so a
+ * problem confirmed and fixed came back with the next read (dead clicks never reach zero).
+ */
+export function confirmHides(e: LedgerEntry, read: StoredRead): boolean {
+  if (e.decision !== 'confirm') return false
+  const at = Date.parse(e.at ?? '')
+  const readDay = Date.parse(`${read.date}T00:00:00Z`)
+  if (!Number.isFinite(at) || !Number.isFinite(readDay)) return (e.at ?? '') >= read.date // the pre-P1712 rule for an undated entry
+  if (readDay - at >= CONFIRM_HIDE_DAYS * DAY_MS) return false
+  const then = typeof e.count === 'number' && e.count > 0 ? e.count : undefined
+  const now = insightCount(read, e.key)
+  return !(then !== undefined && now !== undefined && now >= 2 * then)
 }
 
 /**
  * P1673: the weekly insights still waiting for a decision. `error` is a read that could not be
  * loaded, never the same as having nothing to decide. A read that was not collected raises no card:
- * /day's own cp.analytics check reports that. A dismiss hides its key for good; a confirm hides only
- * the card of the read it was made on.
+ * /day's own cp.analytics check reports that. A dismiss hides its key for good; a confirm hides it
+ * for 30 days or until its count doubles (P1712, confirmHides).
  * P1707: shared by the Day page server and the fixing agent's verdict CLI (scripts/day-insight.ts),
  * so both refuse the same second decision.
+ * P1712: `date` is the read's ISO day, for the card's "weekly read of <date>, N days old".
  */
-export function undecidedInsights(dir: string): { insights: Insight[]; error: boolean } {
+export function undecidedInsights(dir: string): { insights: Insight[]; error: boolean; date?: string } {
   try {
     const good = latestRead(dir)
     if (!good || good.status !== 'collected' || latestReadFileDate(dir) !== good.date) return { insights: [], error: false }
     const decided = new Set(
       // an unreadable ledger throws here: a failed load, never "nothing" and never a dismissed card again
       readLedgerStrict(dir)
-        .filter((e) => e.decision === 'dismiss' || (e.decision === 'confirm' && (e.at ?? '') >= good.date))
+        .filter((e) => e.decision === 'dismiss' || confirmHides(e, good))
         .map((e) => e.key),
     )
-    return { insights: good.insights.filter((i) => !decided.has(i.key)), error: false }
+    return { insights: good.insights.filter((i) => !decided.has(i.key)), error: false, date: good.date }
   } catch {
     return { insights: [], error: true }
   }
@@ -145,7 +184,9 @@ export async function recordInsightDecision(dir: string, key: string, decision: 
     const open = undecidedInsights(dir)
     if (open.error) return 'unreadable'
     if (!open.insights.some((i) => i.key === key)) return 'not-undecided'
-    appendLedger(dir, key, decision, at)
+    // P1712: a confirm records the count it was made at, so a doubling can bring the insight back
+    const read = decision === 'confirm' ? latestRead(dir) : null
+    appendLedger(dir, key, decision, at, read ? insightCount(read, key) : undefined)
     return 'recorded'
   } finally {
     releaseLock(lock, owner)

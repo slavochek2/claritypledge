@@ -5,7 +5,8 @@
 //       --expires YYYY-MM-DD [--threshold N] [--note "..."] [--dir <day dir>]
 //       writes one `evaluated` line. Several --fp = one cause behind several fault keys.
 //       Refused (exit 1, one line on stderr): empty cause, no/past expiry, expiry over 90 days away,
-//       a malformed fingerprint, or a `check:` fingerprint (the "check did not report" cards).
+//       a malformed fingerprint, a `check:` fingerprint (the "check did not report" cards), or an
+//       `insight:` fingerprint (a weekly insight: its verdict goes through scripts/day-insight.ts, P1712).
 //   npx tsx scripts/day-evaluated.ts --list [--dir <day dir>]
 //       the records on file: id, verdict, expiry, fingerprints.
 //
@@ -17,7 +18,7 @@ import { statSync } from 'fs'
 import { homedir } from 'os'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
-import { EVALUATED_VERDICTS, FP, MAX_EVALUATED_FPS, parseEvaluated, validDay, type EvaluatedVerdict } from '../src/lib/day'
+import { EVALUATED_VERDICTS, FP, INSIGHT_FP, MAX_EVALUATED_FPS, parseEvaluated, validDay, type EvaluatedVerdict } from '../src/lib/day'
 import { appendDecisionLines, readDecisionsText } from '../server/dayStore'
 
 export interface IO { out: (s: string) => void; err: (s: string) => void }
@@ -74,6 +75,8 @@ export async function run(argv: string[], io: IO, env: NodeJS.ProcessEnv = proce
   if (!a.fps.length) return refuse('no --fp given')
   for (const fp of a.fps) {
     if (fp.startsWith('check:')) return refuse('a check: fingerprint is the "check did not report" card and cannot be recorded')
+    // P1712: an insight card is added by the server, never in the report, so a record here would never hide it
+    if (fp.startsWith(INSIGHT_FP)) return refuse(`${fp} is a weekly insight: record its verdict with scripts/day-insight.ts --fp ${fp} --decision confirm|dismiss`)
     if (!FP.test(fp)) return refuse('a --fp is not a valid fingerprint')
   }
   const cause = (a.v['--cause'] ?? '').replace(/\s+/g, ' ').trim()

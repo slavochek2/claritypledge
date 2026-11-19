@@ -138,6 +138,59 @@ run "$R4" "$TMP/dir with space/search stub.sh"
 has "spaced path used" "$OUT" "CAPTURED p1001"
 [ "$RC" -eq 0 ] && ok "exit 0 with a spaced path" || no "exit $RC"
 
+# hasline: a whole output line starts with the string ("CAPTURED x" never matches inside "UNCAPTURED x")
+hasline() { if printf '%s\n' "$2" | awk -v w="$3" 'index($0, w) == 1 { f = 1 } END { exit !f }'; then ok "$1"; else no "$1 (no line starting: $3)"; printf '%s\n' "$2" | sed 's/^/    /'; fi; }
+
+echo "== P1712: a P-less commit is captured by a decision entry citing a prefix of its sha (7+ chars) =="
+R9="$(mkrepo shas scripts/s.sh="chore: P-less infra commit")"
+git -C "$R9" config core.abbrev 9
+SHORT9="$(git -C "$R9" log --format=%h -1)"; FULL="$(git -C "$R9" log --format=%H -1)"
+SHA7="${FULL:0:7}"
+[ "${#SHORT9}" -eq 9 ] && ok "git prints a 9-character short sha here" || no "short sha is ${#SHORT9} characters"
+dec "**Commit:** $SHA7 (the 7-character form)"
+run "$R9"
+hasline "a 7-character citation captures the 9-character short sha" "$OUT" "CAPTURED $SHORT9"
+has "nothing uncaptured" "$OUT" "KDD-STATUS ok"
+dec "Commit $FULL, full sha"
+run "$R9"
+hasline "a full-sha citation captures" "$OUT" "CAPTURED $SHORT9"
+dec "Commits: ${SHORT9}." 
+run "$R9"
+hasline "a 9-character citation with trailing punctuation captures" "$OUT" "CAPTURED $SHORT9"
+
+echo "== P1712: what does NOT capture a P-less commit =="
+# the 8th character changed: a token that shares 7 characters with this sha but names another commit
+c8="${FULL:7:1}"; case "$c8" in 0) o8=1 ;; *) o8=0 ;; esac
+dec "Commit ${SHA7}${o8}ff, another commit"
+run "$R9"
+has "a token sharing only the first 7 characters stays UNCAPTURED" "$OUT" "UNCAPTURED $SHORT9"
+dec "Commit ${FULL:0:6} only"
+run "$R9"
+has "a 6-character citation is too short" "$OUT" "UNCAPTURED $SHORT9"
+dec "token x${SHA7} and ${SHA7}zz"
+run "$R9"
+has "a sha inside a longer word is not a citation (bounded)" "$OUT" "UNCAPTURED $SHORT9"
+dec "**Commit:** $SHA7"
+OUT="$(STUB_FAIL=1 "$S" --since 2000-01-01T00:00:00Z --repo "$R9" --decisions-cmd "$STUB" 2>&1)"; RC=$?
+[ "$RC" -eq 2 ] && ok "a failed search on a P-less commit is exit 2, never captured" || no "failed search exit $RC"
+hasnt "a failed search prints no CAPTURED" "$OUT" "CAPTURED $SHORT9"
+
+echo "== P1712 gate 7d: the check fires on a mutation of the REAL decisions file =="
+REAL="$(cd "$(dirname "$0")/.." && pwd)/docs/decisions.md"
+if [ -s "$REAL" ]; then
+  cp "$REAL" "$TMP/real.md"; export DEC_FILE="$TMP/real.md"
+  run "$R9"
+  has "the real file, unmutated, does not capture this sha" "$OUT" "UNCAPTURED $SHORT9"
+  printf '\n## 2099-01-01 [technical]: a test entry\n\n**References:** commit %s\n' "$SHA7" >> "$TMP/real.md"
+  run "$R9"
+  hasline "the real file plus one citing entry captures it" "$OUT" "CAPTURED $SHORT9"
+  grep -v "commit $SHA7" "$TMP/real.md" > "$TMP/real2.md"; export DEC_FILE="$TMP/real2.md"
+  run "$R9"
+  has "deleting that entry's citation makes it uncaptured again" "$OUT" "UNCAPTURED $SHORT9"
+else
+  no "docs/decisions.md not found for the gate 7d control"
+fi
+
 echo "== usage errors =="
 "$S" >/dev/null 2>&1; [ $? -eq 2 ] && ok "missing --since is exit 2" || no "missing --since"
 "$S" --since 2000-01-01 --repo "$TMP/nonexistent" >/dev/null 2>&1; [ $? -eq 2 ] && ok "bad repo is exit 2" || no "bad repo"

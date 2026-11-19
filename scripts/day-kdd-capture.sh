@@ -7,15 +7,23 @@
 # .mcp.json, mcp-*.json, .claude/rules/, CLAUDE.md, scripts/, docs/technical/).
 # P-numbers are taken from the commit subject: a standalone token P plus 3 to 5 digits (so "http2" and
 # "step1" never count). A commit is captured when ANY of its P-numbers has a decision entry (spec
-# Solution 4). A commit naming no P-number is uncaptured, listed by short sha.
+# Solution 4).
+# P1712: a commit naming no P-number is captured when a decision entry cites its sha, and listed by
+# short sha otherwise. Sha rule: an entry cites the commit when it holds a hex token of at least 7
+# characters, bounded on both sides by a non-alphanumeric character or the line's edge, that is a
+# PREFIX of the commit's full sha (case-insensitive). So a 7-character citation matches the
+# 9-character short sha git prints in a large repo, a longer or full sha matches too, and a token that
+# shares the first 7 characters but then differs (another commit) does not. 7 is git's default
+# minimum abbreviation; a shorter token is too ambiguous to count.
 #
 # The decisions command is an executable path (never shell-split, so a path with spaces works), run as:
 #   <cmd> '<bounded ERE for Pnnnn>' 1      default: scripts/search-decisions.sh in the repo
+#   <cmd> '<bounded ERE for a sha>' 20     (P1712: candidates; each hit is then checked against the full sha)
 # Its contract: exit 0 = the search completed; a line other than the "PRIVATE LOG:" status line means a
 # hit. Any other exit = the search failed and this script exits 2: a failed search is never "captured".
 #
 # Output (no pipe or angle-bracket characters), one line per distinct item:
-#   CAPTURED <pN>
+#   CAPTURED <pN or sha>
 #   UNCAPTURED <pN or sha> <subject>
 #   KDD-STATUS ok | KDD-STATUS uncaptured <count of distinct uncaptured items>
 # Exit 0 when it ran, 2 on error (including an invalid --since: it fails closed).
@@ -44,8 +52,8 @@ git -C "$REPO" rev-parse --git-dir >/dev/null 2>&1 </dev/null || { echo "day-kdd
 [ -n "$DCMD" ] || DCMD="$REPO/scripts/search-decisions.sh"
 [ -x "$DCMD" ] || { echo "day-kdd-capture: decisions command is not executable: $DCMD" >&2; exit 2; }
 
-# One record per commit: short sha, tab, subject.
-COMMITS="$(cd "$REPO" && git log --since="$SINCE" --format='%h%x09%s' -- \
+# One record per commit: short sha, tab, full sha, tab, subject.
+COMMITS="$(cd "$REPO" && git log --since="$SINCE" --format='%h%x09%H%x09%s' -- \
   supabase/migrations/ ':(glob).env*' ':(glob)**/.env*' .mcp.json ':(glob)mcp-*.json' \
   .claude/rules/ CLAUDE.md scripts/ docs/technical/ </dev/null)" || { echo "day-kdd-capture: git log failed" >&2; exit 2; }
 
@@ -65,16 +73,43 @@ decision_hit() {
   return "$rc"
 }
 
+# sha_hit <full sha>: 0 cited, 1 not, 2 search failed (P1712). The ERE finds candidate lines holding a
+# bounded hex token that starts with the sha's first 7 characters; perl then keeps a hit only when one
+# such token is a prefix of the full sha (the sha rule in the header).
+sha_hit() {
+  local full sha7 pattern out rc
+  full="$(printf '%s' "$1" | tr 'A-F' 'a-f')"
+  sha7="${full:0:7}"
+  printf '%s' "$sha7" | grep -Eq '^[0-9a-f]{7}$' || return 2
+  pattern="(^|[^0-9A-Za-z])${sha7}[0-9a-fA-F]*([^0-9A-Za-z]|\$)"
+  out="$(cd "$REPO" && "$DCMD" "$pattern" 20 </dev/null 2>/dev/null)"; rc=$?
+  [ "$rc" -eq 0 ] || return 2
+  printf '%s\n' "$out" | grep -v '^PRIVATE LOG:' | perl -e '
+    my $full = $ARGV[0]; my $hit = 0;
+    while (my $l = <STDIN>) {
+      while ($l =~ /(?<![0-9A-Za-z])([0-9A-Fa-f]{7,40})(?![0-9A-Za-z])/g) { $hit = 1 if index($full, lc $1) == 0 }
+    }
+    exit($hit ? 0 : 1)' "$full"
+  case $? in 0) return 0 ;; 1) return 1 ;; *) return 2 ;; esac
+}
+
 declare -a out_lines seen_items
 uncaptured=0
 seen() { local x; for x in "${seen_items[@]}"; do [ "$x" = "$1" ] && return 0; done; return 1; }
 
-while IFS="$(printf '\t')" read -r sha subject; do
+while IFS="$(printf '\t')" read -r sha full subject; do
   [ -n "$sha" ] || continue
   clean_subject="$(printf '%s' "$subject" | tr -d '|<>')"
   pnums="$(perl -e 'while ($ARGV[0] =~ /(?<![A-Za-z0-9])[Pp]([0-9]{3,5})(?![0-9A-Za-z])/g) { print "p$1\n" }' "$subject" </dev/null 2>/dev/null | sort -u)"
   if [ -z "$pnums" ]; then
-    seen "$sha" || { seen_items+=("$sha"); out_lines+=("UNCAPTURED $sha $clean_subject"); uncaptured=$((uncaptured+1)); }
+    seen "$sha" && continue
+    seen_items+=("$sha")
+    sha_hit "$full"; r=$?
+    case "$r" in
+      0) out_lines+=("CAPTURED $sha") ;;
+      1) out_lines+=("UNCAPTURED $sha $clean_subject"); uncaptured=$((uncaptured+1)) ;;
+      *) echo "day-kdd-capture: decisions search failed for $sha; refusing to guess" >&2; exit 2 ;;
+    esac
     continue
   fi
   hits=""; misses=""

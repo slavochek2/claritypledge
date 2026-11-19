@@ -85,7 +85,10 @@ test('report: an undecided insight is a normal finding card, listed first and ta
   await expect(card).toContainText('Weekly insight')
   await expect(card).toContainText('magic link error')
   await expect(card).toContainText('Point A')
-  await expect(card).toContainText('4 this week')
+  // P1712: the read's "this week" is re-worded against its date, which the card shows with its age
+  await expect(card).toContainText('4 that week')
+  await expect(card).toContainText('weekly read of 2026-11-06')
+  await expect(card).not.toContainText('this week')
   await expect(card).toContainText('Point B')
   // P1707: the founder is never asked whether it is real; the agent looks into it
   await expect(card).toContainText("Look into it and fix it if it's real")
@@ -97,9 +100,10 @@ test('report: an undecided insight is a normal finding card, listed first and ta
   // one card style on the page: the old block is gone, and the insight is the first card
   await expect(page.locator('[data-insights]')).toHaveCount(0)
   await expect(page.locator('article[data-issue]').first()).toHaveAttribute('data-issue', /^insight:/)
-  // More info carries the numbers, the read's own next step and the link
+  // More info carries the numbers, a next step and the link. P1712: the next step is rebuilt by the
+  // insight's kind, never the read's stored text (older reads asked to "decide whether it is real")
   await card.getByRole('button', { name: /More info/ }).click()
-  await expect(card).toContainText('Suggested next step: Open the linked report.')
+  await expect(card).toContainText('Suggested next step: Open the linked replay or report, see what users ran into, and fix the cause if users are hurt.')
   await expect(card).toContainText('Base: no earlier weekly read carried this failure')
   await expect(card).toContainText('Confidence: medium')
   await expect(card.getByRole('link', { name: 'Open the link' })).toHaveAttribute('href', 'https://eu.mixpanel.com/project/1')
