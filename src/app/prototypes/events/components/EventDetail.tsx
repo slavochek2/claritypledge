@@ -436,7 +436,10 @@ export function EventDetail() {
   const asksBeforeSeat = eventAsksBeforeSeatSync(event); // P1675 R18: an optional hike is one tap, like Clarity Night
   const asksMastermind = registrationKind === 'mastermind';
   const hikeMinutes = hikeStatedMinutes(event, registrationKind === 'hike');
-  const myArrival = useMyRegistrationArrival(event, user?.id);
+  // F6: for a hike only a registered viewer has an answers row to read (hosts and unregistered viewers have none).
+  const myArrival = useMyRegistrationArrival(event, user?.id, registrationKind !== 'hike' || isRsvpd);
+  // R19: a hike's meeting-point people start 15 minutes early, so no calendar link with a guessed start while the answer is read.
+  const calendarHeld = registrationKind === 'hike' && myArrival === undefined;
   // P1586: nothing of the page is drawn yet, so the one page loader.
   const showRefusal = (refusal: 'full' | 'cancelled') => {
     setEvent(e => (e ? (refusal === 'full' ? { ...e, attendeeCount: e.maxAttendees ?? e.attendeeCount } : { ...e, status: 'cancelled' }) : e));
@@ -475,7 +478,7 @@ export function EventDetail() {
     },
     event: event ? { id: event.id, slug: event.slug } : null,
     userId: user?.id,
-    onRegistered: () => { setIsRsvpd(true); navigate(`/events/${slug}/confirm`, { state: { fromEvent: true } }); },
+    onRegistered: now => { setIsRsvpd(true); navigate(`/events/${slug}/${now ? 'prepare' : 'confirm'}`, { state: { fromEvent: true } }); },
     onRefused: showRefusal,
     onSessionLost: () => { if (event) signInAgain(event.slug); },
     hikeAsks: hikeAsksOf(event), // P1675 R18 (the preset's asks)
@@ -1047,7 +1050,8 @@ export function EventDetail() {
                   never useful — the export's DTEND is already in the past. On the 12h flag a
                   30-minute event kept offering it for 11.5h after it ended. This is the one
                   place the widened window bought nothing, so it does not get it. */}
-              {!hasEnded && !isCancelled && !locationGated && (
+              {/* R19: a hike's meeting-point people start 15 minutes early; no link with a guessed start while the answer is read. */}
+              {!hasEnded && !isCancelled && !locationGated && (calendarHeld ? null : (
                 <div className="relative mb-6" ref={calendarMenuRef}>
                   <Button
                     variant="outline"
@@ -1122,7 +1126,7 @@ export function EventDetail() {
                     </div>
                   )}
                 </div>
-              )}
+              ))}
 
               {/* P844: Desktop RSVP — above the description, above the fold, in the natural reading flow.
                   P1365 repeats it after a description taller than the viewport (below).
@@ -1469,6 +1473,7 @@ export function EventDetail() {
           mode={isFull && !isRsvpd ? 'waitlist' : 'register'}
           signedIn={isLoggedIn}
           initial={registration.prefill}
+          initialPrep={registration.prefillPrep}
           onCancel={registration.cancel}
           onSubmit={registration.submit}
         />

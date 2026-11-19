@@ -287,7 +287,7 @@ describe('P1529 D24: the page for a flow that asks', () => {
   });
   const fill = () => {
     fireEvent.click(screen.getByTestId('join-improve'));
-    fireEvent.click(screen.getByTestId('prep-home'));
+    fireEvent.click(screen.getByTestId('prep-later'));
     fireEvent.click(screen.getByLabelText('USB-C'));
     fireEvent.click(screen.getByTestId('recording-accept'));
   };

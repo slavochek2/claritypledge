@@ -185,7 +185,7 @@ describe('waiting-list refusal', () => {
     await screen.findAllByTestId('rsvp-button');
     fireEvent.click(screen.getAllByTestId('rsvp-button')[0]);
     fireEvent.click(await screen.findByTestId('join-improve'));
-    fireEvent.click(await screen.findByTestId('prep-home'));
+    fireEvent.click(await screen.findByTestId('prep-later')); // canvas at the event (the default): home is "later", offered a week out
     fireEvent.click(screen.getByTestId('recording-accept'));
     const radios = screen.getAllByRole('radio');
     fireEvent.click(radios[radios.length - 1]);

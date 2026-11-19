@@ -22,6 +22,8 @@ const ctl = vi.hoisted(() => ({
   membership: (() => new Promise(() => {})) as (orgId: string) => Promise<unknown>,
   orgById: (() => new Promise(() => {})) as (orgId: string) => Promise<unknown>,
   chatOpened: (() => new Promise(() => {})) as () => Promise<unknown>,
+  // P1675 R19: the registered block reads a hiker's own "when" answer before it offers the calendar link.
+  hikeWhen: (() => new Promise(() => {})) as () => Promise<unknown>,
   calls: { organizer: 0, organizerThrow: 0, orgById: 0, membership: 0, proof: 0, prep: 0, points: 0 },
 }));
 
@@ -48,6 +50,7 @@ vi.mock('@/app/data/events-service', () => ({
 vi.mock('@/app/data/organizations-service', () => ({
   organizationsService: { getMyMembership: (orgId: string) => { ctl.calls.membership += 1; return ctl.membership(orgId); } },
 }));
+vi.mock('@/app/data/my-hike-when', () => ({ getMyHikeWhen: () => ctl.hikeWhen() }));
 vi.mock('@/app/data/group-chat-opens-service', () => ({
   readGroupChatOpenedOnServer: () => ctl.chatOpened(),
   markGroupChatOpenedOnServer: () => Promise.resolve({ ok: true, refused: false }),
@@ -75,6 +78,7 @@ beforeEach(() => {
   ctl.membership = () => never();
   ctl.orgById = () => never();
   ctl.chatOpened = () => never();
+  ctl.hikeWhen = () => never();
   ctl.calls = { organizer: 0, organizerThrow: 0, orgById: 0, membership: 0, proof: 0, prep: 0, points: 0 };
   setVisibility('visible');
 });
@@ -170,8 +174,18 @@ describe('5: a timed-out card keeps what it displayed', () => {
 });
 
 describe('6: the WhatsApp place is decided per event', () => {
-  it('Gemini (P1595): while the chat place is only held, the dot before it is invisible too — never two dots around a gap', () => {
+  // The hiker answered "now" or "later" (no answers row reads as null too): the calendar link is offered at the start.
+  beforeEach(() => { ctl.hikeWhen = () => Promise.resolve(null); });
+  it('P1675 R19: while the hiker\'s answer is read (no calendar yet) and the chat place is only held, no visible dot sits beside the gap', () => {
+    ctl.hikeWhen = () => never();
     render(<MemoryRouter><RegisteredBlock event={hike('event-a')} groupChatUrl={null} viewerId="user-id-1234" /></MemoryRouter>);
+    const dots = [...screen.getByTestId('registered-links').querySelectorAll('span[aria-hidden="true"]')].filter((d) => d.textContent === '·');
+    expect(dots.filter((d) => !d.className.split(' ').includes('invisible'))).toHaveLength(0);
+    expect(screen.getByTestId('registered-share')).toBeTruthy();
+  });
+  it('Gemini (P1595): while the chat place is only held, the dot before it is invisible too — never two dots around a gap', async () => {
+    render(<MemoryRouter><RegisteredBlock event={hike('event-a')} groupChatUrl={null} viewerId="user-id-1234" /></MemoryRouter>);
+    await screen.findByTestId('add-to-calendar-link');
     const dots = [...screen.getByTestId('registered-links').querySelectorAll('span[aria-hidden="true"]')].filter((d) => d.textContent === '·');
     expect(dots).toHaveLength(2);
     expect(dots.filter((d) => !d.className.split(' ').includes('invisible'))).toHaveLength(1); // only "· Share"
@@ -180,6 +194,7 @@ describe('6: the WhatsApp place is decided per event', () => {
     ctl.chatOpened = () => Promise.resolve({ ok: true, opened: false });
     render(<MemoryRouter><RegisteredBlock event={hike('event-a')} groupChatUrl="https://chat.whatsapp.com/abc" viewerId="user-id-1234" /></MemoryRouter>);
     await screen.findByTestId('registered-chat');
+    await screen.findByTestId('add-to-calendar-link');
     const dots = [...screen.getByTestId('registered-links').querySelectorAll('span[aria-hidden="true"]')].filter((d) => d.textContent === '·');
     expect(dots.filter((d) => !d.className.split(' ').includes('invisible'))).toHaveLength(2);
   });

@@ -22,8 +22,9 @@ import { classifyGroupChat } from '../group-chat-utils';
 import { classifyLocation, getLocationDisplayLabel, safeLinkHref } from '../location-utils';
 import { formatDate, formatTime } from '../utils';
 import { EventShareRow } from '../components/EventShareRow';
-import { arrivalLeadMinutes, calendarWindow } from '../event-doors';
+import { arrivalLeadMinutes, calendarWindow, formatStartTime, ownTimeLine } from '../event-doors';
 import { useMyRegistrationArrival } from '../use-my-arrival';
+import { recipeForEvent } from '../series-recipes';
 import type { Progress } from './prep-plan';
 import { isHikeLayout, parseHikeDetails } from '../hike/hike-utils';
 import { readEventChatOpenedHint, useGroupChatOpened, type GroupChatSurface } from '../use-group-chat-opened';
@@ -194,19 +195,30 @@ export function JoinOffer({ community, learned, started, minutes, onJoin, testId
 }
 
 /**
+ * R19: a meeting-point hiker's arrival line on the confirmation cards. The card's own time is the start, so the line names
+ * both: the arrival, then the start labelled as the start, both in the event's own zone.
+ * [FOUNDER DECISION: wording, builder's]
+ */
+function hikeArrivalCardLine(event: EventWithHost): string {
+  return `${ownTimeLine(event.datetime, true, event.timezone, arrivalLeadMinutes(event))} The hike starts at ${formatStartTime(event.datetime, event.timezone)}.`;
+}
+
+/**
  * P1542 round 6 (A, decision 39): a hike's registration success — one calm block. The check, "You're registered", one
  * date · time · place line, then a row of quiet links (the group chat, Add to calendar, Share; the last two only before
  * the start). No buttons here: the page's one button is the learning invitation below, if any.
  */
-export function RegisteredBlock({ event, groupChatUrl, viewerId, surface = 'registration_thankyou' }: {
+export function RegisteredBlock({ event, groupChatUrl, viewerId, viewerPending = false, surface = 'registration_thankyou' }: {
   event: EventWithHost;
   groupChatUrl: string | null;
   viewerId: string | null;
+  /** The session is still being restored: a hike's calendar link waits (no invite with a guessed start). */
+  viewerPending?: boolean;
   surface?: GroupChatSurface;
 }) {
   const [shareOpen, setShareOpen] = useState(false);
   const { opened, markOpened } = useGroupChatOpened(event.id, groupChatUrl, viewerId);
-  const arrival = useMyRegistrationArrival(event, viewerId);
+  const arrival = useMyRegistrationArrival(event, viewerId, true, viewerPending);
   const start = new Date(event.datetime);
   const beforeStart = Date.now() < start.getTime();
   const date = start.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -254,10 +266,17 @@ export function RegisteredBlock({ event, groupChatUrl, viewerId, surface = 'regi
         <br className="sm:hidden" />
         <span className="inline-block">{placeLabel(event)}</span>
       </p>
+      {/* R19: only a hiker who chose the meeting point gains an arrival line; now and later hikers see what they saw before. */}
+      {arrival?.atDoors && beforeStart && recipeForEvent(event).registration === 'hike' && (
+        <p className="text-sm text-foreground" data-testid="registered-arrival">
+          {hikeArrivalCardLine(event)}
+        </p>
+      )}
       <RegisteredLinks
-        calendar={beforeStart ? calendarEvent : null}
+        calendar={beforeStart && !(arrival === undefined && recipeForEvent(event).registration === 'hike') ? calendarEvent : null}
         chat={chat ? { url: groupChatUrl, onOpen: () => markOpened(surface) } : null}
         keepChatPlace={keepChatPlace}
+        share={beforeStart}
         shareOpen={shareOpen}
         onShare={() => void share()}
       />
@@ -271,15 +290,17 @@ export function RegisteredBlock({ event, groupChatUrl, viewerId, surface = 'regi
  * chat's caption under it. The chat's place is decided once by the caller (round 10b): kept, it stays (unseen while not
  * shown), so nothing moves; not kept (opened before), it never shows. Calendar and Share only before the start (null).
  */
-function RegisteredLinks({ calendar, chat, keepChatPlace, shareOpen, onShare }: {
+function RegisteredLinks({ calendar, chat, keepChatPlace, share, shareOpen, onShare }: {
   calendar: ComponentProps<typeof AddToCalendarMenu>['event'] | null;
   chat: { url: string; onOpen: () => void } | null;
   keepChatPlace: boolean;
+  /** Share only needs the event's page, so it does not wait on the calendar (held while a hiker's answer is read). */
+  share: boolean;
   shareOpen: boolean;
   onShare: () => void;
 }) {
   const chatPlace = !!chat || keepChatPlace;
-  if (!calendar && !chatPlace) return null;
+  if (!calendar && !chatPlace && !share) return null;
   // The dots only from 640px, where the row always fits on one line: on a phone a wrapped row would start a line with
   // a dot, so there the links are spaced instead (one line at 375px, two at 320px, none starting with a separator).
   const dot = (visible = true) => (
@@ -300,8 +321,9 @@ function RegisteredLinks({ calendar, chat, keepChatPlace, shareOpen, onShare }: 
             <GroupChatQuietLink url="https://chat.whatsapp.com/" label="WhatsApp group" />
           </span>
         )}
-        {calendar && dot()}
-        {calendar && (
+        {/* Visible only after something visible: with the calendar waiting and the chat place only held, no dot beside the gap. */}
+        {share && (calendar || chatPlace) && dot(!!calendar || !!chat)}
+        {share && (
           <button
             type="button"
             onClick={onShare}
@@ -348,11 +370,14 @@ export function EventBox({
   note,
   plainChatLine = false,
   viewerId = null,
+  viewerPending = false,
 }: {
   event: EventWithHost;
   groupChatUrl: string | null;
   /** The person whose own arrival time the calendar invite uses (P1529). */
   viewerId?: string | null;
+  /** The session is still being restored: a hike's calendar link waits (no invite with a guessed start). */
+  viewerPending?: boolean;
   title: ReactNode;
   testId: string;
   note?: ReactNode;
@@ -361,7 +386,7 @@ export function EventBox({
   plainChatLine?: boolean;
 }) {
   const pageUrl = eventPageUrl(event.slug);
-  const arrival = useMyRegistrationArrival(event, viewerId);
+  const arrival = useMyRegistrationArrival(event, viewerId, true, viewerPending);
   const calendarEvent = {
     id: event.id,
     title: event.title,
@@ -375,12 +400,19 @@ export function EventBox({
       {title}
       <EventDetails event={event} />
       {note}
+      {/* R19: the invite below starts at the arrival, so the box says so (same line as the registered block); now and later hikers see nothing new. */}
+      {arrival?.atDoors && Date.now() < new Date(event.datetime).getTime() && recipeForEvent(event).registration === 'hike' && (
+        <p className="text-sm text-foreground" data-testid={`${testId}-arrival`}>
+          {hikeArrivalCardLine(event)}
+        </p>
+      )}
       <div
         // AddToCalendarMenu's own outline Button, sized down to sit beside the group button.
         className={`grid gap-2 [&_button]:h-auto [&_button]:min-h-10 [&_button]:whitespace-normal [&_button]:px-2 [&_button]:text-sm ${groupChatUrl ? (plainChatLine ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2') : 'grid-cols-1'}`}
         data-testid={`${testId}-actions`}
       >
-        <AddToCalendarMenu event={calendarEvent} />
+        {/* R19: no calendar link with a guessed start while a hiker's answer is read. */}
+        {!(arrival === undefined && recipeForEvent(event).registration === 'hike') && <AddToCalendarMenu event={calendarEvent} />}
         {groupChatUrl && <GroupChatButton url={groupChatUrl} />}
       </div>
       {groupChatUrl && <GroupChatLine url={groupChatUrl} plain={plainChatLine} />}

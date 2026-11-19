@@ -7,11 +7,11 @@
  * model imports no prototype code (review fix, P1675 round 3).
  */
 
-export type HikeWhen = 'now' | 'later';
+export type HikeWhen = 'now' | 'later' | 'event';
 export type HikeTransport = 'car' | 'motorbike' | 'bike_or_foot' | 'need_ride';
 export type HikeHelp = 'lead' | 'sweep' | 'welcomer' | 'transport_lead' | 'other';
 
-export const HIKE_WHEN: readonly HikeWhen[] = ['now', 'later'];
+export const HIKE_WHEN: readonly HikeWhen[] = ['now', 'later', 'event'];
 export const HIKE_TRANSPORTS: readonly HikeTransport[] = ['car', 'motorbike', 'bike_or_foot', 'need_ride'];
 export const HIKE_HELPS: readonly HikeHelp[] = ['lead', 'sweep', 'welcomer', 'transport_lead', 'other'];
 export const HIKE_MAX_FREE_SEATS = 20;

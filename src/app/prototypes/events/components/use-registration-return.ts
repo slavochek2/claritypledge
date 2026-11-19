@@ -14,6 +14,7 @@ import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { readHikeDraft, readRegistrationDraft } from '@/app/data/registration-draft';
 import { hikeAsksOf } from '@/app/data/hike-answer-model';
 import { hikeAsksBeforeSeat } from '../form-first';
+import { keptLaterDropped } from '../kept-later';
 import type { EventWithHost } from '@/app/types';
 import type { useRegistrationStep } from './use-registration-step';
 
@@ -50,14 +51,19 @@ export function useRegistrationReturn(a: {
     const full = eventsService.isEventFull(event);
     const draft = readRegistrationDraft(event.slug);
     if (!draft) { registration.ask(); return; }
-    registration.keepAnswers(draft.answers);
+    // R20: a kept "later" past the cutoff is dropped before the automatic submit, so the form asks again.
+    // The one rule (shared with the sign-up callback): a kept "later", explicit or the legacy home choice, is dropped past the cutoff.
+    const dropped = keptLaterDropped(event, draft);
+    const prep = dropped && draft.prep === 'later' ? undefined : draft.prep;
+    registration.keepAnswers(draft.answers, prep);
     // The form is closed while the saved answers are sent, so a failed send reopens it with them: that is the retry.
-    const send = () => void registration.submit(draft.answers).then(sent => { if (!sent) registration.ask(draft.answers); });
+    const send = () => void registration.submit(draft.answers, { prep }).then(sent => { if (!sent) registration.ask(draft.answers, prep); });
     if (draft.intent === 'register') {
       if (full) registration.markFilled();
+      else if (dropped) registration.ask(draft.answers, prep);
       else send();
-    } else if (full) send();
-    else registration.ask(draft.answers);
+    } else if (full && !dropped) send();
+    else registration.ask(draft.answers, prep);
     // `registration` is a fresh object each render and its members only set state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, setSearchParams, isLoggedIn, event, loading, asksBeforeSeat, isRsvpd, isHostOfEvent]);

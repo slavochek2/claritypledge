@@ -10,8 +10,11 @@ export type PhoneKind = 'usbc' | 'lightning' | 'other';
 
 /** What the person chose first: improving a business, or helping others (observer or mentor). */
 export type JoinChoice = 'improve' | 'help';
-/** What they chose second: before the event at home, or at the event at the doors time. */
-export type PrepChoice = 'home' | 'event';
+/**
+ * What they chose second. With the canvas at the event (R20): now, later (both stored as "home") or at the event. With the canvas
+ * before the event: "home" or "event". A stored "home" is read back as "home" here; the form shows it as "later".
+ */
+export type PrepChoice = 'home' | 'now' | 'later' | 'event';
 
 export interface RegistrationAnswers {
   participation: Participation;
@@ -22,10 +25,21 @@ export interface RegistrationAnswers {
   recordingAccepted: true;
 }
 
+/** Stored place of the preparation: only an explicit `event` is at the doors; home, now and later are all "before the event". */
+const atDoors = (prep: PrepChoice): boolean => {
+  switch (prep) {
+    case 'event': return true;
+    case 'home': case 'now': case 'later': return false;
+  }
+};
+
 export function participationOf(join: JoinChoice, prep: PrepChoice): { participation: Participation; observerPrep: ObserverPrep | null } {
-  if (join === 'improve') return { participation: prep === 'home' ? 'canvas_before' : 'canvas_at_doors', observerPrep: null };
-  return { participation: 'observer', observerPrep: prep === 'home' ? 'home' : 'doors' };
+  if (join === 'improve') return { participation: atDoors(prep) ? 'canvas_at_doors' : 'canvas_before', observerPrep: null };
+  return { participation: 'observer', observerPrep: atDoors(prep) ? 'doors' : 'home' };
 }
+
+/** The UI choices a draft keeps through sign-in (the canvas-at-the-event form); stored values are mapped only at the write. */
+export const KEPT_PREP_CHOICES: readonly PrepChoice[] = ['now', 'later', 'event'];
 
 /** The answers back as the form's two choices (a saved draft filling the form again). Null: an observer with no second answer. */
 export function choicesOf(a: Pick<RegistrationAnswers, 'participation' | 'observerPrep'>): { join: JoinChoice; prep: PrepChoice } | null {

@@ -15,7 +15,7 @@ import { registerForHike } from '@/app/data/hike-registration';
 import { DEFAULT_HIKE_ASKS, type HikeAnswers, type HikeAsks, type HikeWhen } from '@/app/data/hike-answer-model';
 import { HIKE_NOW_ONLY_NOTICE } from './hike-copy';
 import { clearRegistrationDraft, saveHikeDraft, saveRegistrationDraft } from '@/app/data/registration-draft';
-import type { RegistrationAnswers } from '@/app/data/registration-answer-model';
+import type { PrepChoice, RegistrationAnswers } from '@/app/data/registration-answer-model';
 import { isSessionMismatch } from '@/lib/session-guard';
 import { useWaitlistState } from './use-waitlist-state';
 
@@ -28,7 +28,8 @@ export function refusalMessage(refusal: 'full' | 'cancelled'): string {
 export function useRegistrationStep(opts: {
   event: { id: string; slug: string } | null | undefined;
   userId: string | undefined;
-  onRegistered: () => void;
+  /** `now`: the mastermind's person chose to prepare now, so they continue to the preparation page (R20). */
+  onRegistered: (now?: boolean) => void;
   onRefused: (refusal: 'full' | 'cancelled') => void;
   onSessionLost: () => void;
   /** P1700: the server refused with the removal messages; the page re-reads the removal status and shows its notice. */
@@ -51,15 +52,16 @@ export function useRegistrationStep(opts: {
   const [busy, setBusy] = useState(false);
   const [filled, setFilled] = useState(false);
   const [prefill, setPrefill] = useState<RegistrationAnswers | null>(null);
+  const [prefillPrep, setPrefillPrep] = useState<PrepChoice | null>(null);
   const waitlist = useWaitlistState(opts.event, opts.userId, !!opts.readsWaitlist);
   const slug = opts.event?.slug;
 
   /** True when the answers went somewhere (a place, the list, sign-up) or the page now says why not; false when a retry is needed. */
-  const submit = async (answers: RegistrationAnswers): Promise<boolean> => {
+  const submit = async (answers: RegistrationAnswers, extra?: { prep?: PrepChoice }): Promise<boolean> => {
     if (!opts.event || !slug) return false;
     if (!opts.userId) {
       // Signed out. Kept only if the browser lets us; without it the form simply opens empty on the way back.
-      saveRegistrationDraft(slug, opts.full ? 'waitlist' : 'register', answers);
+      saveRegistrationDraft(slug, opts.full ? 'waitlist' : 'register', answers, Date.now(), extra?.prep);
       setAsking(false);
       opts.onSignIn?.();
       return true;
@@ -83,10 +85,13 @@ export function useRegistrationStep(opts: {
       if (result === 'ok' || result === 'already') {
         clearRegistrationDraft(slug);
         setAsking(false);
-        opts.onRegistered();
+        opts.onRegistered(extra?.prep === 'now');
         return true;
       } else if (result === 'full') {
         // The answers stay (the form keeps them; a saved draft stays too). The page offers the waiting list.
+        // The submitted prep choice is kept with them (as keepAnswers does), so the waiting-list form redraws with a "now" intact.
+        setPrefill(answers);
+        setPrefillPrep(extra?.prep ?? null);
         setFilled(true);
         setAsking(false);
         opts.onRefused('full');
@@ -167,8 +172,10 @@ export function useRegistrationStep(opts: {
     /** "This event just filled up." is showing: a place went while the person was registering or signing in. */
     filled,
     markFilled: () => setFilled(true),
-    keepAnswers: (saved: RegistrationAnswers) => setPrefill(saved),
-    ask: (saved?: RegistrationAnswers | null) => { if (saved) setPrefill(saved); setAsking(true); },
+    keepAnswers: (saved: RegistrationAnswers, prep?: PrepChoice | null) => { setPrefill(saved); setPrefillPrep(prep ?? null); },
+    ask: (saved?: RegistrationAnswers | null, prep?: PrepChoice | null) => { if (saved) { setPrefill(saved); setPrefillPrep(prep ?? null); } setAsking(true); },
+    /** R20: the UI choice kept with the answers (null when none). */
+    prefillPrep,
     cancel: () => setAsking(false),
     onWaitlist: waitlist.onList,
     leaveWaitlist: waitlist.leave,

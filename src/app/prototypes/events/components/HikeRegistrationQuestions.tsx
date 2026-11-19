@@ -187,6 +187,7 @@ export function HikeRegistrationQuestions({
               {laterOffered && (
                 <ChoiceRow name={`${id}-w`} checked={when === 'later'} label={copy.HIKE_LATER_OPTION} onSelect={() => setWhen('later')} testId="hike-when-later" errorId={rowError('when')} />
               )}
+              <ChoiceRow name={`${id}-w`} checked={when === 'event'} label={copy.HIKE_EVENT_OPTION} onSelect={() => setWhen('event')} testId="hike-when-event" errorId={rowError('when')} />
               {errorLine('when', copy.HIKE_MISSING.when)}
             </div>
           </fieldset>

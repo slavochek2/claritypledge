@@ -26,7 +26,8 @@ import {
   type ReminderPrep,
   type SupabaseClient,
 } from './email-helpers.ts';
-import { choseToObserve, isHike, loadGroupChatUrl, withHikeBlock, withPreparationOffered, withSeriesBlock } from './series-email-block.ts';
+import { withHikeArrival } from './hike-arrival-email.ts';
+import { choseToObserve, isHike, loadGroupChatUrl, loadHikeAnswers, withHikeBlock, withPreparationOffered, withSeriesBlock } from './series-email-block.ts';
 import { mintEmailLink } from './event-links.ts';
 import { claimMessage, writeBackMessage } from './rsvp-message-ids.ts';
 
@@ -175,12 +176,12 @@ export async function dispatchReminder(
   // P1529: the series block; an observer gets no laptop line. Other series: byte-identical.
   // P1675 R7: a hike's reminder carries the group chat line + link (read after this person's registration row is read).
   // Only the group chat is added here; the answer-driven lines stay confirmation-only. Other flows: unchanged.
-  const reminder = withHikeBlock(
+  const reminder = withHikeArrival(withHikeBlock(
     withSeriesBlock(buildReminder(offered, profileData?.name, { prep, prepareUrl }), event, { observer: await choseToObserve(supabase, rsvp.event_id, profileId) }),
     event,
     null,
     isHike(event) ? await loadGroupChatUrl(supabase, rsvp.event_id, profileId) : null,
-  );
+  ), event, isHike(event) ? await loadHikeAnswers(supabase, rsvp.event_id, profileId) : null, 'reminder');
   const messageId = await sendEmail({ to: email, ...reminder, deliverAt });
 
   // Write the real id over OUR claim only (PENDING + our token). If handleUpdate reset the row

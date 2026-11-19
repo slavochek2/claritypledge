@@ -63,7 +63,7 @@ export function withPreparationOffered<T extends SeriesEventRow>(event: T): T {
 }
 
 /** The stored hike answers an email reads. help_other is deliberately not part of this type. */
-export type HikeEmailAnswers = { transport: string | null; free_seats: number | null; help: string | null };
+export type HikeEmailAnswers = { transport: string | null; free_seats: number | null; help: string | null; when_choice?: string | null };
 
 /** P1675: one person's hike answers (service-role client); null when none, or on a failed read (the email is still sent). */
 export async function loadHikeAnswers(
@@ -72,7 +72,7 @@ export async function loadHikeAnswers(
   profileId: string | null,
 ): Promise<HikeEmailAnswers | null> {
   if (!profileId) return null;
-  const { data, error } = await supabase.from('event_hike_answers').select('transport, free_seats, help')
+  const { data, error } = await supabase.from('event_hike_answers').select('transport, free_seats, help, when_choice')
     .eq('event_id', eventId).eq('profile_id', profileId).maybeSingle();
   if (error) console.warn(`hike answers read failed for event ${eventId}: ${error.message}`);
   return (data as HikeEmailAnswers | null) ?? null;

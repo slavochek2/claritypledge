@@ -33,12 +33,24 @@ export function prepQuestion(join: JoinChoice, timing: CanvasTiming = 'at_event'
     : `When will you invest ${OBSERVER_PREP_MINUTES} minutes to prepare?`;
 }
 /** `doors` is formatted from the event (never typed), only read when the canvas is before the event. Stored values stay home / event. */
-export function prepOptions(_join: JoinChoice, doors: string, timing: CanvasTiming = 'at_event'): { value: PrepChoice; label: string }[] {
+export function prepOptions(_join: JoinChoice, doors: string, timing: CanvasTiming = 'at_event', laterOffered = true): { value: PrepChoice; label: string }[] {
+  // R20: with the canvas at the event the answers are now / later / at the event; "later" is hidden by the 24-hour rule.
+  if (timing === 'at_event') {
+    return [
+      { value: 'now', label: PREP_NOW_OPTION },
+      ...(laterOffered ? [{ value: 'later' as const, label: PREP_LATER_OPTION }] : []),
+      { value: 'event', label: `I'll come ${PREP_MINUTES} minutes early and do it there` },
+    ];
+  }
   return [
     { value: 'home', label: 'At home, before the event' },
-    { value: 'event', label: timing === 'at_event' ? `I'll come ${PREP_MINUTES} minutes early and do it there` : `I'll come earlier, at ${doors}, and prepare there` },
+    { value: 'event', label: `I'll come earlier, at ${doors}, and prepare there` },
   ];
 }
+
+/** R20: the first two answers reuse the hike's labels (builder's choice, founder decision pending). */
+export const PREP_NOW_OPTION = "I have 15 minutes, I'll do it now";
+export const PREP_LATER_OPTION = "I'll do it later, remind me by email";
 
 export const PHONE_QUESTION = 'What phone input do you have?';
 export const PHONES: { value: PhoneKind; label: string }[] = [

@@ -12,6 +12,7 @@ import { getEventBySlug, isUserRsvpd } from "@/app/data/api";
 import { eventAsksBeforeSeat, type RegisterResult } from "@/app/data/event-registration";
 import { clearRegistrationDraft, readRegistrationDraft } from "@/app/data/registration-draft";
 import type { RegistrationAnswers } from "@/app/data/registration-answer-model";
+import { keptLaterDropped } from "@/app/prototypes/events/kept-later";
 import { trackPostSignupRsvp } from "@/app/prototypes/events/rsvp-analytics";
 
 export async function autoRsvpDestination(
@@ -33,12 +34,16 @@ export async function autoRsvpDestination(
       const registered = !draft && !!userId && await (async () => isUserRsvpd(event.id, userId))().catch(() => false);
       return registered ? `/events/${eventSlug}/confirm` : toPage;
     }
+    // R20: a kept "later" past the cutoff (or the legacy home choice that the form now shows as "later") is not registered:
+    // the draft stays and the page's return hook asks again.
+    if (keptLaterDropped(event, draft)) return toPage;
     const result = await registerWith(event, draft.answers); // the whole event, as the page's own registration passes it
     if (result !== 'ok' && result !== 'already') return toPage; // full, cancelled or failed: the answers stay, the page says why
     clearRegistrationDraft(eventSlug);
     // 'already' means registered before this sign-in: not a completed post-signup RSVP, so it is not counted.
     if (result === 'ok') void trackPostSignupRsvp(event.id, eventSlug, registrationSource).catch(() => {}); // never holds the redirect (P1640)
-    return `/events/${eventSlug}/confirm`;
+    // R20: a kept "now" goes straight to the preparation, as the page's own registration does.
+    return draft.prep === 'now' ? `/events/${eventSlug}/prepare` : `/events/${eventSlug}/confirm`;
   }
   const seated = await seat(event);
   if (!seated) return toPage; // the page shows why (the event may be full)

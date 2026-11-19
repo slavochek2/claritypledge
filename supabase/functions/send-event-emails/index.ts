@@ -14,6 +14,7 @@ import {
   SENT_NO_ID,
   type SupabaseClient,
 } from '../_shared/email-helpers.ts';
+import { hikeWhenOf, loadHikeWhenByProfile, withHikeArrival } from '../_shared/hike-arrival-email.ts';
 import { choseToObserve, isHike, loadGroupChatUrl, loadHikeAnswers, withHikeBlock, withPreparationOffered, withSeriesBlock } from '../_shared/series-email-block.ts';
 import { mintEmailLink } from '../_shared/event-links.ts';
 import { linkBaseFor } from '../_shared/link-base.ts';
@@ -104,13 +105,14 @@ async function handleRsvp(supabase: SupabaseClient, eventId: string, userId: str
     }
     // P1529: the series block; an observer gets no laptop line. Other series: byte-identical.
     // P1675: a hike adds its answer-driven lines (WhatsApp free seats, the chosen role); never help_other.
-    const confirmation = withHikeBlock(
+    const hikeAnswers = isHike(event) ? await loadHikeAnswers(supabase, eventId, userId) : null;
+    const confirmation = withHikeArrival(withHikeBlock(
       withSeriesBlock(buildConfirmation(offered, profileName, prepareUrl, linkBaseFor(req)), event, { observer: await choseToObserve(supabase, eventId, userId) }),
       event,
-      isHike(event) ? await loadHikeAnswers(supabase, eventId, userId) : null,
+      hikeAnswers,
       // P1675 R7: the group chat link, only after this person's active registration row is read (whatever the preparation flag).
       isHike(event) ? await loadGroupChatUrl(supabase, eventId, userId) : null,
-    );
+    ), event, hikeAnswers);
     const confirmationId = await sendEmail({ to: email, ...confirmation });
     await logEmailSend(supabase, {
       eventId,
@@ -282,6 +284,10 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string, req: Requ
     ? new Date(eventDatetime.getTime() + (event.duration_minutes ?? 60) * 60 * 1000 + 2 * 60 * 60 * 1000)
     : null;
 
+  // P1675 R19: one read of the event's hike answers, not one per recipient (a failed read leaves every update email unchanged).
+  // null (not a hike, or a failed read) gives every recipient the unchanged email through hikeWhenOf.
+  const hikeWhen = hikeEvent ? await loadHikeWhenByProfile(supabase, eventId) : null;
+
   await Promise.all(rsvps.map(async (rsvp) => {
     const ids = rsvp.mailgun_message_ids as Record<string, string> | null;
 
@@ -306,7 +312,8 @@ async function handleUpdate(supabase: SupabaseClient, eventId: string, req: Requ
     const profileName = profileData?.name;
 
     // Send update notice email
-    const updateEmail = buildUpdate(event, profileName, linkBaseFor(req));
+    // P1675 R19: a hiker who comes to the meeting point gets the new arrival time with the update.
+    const updateEmail = withHikeArrival(buildUpdate(event, profileName, linkBaseFor(req)), event, hikeWhenOf(hikeWhen, rsvp.profile_id), 'update');
     const updateId = await sendEmail({ to: email, ...updateEmail });
     await logEmailSend(supabase, {
       eventId,

@@ -50,8 +50,8 @@ describe('the person\'s own arrival', () => {
     expect(arrivalOf(null)).toBeNull();
   });
   it('the registration options are the same for every role (E3)', () => {
-    expect(prepOptions('improve', '18:30')[1]!.label).toBe("I'll come 15 minutes early and do it there");
-    expect(prepOptions('help', '18:00').map(o => o.value)).toEqual(['home', 'event']);
+    expect(prepOptions('improve', '18:30')[2]!.label).toBe("I'll come 15 minutes early and do it there");
+    expect(prepOptions('help', '18:00').map(o => o.value)).toEqual(['now', 'later', 'event']);
   });
 });
 

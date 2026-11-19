@@ -4,7 +4,7 @@
  * with its own second question; changing the first answer clears the second; Register is always tappable and names what is
  * missing; closing keeps the answers and says so only if there were any. Signed out, the form ends in Continue.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 
 const toastFn = vi.hoisted(() => vi.fn());
@@ -20,7 +20,13 @@ const base = { datetime: DATETIME, timezone: 'Asia/Bangkok', busy: false, onCanc
 const open = (over: Partial<Parameters<typeof RegistrationQuestions>[0]> = {}) =>
   render(<RegistrationQuestions open {...base} onSubmit={vi.fn()} {...over} />);
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  // R20: "later" is offered only before start minus 24h30, so the clock is held before the fixed test date.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-11-01T00:00:00Z'));
+});
+afterEach(() => vi.useRealTimers());
 
 describe('P1529 D24 registration form: copy', () => {
   it('formats the start and the doors time in the event zone', () => {
@@ -49,7 +55,8 @@ describe('P1529 D24 registration form: copy', () => {
     open();
     fireEvent.click(screen.getByTestId('join-improve'));
     expect(screen.getByText('When will you do the 15-minute preparation?')).toBeTruthy();
-    expect(screen.getByLabelText('At home, before the event')).toBeTruthy();
+    expect(screen.getByLabelText("I'll do it later, remind me by email")).toBeTruthy();
+    expect(screen.getByLabelText("I have 15 minutes, I'll do it now")).toBeTruthy();
     expect(screen.getByLabelText(EARLY)).toBeTruthy();
   });
 
@@ -63,7 +70,7 @@ describe('P1529 D24 registration form: copy', () => {
     open();
     fireEvent.click(screen.getByTestId('join-help'));
     expect(screen.getByText('When will you do the 15-minute preparation?')).toBeTruthy();
-    expect(screen.getByLabelText('At home, before the event')).toBeTruthy();
+    expect(screen.getByLabelText("I'll do it later, remind me by email")).toBeTruthy();
     expect(screen.getByLabelText(EARLY)).toBeTruthy();
   });
 
@@ -83,7 +90,7 @@ describe('P1529 D24 registration form: copy', () => {
     expect((screen.getByTestId('prep-event') as HTMLInputElement).checked).toBe(true);
     fireEvent.click(screen.getByTestId('join-help'));
     expect((screen.getByTestId('prep-event') as HTMLInputElement).checked).toBe(false);
-    expect((screen.getByTestId('prep-home') as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByTestId('prep-later') as HTMLInputElement).checked).toBe(false);
   });
 
   it('the checkbox says the Argon-reviewed sentence; the Terms and Privacy line is gone', () => {
@@ -162,7 +169,7 @@ describe('P1529 D24 registration form: submitting', () => {
     expect(group('prep').className).toContain('border-destructive');
     const answer: Record<string, () => void> = {
       join: () => undefined, // answered above
-      prep: () => fireEvent.click(screen.getByTestId('prep-home')),
+      prep: () => fireEvent.click(screen.getByTestId('prep-later')),
       recording: () => fireEvent.click(screen.getByTestId('recording-accept')),
       phone: () => fireEvent.click(screen.getByLabelText('USB-C')),
     };
@@ -189,7 +196,7 @@ describe('P1529 D24 registration form: submitting', () => {
   it('the first missing question is the one focused when the earlier ones are answered', () => {
     open();
     fireEvent.click(screen.getByTestId('join-help'));
-    fireEvent.click(screen.getByTestId('prep-home'));
+    fireEvent.click(screen.getByTestId('prep-later'));
     fireEvent.click(screen.getByTestId('registration-submit'));
     expect(document.activeElement).toBe(screen.getByTestId('recording-accept'));
   });
@@ -200,7 +207,7 @@ describe('P1529 D24 registration form: submitting', () => {
     fireEvent.click(screen.getByTestId('join-help'));
     expect(screen.getByTestId('prep-question')).toBeTruthy();
     expect(screen.queryByTestId('missing-prep')).toBeNull();
-    expect(screen.getByTestId('prep-home').hasAttribute('aria-invalid')).toBe(false);
+    expect(screen.getByTestId('prep-later').hasAttribute('aria-invalid')).toBe(false);
     expect(screen.getByTestId('prep-question').className).not.toContain('border-destructive');
     fireEvent.click(screen.getByTestId('registration-submit'));
     expect(screen.getByTestId('missing-prep')).toBeTruthy();
@@ -209,7 +216,7 @@ describe('P1529 D24 registration form: submitting', () => {
   it('after a Register try, switching the join answer leaves the new prep question neutral until the next Register', () => {
     open();
     fireEvent.click(screen.getByTestId('join-help'));
-    fireEvent.click(screen.getByTestId('prep-home'));
+    fireEvent.click(screen.getByTestId('prep-later'));
     fireEvent.click(screen.getByTestId('registration-submit')); // join and prep answered; recording and phone missing
     fireEvent.click(screen.getByTestId('join-improve')); // resets prep
     expect(screen.queryByTestId('missing-prep')).toBeNull();
@@ -225,7 +232,7 @@ describe('P1529 D24 registration form: submitting', () => {
     expect(screen.getByTestId('missing-prep')).toBeTruthy();
     fireEvent.click(screen.getByTestId('join-improve'));
     expect(screen.queryByTestId('missing-prep')).toBeNull();
-    expect(screen.getByTestId('prep-home').hasAttribute('aria-invalid')).toBe(false);
+    expect(screen.getByTestId('prep-later').hasAttribute('aria-invalid')).toBe(false);
   });
 
   it('focus lands after the error line is in the DOM and linked, without a jump, then scrolls the group to centre', () => {
@@ -260,14 +267,14 @@ describe('P1529 D24 registration form: submitting', () => {
     const onSubmit = vi.fn();
     open({ onSubmit });
     fireEvent.click(screen.getByTestId('join-improve'));
-    fireEvent.click(screen.getByTestId('prep-home'));
+    fireEvent.click(screen.getByTestId('prep-later'));
     fireEvent.click(screen.getByLabelText('USB-C'));
     fireEvent.click(screen.getByTestId('recording-accept'));
     fireEvent.click(screen.getByTestId('registration-submit'));
-    expect(onSubmit).toHaveBeenLastCalledWith({ participation: 'canvas_before', observerPrep: null, phone: 'usbc', hope: '', recordingAccepted: true });
+    expect(onSubmit).toHaveBeenLastCalledWith({ participation: 'canvas_before', observerPrep: null, phone: 'usbc', hope: '', recordingAccepted: true }, { prep: 'later' });
     fireEvent.click(screen.getByTestId('prep-event'));
     fireEvent.click(screen.getByTestId('registration-submit'));
-    expect(onSubmit).toHaveBeenLastCalledWith({ participation: 'canvas_at_doors', observerPrep: null, phone: 'usbc', hope: '', recordingAccepted: true });
+    expect(onSubmit).toHaveBeenLastCalledWith({ participation: 'canvas_at_doors', observerPrep: null, phone: 'usbc', hope: '', recordingAccepted: true }, { prep: 'event' });
   });
 
   it('an observer or mentor stores where they prepare: home or doors', () => {
@@ -278,10 +285,10 @@ describe('P1529 D24 registration form: submitting', () => {
     fireEvent.click(screen.getByLabelText('Other'));
     fireEvent.click(screen.getByTestId('recording-accept'));
     fireEvent.click(screen.getByTestId('registration-submit'));
-    expect(onSubmit).toHaveBeenLastCalledWith({ participation: 'observer', observerPrep: 'doors', phone: 'other', hope: '', recordingAccepted: true });
-    fireEvent.click(screen.getByTestId('prep-home'));
+    expect(onSubmit).toHaveBeenLastCalledWith({ participation: 'observer', observerPrep: 'doors', phone: 'other', hope: '', recordingAccepted: true }, { prep: 'event' });
+    fireEvent.click(screen.getByTestId('prep-later'));
     fireEvent.click(screen.getByTestId('registration-submit'));
-    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ participation: 'observer', observerPrep: 'home' }));
+    expect(onSubmit).toHaveBeenLastCalledWith(expect.objectContaining({ participation: 'observer', observerPrep: 'home' }), { prep: 'later' });
   });
 });
 
@@ -326,7 +333,7 @@ describe('P1529 D24 registration form: signed out and the waiting list', () => {
     expect(screen.getByTestId('sign-in-line').textContent).toBe('Next, sign in to confirm your place');
     expect(screen.getByTestId('registration-submit').compareDocumentPosition(screen.getByTestId('sign-in-line')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     fireEvent.click(screen.getByTestId('join-improve'));
-    fireEvent.click(screen.getByTestId('prep-home'));
+    fireEvent.click(screen.getByTestId('prep-later'));
     fireEvent.click(screen.getByLabelText('USB-C'));
     fireEvent.click(screen.getByTestId('recording-accept'));
     fireEvent.click(screen.getByTestId('registration-submit'));

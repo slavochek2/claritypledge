@@ -3,12 +3,14 @@
  * @description P1529 D15: doors open 30 minutes before the advertised start. Display only, in the event's own zone.
  */
 import { canvasAtEvent } from './prep/prep-timing';
+import { recipeForEvent } from './series-recipes';
 
 export const DOORS_LEAD_MINUTES = 30;
 /** P1529 E3 (founder): in a sales mastermind with the canvas at the event, "come early" is 15 minutes before the start. */
 export const EARLY_LEAD_MINUTES = 15;
 export function arrivalLeadMinutes(event: Parameters<typeof canvasAtEvent>[0]): number {
-  return canvasAtEvent(event) ? EARLY_LEAD_MINUTES : DOORS_LEAD_MINUTES;
+  // R19: a hike's meeting-point people come 15 minutes early, like the mastermind's at-the-event people.
+  return canvasAtEvent(event) || recipeForEvent(event).registration === 'hike' ? EARLY_LEAD_MINUTES : DOORS_LEAD_MINUTES;
 }
 
 function clock(at: Date, timezone?: string | null): string {

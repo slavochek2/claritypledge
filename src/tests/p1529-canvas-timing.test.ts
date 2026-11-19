@@ -65,7 +65,9 @@ describe('E3 registration words', () => {
   it('one question for every role', () => {
     expect(prepQuestion('improve')).toBe('When will you do the 15-minute preparation?');
     expect(prepQuestion('help')).toBe(prepQuestion('improve'));
-    expect(prepOptions('help').map((o) => o.value)).toEqual(['home', 'event']);
+    expect(prepOptions('help').map((o) => o.value)).toEqual(['now', 'later', 'event']);
+    expect(prepOptions('help', '18:00', 'at_event', false).map((o) => o.value)).toEqual(['now', 'event']);
+    expect(prepOptions('help', '18:00', 'before').map((o) => o.value)).toEqual(['home', 'event']);
   });
 });
 

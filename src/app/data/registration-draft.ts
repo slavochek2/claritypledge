@@ -7,7 +7,7 @@
  * in this browser inside the expiry would be registered with it, which is why the expiry is short.
  * Every storage access is guarded: a browser without storage simply has no draft and the form opens as before.
  */
-import type { RegistrationAnswers } from './registration-answer-model';
+import { KEPT_PREP_CHOICES, type PrepChoice, type RegistrationAnswers } from './registration-answer-model';
 import { DEFAULT_HIKE_ASKS, isValidHikeAnswers, normalizeHikeAnswers, type HikeAnswers, type HikeAsks } from './hike-answer-model';
 
 /** P1675: which flow's answers a stored draft holds. A draft written before the discriminator has none and is a mastermind's. */
@@ -17,6 +17,8 @@ export type DraftIntent = 'register' | 'waitlist';
 export interface RegistrationDraft {
   intent: DraftIntent;
   answers: RegistrationAnswers;
+  /** R20: the person's UI choice (now / later / event), kept so `now` can still route to the preparation page after sign-in. */
+  prep?: PrepChoice;
 }
 
 /** Long enough for a magic link to arrive and be opened; short enough that a shared browser does not carry it for days. */
@@ -36,9 +38,9 @@ function valid(v: unknown): v is RegistrationDraft & { savedAt: number; slug: st
     && (a.observerPrep === null || a.observerPrep === 'home' || a.observerPrep === 'doors');
 }
 
-export function saveRegistrationDraft(slug: string, intent: DraftIntent, answers: RegistrationAnswers, now = Date.now()): boolean {
+export function saveRegistrationDraft(slug: string, intent: DraftIntent, answers: RegistrationAnswers, now = Date.now(), prep?: PrepChoice): boolean {
   try {
-    localStorage.setItem(key(slug), JSON.stringify({ slug, kind: 'mastermind' satisfies DraftKind, intent, answers, savedAt: now }));
+    localStorage.setItem(key(slug), JSON.stringify({ slug, kind: 'mastermind' satisfies DraftKind, intent, answers, ...(prep && KEPT_PREP_CHOICES.includes(prep) ? { prep } : {}), savedAt: now }));
     return true;
   } catch {
     return false;
@@ -58,7 +60,8 @@ export function readRegistrationDraft(slug: string, now = Date.now()): Registrat
       localStorage.removeItem(key(slug));
       return null;
     }
-    return { intent: v.intent, answers: v.answers };
+    const prep = (v as { prep?: unknown }).prep;
+    return { intent: v.intent, answers: v.answers, ...(KEPT_PREP_CHOICES.includes(prep as PrepChoice) ? { prep: prep as PrepChoice } : {}) };
   } catch {
     return null;
   }

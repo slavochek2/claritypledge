@@ -28,8 +28,8 @@ const MM_PREP_PAYOFF = `Preparation is required: at home before the event, or 15
  * [builder's wording, founder to see at UAT] plain, matching the form's lead line "Everyone does a short introduction before the hike."
  * The flow rule is event-flow.ts (a leaf, so this file need not import series-email-block.ts, which imports this one).
  */
-const HIKE_PREP_QUESTION = 'Do the short introduction before the hike';
-const HIKE_PREP_REMINDER_QUESTION = 'Have you done the short introduction for the hike?';
+export const HIKE_PREP_QUESTION = 'Do the short introduction before the hike';
+export const HIKE_PREP_REMINDER_QUESTION = 'Have you done the short introduction for the hike?';
 export const prepQuestionOf = (e: EventRow) => (mastermindPrepAtEvent(e) ? MM_PREP_QUESTION : isHike(e) ? HIKE_PREP_QUESTION : prepQuestionDefault(e));
 /** The reminder's question while the preparation is not started; same as the confirmation's except for a hike. */
 export const prepReminderQuestionOf = (e: EventRow) => (isHike(e) ? HIKE_PREP_REMINDER_QUESTION : prepQuestionOf(e));

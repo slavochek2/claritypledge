@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import type { CanvasTiming } from '@/app/types/event-fields';
 import { formatDoorsTime } from '../event-doors';
 import { choicesOf, participationOf, type JoinChoice, type PhoneKind, type PrepChoice, type RegistrationAnswers } from '@/app/data/registration-answer-model';
+import { laterAllowed } from '@/app/data/hike-answer-model';
 import { ROUND_UPDATE_CONSENT } from '@/app/components/session/capture-copy';
 import * as copy from './registration-copy';
 
@@ -67,7 +68,7 @@ function useFocusFirstMissing(form: React.RefObject<HTMLElement | null>, attempt
 }
 
 export function RegistrationQuestions({
-  open, datetime, timezone, canvasTiming = 'at_event', busy, onCancel, onSubmit, mode = 'register', signedIn = true, initial = null,
+  open, datetime, timezone, canvasTiming = 'at_event', busy, onCancel, onSubmit, mode = 'register', signedIn = true, initial = null, initialPrep = null,
 }: {
   open: boolean;
   datetime: string;
@@ -76,13 +77,16 @@ export function RegistrationQuestions({
   canvasTiming?: CanvasTiming;
   busy: boolean;
   onCancel: () => void;
-  onSubmit: (answers: RegistrationAnswers) => void;
+  /** R20: `now` is true when the person chose to do the preparation now (they continue to the preparation page after the seat). */
+  onSubmit: (answers: RegistrationAnswers, extra?: { prep: PrepChoice }) => void;
   /** The waiting list uses the same form; only its title, button and closing line change. */
   mode?: 'register' | 'waitlist';
   /** Signed out: the form ends in Continue and the sign-in line, and nothing is sent. */
   signedIn?: boolean;
   /** Answers saved before sign-up: they fill the form. */
   initial?: RegistrationAnswers | null;
+  /** R20: the UI choice kept with the saved answers (now / later / event). */
+  initialPrep?: PrepChoice | null;
 }) {
   const id = useId();
   const [join, setJoin] = useState<JoinChoice | null>(null);
@@ -94,6 +98,9 @@ export function RegistrationQuestions({
   const [attempt, setAttempt] = useState<{ keys: QuestionKey[] } | null>(null);
   // Changing the join answer resets prep: the NEW prep question is neutral until the next Register (the attempt's keys stay put, so focus does not move).
   const [prepFresh, setPrepFresh] = useState(false);
+  // R20: "later" needs the 24-hour reminder to be certain (the hike's rule), read once per opening.
+  const [laterOffered, setLaterOffered] = useState(() => laterAllowed(datetime, Date.now()));
+  useEffect(() => { if (open) setLaterOffered(laterAllowed(datetime, Date.now())); }, [open, datetime]);
   const missingKeyList = missingKeys(join, prep, phone, accepted);
   const form = useRef<HTMLDivElement>(null);
   // A question shows its error if it was missing at the last try and still is: answering clears it, a question revealed later stays neutral.
@@ -112,8 +119,17 @@ export function RegistrationQuestions({
   useEffect(() => {
     const c = initial ? choicesOf(initial) : null;
     if (!initial || !c) return;
-    setJoin(c.join); setPrep(c.prep); setPhone(initial.phone); setAccepted(true); setHope(initial.hope);
-  }, [initial]);
+    // R20: with the canvas at the event a stored "home" is shown as "later" (and dropped when "later" is no longer offered).
+    const mapped = c.prep === 'home' && canvasTiming === 'at_event' ? 'later' : c.prep;
+    // The kept choice stands only if it still maps to the stored answers (for an observer that includes where they prepare).
+    const keptMatches = !!initialPrep && (() => { const p = participationOf(c.join, initialPrep); return p.participation === initial.participation && p.observerPrep === initial.observerPrep; })();
+    const kept = canvasTiming === 'at_event' && initialPrep && keptMatches ? initialPrep : mapped;
+    const restored = kept === 'later' && !laterOffered ? null : kept;
+    setJoin(c.join); setPrep(restored); setPhone(initial.phone); setAccepted(true); setHope(initial.hope);
+    // `laterOffered` is not a dependency on purpose: the effect below clears a "later" that is no longer offered.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial, initialPrep, canvasTiming]);
+  useEffect(() => { if (!laterOffered && prep === 'later') setPrep(null); }, [laterOffered, prep]);
 
   const chooseJoin = (next: JoinChoice) => {
     if (next === join) return;
@@ -127,9 +143,16 @@ export function RegistrationQuestions({
     onCancel();
   };
   const submit = () => {
+    // A form left open across the cutoff: "later" is re-checked at the moment of submit, and when it is no longer allowed the
+    // choice is cleared and the prep question shows as missing, like any unanswered question.
+    if (prep === 'later' && !laterAllowed(datetime, Date.now())) {
+      setLaterOffered(false); setPrep(null); setPrepFresh(false);
+      setAttempt({ keys: missingKeys(join, null, phone, accepted) });
+      return;
+    }
     setAttempt({ keys: missingKeyList }); setPrepFresh(false);
     if (!join || !prep || !phone || !accepted) return;
-    onSubmit({ ...participationOf(join, prep), phone, hope, recordingAccepted: true });
+    onSubmit({ ...participationOf(join, prep), phone, hope, recordingAccepted: true }, { prep });
   };
 
   const doors = formatDoorsTime(datetime, timezone, 30);
@@ -156,7 +179,7 @@ export function RegistrationQuestions({
             <fieldset className={`${ring('prep')}`} data-testid="prep-question" data-question="prep">
               <legend className="float-left mb-3 w-full p-0 text-sm font-medium">{copy.prepQuestion(join, canvasTiming)}</legend>
               <div className="clear-both space-y-2">
-                {copy.prepOptions(join, doors, canvasTiming).map(o => (
+                {copy.prepOptions(join, doors, canvasTiming, laterOffered).map(o => (
                   <ChoiceRow key={o.value} name={`${id}-p-${join}`} checked={prep === o.value} label={o.label} onSelect={() => setPrep(o.value)} testId={`prep-${o.value}`} errorId={rowError('prep')} />
                 ))}
                 {errorLine('prep', copy.MISSING.prep)}

@@ -23,7 +23,9 @@ import { useDeclareAppMenu } from '@/app/components/layout/app-menu-override';
 import { useHideTodaysStripForEvent } from '@/app/components/layout/app-shell/shell-nav';
 
 export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; groupChatUrl: string | null }) {
-  const { user, session } = useAuth();
+  const { user, session, isLoading, sessionChecked } = useAuth();
+  // R19: while the session is restored the viewer is not known yet, so a hike's calendar link waits (Codex final review).
+  const viewerPending = isLoading || !sessionChecked;
   const navigate = useNavigate();
   const recipe = recipeForEvent(event);
   // Round 10e: a hike's thank-you never shows the prep status (LearnInvitation reads its own), so it sends no prep reads.
@@ -59,7 +61,7 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
     return (
       <main className="mx-auto max-w-2xl px-4 pt-6 pb-20" data-testid="p1336-confirm">
         {/* Round 10b: the session's id, the one LearnInvitation and the chat-opened flags use (the profile can lag). */}
-        <RegisteredBlock event={event} groupChatUrl={groupChatUrl} viewerId={session?.user?.id ?? user?.id ?? null} />
+        <RegisteredBlock event={event} groupChatUrl={groupChatUrl} viewerId={session?.user?.id ?? user?.id ?? null} viewerPending={viewerPending} />
         <LearnInvitation event={event} className="mt-6" />
       </main>
     );
@@ -84,6 +86,7 @@ export function PrepConfirm({ event, groupChatUrl }: { event: EventWithHost; gro
         event={event}
         groupChatUrl={groupChatUrl}
         viewerId={session?.user?.id ?? user?.id ?? null}
+        viewerPending={viewerPending}
         testId="registered-card"
         title={
           <div className="flex flex-col items-center gap-2">

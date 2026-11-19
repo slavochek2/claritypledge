@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const getEventBySlug = vi.fn();
 const isUserRsvpd = vi.fn();
@@ -196,6 +196,63 @@ describe('autoRsvpDestination', () => {
       await expect(autoRsvpDestination(SLUG, SRC, vi.fn(), vi.fn().mockRejectedValue(err))).rejects.toBe(err);
       expect(trackPostSignupRsvp).not.toHaveBeenCalled();
       expect(clearRegistrationDraft).not.toHaveBeenCalled();
+    });
+  });
+
+  // P1675 R20: the saved UI choice decides where the person goes, and a kept "later" past the cutoff is asked again.
+  describe('asks-before-seat path: the kept prep choice', () => {
+    const PREPARE = `/events/${SLUG}/prepare`;
+    const START = '2026-11-14T11:30:00+00:00';
+    const mastermind = (canvasTiming: string) => ({ id: 'e1', slug: SLUG, flow: 'sales-mastermind', canvasTiming, datetime: START });
+    const answers = (over: Record<string, unknown> = {}) => ({ participation: 'canvas_before', observerPrep: null, phone: 'usbc', hope: '', recordingAccepted: true, ...over });
+    const draft = (prep?: string, a = answers()) => ({ intent: 'register', answers: a, ...(prep ? { prep } : {}) });
+    const pastCutoff = () => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-13T12:00:00Z')); };
+    const beforeCutoff = () => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-11-01T00:00:00Z')); };
+    beforeEach(() => eventAsksBeforeSeat.mockResolvedValue(true));
+    afterEach(() => { vi.useRealTimers(); });
+
+    it.each([
+      ['an expired explicit later', draft('later')],
+      ['an expired legacy home (canvas_before, no kept choice)', draft(undefined)],
+      ['an expired legacy observer home', draft(undefined, answers({ participation: 'observer', observerPrep: 'home' }))],
+    ])('%s: the event page, nothing registered, the draft kept', async (_n, d) => {
+      getEventBySlug.mockResolvedValue(mastermind('at_event'));
+      readRegistrationDraft.mockReturnValue(d);
+      pastCutoff();
+      const registerWith = vi.fn().mockResolvedValue('ok');
+      expect(await autoRsvpDestination(SLUG, SRC, vi.fn(), registerWith)).toBe(PAGE);
+      expect(registerWith).not.toHaveBeenCalled();
+      expect(clearRegistrationDraft).not.toHaveBeenCalled();
+      expect(trackPostSignupRsvp).not.toHaveBeenCalled();
+    });
+    it('a later before the cutoff registers and goes to confirm', async () => {
+      getEventBySlug.mockResolvedValue(mastermind('at_event'));
+      readRegistrationDraft.mockReturnValue(draft('later'));
+      beforeCutoff();
+      expect(await autoRsvpDestination(SLUG, SRC, vi.fn(), vi.fn().mockResolvedValue('ok'))).toBe(CONFIRM);
+      expect(clearRegistrationDraft).toHaveBeenCalledWith(SLUG);
+    });
+    it('a kept now goes to the preparation (also past the cutoff); event goes to confirm', async () => {
+      getEventBySlug.mockResolvedValue(mastermind('at_event'));
+      pastCutoff();
+      readRegistrationDraft.mockReturnValue(draft('now'));
+      expect(await autoRsvpDestination(SLUG, SRC, vi.fn(), vi.fn().mockResolvedValue('ok'))).toBe(PREPARE);
+      readRegistrationDraft.mockReturnValue(draft('event', answers({ participation: 'canvas_at_doors' })));
+      expect(await autoRsvpDestination(SLUG, SRC, vi.fn(), vi.fn().mockResolvedValue('ok'))).toBe(CONFIRM);
+    });
+    it("a kept now whose seat comes back 'full' stays on the page", async () => {
+      getEventBySlug.mockResolvedValue(mastermind('at_event'));
+      readRegistrationDraft.mockReturnValue(draft('now'));
+      beforeCutoff();
+      expect(await autoRsvpDestination(SLUG, SRC, vi.fn(), vi.fn().mockResolvedValue('full'))).toBe(PAGE);
+    });
+    it('a canvas-before mastermind with home past the cutoff registers as today', async () => {
+      getEventBySlug.mockResolvedValue(mastermind('before'));
+      readRegistrationDraft.mockReturnValue(draft(undefined));
+      pastCutoff();
+      const registerWith = vi.fn().mockResolvedValue('ok');
+      expect(await autoRsvpDestination(SLUG, SRC, vi.fn(), registerWith)).toBe(CONFIRM);
+      expect(registerWith).toHaveBeenCalledTimes(1);
     });
   });
 });

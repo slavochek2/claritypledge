@@ -42,6 +42,8 @@ export const HIKE_REQUIRED_LINE = "It's required to join.";
 export const HIKE_LEAD_QUESTION = 'When will you do it?';
 export const hikeNowOption = (minutes: string): string => `I have ${minutes} minutes, I'll do it now`;
 export const HIKE_LATER_OPTION = "I'll do it later, remind me by email";
+/** R19 (founder approved the wording 2026-11-19): the third answer. */
+export const HIKE_EVENT_OPTION = "At the meeting point. I'll come 15 minutes early.";
 
 export const HIKE_TRANSPORT_QUESTION = 'How are you coming?';
 export const HIKE_TRANSPORT_OPTIONS = [
@@ -79,8 +81,8 @@ export const HIKE_HELP_OTHER_PLACEHOLDER = 'For example: dog food for the trail 
 
 export const HIKE_PRIVACY_LINE = 'Only you and the host see these answers.';
 
-/** PROPOSED (the spec asks for a short notice, not its words): shown when the server refused "later" inside 24 hours. */
-export const HIKE_NOW_ONLY_NOTICE = 'The hike is less than 24 hours away, so the introduction has to be done now.';
+/** R19 (builder's wording, founder decision pending): shown when the server refused "later" inside 24 hours; now and the meeting point stay offered. */
+export const HIKE_NOW_ONLY_NOTICE = 'The hike is less than 24 hours away, so the reminder email cannot reach you in time. Do it now or at the meeting point.';
 /** PROPOSED: the lines a try with answers missing marks, one per question. */
 export const HIKE_MISSING = {
   when: 'Choose when you will do it.',
@@ -101,6 +103,8 @@ export const hikePlanLineReturning = (n: number): string => `About ${n} minutes 
 /** R14: the confirmation page's line, before the event's start minus 24 hours (the reminder is still to come) and after it. */
 export const HIKE_REQUIRED_REMINDER = "Required for this hike. We'll remind you by email.";
 export const HIKE_REQUIRED = 'Required for this hike.';
+/** R19 R14 line for a person who chose the meeting point (builder's wording, founder decision pending). */
+export const HIKE_REQUIRED_AT_EVENT = "Required for this hike. You'll do it at the meeting point.";
 /** R14: the 24-hour reminder's lead time. */
 export const HIKE_REMINDER_LEAD_MS = 24 * 3600 * 1000;
 
@@ -110,7 +114,7 @@ export const HIKE_REMINDER_LEAD_MS = 24 * 3600 * 1000;
 export const hikeNotHereLine = (n: number): string => `and ${n} registered, not here yet`;
 
 /** PROPOSED (founder decision): the host's one-line summary of a registrant's answers. */
-export const HIKE_HOST_WHEN = { now: 'Now', later: 'Later' } as const;
+export const HIKE_HOST_WHEN = { now: 'Now', later: 'Later', event: 'At the meeting point' } as const;
 /** PROPOSED (founder decision): the host line's short form of "I need a ride". */
 export const HIKE_HOST_NEEDS_RIDE = 'Needs a ride';
 /** PROPOSED (founder decision): seats in the host line. */
