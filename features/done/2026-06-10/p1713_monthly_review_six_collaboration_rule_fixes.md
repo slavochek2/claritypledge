@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 354
 workstream: infrastructure
 created_date: '2026-11-19'
 tags: [claude-md, process, monthly-review]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 4bdbad15aa6e5b54b6e73ae2a334693be7403b5cbe1171008c01597d73aa3130
 spec_review_vendors: [codex, gemini]
+completed_at: 2026-11-19
 ---
 
 # P1713: Six rule fixes from the 2026-11 monthly review, so the founder stops doing the agent's bookkeeping
