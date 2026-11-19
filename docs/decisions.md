@@ -8,6 +8,25 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-19 [product]: How the demo film words the check: the lower number is the level of shared understanding, and the app asks the question
+
+**Context:** The founder reviewed demo film 4.2 and found it used loose words where the product has precise ones ("a gap in understanding" of what, "the lower number counts" as what) and showed the check in ways the product does not work (the listener asking about herself, an agent posting on someone's behalf, the app prompting the explain-back). These rulings govern how the product's check is described in pitch material, not only this film.
+**Decision:**
+- **The lower number is the level of the pair's shared understanding.** Not "the gap", not a grade of either person. Wording: "their shared understanding is only as high as the lower number."
+- **"Gap" is always named:** a (potential) gap in shared understanding. Before an explain-back it is a *potential* gap: both numbers are still beliefs.
+- **Cognitive understanding is defined by its procedure,** not by a label: the listener explains back the intended meaning, the speaker compares it with what they meant and confirms how close it is (out of 10). Always contrasted with emotional understanding and agreement. In a short pitch the term is shown, not lectured.
+- **In the app, the speaker claims the role and that is the request.** The listener accepts, or declines with a reason (they accepted the terms). The app then asks the listener the question, so nobody has to ask it aloud; this is the friction the product removes.
+- **In the app, both numbers are entered hidden and revealed together,** so neither anchors the other. (The spoken in-person round of 2026-10-05, listener first, is unchanged.)
+- **The explain-back is optional and the app does not prompt it.** The pair decides whether this gap is worth bridging; not every gap needs bridging.
+- **A person's Mirror agent never posts on anyone's behalf** in pitch material; points arrive from the live transcript (demo film rule since 2026-11-16).
+- **"Increase the will" is not done by software alone:** the app delivers the knowledge; where there is friction, the team offers coaching and training on request.
+- The opening argument: we are taught to speak, rarely to actively listen; listening means at minimum understanding the other person; most judge that by intuition alone; if each trusts their own intuition, nobody knows whether they understand each other; and in many groups asking "can you say that back?" is quietly punished.
+**Alternatives rejected:** "the lower number counts" (unclear what it counts as); voicing "we call it cognitive understanding" as a label (founder: the term needs its procedure and contrast, or it defines nothing); the listener asking "how well do you think I understand you?" (the product has the speaker claim the role and the app ask); the app prompting the explain-back; "everyone believes they're a good listener" as the opening (accurate-over-provocative).
+**Consequences:** Demo film 4.3 is built on these rulings. **Open product question:** when a speaker may enter their own number (at the request, or only after the listener accepts) is not decided. **UNTESTED** as messaging. Falsifier: two or three people new to the product watch 4.3 and still cannot say what the lower number means, or describe it as "a meeting tool with scores".
+**References:** decisions.md 2026-10-05 [product] (observer, spoken order); docs/definitions.md (Cognitive Understanding, Mirror Agent); docs/arbiter-failure-model.md ("Not pitch copy"). Details private: the film brief in the private events folder.
+
+---
+
 ## 2026-11-19 [process]: The Gemini code reviewer stays on Gemini 4 Carbon through its December price doubling; Gemini 4 Neon is not the default
 
 **Context:** Gemini 4 Neon shipped 2026-11-18 at $3/$15 per million tokens. Google's pricing page shows Carbon, the ask-model default and the `/finish` Gemini reviewer, at an introductory $2/$10 until 2026-11-30, then $4/$20. From December, Neon is the cheaper model per token. Public benchmarks (Artificial Analysis, Cursor, Google) put it level with Carbon on coding, or slightly ahead.
