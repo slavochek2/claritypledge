@@ -25,9 +25,9 @@
       "send-letter-emails": "2b8763adf73cbaaea0037007f614ff3b452affd991b2c3ab51511c96843eaf7c",
       "transcribe-clip": "d844cf98faaffa69b95c3d9b58b63ea2b8699de0625b341e852bae15bbcc9dda",
       "transcribe-slice": "0c77cf88720255029cdde24ceebaf22b48c8c6272a27eefe003ca7ff1d8c9660",
-      "clarify-draft": "48c042dbcfa37a59c69be67392506c780fbfdd46bd16554d4d75748d323d108f"
+      "clarify-draft": "17887f5cd3807049338b5249a642cfc63a06cf1df6af49efa224885c5d7647fe"
     },
-    "functions_deployed_at": "2026-11-17T15:53:29Z",
+    "functions_deployed_at": "2026-11-19T07:29:59Z",
     "migrations": [
       "20250101",
       "20250117",
