@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-19 [product]: Record H-CheckBeforeActing: where a misunderstanding wastes the work, a check before acting keeps what forgiveness cannot (new bet, not a rescue of H-CheapGapReveal)
+
+**Context:** A viewer showed that the published Third Condition film (draft 5) drew its numbers from a model in which any move can flip, so a Taker shares by accident; with mistakes as the film's own story tells them (the helper misunderstood the request and did the work for the wrong day: paid for, never useful), nobody takes over and the room just gets poorer. Draft 6 of the film (private events folder) was rebuilt on that story. It argues that forgiveness stops the punishing but cannot bring back lost work, while a quick check before acting can. Meanwhile H-CheapGapReveal was refuted in the P1702 model (2026-11-17, corrected 2026-11-18), and that model states "No check can prevent a slip": its check covers only misreading what the partner did. The founder approved recording the corrected bet on 2026-11-19.
+
+**Decision:** Add H-CheckBeforeActing to hypotheses.md at P2 (scientific), UNTESTED, n=0. It is a new bet about a different error (a misunderstood request that wastes the helper's cost) and a different check (made before the work, about what was asked). H-CheapGapReveal's own refutation block requires exactly this: a claim its model cannot represent "is a new bet that needs its own pre-registered falsifier, not a rescue of this one." Provenance stated plainly: the bet was framed after that refutation, and the film's private toy model (catch rate assumed at 9 in 10, truncation selection, no forgiving checkers) already shows the pattern, so the toy result is a retrodiction and does not count as corroboration.
+
+**Alternatives rejected:** recording it as a revival of H-CheapGapReveal (it would be the post-hoc rescue that entry forbids); waiting for the model run before recording (epistemic gate 8); keeping the founder-session wording "verification beats forgiveness" (wrong as worded: where misreading changes only what is seen, forgiveness keeps more than the check in both the P1702 model and the film's toy model).
+
+**Falsifier:** in a pre-registered model built on the P1702 harness, with work-wasting misunderstandings added, the check before acting does not beat forgiving and contrite strategies above the cost floor; OR in pilots, pairs who restate the request before starting lose as much work to misunderstandings as pairs who do not.
+
+**Consequences:** The 2026-11-17 withdrawal of the film's claim from public writing still applies to draft 6 until the founder rules on it: open question, whether the film may show the check as a labelled toy-world illustration before the model test passes. The cascade question (whether a few visible first movers start the norm) stays with H-NormFlip and is not part of this bet. No README or CLAUDE.md change needed.
+
+**References:** hypotheses.md H-CheckBeforeActing, H-CheapGapReveal, H-NormFlip · decisions.md 2026-11-17 and 2026-11-18 [product] (H-CheapGapReveal) · `docs/research/p1702/RESULTS.md` on the P1702 branch · film draft 6 hand-back in the private events folder
+
+---
+
 ## 2026-11-19 [product]: How the demo film words the check: the lower number is the level of shared understanding, and the app asks the question
 
 **Context:** The founder reviewed demo film 4.2 and found it used loose words where the product has precise ones ("a gap in understanding" of what, "the lower number counts" as what) and showed the check in ways the product does not work (the listener asking about herself, an agent posting on someone's behalf, the app prompting the explain-back). These rulings govern how the product's check is described in pitch material, not only this film.
