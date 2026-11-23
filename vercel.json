@@ -42,6 +42,11 @@
       "permanent": false
     },
     {
+      "source": "/presi5",
+      "destination": "/presi5/",
+      "permanent": false
+    },
+    {
       "source": "/pricing",
       "destination": "/program",
       "permanent": true

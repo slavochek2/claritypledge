@@ -1,0 +1,261 @@
+<!doctype html>
+<!--
+  ══════════════════════════════════════════════════════════════════════════════
+  /presi5 — the Sales Mastermind deck (P1616). Session 1, in person, about 2h.
+
+  Copied from /presi4's look (tokens, type, slide frame, keyboard), NOT its slides:
+  /presi4 teaches Clarity Night (trios, lanyard S/L cards, live embeds of the
+  2026-10-06 event). /presi4 is frozen and unchanged.
+
+  RUN-OF-SHOW this deck sits inside: docs/events/sales-mastermind.md. Slide order is
+  that file's opener, then the evening. IF THAT FILE CHANGES, THESE SLIDES ARE WRONG:
+  re-read it, do not reword from memory.
+
+  WORDING STATUS: every visible line is an agent DRAFT taken from the run-of-show,
+  awaiting the founder's approval ([FOUNDER DECISION: all slide wording], P1616).
+
+  NO EMBEDS, NO QR, NO EVENT SLUG. Nothing here points at a specific event, so the
+  deck cannot show a past evening's data. Session 2 can reuse it as is.
+
+  Product text quoted on a slide names its source file next to it
+  (decisions.md 2026-10-06 [process]).
+
+  Keys: → / Space / PageDown next · ← / PageUp back · Home / End · f fullscreen.
+  Click the right 3/4 to advance, the left 1/4 to go back.
+  ══════════════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sales Mastermind</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij4KICA8cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjE2IiBmaWxsPSIjM2I4MmY2IiAvPgogIDxwYXRoIGQ9Ik04OCA0MC41IEMgODIgMzUgNzMgMzIgNjQgMzIgQyA0NCAzMiAzMiA0OCAzMiA2NCBDIDMyIDgwIDQ0IDk2IDY0IDk2IEMgNzMgOTYgODIgOTMgODggODcuNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBmaWxsPSJub25lIiAvPgo8L3N2Zz4=">
+<style>
+  /* Self-hosted, vendored next to this deck (same file as /presi4). Works offline and under the CSP. */
+  @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url('fonts/inter-latin.woff2') format('woff2')}
+
+  /* cp design tokens, as in /presi4 */
+  :root{
+    --bg:#ffffff; --fg:hsl(240 10% 3.9%); --card:#ffffff;
+    --muted-soft:hsl(240 4.8% 97.6%); --muted-fg:hsl(240 3.8% 46.1%);
+    --border:hsl(240 5.9% 90%);
+    --blue:#3b82f6; --blue-700:#1d4ed8;
+    --blue-tint:rgba(59,130,246,.10); --blue-tint-bd:rgba(59,130,246,.20);
+    --sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:#0a0a0b;font-family:var(--sans);color:var(--fg);overflow:hidden;-webkit-font-smoothing:antialiased}
+  .deck{height:100vh;width:100vw;position:relative}
+  .slide{position:absolute;inset:0;display:none;flex-direction:column;justify-content:center;align-items:center;
+    text-align:center;padding:7vh 8vw;background:var(--bg);overflow:hidden}
+  .slide.active{display:flex;animation:fade .45s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){.slide.active{animation:none}}
+  .slide.soft{background:var(--muted-soft)}
+  .grid-bg::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.5;
+    background-image:linear-gradient(to right,var(--border) 1px,transparent 1px),linear-gradient(to bottom,var(--border) 1px,transparent 1px);
+    background-size:4rem 4rem;
+    -webkit-mask-image:radial-gradient(ellipse at center,#000 35%,transparent 75%);mask-image:radial-gradient(ellipse at center,#000 35%,transparent 75%)}
+  .slide > *{position:relative;z-index:1}
+
+  h1{font-weight:800;line-height:1.07;letter-spacing:-.025em;font-size:clamp(2rem,5.2vw,4.2rem)}
+  h2{font-weight:800;line-height:1.1;letter-spacing:-.02em;font-size:clamp(1.7rem,4.4vw,3.4rem)}
+  .accent{color:var(--blue)}
+  .lead{font-size:clamp(1.1rem,2.2vw,1.7rem);color:var(--muted-fg);margin-top:1.4rem;max-width:40ch;line-height:1.45;font-weight:500}
+  .badge{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem 1.1rem;border-radius:999px;
+    background:var(--blue-tint);border:1px solid var(--blue-tint-bd);color:var(--blue-700);
+    font-size:clamp(.66rem,1vw,.82rem);font-weight:600;text-transform:uppercase;letter-spacing:.18em;margin-bottom:2rem}
+  .kicker{font-weight:700;text-transform:uppercase;letter-spacing:.2em;font-size:clamp(.66rem,1vw,.82rem);color:var(--blue);margin-bottom:1.2rem}
+
+  /* three role cards */
+  .cards{display:flex;gap:clamp(.8rem,2vw,1.6rem);margin-top:2.2rem;flex-wrap:wrap;justify-content:center;max-width:76rem;width:100%}
+  .card{flex:1 1 240px;max-width:360px;background:var(--card);border:1px solid var(--border);border-radius:16px;
+    padding:clamp(1.3rem,2.8vw,2.1rem) 1.4rem;box-shadow:0 1px 2px rgba(0,0,0,.04);text-align:left}
+  .card h3{font-size:clamp(1.2rem,2.2vw,1.7rem);font-weight:800;letter-spacing:-.01em;margin-bottom:.6rem}
+  .card p{font-size:clamp(1.05rem,1.7vw,1.45rem);color:var(--muted-fg);line-height:1.45}
+  .card .tag{display:inline-block;font-size:clamp(.66rem,1vw,.8rem);font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--blue);margin-bottom:.7rem}
+
+  /* numbered steps, big enough for the back row */
+  .steps{list-style:none;display:flex;flex-direction:column;gap:clamp(.8rem,2.2vh,1.4rem);margin-top:2rem;max-width:min(60rem,92vw);width:100%;text-align:left}
+  .steps li{display:flex;align-items:flex-start;gap:1rem;font-size:clamp(1.15rem,2.2vw,1.8rem);font-weight:500;line-height:1.3}
+  .steps .n{flex:0 0 auto;width:clamp(1.8rem,3.2vw,2.4rem);height:clamp(1.8rem,3.2vw,2.4rem);border-radius:999px;background:var(--blue);color:#fff;
+    font-weight:800;font-size:clamp(.9rem,1.6vw,1.15rem);display:flex;align-items:center;justify-content:center;margin-top:.1rem}
+  .steps .min{color:var(--muted-fg);font-weight:500;white-space:nowrap}
+  .steps .opt{color:var(--muted-fg)}
+
+  /* the round's four steps in one row */
+  .loop{display:flex;gap:clamp(.5rem,1.2vw,.9rem);margin-top:2rem;flex-wrap:wrap;justify-content:center;max-width:80rem;width:100%}
+  .loop .card{flex:1 1 180px;max-width:270px;text-align:center}
+  .loop .card h3{font-size:clamp(1.1rem,1.9vw,1.5rem)}
+  .loop .card p{font-size:clamp(.95rem,1.45vw,1.25rem)}
+
+  .hand{font-size:clamp(4rem,12vw,8rem);line-height:1;margin-bottom:1rem}
+  .quote{max-width:46ch;margin:2rem auto 0;padding:1rem 1.4rem;border-left:4px solid var(--blue);background:var(--card);
+    border-radius:0 12px 12px 0;text-align:left;font-size:clamp(1rem,1.7vw,1.35rem);line-height:1.45;color:var(--fg)}
+  .quote .src{display:block;margin-top:.5rem;font-size:clamp(.7rem,1.1vw,.85rem);color:var(--muted-fg);letter-spacing:.06em;text-transform:uppercase}
+  .big-rule{font-size:clamp(1.9rem,5vw,4rem);font-weight:800;letter-spacing:-.02em;line-height:1.1;max-width:22ch}
+
+  .nav{position:absolute;bottom:2vh;right:2.2vw;font-size:.75rem;color:var(--muted-fg);z-index:20;font-variant-numeric:tabular-nums}
+  .progress{position:fixed;top:0;left:0;height:4px;background:var(--blue);transition:width .35s ease;z-index:30}
+
+  /* phones (the host checking the deck): slides flow, nothing clipped */
+  @media (max-width:640px){
+    body{overflow:auto}
+    .slide{padding:8vh 16px}
+    .steps li{font-size:1.05rem}
+  }
+  @media print{
+    html,body{height:auto;overflow:visible;background:#fff}
+    .slide{position:relative!important;display:flex!important;height:100vh;break-after:page;animation:none!important}
+    .nav,.progress{display:none!important}
+  }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1 · WELCOME — up while the room fills.
+       NOTES: say what the evening is for, in one breath. Name, date and venue are founder
+       decisions held in the private brief; say them, do not show them. -->
+  <section class="slide grid-bg" data-slide="welcome">
+    <div class="badge">Sales Mastermind &middot; Session 1</div>
+    <h1>Is your offer as clear to them<br>as it is <span class="accent">to you</span>?</h1>
+    <p class="lead">Four rounds. In each one, someone reads your Clarity Canvas, finds where they would bet against it, and you make a better version.</p>
+  </section>
+
+  <!-- 2 · THE THREE ROLES — docs/events/sales-mastermind.md § Format, "Three roles".
+       NOTES: one canvas per round, a new partner every round. Everyone with a canvas owns
+       once in rounds 1-2 and once in rounds 3-4, on the new version. -->
+  <section class="slide soft" data-slide="roles">
+    <div class="kicker">Three roles</div>
+    <h2>One canvas per round. <span class="accent">A new partner</span> every round.</h2>
+    <div class="cards">
+      <div class="card"><span class="tag">Speaker first</span><h3>Canvas owner</h3><p>The round is about your Clarity Canvas.</p></div>
+      <div class="card"><span class="tag">Listener first</span><h3>Partner</h3><p>Understand the canvas first. Then you may challenge it.</p></div>
+      <div class="card"><span class="tag">Keeps the rules</span><h3>Observer</h3><p>Keeps the pair to the rules. Gives feedback at the end of the round.</p></div>
+    </div>
+    <p class="lead" style="font-size:clamp(.95rem,1.7vw,1.3rem)">No canvas yet? You observe this round.</p>
+  </section>
+
+  <!-- 3 · LIVE DEMO CUE — scripted, 3-5 minutes, two people from the room, filmed for reuse.
+       NO QUESTIONS (run-of-show, opener). The four cards are the loop from
+       docs/events/sales-mastermind.md § The loop (15 minutes plus 3 of feedback).
+       NOTES: start the camera before you call the two people up. -->
+  <section class="slide" data-slide="demo">
+    <div class="kicker">Live demo &middot; 3 to 5 minutes</div>
+    <h2>Watch <span class="accent">one round</span></h2>
+    <div class="loop">
+      <div class="card"><span class="tag">1 &middot; 4 min</span><h3>Read</h3><p>The partner reads the canvas and marks every box they would bet against.</p></div>
+      <div class="card"><span class="tag">2</span><h3>Understand</h3><p>The owner speaks. The partner explains back until the owner says above 8.</p></div>
+      <div class="card"><span class="tag">3</span><h3>Challenge</h3><p>The partner speaks. The owner explains back the reason until the partner says above 8.</p></div>
+      <div class="card"><span class="tag">4 &middot; 3 min</span><h3>Feedback</h3><p>The observer: where the rules slipped, and one thing on content or communication.</p></div>
+    </div>
+    <p class="lead" style="font-size:clamp(.95rem,1.7vw,1.3rem)">We are filming it. No questions during the demo.</p>
+  </section>
+
+  <!-- 4 · THE HANDS-UP SIGNAL — founder, 2026-11-04: "so I don't forget".
+       NOTES: each round closes this way. Only confirm the next round when the room is quiet:
+       that moment cuts the transcript into rounds (docs/events/sales-mastermind.md, after
+       the run-of-show table). Practise it once now, with the whole room. -->
+  <section class="slide soft" data-slide="hands-up">
+    <div class="hand" aria-hidden="true">&#9995;</div>
+    <h2>When my hand goes up, <span class="accent">yours does too</span></h2>
+    <ol class="steps" style="max-width:min(44rem,92vw)">
+      <li><span class="n">1</span><span>I count down.</span></li>
+      <li><span class="n">2</span><span>I raise my hand.</span></li>
+      <li><span class="n">3</span><span>You see it: raise yours and stop talking.</span></li>
+    </ol>
+  </section>
+
+  <!-- 5 · THE RULE — docs/events/sales-mastermind.md § The rules (spoken, not in the app).
+       Nothing in the app scores or enforces this; the host explains it, the observer keeps it.
+       The quoted line is copied from src/app/content/verified-understanding-oath.ts, v5,
+       MY PROMISE (third paragraph), the text the Clarity Meeting Principle renders.
+       NOTES: "Say it out loud" matters: the transcript keeps every number, which is how the
+       evening is measured later. -->
+  <section class="slide" data-slide="rule">
+    <div class="kicker">The rule</div>
+    <p class="big-rule">Both say a number.<br><span class="accent">The lower one counts.</span></p>
+    <ol class="steps">
+      <li><span class="n">1</span><span>Say it out loud: &ldquo;I&rsquo;m at a 7.&rdquo;</span></li>
+      <li><span class="n">2</span><span>Above 8, the partner may challenge. If it falls, back to understanding.</span></li>
+      <li><span class="n">3</span><span>The owner can take the speaker role back at any time.</span></li>
+    </ol>
+    <div class="quote">&ldquo;I&rsquo;ll accept the lower of our two numbers as my verified understanding of your intended meaning.&rdquo;<span class="src">Clarity Meeting Principle</span></div>
+  </section>
+
+  <!-- 6 · RECORDING CHECK — docs/events/sales-mastermind.md § Conditions of attendance, 1.
+       Accepted at registration (P1529), so this is a check, not a consent ask.
+       The last line restates the terms: "the canvas never quotes or names anyone else".
+       NOTES: walk the room. Someone whose hardware fails stays. -->
+  <section class="slide soft" data-slide="recording">
+    <div class="kicker">Recording check</div>
+    <h2>Mic on. <span class="accent">Transcription on.</span></h2>
+    <ol class="steps" style="max-width:min(50rem,92vw)">
+      <li><span class="n">1</span><span>Clip on your mic.</span></li>
+      <li><span class="n">2</span><span>In the event room, switch transcription on.</span></li>
+      <li><span class="n">3</span><span>Your words go to your round&rsquo;s thread. The owner&rsquo;s AI uses them to draft their next version. It never quotes or names you.</span></li>
+    </ol>
+  </section>
+
+  <!-- 7 · THE CANVAS UPDATE STEP — docs/events/sales-mastermind.md § The new version, and
+       the run-of-show row "Canvas update" (12 min, between rounds 2 and 3).
+       Button labels copied from src/app/prototypes/events/rounds/MastermindUpdateTask.tsx
+       ("Create next version", "Publish") — re-check them there if that file changes.
+       NOTES: publish the draft as it is; refining with the AI is homework after the event.
+       Marking stance is optional and never blocks Publish. -->
+  <section class="slide" data-slide="update">
+    <div class="kicker">Canvas update &middot; 12 min</div>
+    <h2>Publish your <span class="accent">next version</span></h2>
+    <ol class="steps">
+      <li><span class="n">1</span><span>When your round as owner ends, tap <b>Create next version</b> in the event room. <span class="min">The AI drafts it while you partner.</span></span></li>
+      <li><span class="n">2</span><span>Now: open it, read what changed, tap <b>Publish</b>.</span></li>
+      <li><span class="n">3</span><span class="opt">Optional: mark your stance on the boxes that changed.</span></li>
+    </ol>
+    <p class="lead" style="font-size:clamp(.95rem,1.7vw,1.3rem)">Your next partner reads the new version.</p>
+  </section>
+
+  <!-- 8 · CLOSE AND NEXT SESSION — run-of-show: close (everyone, 30-40 seconds), exit card
+       (private, paper), next session date said while everyone is in the room.
+       NOTES: say the session 2 date out loud now; it is not on the slide.
+       Exit card wording is a founder decision (private brief). -->
+  <section class="slide grid-bg" data-slide="close">
+    <div class="kicker">Close</div>
+    <h2>Everyone, <span class="accent">30 seconds</span></h2>
+    <ol class="steps" style="max-width:min(50rem,92vw)">
+      <li><span class="n">1</span><span>One change you will make to your canvas.</span></li>
+      <li><span class="n">2</span><span>One test with a real customer before session 2.</span></li>
+    </ol>
+    <p class="lead">Then the exit card, on paper. Session 2 is online, in two weeks.</p>
+  </section>
+
+</div>
+<div class="progress" id="progress"></div>
+<div class="nav" id="nav">1 / 8</div>
+
+<script>
+  const slides=[...document.querySelectorAll('.slide')];
+  const nav=document.getElementById('nav'), prog=document.getElementById('progress');
+  let i=0;
+  function show(n){
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides.forEach((s,k)=>s.classList.toggle('active',k===i));
+    nav.textContent=(i+1)+' / '+slides.length;
+    prog.style.width=((i+1)/slides.length*100)+'%';
+    window.scrollTo(0,0);
+  }
+  document.addEventListener('keydown',e=>{
+    if(['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)){e.preventDefault();show(i+1)}
+    else if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){e.preventDefault();show(i-1)}
+    else if(e.key==='Home'){show(0)} else if(e.key==='End'){show(slides.length-1)}
+    else if(e.key==='f'){document.documentElement.requestFullscreen?.()}
+  });
+  document.getElementById('deck').addEventListener('click',e=>{
+    if(e.target.closest('a')) return;
+    (e.clientX < window.innerWidth*0.25)?show(i-1):show(i+1);
+  });
+  show(0);
+</script>
+</body>
+</html>
