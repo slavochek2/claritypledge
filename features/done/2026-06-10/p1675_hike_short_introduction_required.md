@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: story
 rank: 336
 workstream: events
 created_date: '2026-11-13'
 tags: [events, social-hike, clarity-hike, registration, preparation]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, dev.2, dev.3, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 5cf2351214e88bdba49f50f089c7ec7024dd8549e39c2cd0b42911586a9d6573
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-23
 ---
 
 # P1675: A hike asks people to commit to the short introduction before the seat, plus how they'll come and how they'll help
@@ -179,7 +179,7 @@ Today the room's Undecided counts room members (people who opened the room, walk
 
 ## Cost Budget
 
-Applies because the migration adds a trigger and per-request functions, and the room reads a count on a timer ([metered-services.md](../docs/technical/metered-services.md)). Supabase only; no Gemini, no new edge function, no new email.
+Applies because the migration adds a trigger and per-request functions, and the room reads a count on a timer ([metered-services.md](../../../docs/technical/metered-services.md)). Supabase only; no Gemini, no new edge function, no new email.
 
 Assumptions: R = registrations per hike (11-08: 20; 10-25: 29, so R ≈ 25 is used below); A = attendees with the room open, about 1 hour on the hike day (A ≈ 20); the host page open about 2 hours; counts re-read every 30 s (same cadence as the host's existing opt-in read, `useHostOptIns`).
 
