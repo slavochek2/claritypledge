@@ -8,6 +8,15 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-19 [process]: A background task's reported exit code is its last statement's; judge it from the echoed exit= line (epistemic gate 7)
+
+**Context:** In the P1688 session a `commit-to-main` run as a background task failed on the main lock, and it was reported to the founder as landed. The command was `cmd > log 2>&1; echo exit=$?`: the echoed line was correct, but the harness reports the exit code of the task's last statement, which is the `echo`, so the notification said 0.
+**Decision:** `.claude/rules/epistemic.md` gate 7 says so (b4f4abd47), and its wording was then corrected (ce3426dfc): the echoed `exit=` line is right and the task's reported code is not. Judge a background result from the echoed line or the log. To make the reported code the command's own, put `rc=$?` immediately after the command, then `echo "exit=$rc"; (exit $rc)`.
+**Alternatives rejected:** The first wording (b4f4abd47) said the pattern "always reports 0", which read as if the echoed line were wrong too. It was reworded the same day, not reverted.
+**Consequences:** Gate 7 now names three ways a status gets lost: `tee` without pipefail, `grep -q` under pipefail (exit 141), and a background task's last statement. Captured on 2026-11-23 from the /day KDD-capture finding; no P-number, so cited by sha.
+
+---
+
 ## 2026-11-19 [product]: The demo film shows the check as the app does it: each person's own drawer, and the lower number shown as verified shared understanding
 
 **Context:** The founder reviewed demo film 4.3. Its words were accurate line by line, but the picture argued with them: the narrator said "the app asks Tessa" while a question card sat over the speaker's face; the speaker said "there may be a gap" while nothing on screen showed one; "the question is expected" was said of everyone, including people who opted out. The film's call screen is designed, not built, so it can show anything, which is exactly why it needs a rule.
