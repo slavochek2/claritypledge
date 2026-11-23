@@ -19,5 +19,5 @@ export const FIXED_BOX_QUESTIONS: Record<CanvasBoxTag, string> = {
   'canvas:metrics': emptyQuestionFor('canvas:metrics') ?? '',
   'canvas:love': 'What does your business choose over something else it cares about, even when it costs you?',
   'canvas:good-at': emptyQuestionFor('canvas:good-at') ?? '',
-  'canvas:world-needs': 'Which direction did you drop, and what showed you it was wrong?',
+  'canvas:world-needs': 'Which expectation was proved wrong, and what showed it?',
 };

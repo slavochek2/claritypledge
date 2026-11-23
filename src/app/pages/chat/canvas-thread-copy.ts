@@ -39,21 +39,24 @@ export const CANVAS_OWN_AI_PROMPT = [
   '',
   // P1658 founder test: an owner's AI that read one file asked five questions instead of looking. It looks first (own business only, this chat or
   // project, never the web), and asks only when most headings would stay empty. No "newest wins": rule 7 keeps dropped directions. The "Source:" line below names these sources, so rule 1 covers them.
-  `First read what you can reach about my own business (not clients' or employers'): our past chats, your memory of me, files in this chat or project; not the web. Only if most headings would stay empty, ask up to five questions (who I sell to, what I sell, for how much, what is hard now) and wait; then write it.`,
+  `First read what you can reach about my own business (not clients' or employers'): our past chats, your memory of me, files in this chat or project; not the web. Only if most headings would stay empty, ask up to five questions, wait, then write.`,
   '',
   'Rules:',
   globalRulesText('owner'),
   '',
-  'Write the answer as ONE Markdown file. Start each canvas with the line "This canvas is about <group>." naming who it is for. If I have more than one business, write one section per canvas, my main focus first. Every section has the nine headings below, in order, without the lines under them.',
+  // P1658 v9: the word cap (1100, pinned) paid for the state rule, the two routing destinations and the label-free shapes; every cut is
+  // listed in the v9 report. "If I have more than one business" was rule 7's "give each its own canvas" said twice.
+  'Return only ONE Markdown file, nothing else. Start each canvas with "This canvas is about <group>." naming who it is for. Write one section per canvas, my main focus first. Each has the nine headings below, in order, without the lines under them.',
   `- Under each heading write up to ${MAX_POINTS_PER_BOX} points, each one short sentence of at most ${MAX_STATEMENT_CHARS} characters.`,
   `- ${THIRD_PERSON_RULE.plain}`,
+  // v9: one line in place of four per-heading "Leave out why" sentences.
+  '- A point never says why.',
   `- ${ROUTING_RULE.plain}`,
   `- ${LEAD_POINT_RULE.plain}`,
   '- Examples inside a definition show the form only. Never reuse their businesses, numbers or claims.',
   '- Under each point, add one line starting "Source:" naming the chat, memory, file or message it comes from. Never invent a source; if there is none, leave the point out.',
   '- Under an empty heading write only: Not known yet.',
   `- ${NAMING_RULE}`,
-  '- Return only the Markdown file, no introduction or advice.',
   '',
   "In the definitions below, 'you' means me, the business owner.",
   '',
