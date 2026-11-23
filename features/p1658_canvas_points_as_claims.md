@@ -12,8 +12,8 @@ drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
-spec_review_hash: 7d69d36fd85a2e885e438cc544f2036399e47b5885f873117c3e2ed8761a5825
-spec_review_vendors: [gemini, openrouter]
+spec_review_hash: 1c05b656679b41986affce1adc9a3c60bcf12cbb92eeaf7c9507d80dcc95f379
+spec_review_vendors: [gemini]
 ---
 
 # P1658: Clarity Canvas points are written as claims people can take a position on
@@ -38,7 +38,7 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
 ## Prior rulings
 
 - decisions.md 2026-10-19 (P1508): the canvas is nine lean-canvas boxes plus three ikigai boxes, written by the owner's agent.
-- All seven P1536 global rules stay (`GLOBAL_RULES` in canvas-box-definitions.ts); only voice, shape and examples per box change.
+- All seven P1536 global rules stay (`GLOBAL_RULES` in canvas-box-definitions.ts); only voice, shape and examples per box change. One founder-approved exception (2026-11-23, Revision 3): "Statement type per box" is scoped to the boxes that carry state (Milestone, Challenge, Hypotheses), because Solution, Offers and Go-to-market describe the intended model with no status.
 - Point model: mechanism points third person, stance points first person; a reason belongs to the story, not the point.
 - P1529 D23: the round-update next version is the agent's reasoned better version; the new rules apply to it as to any draft.
 
@@ -77,6 +77,42 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
        - "in its heading's voice";
        - Problem's second form written as "Others open …";
        - small rewordings.
+   - **Revision 3 / v9 (founder, 2026-11-23, reading his own Copy-prompt run `~/Desktop/v8.md`).** Every box still carried content that belongs elsewhere. Founder's words: "a solution describes a solution and not the state of the solution"; "Install 4,500 euro once … but for what? It doesn't describe the offer"; "these things until and when … go-to-market strategy is what i plan and how i plan"; "I falsified so many hypotheses … it just shows one". Changes:
+     - **Supersedes:**
+       - Risks row 1 ("keep … the owner's modality (considering, planned, piloted)") for these three boxes.
+       - The v8 Solution bullet's status and its "The business does not <Y>" form.
+       - THIRD_PERSON_RULE's "a plan stays a plan" example.
+       - Any gap or example that asks for or shows status or traction in Solution, Offers or Go-to-market: Offers' "has anyone paid it yet", Go-to-market's "result so far, or 'not tried yet'", "4 of its 6 clients came via…", "6 shops pay it today".
+     - **Solution, Offers & Pricing and Go-to-market describe the business model the owner intends**, in the present tense, with no status ("planned", "untested", "considering", "not tried yet", "none sold") and no traction counts. Both prompts frame these three headings as the intended model, so a present-tense sentence there means "this is the model", never "this is happening". Where the business stands goes in two places:
+       - My current biggest challenge: where it is now, including blockers ("invitations wait for a call that can run the Listening Game").
+       - My next milestone: the next customer result, and its order against later goals ("ahead of").
+       Grounding still applies in every box, so an untested assumption in Segments or Problem stays the owner's claim, never an invented fact. `[FOUNDER DECISION, taken 2026-11-23: "It's not a state. It doesn't matter if it's untested, planned or whatever. State is something else."]` This scopes GLOBAL_RULES "Statement type per box" to the boxes that carry state (Milestone, Challenge, Hypotheses), both `text` and `plain`. It is the one exception to the word-for-word invariant, and its test pin moves with it.
+     - **Solution holds only the customer's path from the problem to what they want, in steps.**
+       - No "The business does not <Y>" stances. "The business does not discuss paid support before the room shows adoption" (v8.md) is a rule the business keeps, not a solution. Such a rule goes to Guiding values only when the owner states it as an "X over Y" trade-off; otherwise it is left out (story material).
+       - A supported outcome inside a disclaimer stays as a step. "Removes false confidence in agreement" from "does not claim to make a team correct … only to remove false confidence" is an example.
+     - **Offers & Pricing names what the customer gets, then the price per unit per period** ("once" is a valid period). "Install: 4,500 EUR once" fails because it does not say what is installed. When the price is missing, the deliverable stays and the gap question asks for the terms (Partial beats empty).
+     - **Go-to-market strategy is where and how the business reaches customers.**
+       - A grounded channel exclusion stays ("not through paid ads").
+       - Timing, waiting and conditions leave the box. A current blocker goes to My current biggest challenge, and an owner-stated sequence of customer goals goes to My next milestone as "ahead of". Incidental timing is dropped (story material).
+       - The routing rule adds both destinations, in the drafting map and, within the word cap, the Copy prompt.
+     - **Hypotheses I've falsified holds up to 3 falsified expectations** (the box cap).
+       - Each one is an expectation, the contrary evidence (a test, an event, a prospect conversation), and the change when stated. The shape no longer demands a sample size or a change.
+       - Selection when more qualify: the ones the owner gives most weight to, or failing that, those that most changed the current focus.
+       - Whole dropped directions still go here (ONE_SALE_LOOP_PLAIN unchanged). A ruled-out option with no evidence story stays a "not" point in its own box.
+       - Raising the cap is a separate founder decision.
+     - **No label in any template.**
+       - v8.md wrote "Lead:" into four points although the Copy prompt forbids it, because the shapes begin `Lead: "…" Others: "…"` and the model copies a template's words.
+       - The five ranked boxes' shapes become plain sentences: "Open with "…" when the owner's words ground it; then "…"".
+       - LEAD_POINT_RULE names the five boxes instead of keying on "Lead:", and keeps the milestone's "ahead of" restriction.
+       - The 1100-word Copy-prompt cap stays; added words are paid by cuts that remove no grounding or scope sentence, each one reported.
+     - **The builder runs the Copy prompt itself before the founder does.** Protocol:
+       - Take the exact Copy-prompt text the app copies, saved to `.private/canvas-rules-test/` with the git sha.
+       - A fresh Claude agent in this repo, at that sha, receives only that text, as the founder's Claude did for v7 and v8.
+       - Sources allowed: `docs/lean-canvas.md`, `docs/goals.md`, `docs/decisions.md`. No specs, code or `.private/`.
+       - Save the output next to the prompt.
+       - Check every box against every rule: no status or traction in the three model boxes, Solution steps only, every offer names what is bought, no timing in Go-to-market, at most 3 falsified expectations, no "Lead:" or other template label, no first- or second-person pronoun, no reason inside a point, nothing from another box. Report any empty box.
+       - Fix and rerun until it passes. This run is separate from the drafting A/B (which still runs, old against v9, with the existing metrics plus these checks) and from the founder's in-app test on TEST.
+     - **Out of scope here: stories.** The reasons, history, waiting and status pulled out of points are story material: "a story is how I came to this point" (founder, 2026-11-19 and 2026-11-23). Drafting a story under each point, using the story definition in `docs/story-point-model.md`, goes in its own spec, because the draft would have to write stories, check them for evidence and show them. The v8.md leaks ("because revenue comes second", "under revisit", "invitations wait for…") are what that spec should absorb.
    - **No @mentions.** Points render URLs and Markdown links (`src/app/utils/linkify.ts`) but have no person mentions. This is a decision not to build any; no code changes for it.
    - **Measure.** The revision-2 draft comes from two places. One is the founder's own AI run of the Copy prompt on his material (Done-When item 2). The other is the internal A/B harness (old rules against revision 2, the same three packs, each side run twice). The founder marks "I can take a side" or "I can't" on one shuffled list that holds the points of v6 and of his revision-2 draft, with nothing saying which draft a point came from (voice still gives some away). Report both the count and the share of "can" points, so a draft cannot win by dropping hard points. Revision 2 is adopted only if its count of "can" points is at least v6's and its share is higher. The harness counts, per box, the lead points, and its headline is the strict count: the first point holds a choice word ("best", "biggest", "first", "chosen", "next") AND an alternative ("ahead of", ", not", "instead of", "rather than") in the same point; "before" counts as neither. A looser lexical count is reported as a secondary row. It also counts the "I", "we", "my", "our", "us" and "me" left in point text (titles excluded), and kept and dropped points per side, naming every dropped point with the engine's reason.
 2. **Test before shipping**, two ways:
@@ -121,6 +157,7 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
 - [ ] New box rules drafted, shown to the founder side by side with the current ones.
 - [ ] The founder has run the new Copy prompt on his own material; his output is saved in `.private/canvas-rules-test/` next to his current canvas.
 - [ ] Revision 2 built: lead points in the five ranked boxes, grounded or left out; no "I", "we", "my", "our", "us", "me" or "you" in any point; the old/revision-2 A/B rerun with lead-point, pronoun and kept/dropped counts; the founder has run the revision-2 Copy prompt and marked the shuffled v6 + revision-2 list.
+- [ ] Revision 3 (v9) built: no status on Solution, Offers or Go-to-market points; Solution only the customer's steps; every offer names what is bought; no timing in Go-to-market; up to 3 falsified expectations; no "Lead:" in any template or output; the builder's own Copy-prompt run passes box by box before the founder runs it; deployed to TEST for the founder's in-app test.
 - [x] At least two real canvases drafted with old and new rules, each side run twice; both runs of a side saved in one file, `.private/canvas-rules-test/<canvas>-old.md` and `-new.md`, and one side-by-side summary there that counts kept and dropped points per side.
 - [ ] The founder's decision recorded in `docs/decisions.md`: adopt, revise or drop; keep or move the reason in Solution and Guiding values; and what the falsified box becomes.
 - [ ] If adopted, the drafting prompt, the Copy prompt and the empty-box questions all show the new rules (one text), and the canvas tests pass (including `src/tests/p1536-box-definitions.test.ts`, with its wording pins moved to the new wording).
