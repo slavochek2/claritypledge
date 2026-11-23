@@ -4,6 +4,7 @@ type: bug
 disclosure: public
 rank: 1
 severity: low
+flow: inline
 tags:
   - security
   - grants
