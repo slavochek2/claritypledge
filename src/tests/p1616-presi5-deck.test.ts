@@ -1,71 +1,61 @@
 /**
- * P1616: /presi5, the Sales Mastermind deck. A static page under public/presi5/, outside the SPA router.
- * Checks the spec's Done-When that can be checked without a browser: the eight slides in the
- * run-of-show's order, no slide or embed tied to a past event, the route wired, and the quoted
- * product text still matching its source file.
+ * P1616: /presi5, the Sales Mastermind deck. A copy of /presi4 with the event substituted
+ * (founder, 2026-11-23: "copy /presi4 as is mostly and just substitute the event"). A static page
+ * under public/presi5/, outside the SPA router.
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { VERIFIED_UNDERSTANDING_OATH } from '../app/content/verified-understanding-oath';
-import { CHANGES_COPY } from '../app/prototypes/events/rounds/next-version-changes';
 
 const root = resolve(__dirname, '../..');
-const html = readFileSync(resolve(root, 'public/presi5/index.html'), 'utf8');
+const read = (p: string) => readFileSync(resolve(root, p), 'utf8');
+const html = read('public/presi5/index.html');
 const doc = new DOMParser().parseFromString(html, 'text/html');
+const p4 = new DOMParser().parseFromString(read('public/presi4/index.html'), 'text/html');
+const SLUG = 'sales-mastermind-stress-test-your-riskiest-business-assumptions-with-peers-ai-2026-11-12-w7vyacggjqeibgwy';
 
 describe('P1616 /presi5 deck', () => {
-  it('has the eight slides in the run-of-show order', () => {
-    const order = [...doc.querySelectorAll('section.slide')].map((s) => s.getAttribute('data-slide'));
-    // docs/events/sales-mastermind.md opener: roles and rules, cards, hands-up, recording check, then the demo.
-    expect(order).toEqual(['welcome', 'roles', 'rule', 'hands-up', 'recording', 'demo', 'update', 'close']);
+  it('opens on the published event title and subtitle, with the /sales link', () => {
+    const first = doc.querySelector('section.slide')!;
+    expect(first.querySelector('h1')!.textContent).toBe('Sales Mastermind');
+    expect(first.querySelector('.t-sub')!.textContent).toBe('Stress-test your riskiest business assumptions with peers & AI');
+    expect(first.querySelector('.url')!.textContent).toBe('claritypledge.com/sales');
+    expect(first.querySelector('.qr')!.getAttribute('aria-label')).toBe('QR code to claritypledge.com/sales');
   });
 
-  it('points at no event: no iframe, no event link, no QR', () => {
-    expect(doc.querySelectorAll('iframe').length).toBe(0);
-    // What renders or loads, not the source comments (which cite docs/events/ files).
-    const urls = [...doc.querySelectorAll('[href],[src]')].map((el) => el.getAttribute('href') ?? el.getAttribute('src') ?? '');
-    expect(urls.filter((u) => !u.startsWith('data:'))).toEqual([]);
-    expect(doc.body.textContent).not.toMatch(/\/events\/|clarity night/i);
-    expect(doc.querySelectorAll('.qr').length).toBe(0);
+  it('is /presi4 with the Ikigai slide swapped for the hands-up slide', () => {
+    const count = (d: Document) => d.querySelectorAll('section.slide').length;
+    expect(count(doc)).toBe(count(p4));
+    expect(doc.body.textContent).not.toMatch(/ikigai|clarity night/i);
   });
 
-  it('loads only files vendored next to it', () => {
-    expect(existsSync(resolve(root, 'public/presi5/fonts/inter-latin.woff2'))).toBe(true);
-    expect(doc.querySelectorAll('script[src], link[rel="stylesheet"]').length).toBe(0);
+  it('puts the hands-up slide, with its purpose, right before the demo round', () => {
+    const slides = [...doc.querySelectorAll('section.slide')];
+    const i = slides.findIndex((s) => s.getAttribute('data-slide') === 'hands-up');
+    expect(i).toBeGreaterThan(0);
+    expect(slides[i].textContent).toMatch(/When the round ends, we end it/);
+    expect(slides[i + 1].textContent).toMatch(/show you one round/);
   });
 
-  it('quotes the principle line verbatim from its source (decisions.md 2026-10-06)', () => {
-    const promise = VERIFIED_UNDERSTANDING_OATH[5].myPromise.text;
-    const lastPara = promise.split('\n\n').at(-1)!;
-    const quoted = doc.querySelector('[data-slide="rule"] .quote')!.childNodes[0].textContent!
-      .replace(/[“”]/g, '').replace(/’/g, "'");
-    expect(quoted).toBe(lastPara);
+  it('points every embed at this event', () => {
+    const srcs = [...doc.querySelectorAll('iframe')].map((f) => f.getAttribute('src')!);
+    expect(srcs.length).toBe(p4.querySelectorAll('iframe').length);
+    for (const s of srcs) expect(s).toContain(`/events/${SLUG}`);
   });
 
-  it('quotes the update-step button labels that the room renders', () => {
-    const labels = [...doc.querySelectorAll('[data-slide="update"] b')].map((b) => b.textContent);
-    expect(labels).toEqual(['Create next version', 'Publish']);
-    // "Create next version" is a JSX text node on its own line (not a comment mention).
-    const task = readFileSync(resolve(root, 'src/app/prototypes/events/rounds/MastermindUpdateTask.tsx'), 'utf8');
-    expect(task).toMatch(/^\s+Create next version\s*$/m);
-    // "Publish" is the copy constant the changes card renders.
-    expect(CHANGES_COPY.publish).toBe(labels[1]);
+  it('ships the images and scripts it references', () => {
+    const local = [...doc.querySelectorAll('[src]')]
+      .map((el) => el.getAttribute('src')!)
+      .filter((s) => !/^(https?:|data:)/.test(s));
+    for (const s of local) expect(existsSync(resolve(root, 'public/presi5', s)), s).toBe(true);
   });
 
-  it('leaves /presi4 untouched (the frozen Clarity Night deck still teaches its own evening)', () => {
-    const p4 = readFileSync(resolve(root, 'public/presi4/index.html'), 'utf8');
-    expect(p4).toContain('<title>Clarity Night #2');
-  });
-
-  it('lets slides flow and scroll at phone width instead of clipping', () => {
-    const phone = html.slice(html.indexOf('@media (max-width:640px)'));
-    expect(phone).toMatch(/\.slide\{[^}]*position:relative[^}]*overflow:visible/);
-    expect(phone).toMatch(/\.deck\{height:auto/);
+  it('leaves /presi4 untouched', () => {
+    expect(read('public/presi4/index.html')).toContain('<title>Clarity Night #2');
   });
 
   it('is reachable at /presi5 without a trailing slash', () => {
-    const vercel = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8'));
+    const vercel = JSON.parse(read('vercel.json'));
     const all = [...(vercel.redirects ?? []), ...(vercel.rewrites ?? [])];
     expect(all.some((r: { source: string; destination: string }) => r.source === '/presi5' && r.destination === '/presi5/')).toBe(true);
   });
