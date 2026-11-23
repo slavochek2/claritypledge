@@ -22,13 +22,19 @@
  * No transcription switch (P1337, founder walkthrough 7): transcription is started in one place
  * only, the room's top bar ("Transcribe"), whose tap is the consent. The general /ready never had
  * one, so the two readiness screens now match.
+ *
+ * P1718: Skip, and Continue saves only an answer. An untouched slider used to save the midpoint 5 on Continue,
+ * so "I didn't answer" and "I'm neutral" were one row and the fake 5 entered everyone's dots. Now Skip, an
+ * untouched Continue and a failed save store nothing and remember the skip on this device (ready-skip-memory.ts),
+ * so the gate sends the person on to /meet next time. The step bar is the room's own (ReadyStepBar.tsx), and a
+ * person seated at a running round is forwarded to /meet (use-seated-at-running-round.ts).
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { SliderTrack } from '@/app/components/partners/slider-track';
-import { PRIMARY_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
+import { ANSWER_BUTTON_CLASS, PRIMARY_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { getRoomReadinessDistribution, setRoomReadiness } from '@/app/data/event-room-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { cn } from '@/lib/utils';
@@ -37,11 +43,13 @@ import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { EventRoomGateScreen } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PrepRoomBanner } from '../prep/PrepRoom';
-import { RoomSteps } from '../rounds/RoomSteps';
 import { recipeForEvent } from '../series-recipes';
 import { useBackToEvent } from '../use-back-to-event';
 import { readRoomNav } from './use-room-back';
 import { RoomHeadCapture, RoomHeadRow, RoomStickyHead } from './RoomChrome';
+import { ReadyStepBar } from './ReadyStepBar';
+import { rememberReadySkipped } from './ready-skip-memory';
+import { useSeatedAtRunningRound } from './use-seated-at-running-round';
 
 const QUESTION = 'How up for thinking are you right now?';
 const MIDPOINT_LABEL = 'Neutral';
@@ -96,17 +104,47 @@ export function EventRoomReady() {
     setTouched(true);
   }, []);
 
+  // P1718 R3: one tap goes through. A second tap on Continue or Skip while a save is in flight does nothing.
+  const leaving = useRef(false);
+  const goToMeet = useCallback(() => {
+    navigate(`/events/${slug}/meet`, { state: { fromReady: true, fromEvent } });
+  }, [navigate, slug, fromEvent]);
+
+  // P1718 R2/R4: nothing is saved; the skip is remembered on this device so the gate sends them on next time.
+  const handleSkip = useCallback(() => {
+    if (leaving.current) return;
+    leaving.current = true;
+    rememberReadySkipped(self?.profileId, event?.id);
+    goToMeet();
+  }, [self?.profileId, event?.id, goToMeet]);
+
+  // P1718 R3: Continue saves only an answer — a moved slider, or a value already stored. Untouched, it is Skip.
   const handleContinue = useCallback(async () => {
+    if (!touched) {
+      handleSkip();
+      return;
+    }
+    if (leaving.current) return;
+    leaving.current = true;
     if (self) {
       try {
         await setRoomReadiness(self.id, value);
         await refresh();
       } catch {
-        // Readiness is a note, not a gate — the person still goes in.
+        // Readiness is a note, not a gate — the person still goes in. P1718 R4: remembered as a skip, so the
+        // gate does not send them back here on every re-entry.
+        rememberReadySkipped(self.profileId, event?.id);
       }
     }
-    navigate(`/events/${slug}/meet`, { state: { fromReady: true, fromEvent } });
-  }, [self, value, refresh, navigate, slug, fromEvent]);
+    goToMeet();
+  }, [touched, handleSkip, self, value, refresh, event?.id, goToMeet]);
+
+  const isFrozen = event
+    ? Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000
+    : false;
+  const hasReadiness = !!event && recipeForEvent(event).room.readiness;
+  // P1718 R8: Ready never stands at a running table — asked only when this screen would otherwise show.
+  const seated = useSeatedAtRunningRound(event?.id, self?.id, granted && !isFrozen && hasReadiness);
 
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;
@@ -115,12 +153,10 @@ export function EventRoomReady() {
   if (offline && !self) return <NeedsConnection />;
   if (!granted) return <EventRoomGateScreen slug={slug} isLoggedIn={isLoggedIn} />;
 
-  const isFrozen = event
-    ? Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000
-    : false;
   // P1586: the redirect lands in an effect, so the loader holds the frame until it does.
   // P1542: a series without a readiness step (hikes) never shows this screen; the redirect carries `fromEvent`.
-  if (isFrozen || (event && !recipeForEvent(event).room.readiness)) {
+  // P1718 R8: nor does someone seated in the round running now.
+  if (isFrozen || (event && !hasReadiness) || seated === true) {
     return (
       <>
         <Navigate to={`/events/${slug}/meet`} replace state={fromEvent ? { fromEvent } : undefined} />
@@ -128,6 +164,7 @@ export function EventRoomReady() {
       </>
     );
   }
+  if (self && seated === null) return <ClarityPageLoader />;
 
   return (
     <div
@@ -154,7 +191,7 @@ export function EventRoomReady() {
         <RoomHeadRow
           className="mx-auto w-full max-w-2xl pt-3 pb-2"
           onBack={backToEvent}
-          tabs={<RoomSteps current="ready" viewing="ready" onSelect={() => {}} className="min-w-0 flex-1" />}
+          tabs={<ReadyStepBar event={event} slug={slug} fromEvent={fromEvent} viewerId={self?.profileId} />}
         />
       </RoomStickyHead>
       {/* P1336: the preparation stays one tap away for someone who joined without it. */}
@@ -192,6 +229,15 @@ export function EventRoomReady() {
               data-testid="room-ready-continue"
             >
               Continue
+            </Button>
+            {/* P1718 R2 (founder 2026-11-23: label "Skip"): blue-bordered, never a second primary (P955). */}
+            <Button
+              onClick={handleSkip}
+              size="lg"
+              className={cn(ANSWER_BUTTON_CLASS, 'w-full')}
+              data-testid="room-ready-skip"
+            >
+              Skip
             </Button>
 
           </div>

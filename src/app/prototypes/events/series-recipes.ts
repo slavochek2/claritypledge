@@ -225,7 +225,7 @@ export const SOCIAL_HIKE_RECIPE: SeriesRecipe = {
 
 /**
  * P1529: the sales mastermind. Preparation is the learning, optional at the room's door so nobody without a
- * canvas is turned away (D5, D20). The room is Principle · Table · Feedback; no statement Compare, no Ready.
+ * canvas is turned away (D5, D20). The room is Ready · Principle · Table · Feedback; no statement Compare (P1718: Ready is back).
  * Feedback is the hikes' step: open at any time (`feedbackAnytime`), the room lands on it when the host ends the evening, its
  * card is the intro (`closeIntro: false`) and the CMP re-check is one step. What stays the Clarity Night's: the quote box
  * (`appreciate`, the server derives consent by series, so the box is right here) and the personal asks. Registration asks its
@@ -243,7 +243,7 @@ export const SALES_MASTERMIND_RECIPE: SeriesRecipe = {
   // statedMinutes is reset on purpose: the spread would inherit Clarity Night's 15, and the mastermind says its own role minutes.
   prepare: { ...CLARITY_NIGHT_RECIPE.prepare, statedMinutes: undefined, steps: ['story', 'game', 'principle', 'cmp7', 'canvas'], optional: true, keepFinished: true },
   // Founder UAT round 1: "Learn and prepare" stays in the room's step bar for everyone, done or not, as on the hikes (their pattern).
-  room: { ...CLARITY_NIGHT_RECIPE.room, readiness: false, feedbackAnytime: true, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Feedback' } },
+  room: { ...CLARITY_NIGHT_RECIPE.room, readiness: true, feedbackAnytime: true, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Feedback' } },
   registration: 'mastermind',
   mastermind: true,
 };

@@ -523,7 +523,8 @@ export function EventRoomMeet() {
           }
         : undefined}
       // Round 6: a tick means this person did it — Opt in once answered, Give feedback once finished.
-      done={shellBack ? { principle: answered, close: feedbackFinished === true } : undefined}
+      // P1718 R10: Ready only once a value is stored, so a skip is not shown as done.
+      done={{ ...(shellBack ? { principle: answered, close: feedbackFinished === true } : {}), ready: self?.readinessValue != null }}
       canvasDone={canvasTab ? canvasShared : undefined}
       className="min-w-0 flex-1"
     />

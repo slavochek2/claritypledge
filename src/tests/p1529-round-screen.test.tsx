@@ -947,10 +947,10 @@ describe('P1529: Clarity Night and Social Hike keep their round card', () => {
 });
 
 describe('P1529: the step bar', () => {
-  it('the mastermind room has Principle, Table and Feedback (open at any time); Clarity Night and the hike keep theirs', async () => {
+  it('the mastermind room has Ready (P1718), Principle, Table and Feedback (open at any time); Clarity Night and the hike keep theirs', async () => {
     const { hiddenRoomSteps } = await import('@/app/prototypes/events/rounds/hidden-room-steps');
     const { SALES_MASTERMIND_RECIPE, CLARITY_NIGHT_RECIPE, SOCIAL_HIKE_RECIPE } = await import('@/app/prototypes/events/series-recipes');
-    expect(hiddenRoomSteps(SALES_MASTERMIND_RECIPE).sort()).toEqual(['compare', 'ready']);
+    expect(hiddenRoomSteps(SALES_MASTERMIND_RECIPE).sort()).toEqual(['compare']);
     expect(hiddenRoomSteps(CLARITY_NIGHT_RECIPE)).toEqual([]);
     expect(hiddenRoomSteps(SOCIAL_HIKE_RECIPE).sort()).toEqual(['compare', 'ready', 'table']);
   });

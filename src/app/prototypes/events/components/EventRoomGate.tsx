@@ -21,6 +21,7 @@ import { PrepRoomGate, useRoomPrepGate } from '../prep/PrepRoom';
 import { ArrivalQuestion, useArrivalGate } from '../arrival/ArrivalGate';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { recipeForEvent } from '../series-recipes';
+import { readySkipped } from './ready-skip-memory';
 
 const GATE_HEADING = 'This is for people coming to the event';
 const GATE_BODY =
@@ -106,9 +107,14 @@ export function EventRoomGate() {
   // switch is the table screen's own "Transcribe" bar, so skipping Ready skips no consent step.
   // Someone already being transcribed has necessarily been to the table, so goes there too.
   const alreadyTranscribed = !!event && isCapturingForEvent(event.id);
-  const returning = self?.readinessValue != null;
+  // P1718 R4: a skip stores no value, so it is remembered on this device (per person and event) instead.
+  const returning = self?.readinessValue != null || readySkipped(self?.profileId, event?.id);
+  const recipe = recipeForEvent(event);
+  // P1718 R9: the mastermind's host never answers Ready — the dots exclude only the caller, and the host is not an
+  // attendee in any count (P1529). Clarity Night's host routing is unchanged.
+  const mastermindHost = recipe.mastermind && !!event && !!self?.profileId && event.hostId === self.profileId;
   // P1542: a series without a readiness step (hikes) goes straight to the room.
-  const destination = alreadyTranscribed || returning || !recipeForEvent(event).room.readiness ? 'meet' : 'ready';
+  const destination = alreadyTranscribed || returning || mastermindHost || !recipe.room.readiness ? 'meet' : 'ready';
   // P1586: the loader beside the redirect keeps the mark on screen through the hop (no blank frame).
   return (
     <>

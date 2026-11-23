@@ -554,7 +554,9 @@ test.describe('P1114 event page: tab row', () => {
     await setTestSession(page, attendee.email);
     // First pass through /ready sets readiness_value — reuses the real flow rather
     // than a seeded fixture, so this exercises exactly what a real return visit does.
+    // P1718 R3: Continue saves only a moved slider (an untouched one is a Skip), so move it first.
     await page.goto(`/events/${event.slug}/ready`);
+    await page.getByRole('slider').press('ArrowRight');
     await page.getByRole('button', { name: 'Continue' }).click();
     await expect(page.getByTestId('room-meet')).toBeVisible();
 

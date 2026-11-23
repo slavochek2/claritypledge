@@ -233,7 +233,8 @@ describe('round 6 surfaces (source contract)', () => {
     // room, else replaces (useBackToEvent, past every room entry above it).
     expect(room).toMatch(/const roomBack = useRoomBack\(slug\);/);
     expect(read('src/app/prototypes/events/components/use-room-back.ts')).toMatch(/useBackToEvent\(slug, nav\.fromEvent, nav\.depth\)/);
-    expect(room).toMatch(/done=\{shellBack \? \{ principle: answered, close: feedbackFinished === true \} : undefined\}/);
+    // P1718 R10 extends the rule to Ready: ticked only once a value is stored (a skip is not done).
+    expect(room).toMatch(/done=\{\{ \.\.\.\(shellBack \? \{ principle: answered, close: feedbackFinished === true \} : \{\}\), ready: self\?\.readinessValue != null \}\}/);
   });
   it('the learning in the room ends on its own screen, then replaces into the room', () => {
     expect(prep).toMatch(/data-testid="learn-room-end"/);

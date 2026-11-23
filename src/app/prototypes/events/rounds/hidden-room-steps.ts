@@ -2,7 +2,7 @@
 import type { SeriesRecipe } from '../series-recipes';
 import type { RoomStep } from './RoomSteps';
 
-/** The steps a recipe's room does not have. P1529: the mastermind's room is Principle · Table · Feedback (no statement Compare). */
+/** The steps a recipe's room does not have. P1529: the mastermind's room has no statement Compare (P1718: it has Ready). */
 export function hiddenRoomSteps(recipe: Pick<SeriesRecipe, 'mastermind'> & { room: Pick<SeriesRecipe['room'], 'readiness' | 'rounds'> }): RoomStep[] {
   return [
     ...(recipe.room.readiness ? [] : (['ready'] as RoomStep[])),
