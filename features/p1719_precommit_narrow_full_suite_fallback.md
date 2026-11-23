@@ -1,12 +1,12 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 354
 workstream: infrastructure
 created_date: '2026-11-23'
 tags: [pre-commit, tests, vitest, contention]
 disclosure: public
-delivery_stage: dev
+delivery_stage: qa
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
