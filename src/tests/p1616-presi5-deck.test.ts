@@ -29,12 +29,26 @@ describe('P1616 /presi5 deck', () => {
     expect(doc.body.textContent).not.toMatch(/ikigai|clarity night/i);
   });
 
-  it('puts the hands-up slide, with its purpose, right before the demo round', () => {
+  it('shows the hands-up slide as a title and a big hand, before the room embeds', () => {
     const slides = [...doc.querySelectorAll('section.slide')];
     const i = slides.findIndex((s) => s.getAttribute('data-slide') === 'hands-up');
     expect(i).toBeGreaterThan(0);
-    expect(slides[i].textContent).toMatch(/When the round ends, we end it/);
-    expect(slides[i + 1].textContent).toMatch(/show you one round/);
+    expect(slides[i].querySelector('.lead')).toBeNull();
+    expect(slides[i].textContent).toContain('✋');
+    // founder 2026-11-23: hands-up comes before the event-page walkthrough
+    expect(slides[i + 1].querySelector('iframe')!.getAttribute('src')).toMatch(/w7vyacggjqeibgwy$/);
+  });
+
+  it('follows the founder order of 2026-11-23, with four slides moved to backup', () => {
+    const heads = [...doc.querySelectorAll('section.slide')].map((s) => s.querySelector('h2,h1')?.textContent ?? '');
+    const at = (re: RegExp) => heads.findIndex((t) => re.test(t));
+    expect(heads[2]).toMatch(/Why many business discussions are a waste of time/);
+    expect(heads[3]).toMatch(/shared challenge/);
+    expect(at(/shared challenge/)).toBeLessThan(at(/Cognitive Understanding/));
+    const backup = at(/Q.?&.?A/); // the arc's Q&A sits after the last moved-in slide; the four sit after the calendar
+    const calendar = at(/event calendar/);
+    for (const re of [/show you one round/, /How a round works/, /can.t give a number/, /mirror agents/, /communication.activism/]) expect(at(re)).toBeGreaterThan(calendar);
+    expect(backup).toBeLessThan(calendar);
   });
 
   it('points every embed at this event', () => {
@@ -47,6 +61,11 @@ describe('P1616 /presi5 deck', () => {
     const local = [...doc.querySelectorAll('[src]')]
       .map((el) => el.getAttribute('src')!)
       .filter((s) => !/^(https?:|data:)/.test(s));
+    // CSS url() files too (the fonts), which no [src] attribute names.
+    const css = [...html.matchAll(/url\('([^')#]+)'\)/g)].map((m) => m[1]);
+    expect(css.length).toBeGreaterThan(0);
+    local.push(...css);
+    expect(local.every((s) => !s.startsWith('/'))).toBe(true);
     for (const s of local) expect(existsSync(resolve(root, 'public/presi5', s)), s).toBe(true);
   });
 
