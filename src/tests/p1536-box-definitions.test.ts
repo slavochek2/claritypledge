@@ -21,6 +21,7 @@ import { buildDraftReply } from '../../supabase/functions/_shared/canvas-reply';
 import * as draft from '../../supabase/functions/_shared/canvas-draft';
 import { BOX_TAGS, titleOf } from '../../supabase/functions/_shared/canvas-draft';
 import { CANVAS_OWN_AI_PROMPT } from '../app/pages/chat/canvas-thread-copy';
+import { FIXED_BOX_QUESTIONS } from '../lib/canvas-box-questions';
 
 const root = process.cwd();
 const read = (rel: string) => readFileSync(resolve(root, rel), 'utf8');
@@ -150,7 +151,9 @@ describe('S2 review fixes', () => {
     expect(CANVAS_OWN_AI_PROMPT).toContain(NAMING_RULE);
     expect(NAMING_RULE).toContain('Public platforms and marketplaces');
     for (const t of [DRAFT_RULES, CANVAS_OWN_AI_PROMPT]) expect(t).not.toMatch(/other people or companies|every company other than/);
-    expect(def('canvas:channels').definition).toContain('Public platform names allowed'); // the definition the rule must agree with
+    // v9 cut the definition's repeat ("Public platform names allowed.", paid for the Offers wording): it now says nothing about names, so it
+    // cannot disagree with NAMING_RULE, which both prompts carry (above) and which allows public platforms.
+    expect(def('canvas:channels').definition).not.toMatch(/\bnames?\b|\bnamed\b/i);
   });
 });
 
@@ -304,7 +307,7 @@ describe('S2 box guidance', () => {
     const sol = def('canvas:solution');
     expect(solutionIsSteps(sol.shape)).toBe(true);
     expect(sol.definition).toContain('up to five steps of what happens for them');
-    expect(sol.definition).toContain('Not the package, price or channel.');
+    expect(sol.definition).toContain('Not the sale, package, price or channel.'); // v9 review: the self-run put the sales session in Solution
     expect(sol.shape).not.toContain('<planned / piloted / live>'); // v9: the status slot is gone (the intended model carries no status)
     expect(sol.good.split(/,| then /).length).toBeGreaterThanOrEqual(4); // the example is itself a path of several steps
     expect(sol.good).not.toMatch(/\bbaht\b|\bper\b/);
@@ -536,7 +539,7 @@ describe('P1658 revision 3 / v9', () => {
     const r = rule4();
     expect(r.text).toContain('describe the business model the owner intends, in the present tense, so a sentence there means "this is the model", never "this is happening"');
     expect(r.text).toContain('no status ("planned", "untested", "considering", "not tried yet", "none sold", "live", "piloted", "quoted", "paid by N") and no traction counts');
-    expect(r.plain).toContain('are the model I intend, in the present tense: no status (planned, untested, not tried yet, none sold) or traction counts');
+    expect(r.plain).toContain('are the model I intend, in the present tense: no status (planned, considered, untested, not tried yet, none sold) or traction counts'); // "considered": v8's own word
     expect(DRAFT_RULES).toContain(r.text);
     expect(CANVAS_OWN_AI_PROMPT).toContain(r.plain!);
     // "Keep how sure" and "Offers & Pricing" in DRAFT_RULES no longer pull status into the model boxes
@@ -560,7 +563,8 @@ describe('P1658 revision 3 / v9', () => {
     const sol = def('canvas:solution');
     expect(solutionStance(sol)).toBe(false);
     expect(sol.definition).toContain('No rule the business keeps; a disclaimer\'s claimed outcome is a step.');
-    expect(sol.not).toContain('(a rule the business keeps: Guiding values only as "X over Y", else left out)');
+    // v9 review: "only as X over Y" read as "rewrite it as X over Y" (an invented trade-off); the spec says only when the owner states it so
+    expect(sol.not).toContain('(a rule the business keeps: Guiding values only if the owner says it as "X over Y", else left out)');
     expect(sol.not).toContain('(a disclaimer: its outcome is a step');
     // CONTROL (gate 7d): the real shape with v8's stance form put back fails it
     expect(solutionStance({ ...sol, shape: `${sol.shape} A stance: "The business does not <Y>."` })).toBe(true);
@@ -575,7 +579,9 @@ describe('P1658 revision 3 / v9', () => {
   it('d. Offers & Pricing names what the customer gets, then the price per unit per period ("once" is one); a price with no deliverable fails; no state slot', () => {
     const o = def('canvas:revenue');
     expect(deliverableFirst(o.shape)).toBe(true);
-    expect(o.definition).toBe('What the customer gets, then its price per unit per period or once.');
+    // v9 review: the Copy prompt needs the drafting prompt's Offers rule (the self-run wrote "…: paid, on terms agreed before it starts")
+    expect(o.definition).toBe('What the customer gets, then price per unit per period or once, only as you stated them; no price without what it buys.');
+    expect(CANVAS_OWN_AI_PROMPT).toContain(`## Offers & Pricing\n${o.definition}\n`);
     expect(o.shape).not.toContain('<state>');
     expect(o.good).toMatch(/ once\."$/);
     expect(o.not).toContain('(names no deliverable: what is set up?)');
@@ -597,8 +603,13 @@ describe('P1658 revision 3 / v9', () => {
     expect(gtmTiming(g.shape)).toBe(false);
     expect(g.shape).toContain('[, not <ruled-out path>]');
     expect(g.good).toContain(', not through paid ads');
-    expect(g.definition).toContain('Where and how the business reaches this segment. No timing, waiting or conditions.');
+    expect(g.definition).toContain('Where and how the business reaches this segment. No waiting, conditions or dates; a cadence stays.');
+    expect(g.gap).not.toMatch(/\blast customer\b|\bfound you\b|\bfind you\b/); // v9 review: the question asks for the plan, not a past result
+    expect(FIXED_BOX_QUESTIONS['canvas:channels']).toBe(g.gap);
     expect(ROUTING_RULE.text).toContain('a current blocker goes to My current biggest challenge, a sequence of customer goals the owner states goes to My next milestone as "ahead of", and other timing is left out');
+    // v9 review: the timing ban is Go-to-market's alone (the spec's scope); Solution's steps keep their order and Offers its cadence
+    expect(ROUTING_RULE.text).toContain('Go-to-market strategy holds no waiting, conditions or dates (a cadence such as "weekly" stays');
+    expect(ROUTING_RULE.text).not.toMatch(/never go in Solution/);
     expect(ROUTING_RULE.plain).toContain('blockers belong under My current biggest challenge, an order of goals under My next milestone');
     expect(DRAFT_RULES).toContain(ROUTING_RULE.text);
     expect(CANVAS_OWN_AI_PROMPT).toContain(`- ${ROUTING_RULE.plain}\n`);
@@ -611,8 +622,10 @@ describe('P1658 revision 3 / v9', () => {
     expect(MAX_POINTS_PER_BOX).toBe(3);
     expect(h.definition).toContain('Up to 3 expectations that evidence proved wrong (a test, event or prospect conversation).');
     expect(h.definition).toContain('If more: those you weigh most, else those that most changed the current focus.');
-    expect(h.definition).toContain('Without such evidence, a ruled-out option is a "not" point in its box.');
-    expect(h.shape).toBe('"The business expected <X>; <contrary evidence>[; so it <stated change>]."');
+    // v9 review: a whole dropped direction (rule 7) and a single ruled-out detail read as one case; the evidence slot is optional, so a
+    // direction with no evidence lands here without the model inventing any
+    expect(h.definition).toContain('Without evidence, a dropped direction still goes here; a single ruled-out detail is a "not" point in its box.');
+    expect(h.shape).toBe('"The business expected <X>[; <contrary evidence>][; so it <stated change>]."');
     expect(ONE_SALE_LOOP_PLAIN).toContain('An old direction I dropped goes under Hypotheses I\'ve falsified'); // whole directions still land here (Copy prompt)
     expect(DRAFT_RULES).toContain('Hypotheses I\'ve falsified: a whole direction the owner dropped (a customer group, an offer, a way of selling) is one of its falsified expectations'); // and for the agent, whose rule 7 does not say it
     expect(ROUND_RULES).toContain('a whole direction the owner dropped');

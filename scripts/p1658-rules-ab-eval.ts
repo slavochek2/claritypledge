@@ -98,20 +98,27 @@ const titleOf = (tag: string) => CANVAS_BOXES.find((b) => b.tag === tag)?.title 
 /** The v9 rules, in the order they are reported. */
 export const V9_RULES = ['status', 'solution-stance', 'label', 'gtm-timing', 'offer-head', 'falsified-count', 'money-elsewhere', 'pronoun', 'reason'] as const;
 /** The three boxes whose points must carry no status word or traction count (they say what the business does or sells, not how far it got). */
-const STATUS_BOXES: ReadonlySet<string> = new Set(['canvas:solution', 'canvas:channels', 'canvas:revenue']);
+const NO_STATUS_BOXES: ReadonlySet<string> = new Set(['canvas:solution', 'canvas:channels', 'canvas:revenue']);
 /** A status word or progress phrase. Word-bounded; the "; live" forms need the semicolon, which marks a status tail. */
 const STATUS_RE = /\b(?:planned|piloted|pilots? run|untested|considering|considered|not tried yet|none sold|nobody (?:has )?paid|being drafted|quoted|paid by|pays? (?:it )?today|so far|not yet|under revisit|live for|is live)\b|; live\b|; planned\b/gi;
-/** A traction count: "4 of its 6", "3 of the first 10". */
-const TRACTION_RE = /\b\d+ of (?:its|the|their)(?: first)? \d+\b/gi;
-const STANCE_RE = /\b(?:does not|doesn't|will not|won't|never)\b/gi;
+/** A traction count: "4 of its 6", "3 of the first 10", "two shops pay it" (the module's own bad example), "zero contacts were made" (v8). */
+const TRACTION_RE = /\b\d+ of (?:its|the|their)(?: first)? \d+\b|\b(?:\d+|zero|no|one|two|three|four|five|six|seven|eight|nine|ten) \w+ (?:pay|pays|paid|bought|signed|joined)\b|\b(?:zero|no|0) \w+ (?:were |was )?(?:made|run|sold)\b/gi;
+/** v8 status tails the word list missed (Opus review M8): an unset price, a precondition on the terms. */
+const STATUS_EXTRA_RE = /\bprice not set\b|\bnot set\b|\bagreed before\b|\bbefore it starts\b/gi;
+/** A stance the business keeps ("The business does not …"). Anchored on the business as subject, so a step's own negation ("if a receipt does not match") is no stance. */
+const STANCE_RE = /\bthe business\s+(?:does not|doesn't|will not|won't|never)\b/gi;
 /** A leading "Lead:" / "Others:" / "Other:" label, or "Lead:" anywhere. The Customer Segments role prefixes (Pays:, Uses:, Approves:) are none of these. */
-const LABEL_START_RE = /^\s*(?:Lead|Others?):/i;
-const LABEL_ANY_RE = /Lead:/;
+const LABEL_START_RE = /^\s*(?:Lead|Others?|Target):/i;
+/** "Lead:" anywhere, or the v9 shape's own scaffolding copied into a point ("Open with", "when grounded; then"). */
+const LABEL_ANY_RE = /Lead:|\bOpen with\b|\bwhen grounded\b/;
 const MONTHS = 'January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec';
 /** Timing words in a Go-to-market point: when the plan waits, or a date. A step order ("before the deadline") is fine elsewhere, so this runs on that one box only. */
-const TIMING_RE = new RegExp(`\\b(?:until|waits?|waiting|once|after|before|when|later|currently|not yet)\\b|\\bby \\d{1,2} (?:${MONTHS})\\b|\\bin (?:${MONTHS})\\b|\\b20\\d\\d\\b`, 'gi');
-/** A price: a number next to EUR, USD, GBP, baht, a euro, dollar or pound sign, on either side. */
-const MONEY_RE = /\d[\d,.]*\s?(?:EUR|USD|GBP|baht)\b|\d[\d,.]*\s?[€$£]|[€$£]\s?\d|\b(?:EUR|USD|GBP|baht)\s?\d/i;
+// "once a month" / "once per week" is a cadence, not a condition, so "once" counts only when no period follows it.
+const TIMING_RE = new RegExp(`\\b(?:until|waits?|waiting|once(?! (?:a|an|per|every)\\b)|after|before|when|later|currently|not yet)\\b|\\bby \\d{1,2} (?:${MONTHS})\\b|\\bin (?:${MONTHS})\\b|\\b20\\d\\d\\b`, 'gi');
+/** A price: a number next to EUR, USD, GBP, baht, a currency word (euro, dollar, pound) or a euro, dollar or pound sign, on either side. The founder's own v8 complaint wrote "4,500 euro". */
+const MONEY_RE = /\d[\d,.]*\s?(?:EUR|USD|GBP|baht|euros?|dollars?|pounds?)\b|\d[\d,.]*\s?[€$£]|[€$£]\s?\d|\b(?:EUR|USD|GBP|baht)\s?\d/i;
+/** A reason inside a point: REASON_RE, or " since ". One test, used by the v9 check and the --compare summary alike. */
+export const hasReason = (text: string): boolean => REASON_RE.test(` ${text} `) || / since /i.test(` ${text} `);
 const matchesOf = (re: RegExp, text: string): string[] => [...new Set((text.match(re) ?? []).map((m) => m.toLowerCase()))];
 
 /** The words naming an offer: the text before its price, without "The offer to sell first is" and trailing ":" "," ";" "for" "at". Null when the point holds no price. */
@@ -133,8 +140,8 @@ export function v9Violations(points: ReadonlyArray<{ box: string; text: string }
   const offerHeads: Array<{ text: string; head: string }> = [];
   const add = (p: { box: string; text: string }, rule: string, detail?: string) => violations.push({ box: p.box, text: p.text, rule, ...(detail ? { detail } : {}) });
   for (const p of points) {
-    if (STATUS_BOXES.has(p.box)) {
-      const hits = [...matchesOf(STATUS_RE, p.text), ...matchesOf(TRACTION_RE, p.text)];
+    if (NO_STATUS_BOXES.has(p.box)) {
+      const hits = [...matchesOf(STATUS_RE, p.text), ...matchesOf(TRACTION_RE, p.text), ...matchesOf(STATUS_EXTRA_RE, p.text)];
       if (hits.length) add(p, 'status', hits.join(', '));
     }
     if (p.box === 'canvas:solution') { const hits = matchesOf(STANCE_RE, p.text); if (hits.length) add(p, 'solution-stance', hits.join(', ')); }
@@ -144,13 +151,16 @@ export function v9Violations(points: ReadonlyArray<{ box: string; text: string }
       const head = offerHeadOf(p.text);
       if (head !== null) {
         offerHeads.push({ text: p.text, head });
-        if (head.split(/\s+/).filter(Boolean).length < 3) add(p, 'offer-head', head);
+        // a head under 3 words, or one bare word before a comma ("Install, for those who …": the rest says who buys, not what is bought)
+        const first = head.split(',')[0]!.trim();
+        if (head.split(/\s+/).filter(Boolean).length < 3 || (head.includes(',') && first.split(/\s+/).length === 1)) add(p, 'offer-head', head);
       }
     }
-    if ((p.box === 'canvas:solution' || p.box === 'canvas:channels' || p.box === 'canvas:segments') && MONEY_RE.test(p.text)) add(p, 'money-elsewhere', MONEY_RE.exec(p.text)![0]);
+    // not Customer Segments: "what they buy or use today" is a segment qualifier, and it may carry a price ("who pay an accountant 15,000 baht a month")
+    if ((p.box === 'canvas:solution' || p.box === 'canvas:channels') && MONEY_RE.test(p.text)) add(p, 'money-elsewhere', MONEY_RE.exec(p.text)![0]);
     const pron = pronounsIn(p.text);
     if (pron.length) add(p, 'pronoun', pron.join(', '));
-    if (REASON_RE.test(` ${p.text} `) || / since /i.test(` ${p.text} `)) add(p, 'reason');
+    if (hasReason(p.text)) add(p, 'reason');
   }
   // one violation per point past the third, so the text names what to cut
   points.filter((p) => p.box === 'canvas:world-needs').slice(3).forEach((p, i, rest) => add(p, 'falsified-count', `${rest.length + 3} points in the box`));
@@ -174,10 +184,12 @@ export function v9Counts(violations: ReadonlyArray<{ rule: string }>): Record<st
 export interface CanvasSection { group: string | null; points: Array<{ box: string; text: string }>; unknownHeadings: string[] }
 
 /**
- * Reads the Copy-prompt form: an optional "This canvas is about <group>." line starts each canvas section, "## <Box title>" opens a box,
- * lines starting "- " are its points (an indented line that is not "Source:" continues the point above), "Source:" lines (indented or not)
- * are no points, and "Not known yet." means the box is empty. A file with headings but no "This canvas is about" line is one section.
- * A heading that is no canvas box title is recorded; the points under it are read by nobody.
+ * Reads the Copy-prompt form as owners' AIs actually write it: an optional "This canvas is about <group>." line (bold or as a heading too)
+ * starts each canvas section, "## <Box title>" opens a box (curly apostrophes and a trailing colon tolerated), and under it a point is a
+ * line starting "- ", "* " or "1. ", or a plain unindented line (the paragraph form: the v9 self-run wrote no bullets, and a bullets-only
+ * reader saw 0 points and reported 0 violations). An indented line that is not "Source:" continues the point above. "Source:" lines,
+ * bold or not, are no points; "Not known yet." means the box is empty; code fences and "---" rules are skipped. A heading that is no
+ * canvas box title is recorded; the points under it are read by nobody.
  */
 export function parseCanvasMd(md: string): CanvasSection[] {
   const sections: CanvasSection[] = [];
@@ -185,31 +197,38 @@ export function parseCanvasMd(md: string): CanvasSection[] {
   let box: string | null = null;
   let last: { box: string; text: string } | null = null;
   const open = (group: string | null): CanvasSection => { const s: CanvasSection = { group, points: [], unknownHeadings: [] }; sections.push(s); return s; };
+  const plainTitle = (t: string) => t.replace(/[‘’]/g, "'").replace(/[*_:]+$/g, '').replace(/^[*_]+/, '').trim().toLowerCase();
+  const isSource = (t: string) => /^[*_\s>-]*Source\s*[*_]*\s*:/i.test(t);
+  const isEmpty = (t: string) => /^[*_]*Not known yet\.?[*_]*$/i.test(t);
   for (const raw of md.split('\n')) {
-    const line = raw.trimEnd();
-    const about = /^This canvas is about (.+?)\.?$/.exec(line);
-    if (about) { section = open(about[1]!); box = null; last = null; continue; }
-    const heading = /^##\s+(.+)$/.exec(line);
+    const line = raw.replace(/\r$/, '').trimEnd();
+    if (/^\s*(?:```|~~~)/.test(line) || /^\s*-{3,}\s*$/.test(line)) continue;
+    const about = /^(?:#+\s*)?[*_]*This canvas is about (.+?)\.?[*_]*$/.exec(line);
+    if (about) { section = open(about[1]!.replace(/[*_.]+$/, '')); box = null; last = null; continue; }
+    const heading = /^#{2,3}\s+(.+)$/.exec(line);
     if (heading) {
       section ??= open(null);
       const title = heading[1]!.trim();
-      const found = CANVAS_BOXES.find((b) => b.title.toLowerCase() === title.toLowerCase());
+      const found = CANVAS_BOXES.find((b) => plainTitle(b.title) === plainTitle(title));
       box = found?.tag ?? null;
       if (!found) section.unknownHeadings.push(title);
       last = null;
       continue;
     }
     if (!section || !box) continue;
-    const point = /^-\s+(.*)$/.exec(line);
-    if (point) {
-      const text = point[1]!.trim();
-      last = text === 'Not known yet.' || text === '' ? null : { box, text };
+    const trimmed = line.trim();
+    if (trimmed === '') continue;
+    // a Source line closes its point: a wrapped Source line under it must not be glued onto the point text
+    if (isSource(trimmed)) { last = null; continue; }
+    if (isEmpty(trimmed)) { last = null; continue; }
+    const bullet = /^\s{0,3}(?:[-*]|\d+\.)\s+(.*)$/.exec(line);
+    if (bullet || !/^\s/.test(line)) {
+      const text = (bullet ? bullet[1]! : line).trim();
+      last = text === '' || isEmpty(text) ? null : { box, text };
       if (last) section.points.push(last);
       continue;
     }
-    const trimmed = line.trim();
-    if (trimmed === '' || trimmed.startsWith('Source:') || trimmed === 'Not known yet.' || !/^\s/.test(line) || !last) continue;
-    last.text += ` ${trimmed}`;
+    if (last) last.text += ` ${trimmed}`;
   }
   return sections;
 }
@@ -352,7 +371,7 @@ export function selfTest(): string[] {
   // money-elsewhere
   fires('canvas:solution', 'The business files the return for 2,500 baht per shop.', 'money-elsewhere');
   fires('canvas:channels', 'The business offers a first session for €50 in two groups.', 'money-elsewhere');
-  fires('canvas:segments', 'Cafe owners who pay $40 a month are the customers.', 'money-elsewhere');
+  fires('canvas:channels', 'The business sells a 4,500 euro install through café-owner groups.', 'money-elsewhere'); // a currency word counts too
   quiet('canvas:revenue', 'Monthly books and tax filing for one café: 2,500 baht per shop per month.', 'money-elsewhere');
   quiet('canvas:solution', 'An owner photographs each receipt into a chat thread, the business logs it that night, then files the return before the deadline.', 'money-elsewhere');
   quiet('canvas:segments', 'Change leads at organizations of about 100 to 1,000 people are the customers.', 'money-elsewhere'); // a head count is no price
@@ -377,6 +396,39 @@ export function selfTest(): string[] {
   const checked = checkCanvasMd(md);
   check(checked.total === 1 && /unknown-heading/.test(checked.report) && /violations: 1$/.test(checked.report), 'checkCanvasMd did not report exactly the unknown heading');
   check(checkCanvasMd(['## Customer Segments', '- Lead: x'].join('\n')).total === 1, 'checkCanvasMd missed a label in a file with no "This canvas is about" line');
+  // the forms owners' AIs write (/finish review of v9): paragraph points, "* " bullets, a fence, bold "Source:", a curly apostrophe, CRLF
+  const loose = ['```markdown', '**This canvas is about group three.**', '', '## Solution', '', 'The owner sends a photo, then the business logs it.', '**Source:** docs/a.md, planned', '',
+    'The business does not file unseen returns.', 'Source: docs/b.md', '', '## Hypotheses I’ve falsified', '* The business expected yearly pay; owners asked for monthly.', '---', '```'].join('\r\n');
+  const lp = parseCanvasMd(loose);
+  check(lp.length === 1 && lp[0]!.group === 'group three', 'parseCanvasMd missed a bold "This canvas is about" line');
+  check(lp[0]!.points.filter((p) => p.box === 'canvas:solution').length === 2, 'parseCanvasMd missed paragraph-form points (the v9 self-run form)');
+  check(!lp[0]!.points.some((p) => /Source|planned/.test(p.text)), 'parseCanvasMd read a bold Source line as a point or joined it');
+  check(lp[0]!.points.some((p) => p.box === 'canvas:world-needs') && lp[0]!.unknownHeadings.length === 0, 'parseCanvasMd missed a curly-apostrophe heading or a "* " bullet');
+  check(checkCanvasMd(loose).total === 1, 'checkCanvasMd did not find exactly the one stance in the loose-format file');
+  // the review's three regex findings: a currency word, a cadence "once a month", a step's own negation
+  fires('canvas:revenue', 'Install: 4,500 euro once.', 'offer-head');
+  quiet('canvas:channels', 'The business hosts a Q&A once a month on LinkedIn, not through paid ads.', 'gtm-timing');
+  fires('canvas:channels', 'The business posts in owner groups once the season starts.', 'gtm-timing');
+  quiet('canvas:solution', 'An owner sends a receipt, then if it does not match the bank line, the business flags it.', 'solution-stance');
+  // GLM review: a priced segment qualifier is legal; the state boxes stay out of the status check; v9Counts keys are exactly the fired rules
+  quiet('canvas:segments', 'Owners of 1-3 cafés who pay an accountant 15,000 baht a month are the customers.', 'money-elsewhere');
+  quiet('canvas:metrics', 'The next milestone is 10 cafés paying monthly by March (target), ahead of a second city.', 'status');
+  quiet('canvas:good-at', 'The business is at zero pilots run and nobody paid and wants one paid pilot; the obstacle is the call tool.', 'status');
+  quiet('canvas:world-needs', 'The business expected yearly pay; the owners asked for monthly; so far it sells monthly.', 'status');
+  // criteria review: traction by word number and zero count (TRACTION_RE alone), v8's unset price, the shape scaffolding as a label, a bare offer word
+  fires('canvas:revenue', 'Monthly books: 2,500 baht per shop per month; two shops pay it.', 'status');
+  fires('canvas:channels', 'The business does not start with community organizers; zero contacts were made.', 'status');
+  fires('canvas:channels', 'The business answers questions in groups; 4 of its 6 clients came via a technician.', 'status');
+  fires('canvas:revenue', 'A monthly package of chat and transcripts; price not set, per month, terms agreed before the first session.', 'status');
+  fires('canvas:metrics', 'Target: 10 cafés paying monthly (target).', 'label');
+  fires('canvas:segments', 'Open with the first customers are cafés, not chains.', 'label');
+  fires('canvas:revenue', 'Install, for those who do not want to do the work themselves: 4,500 EUR once.', 'offer-head');
+  quiet('canvas:revenue', 'Monthly books and tax filing, with payroll, for one café: 2,500 baht per shop per month.', 'offer-head');
+  quiet('canvas:segments', 'Pays: the café owner, who files alone.', 'label');
+  const wrapped = parseCanvasMd(['## Solution', '- A step, then another.', '  Source: docs/a.md,', '  continued source text', '- Not known yet.', ''].join('\n'));
+  check(wrapped[0]!.points.length === 1 && wrapped[0]!.points[0]!.text === 'A step, then another.', 'parseCanvasMd glued a wrapped Source line onto the point, or read "- Not known yet." as a point');
+  const counted = v9Counts([{ rule: 'label' }, { rule: 'status' }, { rule: 'label' }]);
+  check(JSON.stringify(counted) === JSON.stringify({ label: 2, status: 1 }), 'v9Counts does not count exactly the fired rules');
   // ids: a bad --name and a bad pack id are refused, a good one passes
   for (const bad of ['../x', 'a/b', 'A', '', 'Rev2c', 'rev 2']) check(throws(() => validId(bad, '--name')), `unsafe label accepted: ${JSON.stringify(bad)}`);
   check(validId('rev2c', '--name') === 'rev2c', 'a safe label was refused');
@@ -521,7 +573,7 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
     `Computed by \`scripts/p1658-rules-ab-eval.ts --compare ${A},${B}\` from \`<pack>-${A}.jsonl\` and \`<pack>-${B}.jsonl\`. Runs per side: ${runsLine}. Wording: ${wording}. No model judge.`, '',
     `- Lead point (headline, strict): the FIRST point of a ranked box (${RANKED.map(titleOf).join(', ')}) holding a choice word (best, biggest, first, chosen, next) AND an alternative (ahead of, ", not", instead of, rather than) in the same point. "(loose)" marks a first point that has only one of the two (the secondary, lexical count); "before" counts as neither.`,
     '- Pronouns: "I", "we", "my", "our", "ours", "us", "me", "mine", "you" as whole words in point text ("I" and "US" as written); box titles are never counted.',
-    '- Reason in a point: " because ", ", which ", " so they ", " so that ".',
+    '- Reason in a point: " because ", ", which ", " so they ", " so that ", " since ".',
     '- Dropped: the engine\'s count; every point the model wrote and the engine did not keep is named with the engine\'s reason (only for runs made by a script version that keeps the model actions; earlier files carry none).',
     `- v9 checks (lexical heuristics, a human reads every hit; computed here from the kept points, whatever the run's arm): ${V9_RULES.join(', ')}.`, ''];
   const totals: Record<string, { leads: number; strict: number; pron: number; reasons: number; kept: number; dropped: number; named: number; runs: number; v9: number }> = {};
@@ -547,7 +599,7 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
     o.push(`| **Total kept** | ${per((r, l) => { totals[l]!.kept += r.points.length; totals[l]!.runs++; return r.points.length; })} |`);
     o.push(`| **Dropped (engine count)** | ${per((r, l) => { totals[l]!.dropped += r.dropped ?? 0; return r.dropped ?? 0; })} |`);
     o.push(`| **Pronouns (I, we, my, our, us, me...)** | ${per((r, l) => { const n = r.points.reduce((s, x) => s + pronounsIn(x.text).length, 0); totals[l]!.pron += n; return n; })} |`);
-    o.push(`| **Reason inside a point** | ${per((r, l) => { const n = r.points.filter((x) => REASON_RE.test(` ${x.text} `)).length; totals[l]!.reasons += n; return n; })} |`);
+    o.push(`| **Reason inside a point** | ${per((r, l) => { const n = r.points.filter((x) => hasReason(x.text)).length; totals[l]!.reasons += n; return n; })} |`);
     o.push('');
     const v9 = labels.flatMap((l) => R[l]!.map((r) => ({ l, r, ...v9Violations(r.points) })));
     o.push('### v9 violations per rule', '', `| Rule | ${cols.join(' | ')} |`, `|---|${cols.map(() => '---').join('|')}|`);
@@ -561,8 +613,8 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
     }
     for (const l of labels) {
       for (const r of R[l]!) {
-        const pron =r.points.filter((x) => pronounsIn(x.text).length);
-        const reas = r.points.filter((x) => REASON_RE.test(` ${x.text} `));
+        const pron = r.points.filter((x) => pronounsIn(x.text).length);
+        const reas = r.points.filter((x) => hasReason(x.text));
         if (pron.length) { o.push(`Pronouns, ${l} r${r.run}:`); for (const x of pron) o.push(`- [${titleOf(x.box)}] ${x.text} (${pronounsIn(x.text).join(', ')})`); o.push(''); }
         if (reas.length) { o.push(`Reasons in points, ${l} r${r.run}:`); for (const x of reas) o.push(`- [${titleOf(x.box)}] ${x.text}`); o.push(''); }
         if (r.drops === undefined) { if ((r.dropped ?? 0) > 0) o.push(`Dropped, ${l} r${r.run}: ${r.dropped} (not named: this run's file has no model actions)`, ''); continue; }
@@ -590,8 +642,12 @@ async function main(): Promise<void> {
   if (process.argv.includes('--check-md')) {
     const file = arg('check-md');
     if (!file || file.startsWith('--')) refuse('flag --check-md needs a file');
+    const runFlag = ['--material', '--arm', '--name', '--shared', '--out', '--repeat', '--compare', '--packs'].find((f) => process.argv.includes(f));
+    if (runFlag) refuse(`--check-md reads one file only; ${runFlag} belongs to a model run or --compare`);
     let md: string;
     try { md = readFileSync(file!, 'utf8'); } catch (e) { return refuse(`--check-md: ${(e as Error).message}`); }
+    // a wrong file (no canvas heading at all) must not read as a clean canvas
+    if (!parseCanvasMd(md).length) refuse(`--check-md: ${file} holds no canvas heading ("## Customer Segments" …)`);
     const { report, total } = checkCanvasMd(md);
     console.log(report);
     process.exit(total > 0 ? 1 : 0);

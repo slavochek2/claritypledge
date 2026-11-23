@@ -14,7 +14,7 @@ export const FIXED_BOX_QUESTIONS: Record<CanvasBoxTag, string> = {
   'canvas:segments': emptyQuestionFor('canvas:segments') ?? '',
   'canvas:problem': emptyQuestionFor('canvas:problem') ?? '',
   'canvas:solution': emptyQuestionFor('canvas:solution') ?? '',
-  'canvas:channels': 'How did your last customer find you?',
+  'canvas:channels': emptyQuestionFor('canvas:channels') ?? '',
   'canvas:revenue': emptyQuestionFor('canvas:revenue') ?? '',
   'canvas:metrics': emptyQuestionFor('canvas:metrics') ?? '',
   'canvas:love': 'What does your business choose over something else it cares about, even when it costs you?',

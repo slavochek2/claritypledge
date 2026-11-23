@@ -74,7 +74,7 @@ export const GLOBAL_RULES: readonly GlobalRule[] = [
   { name: 'Grounding', text: `Every factual clause traces to the owner's material. Never invent numbers, dates, prices, motives or obstacles.`, plain: `Every factual clause traces to what I told you or shared with you. Never invent numbers, dates, prices, motives or obstacles.` },
   { name: 'Specificity', text: `Name observable actors, conditions, actions or terms. Reject category words ("small businesses", "social media", "affordable", "integrity").` },
   { name: 'Differentiation only where claimed', text: `Write a competitive difference only when the owner claims one and gives evidence. A true sentence a competitor could also say is allowed.`, plain: `Write a competitive difference only when I claim one and give evidence. A true sentence a competitor could also say is allowed.` },
-  { name: 'Statement type per box', text: `Only ${STATE_BOXES} carry state, where the business stands: a fact stays a fact, a target stays a target. ${MODEL_BOXES} describe the business model the owner intends, in the present tense, so a sentence there means "this is the model", never "this is happening": no status ("planned", "untested", "considering", "not tried yet", "none sold", "live", "piloted", "quoted", "paid by N") and no traction counts.`, plain: `Only ${STATE_BOXES} carry state: facts stay facts, targets targets. ${MODEL_BOXES} are the model I intend, in the present tense: no status (planned, untested, not tried yet, none sold) or traction counts.` },
+  { name: 'Statement type per box', text: `Only ${STATE_BOXES} carry state, where the business stands: a fact stays a fact, a target stays a target. ${MODEL_BOXES} describe the business model the owner intends, in the present tense, so a sentence there means "this is the model", never "this is happening": no status ("planned", "untested", "considering", "not tried yet", "none sold", "live", "piloted", "quoted", "paid by N") and no traction counts.`, plain: `Only ${STATE_BOXES} carry state: facts stay facts, targets targets. ${MODEL_BOXES} are the model I intend, in the present tense: no status (planned, considered, untested, not tried yet, none sold) or traction counts.` },
   { name: 'Partial beats empty', text: `Keep a supported part of a box and put the missing part in the box's gap question (\`questions[box]\`, shown to the owner under the box). A box is empty only when nothing in it is supported.`, plain: `Keep the part of a heading that my words support, even when the rest is missing. A heading is empty only when nothing in it is supported.` },
   { name: 'Voice per box', text: `Customer Segments describes the customer and never starts with "I", "We", "My customers" or "I sell to".` },
   { name: 'One sale loop', text: `Every customer-facing box is about this canvas's segment (or its roles). The three founder-fit boxes may hold business-wide points.`, plain: `${ONE_SALE_LOOP_PLAIN} The three founder-fit boxes (Guiding values, My current biggest challenge, Hypotheses I've falsified) may hold points about my whole business.` },
@@ -100,7 +100,7 @@ export const RANKED_BOXES = ['canvas:segments', 'canvas:problem', 'canvas:revenu
 export const LEAD_POINT_RULE: GlobalRule = {
   name: 'Lead point',
   text: `Lead point: Customer Segments, Problem, Offers & Pricing, My next milestone and My current biggest challenge open with one point naming the owner's choice and the option it beats, both from the owner's words: "ahead of <Y>" for an option that comes later, ", not <Y>" for one the owner dropped or turned down. My next milestone's lead is always "ahead of <Y>": a later goal is never turned down. Write "best" or "biggest" only if the owner ranked them, else "first" or "chosen". Order of mention, effort or pursuit is no ranking. No other option in the owner's words, no lead: the box starts with its other points.`,
-  plain: `An "Open with" point takes from my words the option it beats ("not" only if I dropped or turned it down; milestones: never). "Best" or "biggest" only if I ranked them; order or effort is no ranking. No other option, skip it.`,
+  plain: `An "Open with" point takes from my words the option it beats ("not" only if I dropped or turned it down; milestones: never). "Best" or "biggest" only if I ranked them, else "first" or "chosen"; order or effort is no ranking. No other option, skip it.`,
 };
 
 /**
@@ -113,7 +113,7 @@ export const LEAD_POINT_RULE: GlobalRule = {
  */
 export const ROUTING_RULE: GlobalRule = {
   name: 'One box, one kind of point',
-  text: `A box never holds another box's point: who the customer is goes in Customer Segments, the pain in Problem, how it is solved in Solution, how the business reaches them in Go-to-market strategy, what is sold and for how much in Offers & Pricing, where the business stands now and what blocks it in My current biggest challenge, the next customer result and the later goals it comes ahead of in My next milestone. Timing, waiting and conditions never go in ${MODEL_BOXES}: a current blocker goes to My current biggest challenge, a sequence of customer goals the owner states goes to My next milestone as "ahead of", and other timing is left out.`,
+  text: `A box never holds another box's point: who the customer is goes in Customer Segments, the pain in Problem, how it is solved in Solution, how the business reaches them in Go-to-market strategy, what is sold and for how much in Offers & Pricing, where the business stands now and what blocks it in My current biggest challenge, the next customer result and the later goals it comes ahead of in My next milestone. Go-to-market strategy holds no waiting, conditions or dates (a cadence such as "weekly" stays, as does a step order inside Solution): a current blocker goes to My current biggest challenge, a sequence of customer goals the owner states goes to My next milestone as "ahead of", and other timing is left out.`,
   plain: `A heading never holds another heading's point: blockers belong under My current biggest challenge, an order of goals under My next milestone.`,
 };
 
@@ -172,10 +172,10 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // rule the business keeps goes to Guiding values only as "X over Y", else it is left out. An outcome the owner claims inside a disclaimer
     // ("does not claim to make a team correct … only to remove false confidence") stays, as a step.
     type: 'Claim about the path the business intends from the customer\'s problem to what they want', voice: 'third-person',
-    definition: `The customer's path from the problem to what they want: up to five steps of what happens for them. Not the package, price or channel. No rule the business keeps; a disclaimer's claimed outcome is a step.`,
+    definition: `The customer's path from the problem to what they want: up to five steps of what happens for them. Not the sale, package, price or channel. No rule the business keeps; a disclaimer's claimed outcome is a step.`,
     shape: `"<step 1>, then <step 2>[, then up to <step 5>]."`,
     good: `"An owner photographs each receipt into a chat thread, then the business logs it that night, matches it to the bank statement each week and files the return before the deadline."`,
-    not: `"The business logs receipts nightly; piloted with two cafés." (status: where the business stands goes in My current biggest challenge) / "The business does not file a return the owner has not seen." (a rule the business keeps: Guiding values only as "X over Y", else left out) / "The business does not promise a perfect return, only one filed on time." (a disclaimer: its outcome is a step, "…, then files the return on time") / "The business sells monthly books for 2,500 baht per shop." (an offer: Offers & Pricing) / "The business answers questions in café-owner groups." (a channel: Go-to-market strategy) / "The business logs receipts the same night, which removes the deadline pile-up." (the reason is inside the point)`,
+    not: `"The business logs receipts nightly; piloted with two cafés." (status: where the business stands goes in My current biggest challenge) / "The business does not file a return the owner has not seen." (a rule the business keeps: Guiding values only if the owner says it as "X over Y", else left out) / "The business does not promise a perfect return, only one filed on time." (a disclaimer: its outcome is a step, "…, then files the return on time") / "The business sells monthly books for 2,500 baht per shop." (an offer: Offers & Pricing) / "The business answers questions in café-owner groups." (a channel: Go-to-market strategy) / "The business logs receipts the same night, which removes the deadline pile-up." (the reason is inside the point)`,
     // The gap asks for the part a steps point most often lacks (the steps); the empty-box question is the one the code had before.
     gap: `What steps take your customer from the problem to what they want?`,
     empty: `What do you do about it?`,
@@ -186,11 +186,14 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // model. A grounded channel exclusion stays. Results, timing, waiting and conditions leave: a blocker goes to My current biggest challenge,
     // an owner-stated order of customer goals to My next milestone ("ahead of"); other timing is left out.
     type: 'Stance on where and how the business reaches them', voice: 'third-person',
-    definition: `Where and how the business reaches this segment. No timing, waiting or conditions. Public platform names allowed.`,
+    // /finish review of v9: name what is banned (waiting, conditions, dates) so a cadence ("weekly", the good example) stays; the naming rule
+    // already allows public platforms in both prompts, so "Public platform names allowed." paid for the Offers wording.
+    definition: `Where and how the business reaches this segment. No waiting, conditions or dates; a cadence stays.`,
     shape: `"The business <action> in <place>[, not <ruled-out path>]."`,
     good: `"The business answers tax questions weekly in two café-owner Facebook groups, not through paid ads."`,
     not: `"Social media and word of mouth." / "The business answers tax questions in café-owner groups; three clients came this way so far." (a traction count) / "The business posts in café-owner groups once the tax season starts." (timing: an order of goals goes in My next milestone, a blocker in My current biggest challenge) / "We post in café-owner groups because owners trust peers more than ads." (first person, with the reason inside)`,
-    gap: `How did your last customer find you, and where do the next ones gather?`,
+    // v9: the box is the intended model, so its question asks for the plan, never for how past customers came (a result).
+    gap: `Where do your customers gather, and how do you reach them there?`,
   },
   {
     tag: 'canvas:revenue', title: 'Offers & Pricing',
@@ -198,7 +201,10 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // unit per period ("once" is a period), as the intended model: no state slot. With no price stated, the deliverable stays and the gap
     // question asks for the terms (Partial beats empty). The lead's price stays out of its contrast clause (canvas-price.ts, Known limitations).
     type: 'Claim about what the customer gets and its terms, and which offer comes first', voice: 'third-person',
-    definition: `What the customer gets, then its price per unit per period or once.`,
+    // /finish review of v9: the Copy prompt lacked the drafting prompt's Offers rule, and the self-run wrote "…: paid, on terms agreed before it
+    // starts" in the price slot. "Only as you stated them" covers price, unit and period (no invented "once"); Partial beats empty keeps the
+    // deliverable alone when no price is stated; a price with nothing it buys ("Install: 4,500 EUR once") is no point.
+    definition: `What the customer gets, then price per unit per period or once, only as you stated them; no price without what it buys.`,
     shape: `Open with "The offer to sell first is <what is bought>, <ahead of|not> <other offer>; <price + currency> per <unit> <cadence>." when grounded; then "<what is bought>: <price + currency> per <unit> <cadence>."`,
     good: `"The offer to sell first is monthly books and tax filing, ahead of payroll; 2,500 baht per shop per month." / "A year-end tax return filed for the owner: 6,000 baht per shop once."`,
     not: `"Affordable packages." / "Setup: 6,000 baht once." (names no deliverable: what is set up?) / "Monthly books: 2,500 baht per shop per month; two shops pay it." (a traction count) / "I charge 2,500 baht a month because cafés cannot afford an accountant." (first person, with the reason inside)`,
@@ -211,7 +217,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // P1658 v9: the next customer result and its order against later goals, where an owner-stated sequence moved out of Go-to-market lands.
     definition: `The next result customers produce (pay, renew, refer).`,
     // P1658 v8: "ahead of" only. A later goal is never rejected (v7: "…session 1 … (target), not 3-7 paid pilots").
-    shape: `Open with "The next milestone is <target>, ahead of <later goal>." when grounded; then "<target>[; if missed, <stated change>]." Target: <number> <customers> <action> by <date> (target).`,
+    shape: `Open with "The next milestone is <target>, ahead of <later goal>." when grounded; then "<target>[; if missed, <stated change>]." A <target> is "<number> <customers> <action>[ by <date>] (target)".`,
     good: `"The next milestone is 10 cafés paying monthly by 31 March 2027 (target), ahead of opening a second city."`,
     not: `"I aim for 10 cafés paying monthly by 31 March 2027." (about the owner's aim, which nobody can dispute) / "Launch the new website and grow."`,
     gap: `What number, by what date, comes next, and which goal comes after it?`,
@@ -233,7 +239,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     type: `The business's constraint, and which is biggest`, voice: 'third-person',
     // P1658 v9: where the business stands now goes here, including what it waits on (v8 run: "invitations wait for a call that can run the
     // Listening Game"), now that Solution, Offers & Pricing and Go-to-market strategy carry no status.
-    definition: `The obstacle most likely to stop this now: where you are (A, with a number if you have one), where you want to be (B). The obstacle only as you state it.`,
+    definition: `The obstacle most likely to stop this now: where you are (A), where you want to be (B). The obstacle only as you state it.`,
     shape: `Open with "The <chosen|biggest> challenge is <X>, <ahead of|not> <Y>." when grounded; then "The business is at <A> and wants <B>; the obstacle is <barrier>."`,
     good: `"The biggest challenge is getting first calls with café owners, ahead of setting a price." (the owner ranked them) / "The business is at 3 replies from its last 20 messages to café owners and wants 10 first calls this month; the obstacle is that strangers writing about money look like scams to them."`,
     not: `"Finding time." / "I think strangers see a scam." (first person) / "The business is at 3 replies; the obstacle is probably trust." (a cause the owner never stated) / a copy of the customer's Problem`,
@@ -244,10 +250,11 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     tag: 'canvas:world-needs', title: `Hypotheses I've falsified`,
     // P1658 v9 (founder: "I falsified so many hypotheses … it just shows one"): up to the box cap of falsified expectations, each with its
     // contrary evidence and the change only when stated. Selection when more qualify: the owner's weight, else what most changed the current
-    // focus. Whole dropped directions still land here (ONE_SALE_LOOP_PLAIN); a ruled-out option with no evidence story is a "not" point.
+    // focus. Whole dropped directions still land here (ONE_SALE_LOOP_PLAIN), evidence or not, so the evidence slot is optional and never
+    // invented; a single ruled-out detail with no evidence story is a "not" point in its own box (/finish review: the two read as one case).
     type: 'Evidence', voice: 'third-person, past',
-    definition: `Up to ${MAX_POINTS_PER_BOX} expectations that evidence proved wrong (a test, event or prospect conversation). If more: those you weigh most, else those that most changed the current focus. Without such evidence, a ruled-out option is a "not" point in its box.`,
-    shape: `"The business expected <X>; <contrary evidence>[; so it <stated change>]."`,
+    definition: `Up to ${MAX_POINTS_PER_BOX} expectations that evidence proved wrong (a test, event or prospect conversation). If more: those you weigh most, else those that most changed the current focus. Without evidence, a dropped direction still goes here; a single ruled-out detail is a "not" point in its box.`,
+    shape: `"The business expected <X>[; <contrary evidence>][; so it <stated change>]."`,
     good: `"The business expected café owners to run a bookkeeping app themselves; 0 of 8 trial cafés still used it after a month, so it now does their books for them." / "The business expected café owners to pay yearly; the owners it asked all wanted to pay monthly."`,
     not: `"The business learned customers value relationships." / "The business expected café chains to buy." (no evidence: a "not" point in Customer Segments)`,
     gap: `Which expectations did a test, an event or a conversation with a prospect prove wrong, and what did you change?`,
