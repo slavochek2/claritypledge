@@ -16,11 +16,16 @@
 #   s4  a zero-test selection prints that it ran zero (real vitest, scratch project)
 #   s5  breaking src/App.tsx so the p1533 test fails is REFUSED, and graph selection alone would
 #       NOT have caught it (the disk-reading group is what does)
-#   s6  a src edit beside a scripts/lib/*.mjs that a test imports (p1357) runs the FULL suite and is
-#       REFUSED when the .mjs is broken. With P1635_OLD_LIB=<the first version of
-#       precommit-tests.sh> it also runs the same commit through that version, which narrowed it to
-#       related tests and let it pass (the defect this scenario exists for)
+#   s6  a src edit beside a scripts/lib/*.mjs that a test imports (p1357) runs RELATED with the .mjs
+#       as a seed (P1719; it used to run the FULL suite) and is REFUSED when the .mjs is broken,
+#       because the seed selects p1357. With P1635_OLD_LIB=<the first version of
+#       precommit-tests.sh> it also runs the same commit through that version, which ignored the
+#       .mjs, narrowed it to related tests and let it pass (the defect this scenario exists for)
 #   s7  a src edit beside docs files stays RELATED (the docs-only allowlist must not cost a full run)
+#   s8  P1719, real tree: a staged supabase/functions/_shared/cors.ts seed (a directory vitest's own
+#       exclude list names) makes `vitest related` select inbox205-cors-dev-ports.test.ts
+#   s9  P1719, real tree: a staged scripts/lib/video-summary-core.mjs seed selects
+#       p1357-video-summary-core.test.ts
 #   w1  documented workflow: a docs-only commit through the hook copy
 #   w2  documented workflow: a source commit through the hook copy
 #   w3  documented workflow: commit-to-main through the hook copy
@@ -29,7 +34,7 @@
 # The scratch clones are throwaway repositories: commits made in them touch no real branch.
 
 SCR="${P1635_SCRATCH:-$HOME/.cache/p1635-scratch}"
-SCEN="${P1635_SCENARIOS:-s1 s2 s3 s4 s5 s6 s7 w1 w2 w3 w4}"
+SCEN="${P1635_SCENARIOS:-s1 s2 s3 s4 s5 s6 s7 s8 s9 w1 w2 w3 w4}"
 LOGS="$SCR/logs"
 mkdir -p "$SCR/worktrees" "$LOGS"
 
@@ -74,7 +79,9 @@ real_step() {
         && . scripts/lib/run-quiet.sh && . scripts/lib/precommit-tests.sh \
         && BRE="$(grep -m1 "^BUILD_AFFECTING_RE='" scripts/pre-commit-checks.sh | sed "s/^BUILD_AFFECTING_RE='//; s/'\$//")" \
         && DRE="$(grep -m1 "^DOCS_ONLY_RE='" scripts/pre-commit-checks.sh | sed "s/^DOCS_ONLY_RE='//; s/'\$//")" \
-        && pct_run_tests "$PWD" "$BRE" "$DRE" )
+        && NRE="$(grep -m1 "^NARROWABLE_RE='" scripts/pre-commit-checks.sh | sed "s/^NARROWABLE_RE='//; s/'\$//")" \
+        && NFRE="$(grep -m1 "^NARROWABLE_FULL_RE='" scripts/pre-commit-checks.sh | sed "s/^NARROWABLE_FULL_RE='//; s/'\$//")" \
+        && pct_run_tests "$PWD" "$BRE" "$DRE" "$NRE" "$NFRE" )
 }
 
 # real_step_old <dir> <lib file>: the Tests step from an OLDER copy of the library (two-argument form).
@@ -155,7 +162,7 @@ if want s4; then
       && printf '// edit\n' >> src/orphan.ts && git add src/orphan.ts )
     ( cd "$T" && unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE && RED='' YELLOW='' GREEN='' NC='' \
         && . "$REPO_ROOT/scripts/lib/run-quiet.sh" && . "$REPO_ROOT/scripts/lib/precommit-tests.sh" \
-        && pct_run_tests "$PWD" "$BUILD_RE" "$DOCS_RE" ) > "$LOGS/s4.log" 2>&1; rc=$?
+        && pct_run_tests "$PWD" "$BUILD_RE" "$DOCS_RE" "$NARROW_RE" "$NARROW_FULL_RE" ) > "$LOGS/s4.log" 2>&1; rc=$?
     result "s4 zero-selection run" 0 "$rc"
     want_in "s4 says ZERO test files ran" "$LOGS/s4.log" "ZERO test files ran"
 fi
@@ -199,7 +206,12 @@ if want s6; then
     fi
     real_step "$W" > "$LOGS/s6.log" 2>&1; rc=$?
     result "s6 hook Tests step with the .mjs broken" 1 "$rc"
-    want_in "s6 plan says FULL and names the .mjs" "$LOGS/s6.log" "FULL suite (staged file outside src/ and not on the docs-only list, so its test edges are unknown: $mjs)"
+    # REPLACED (P1719): this asserted the FULL-suite plan line naming the .mjs. The .mjs is now a seed.
+    want_in "s6 plan says RELATED" "$LOGS/s6.log" "Tests plan... RELATED"
+    # Every import.meta.glob user is seeded too when a narrowable file is staged (P1719), so the
+    # expected count outside src/ is the .mjs plus the glob users outside src/, derived from the tree.
+    glob_out="$(git -C "$W" grep -l 'import\.meta\.glob' -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' '*.mts' '*.cts' 2>/dev/null | grep -vc '^src/' || true)"
+    want_in "s6 the .mjs is counted among the seeds outside src/ (1 + $glob_out glob user(s))" "$LOGS/s6.log" "($((1 + glob_out)) outside src/)"
     want_in "s6 the p1357 test is the one that failed" "$LOGS/s6.log" "src/tests/p1357-video-summary-core.test.ts"
 fi
 
@@ -212,6 +224,47 @@ if want s7; then
     real_step "$W" > "$LOGS/s7.log" 2>&1; rc=$?
     result "s7 hook Tests step, src + docs + README" 0 "$rc"
     want_in "s7 plan says RELATED" "$LOGS/s7.log" "Tests plan... RELATED"
+fi
+
+# real_seed_proof <name> <staged narrowable file> <test file name that must be selected>
+# P1719: on the REAL tree, stage <file> in a TEMPORARY index (a mode-only change: no object is written and
+# nothing real is staged), classify it, and run real `vitest related --maxWorkers=1` seeded with exactly
+# what the classifier returned (NOT the disk-reading group: this is the module-graph route alone).
+real_seed_proof() {
+    local name="$1" f="$2" want_test="$3" tree="${P1635_TREE:-$REPO_ROOT}" idx="$SCR/$1-index" seeds="$LOGS/$1-seeds" js="$LOGS/$1.json" line
+    rm -f "$idx" "$seeds" "$js"
+    if ! { GIT_INDEX_FILE="$idx" git -C "$tree" read-tree HEAD 2>/dev/null \
+           && GIT_INDEX_FILE="$idx" git -C "$tree" update-index --chmod=+x "$f" 2>/dev/null; }; then
+        bad "$name: could not build the temporary index for $f"; return 0
+    fi
+    ( export GIT_INDEX_FILE="$idx"; pct_classify "$tree" "$BUILD_RE" "$DOCS_RE" "$NARROW_RE" "$NARROW_FULL_RE"
+      echo "REASON=$PCT_FULL_REASON"; for line in ${PCT_SRC[@]+"${PCT_SRC[@]}"}; do echo "$line"; done ) > "$seeds" 2>/dev/null
+    rm -f "$idx"
+    grep -qxF "REASON=" "$seeds" && ok "$name: $f classifies RELATED (no full-suite reason)" || bad "$name: $f did not classify RELATED: $(head -1 "$seeds")"
+    grep -qxF -- "$f" "$seeds" && ok "$name: $f is one of the seeds" || bad "$name: $f is not a seed: $(tr '\n' ' ' < "$seeds")"
+    local -a cmd=(env -u VITEST_MAX_WORKERS npx vitest related --run --maxWorkers=1 --passWithNoTests --reporter=json "--outputFile.json=$js")
+    while IFS= read -r line; do
+        case "$line" in REASON=*|'') ;; *) cmd+=("$tree/$line") ;; esac
+    done < "$seeds"
+    ( cd "$tree" && "${cmd[@]}" ) > "$LOGS/$name.log" 2>&1; local rc=$?
+    echo "  $name: vitest related exit=$rc (a related test may be red for reasons already in the tree; the proof is the selection)"
+    if [ -s "$js" ] && python3 -I -c 'import json,sys
+names=[r["name"] for r in json.load(open(sys.argv[1]))["testResults"]]
+sys.exit(0 if any(sys.argv[2] in n for n in names) else 1)' "$js" "$want_test"; then
+        ok "$name: the real vitest report includes $want_test"
+    else
+        bad "$name: $want_test not in the real vitest report ($js, log $LOGS/$name.log)"
+    fi
+}
+
+if want s8; then
+    echo "-- s8: a supabase/functions seed (excluded from the default run) selects its importer"
+    real_seed_proof s8 supabase/functions/_shared/cors.ts inbox205-cors-dev-ports.test.ts
+fi
+
+if want s9; then
+    echo "-- s9: a scripts/lib seed selects the test that imports it"
+    real_seed_proof s9 scripts/lib/video-summary-core.mjs p1357-video-summary-core.test.ts
 fi
 
 # ── documented workflows through the hook COPY, in a scratch clone with it installed ──

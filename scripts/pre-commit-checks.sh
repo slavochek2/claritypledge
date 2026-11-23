@@ -114,17 +114,30 @@ fi
 # Sections 1 (TypeScript), 3 (Build), and 4 (Tests) are gated behind this.
 # Docs-only commits (features/, docs/, .claude/, .agents/, content/, top-level *.md) skip all three.
 # Whitelist: TS/JS source, package.json, *.config.*, lockfiles, public/ assets,
-# vercel.json (CSP/headers — a CSP-only edit still runs the FULL unit suite (P1635: a file with no
-# import edge to any test is never narrowed to related tests), so the P805/P863/P865 canaries catch
-# a *known* allowlist host being dropped locally).
+# vercel.json (CSP/headers — a CSP-only edit still runs the FULL unit suite (P1635/P1719: vercel.json
+# is on neither list below, so it is never narrowed to related tests), so the P805/P863/P865 canaries
+# catch a *known* allowlist host being dropped locally).
 # One definition: the Tests step (scripts/lib/precommit-tests.sh) classifies staged files with it too.
-# DOCS_ONLY_RE is the other half (P1635): the only paths outside src/ that a commit may stage beside a
-# src edit and still get related tests instead of the full suite. Their only test edge is a disk read,
-# which the Tests step's seed group already covers. Any other path outside src/ runs everything: the
-# step cannot tell whether a test imports it. Keep this in step with the docs-only comment above.
+# The Tests step sorts each staged path outside src/ with three more patterns, each defined only here:
+#   DOCS_ONLY_RE (P1635): paths whose only test edge is a disk read, which the step's disk-reading seed
+#     group already covers. They add no seeds. Keep this in step with the docs-only comment above.
+#   NARROWABLE_RE (P1719): paths the step can place. A module among them (JS/TS or JSON) is passed to
+#     `vitest related` as a seed, so the graph selects its importers; any tracked JS/TS module that
+#     names the directory or file name beside an import query (?raw, ?url, ?init ...) is seeded too,
+#     and so is every import.meta.glob user; any other file there relies on the disk-reading group.
+#   NARROWABLE_FULL_RE (P1719): config-shaped files that still run the full suite even inside a
+#     narrowable class, matched by file name at any depth. A narrowable file the vitest config loads
+#     also runs the full suite; that set is derived at run time in the library, not listed here.
+# Every other path outside src/ runs the full suite: the step cannot tell what reaches it. The lists
+# are an allowlist on purpose, so a path nobody thought of fails closed.
 DOCS_ONLY_RE='^(features|docs|\.claude|\.agents|content)/|^[^/]+\.md$'
+NARROWABLE_RE='^(e2e|scripts|public|supabase/functions|supabase/migrations)/|^supabase/deploy-manifest\.json$'
+NARROWABLE_FULL_RE='(^|/)([^/]*\.config\.[^/]+|tsconfig[^/]*\.json|package\.json|package-lock\.json|deno\.jsonc?|import_map\.json|\.env[^/]*|[^/]*\.lock|[^/]*\.lockb|pnpm-lock\.yaml)$'
 BUILD_AFFECTING_RE='\.(ts|tsx|js|jsx)$|^package\.json$|tsconfig.*\.json$|\.config\.(ts|js|mjs|cjs)$|\.lock$|^package-lock\.json$|^deno\.lock$|^public/|^vercel\.json$'
-BUILD_AFFECTING=$(git diff --cached --name-only | \
+# NUL-separated names, so a non-ASCII or newline path is not C-quoted past the regex (P1719 spec
+# re-review): a newline name splits into lines, either of which can open the gate, and the Tests
+# step then refuses the name itself.
+BUILD_AFFECTING=$(git diff --cached --name-only -z | tr '\0' '\n' | \
   grep -E "$BUILD_AFFECTING_RE" \
   || true)
 
@@ -250,14 +263,17 @@ else
     echo -e ">>> Build... ${GREEN}skipped (no build-affecting files staged)${NC}"
 fi
 
-# 4. Tests (P1635) — `vitest related` over the staged src files plus every test that reads files
-#    from disk, or the FULL suite when a staged file has no import edge to a test (vercel.json,
-#    lockfiles, config, scripts/, deletions, renames ...). Every run is worker-capped, and the
+# 4. Tests (P1635, P1719) — `vitest related` over the staged src files, the staged modules under the
+#    narrowable classes (e2e/, scripts/, public/, supabase/functions/, supabase/migrations/,
+#    supabase/deploy-manifest.json), the modules that reference a staged narrowable file by an import
+#    query or a glob, and every file in the disk-reading group, or the FULL suite when a staged file's test reach cannot be
+#    placed (vercel.json, root config, lockfiles, config inside a narrowable class, tools/, api/,
+#    deletions, renames ...). Every run is worker-capped, and the
 #    count of test files that ran is printed OUTSIDE run_quiet. The full suite for the exact SHAs
 #    that land runs in CI on the staging hop (.github/workflows/test.yml, staging/**).
 #    Rules, reasons and guarantees: scripts/lib/precommit-tests.sh.
 if [ -n "$BUILD_AFFECTING" ]; then
-    if ! pct_run_tests "$(git rev-parse --show-toplevel)" "$BUILD_AFFECTING_RE" "$DOCS_ONLY_RE"; then
+    if ! pct_run_tests "$(git rev-parse --show-toplevel)" "$BUILD_AFFECTING_RE" "$DOCS_ONLY_RE" "$NARROWABLE_RE" "$NARROWABLE_FULL_RE"; then
         ERRORS=$((ERRORS + 1))
     fi
 else
