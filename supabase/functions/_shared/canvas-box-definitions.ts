@@ -266,7 +266,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // reason or an estimate is not evidence (an organisations run wrote a projection as the contrary evidence).
     // Round 3: an "estimate is no evidence" example taken from a test pack's own material made both of its runs drop that pack's whole
     // falsified direction. Examples stay in the café domain, and a direction with no evidence is shown kept (good, above), never dropped.
-    not: `"The business learned customers value relationships." / "The business expected flyers to bring owners in." (one detail with no evidence: a "not" point in its own box, here Go-to-market strategy)`,
+    not: `"The business learned customers value relationships." / "The business expected tax fines to worry owners most." (one detail with no evidence: a "not" point in its own box, here Problem)`,
     gap: `Which expectations did a test, an event or a conversation with a prospect prove wrong, and what did you change?`,
   },
 ];

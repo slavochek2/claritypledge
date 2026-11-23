@@ -190,7 +190,8 @@ export function v9Violations(points: ReadonlyArray<{ box: string; text: string }
     // Hypotheses' own shape ends "so it <stated change>", so a " so the " there is that change, not a reason (round 3)
     // round 4: only the shape's own change clause is exempt ("; so it …" / ", so the business …" up to the sentence end), not the whole point
     // (the whole-point exemption silenced v8's "…, so the retirement is under revisit" and "…use the app so the staff saves time")
-    const reasonText = p.box === 'canvas:world-needs' ? p.text.replace(/[;,]\s*so (?:it|the business)\b[^;.]*/gi, '') : p.text;
+    // round 5: strip only the "so" of that clause, so a reason inside it ("; so it stopped cold outreach because …") still counts
+    const reasonText = p.box === 'canvas:world-needs' ? p.text.replace(/([;,]\s*)so (?=it\b|the business\b)/gi, '$1') : p.text;
     if (hasReason(reasonText)) add(p, 'reason');
   }
   // one violation per point past the third, so the text names what to cut
@@ -565,6 +566,7 @@ export function selfTest(): string[] {
   fires('canvas:world-needs', 'The business expected a letter to spread; it did not; so it retired the letter. The figure was corrected, so the retirement is under revisit.', 'reason');
   fires('canvas:world-needs', 'The business expected cafés to use the app so the staff saves time.', 'reason');
   quiet('canvas:world-needs', 'The business expected café chains to buy; so it now sells to independent cafés.', 'reason');
+  fires('canvas:world-needs', 'The business expected cold outreach to work; so it stopped cold outreach because the list was too long.', 'reason'); // round 5: a reason inside the change clause
   // round 4 (Gemini #6, criteria L1): an amount is never a count, in any listed currency
   quiet('canvas:revenue', 'A year-end return: 2,500 THB paid.', 'status');
   quiet('canvas:solution', 'An owner sends receipts, then 500 ringgit paid.', 'status');
