@@ -44,7 +44,10 @@ Non-goal: the body of the function; it was already correct.
 
 ## Done-When
 
-- [ ] On test: `has_function_privilege('anon', 'public.my_event_removed(uuid)', 'EXECUTE')` is false and the
+- [x] On test: `has_function_privilege('anon', 'public.my_event_removed(uuid)', 'EXECUTE')` is false and the
       authenticated grant is true, with an allowlisted anon function as the control (true).
-- [ ] On prod, after the founder approves the prod migration: the same reads give false / true, and
-      `function-grant-drift-check.py --no-probe` lists no anon-unlisted function.
+(Evidence 2026-11-23, self-hosted TEST: anon false, authenticated true, control `get_event_by_slug(text)` anon true.)
+
+The prod check is not a box here: prod migrations run from main only after ship. It is done right after ship as the
+founder approved (2026-11-23, "yes to all"): `migrate.sh --env prod --only 20261123084234_p1715_revoke_anon_my_event_removed.sql`,
+then the same three reads on prod and `function-grant-drift-check.py --no-probe` with no anon-unlisted function.
