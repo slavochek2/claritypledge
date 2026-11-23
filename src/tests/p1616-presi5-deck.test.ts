@@ -25,7 +25,8 @@ describe('P1616 /presi5 deck', () => {
 
   it('is /presi4 with the Ikigai slide swapped for the hands-up slide', () => {
     const count = (d: Document) => d.querySelectorAll('section.slide').length;
-    expect(count(doc)).toBe(count(p4));
+    // /presi4 minus Ikigai plus hands-up, minus the mirror-agents slide (founder: delete)
+    expect(count(doc)).toBe(count(p4) - 1);
     expect(doc.body.textContent).not.toMatch(/ikigai|clarity night/i);
   });
 
@@ -33,7 +34,7 @@ describe('P1616 /presi5 deck', () => {
     const slides = [...doc.querySelectorAll('section.slide')];
     const i = slides.findIndex((s) => s.getAttribute('data-slide') === 'hands-up');
     expect(i).toBeGreaterThan(0);
-    expect(slides[i].querySelector('.lead')).toBeNull();
+    expect(slides[i].querySelector('.lead')!.textContent).toBe('See a hand up? Raise yours and stop speaking.');
     expect(slides[i].textContent).toContain('✋');
     // founder 2026-11-23: hands-up comes before the event-page walkthrough
     expect(slides[i + 1].querySelector('iframe')!.getAttribute('src')).toMatch(/w7vyacggjqeibgwy$/);
@@ -42,13 +43,18 @@ describe('P1616 /presi5 deck', () => {
   it('follows the founder order of 2026-11-23, with four slides moved to backup', () => {
     const heads = [...doc.querySelectorAll('section.slide')].map((s) => s.querySelector('h2,h1')?.textContent ?? '');
     const at = (re: RegExp) => heads.findIndex((t) => re.test(t));
-    expect(heads[2]).toMatch(/Why many business discussions are a waste of time/);
+    expect(heads[2]).toMatch(/^Why many business discussions fail$/);
     expect(heads[3]).toMatch(/shared challenge/);
     expect(at(/shared challenge/)).toBeLessThan(at(/Cognitive Understanding/));
     const backup = at(/Q.?&.?A/); // the arc's Q&A sits after the last moved-in slide; the four sit after the calendar
     const calendar = at(/event calendar/);
-    for (const re of [/show you one round/, /How a round works/, /can.t give a number/, /mirror agents/, /communication.activism/]) expect(at(re)).toBeGreaterThan(calendar);
+    for (const re of [/show you one round/, /How a round works/, /can.t give a number/]) expect(at(re)).toBeGreaterThan(calendar);
     expect(backup).toBeLessThan(calendar);
+    // values, then community, then feedback (Close)
+    expect(at(/communication.activism/)).toBeLessThan(at(/Tap Close/));
+    expect(at(/communication.activism/)).toBeGreaterThan(backup);
+    expect(heads.some((t) => /mirror agents/.test(t))).toBe(false);
+    expect(at(/Cognitive Understanding/)).toBeGreaterThan(at(/intended meaning/));
   });
 
   it('points every embed at this event', () => {

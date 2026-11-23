@@ -697,32 +697,6 @@
     </div>
   </section>
 
-  
-
-  <!-- 2 · AGENDA — the evening's five moves, taken from the EVENT PAGE's own "Agenda"
-       section (claritypledge.com/events/<slug>, read live 2026-09-16) and shortened only
-       for projection. Anyone who registered has already read this; putting it second is
-       what stops "what is about to happen to me" running underneath everything else.
-       IF THE EVENT PAGE'S AGENDA CHANGES, THIS SLIDE IS WRONG — re-read it, do not
-       reword it from memory. -->
-  <style>
-    /* numbered bullets for the agenda; rides on .ritual so it inherits the stagger */
-    .agn-n{flex:0 0 auto;width:clamp(1.55rem,2.9vw,2rem);height:clamp(1.55rem,2.9vw,2rem);
-      border-radius:999px;background:var(--blue);color:#fff;font-weight:800;
-      font-size:clamp(.8rem,1.5vw,1rem);display:flex;align-items:center;
-      justify-content:center;margin-top:.15rem;line-height:1}
-    /* few words per line, so they can be big enough to read from the back row */
-    .agn{max-width:min(72rem,92vw);gap:clamp(1rem,2.8vh,1.7rem)}
-    .agn .ritual-h{font-size:clamp(1.35rem,2.7vw,2.25rem)}
-    .agn .agn-n{width:clamp(1.8rem,3.2vw,2.5rem);height:clamp(1.8rem,3.2vw,2.5rem);font-size:clamp(.95rem,1.7vw,1.25rem);margin-top:.05rem}
-    /* the same numbered badge, inline in a sentence ("back to ③") */
-    .agn .agn-n.agn-inline{display:inline-flex;vertical-align:.1em;margin:0 0 0 .1em}
-    /* a deliberate second line inside one step: never let the badge orphan onto its own line */
-    .agn .agn-sub{display:block;margin-top:.15em}
-    .agn .agn-keep{white-space:nowrap}
-    .agn-rule{margin:clamp(1.2rem,3.4vh,2.2rem) auto 0;max-width:min(72rem,92vw);padding:.7em 1em;border-radius:.6rem;
-      background:rgba(59,130,246,.08);font-size:clamp(1.1rem,2.1vw,1.7rem);font-weight:600;text-align:center}
-  </style>
   <section class="slide soft">
     <!-- NOTES
       - Read it, don't perform it. Five lines, a few words each (founder, round 6:
@@ -763,7 +737,6 @@
     </div>
   </section>
 
-  
   <section class="slide soft">
     <!-- NOTES
       - This is the problem tonight exists for. The screen gives three phrases; the sentences
@@ -777,34 +750,14 @@
          already agrees — and each is now a noun phrase instead of a sentence, because the
          sentence is YOUR line, not the screen's. Keep them in this order: it runs from what a
          person does, to what it does to the room, to who is left in the room. -->
-        <h2>Why many business discussions are a <span class="accent">waste of time</span></h2>
+        <h2>Why many business discussions <span class="accent">fail</span></h2>
     <div class="ritual agn" style="margin-top:clamp(1.4rem,3.6vh,2.6rem)">
-      <div class="ritual-step"><span class="agn-n">1</span><p class="ritual-h">They don&rsquo;t <span class="ritual-lab">see</span> the full picture</p></div>
-      <div class="ritual-step"><span class="agn-n">2</span><p class="ritual-h">They see it, but don&rsquo;t <span class="ritual-lab">understand</span> it</p></div>
-      <div class="ritual-step"><span class="agn-n">3</span><p class="ritual-h">When they challenge you, you <span class="ritual-lab">assume</span> you understand them</p></div>
+      <div class="ritual-step"><span class="agn-n">1</span><p class="ritual-h">The business owner doesn&rsquo;t <span class="ritual-lab">see</span> the full picture of their business</p></div>
+      <div class="ritual-step"><span class="agn-n">2</span><p class="ritual-h">The discussion partner doesn&rsquo;t <span class="ritual-lab">understand</span> the full picture</p></div>
+      <div class="ritual-step"><span class="agn-n">3</span><p class="ritual-h">When challenged, the owner <span class="ritual-lab">assumes</span> they understand, and never verifies</p></div>
     </div>
   </section>
 
-
-  <!-- 8.5 · INFLUENCES — the thinkers behind the work (name cloud; biggest-first reveal + gentle bob via cloudReveal() in JS) -->
-  <style>
-    .cloud-slide .ctitle{color:#fafafa;font-weight:800;letter-spacing:-.02em;
-      font-size:clamp(1.1rem,2.7vw,2rem);margin-bottom:clamp(1.1rem,3.4vh,2.3rem);max-width:38ch}
-    .cloud-slide .cloud{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
-      gap:.18em .62em;max-width:90vw;line-height:1.18}
-    .cloud-slide .cw{display:inline-block}
-    .cloud-slide .cw-i{display:inline-block;letter-spacing:-.02em;white-space:nowrap;
-      animation:cbob var(--dur,7s) ease-in-out infinite;animation-delay:var(--dl,0s)}
-    @keyframes cbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-    .cw.xl .cw-i{font-size:clamp(2rem,5.2vw,4rem);font-weight:800;color:#bfdbfe}
-    .cw.l  .cw-i{font-size:clamp(1.3rem,3vw,2.3rem);font-weight:700;color:#f4f4f5}
-    .cw.m  .cw-i{font-size:clamp(.95rem,1.9vw,1.45rem);font-weight:600;color:#c4c4c8}
-    .cw.s  .cw-i{font-size:clamp(.78rem,1.4vw,1.05rem);font-weight:500;color:#8a8a92}
-    .cw:nth-child(3n)   .cw-i{--dur:8.5s;--dl:-2s}
-    .cw:nth-child(3n+1) .cw-i{--dur:6.5s;--dl:-4s}
-    .cw:nth-child(3n+2) .cw-i{--dur:7.5s;--dl:-1s}
-    @media (prefers-reduced-motion:reduce){.cloud-slide .cw-i{animation:none}}
-  </style>
   <section class="slide soft">
     <!-- NOTES
       - Same diagram, turned on itself: the obstacle is ego, fear, laziness and deniability; the knowledge is the Min principle.
@@ -850,13 +803,6 @@
     </div>
   </section>
 
-
-  <!-- CLOSER · PRIOR ART — the same move under three installation regimes.
-       Deliberately NOT pitched as a discovery: the mechanic is old and cited
-       (read-back/teach-back in CRM, Gottman-Rapoport in therapy, Rogers &
-       Roethlisberger HBR 1952). The claim on this slide is about PRACTICE, not
-       invention — "nobody does this", never "nobody thought of this".
-       See docs/research-programme.md citation-discipline row. -->
   <section class="slide dark cloud-slide">
     <!-- NOTES
       - IN THE ARC at slide 4 (round 5, founder: "its a story whom i studied.. after my picture slide"): the names follow the credibility slide, as the story of who I learned this from.
@@ -892,13 +838,6 @@
     </div>
   </section>
 
-
-  <!-- 7 · WHAT IS COGNITIVE UNDERSTANDING? — the LinkedIn card that splits the word
-       "understand" into cognitive / emotional / agreement. Pulled back into the arc
-       2026-09-16 ("21, then 31, then 7") and titled by the founder; the headline used to
-       be the post's own question, "A lie, memory issue or misunderstanding?".
-       Its two companion poll slides stayed in the backup block — this card travels alone.
-       Cognitive understanding is the only one this product measures. Say that here. -->
   <section class="slide soft">
     <!-- NOTES
       - Not pitched as a discovery: read-back is mandated in aviation and medicine, taught in therapy and complex sales.
@@ -922,8 +861,6 @@
     </div>
   </section>
 
-  <!-- CLOSE 2 · TRANSFORM (applied to the meta-problem) — same diagram turned on itself.
-       The obstacle to revealing your understanding gaps; the knowledge that clears it is the rest of the talk. -->
   <section class="slide soft">
     <!-- NOTES
       - REBUILT 2026-09-16. The arc used to show three flat clauses; the founder rejected them
@@ -983,8 +920,33 @@
     </div>
   </section>
 
+  <section class="slide soft">
+    <!-- NOTES
+      - ONE SENTENCE, then move on: "the cards put both of you on the same thing — what the
+        speaker actually meant" (founder, 2026-10-05). That is the whole reason the roles are
+        split at all: without it both people defend their own meaning at once and neither is
+        being understood. Do not read both cards aloud; they are wearing them.
+      - If you explain nothing else, explain that the Listener's card is a request: ask me my
+        number. The Speaker's card is a request too: explain back what I meant.
+      - The observer wears no card. Say that, so nobody looks for a third one.
+      - Cards are at the door (facilitator-checklist.md). Source of the artwork, and the file
+        that gets printed: docs/events/badges/single.html + card.css. If you change a word
+        here, change it there — the room can read both at once.
+    -->
+    <div class="kicker">How the cards help</div>
+    <h2>Listen for the speaker&rsquo;s <span class="accent">intended meaning</span></h2>
+    <div class="cards2">
+      <div class="cd s">
+        <div class="big">S</div><div class="role">SPEAKER</div>
+        <div class="rule">Explain back what I mean.<br>Ask me open questions.</div>
+      </div>
+      <div class="cd l">
+        <div class="big">L</div><div class="role">LISTENER</div>
+        <div class="rule">Ask me: how well do I think I understand what you mean, from 0 to 10?</div>
+      </div>
+    </div>
+  </section>
 
-  <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
   <section class="slide">
     <!-- NOTES
       - MOVED INTO THE ARC 2026-09-16 (founder): "21, then 31, then 7" — this and the Venn
@@ -1023,6 +985,262 @@
     </div>
   </section>
 
+  <section class="slide soft" data-slide="hands-up">
+    <!-- NOTES
+      - Founder, 2026-11-23: "when my hand goes up, yours goes too ... the purpose is when the
+        round ends, we end it. Otherwise we are not on time. I don't count anything."
+      - Train it once, right now: raise your hand, wait until every hand is up and the room is
+        quiet, lower it. Then move on.
+      - Ring the bell or just raise your hand, and stop talking yourself. Hands spread through the room until everyone is quiet; then start the next round.
+    -->
+    <h2>When my hand goes up, <span class="accent">yours goes up too</span></h2>
+    <p class="lead" style="max-width:40ch">See a hand up? Raise yours and stop speaking.</p>
+    <div aria-hidden="true" style="font-size:160px;line-height:1;margin-top:.3em">&#9995;</div>
+  </section>
+
+  <section class="slide embed-full">
+    <!-- NOTES
+      - Drive it, in this order: the event page is on screen → click "Event Room" at the top
+        (it reads "Join now" from 60 min before start) → you land on the readiness page →
+        answer the slider yourself so the room sees it → then point at the "Transcribe for
+        AI insights" switch underneath, which is the ask from the last slide, in the place
+        they will actually meet it.
+      - THEN, still inside the frame, continue to the principle page (/meet). This replaced a
+        separate slide for it (founder, 2026-09-17: "it's the same as slide 10, I just go there
+        directly"). Tap Opt in so they see the understanding question appear. DO NOT tap
+        Submit: that writes your own answer into the research table. The roster there lists
+        people BY NAME with their understanding number; move on before people start answering.
+        Say that opting out is a real option: those who opt out watch those who opt in.
+      - The slider question is "How up for thinking are you right now?" — read it out.
+      - The faint marks on the track are everyone else in this room, anonymous by
+        construction (a SECURITY DEFINER RPC that returns no identifiers). Say that out
+        loud if anyone asks — it is the same guarantee the roster deliberately does not give.
+      - IF THIS SHOWS A SIGN-IN WALL you are signed out in this browser. Fix it before the
+        room fills, not from the stage.
+      - KEYBOARD: on claritypledge.com, Left/Right still move the deck from inside the
+        frame and Up/Down scroll it. ANYWHERE ELSE (localhost, or a blocked frame) the
+        keyboard stops working the moment you click into the frame — use the two round
+        buttons at the bottom left of this slide. They are in the deck, not the embed,
+        so they always work, and clicking one hands the keyboard back to the deck.
+    -->
+    <iframe src="https://claritypledge.com/events/sales-mastermind-stress-test-your-riskiest-business-assumptions-with-peers-ai-2026-11-12-w7vyacggjqeibgwy"
+            title="Sales Mastermind — the event page, driven through to the room" loading="eager"></iframe>
+    <div class="embed-nav">
+      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
+      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
+      <!-- Founder (2026-10-06): the room's ready page loads everyone's marks once; this reloads
+           ONLY the embedded page, staying where you are in it, so new answers appear without
+           restarting the deck. -->
+      <button type="button" data-embed-nav="reload" aria-label="Refresh the embedded page" title="Refresh">&#8635;</button>
+    </div>
+  </section>
+
+  <section class="slide embed-full">
+    <!-- NOTES
+      - Do not narrate the screen. Let them look at their own phone; this is for the two
+        people who cannot find theirs.
+      - If the frame is blank or shows a sign-in wall, you are signed out in this browser.
+        Fall back to the previous slide and read the tables from your own phone.
+      - KEYBOARD: on claritypledge.com, Left/Right still move the deck from inside the frame.
+        Anywhere else, use the two round buttons at the bottom left.
+    -->
+    <iframe src="https://claritypledge.com/events/sales-mastermind-stress-test-your-riskiest-business-assumptions-with-peers-ai-2026-11-12-w7vyacggjqeibgwy/host?view=screen"
+            title="The round screen — the screen the attendees are on" loading="lazy"></iframe>
+    <div class="embed-nav">
+      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
+      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
+    </div>
+  </section>
+
+  <section class="slide soft">
+    <!-- NOTES
+      - Open the floor. The backup block after the gift has slides for the likely questions
+        (why people don't verify, the barrier cards, the Venn, levels of commitment).
+    -->
+    <h2 style="font-size:clamp(3rem,10vw,7rem);letter-spacing:-.02em">Q<span class="accent">&amp;</span>A</h2>
+  </section>
+
+  <section class="slide soft nest-slide" data-nest>
+    <!-- NOTES
+      - PROMOTED INTO THE ARC, right after the norm slide (founder, 2026-10-05). It is the
+        "why I run this" beat and the only moment in the evening you talk about yourself.
+      - ADVANCE TWICE: the rings reveal outer to inner. Say one line each, then stop.
+      - The argument, in your own words: integrity is a universal value, and to hold ANY value
+        you have to try to uphold it. Intellectual integrity means admitting when you are
+        wrong. Intellectual honesty is the inner ring — being honest with yourself the moment
+        you do not understand. That is the smallest version of every value above it, and it
+        happens in one second, by saying a number.
+      - Close on it: "my home is with people who share this, and a community that makes it
+        easier to hold." Do NOT turn it into an ask — the ask lives on their phones at the end.
+      - Stop talking after the last line.
+    -->
+    <div class="kicker">Universal values</div>
+    <div class="nest">
+      <div class="ring ring-1">
+        <div class="ring-lab">
+          <div class="ring-t">Integrity</div>
+          <div class="ring-d">You consistently choose to follow your values.</div>
+        </div>
+        <div class="ring ring-2">
+          <div class="ring-lab">
+            <div class="ring-t">Intellectual Integrity</div>
+            <div class="ring-d">You admit when you are wrong.</div>
+          </div>
+          <div class="ring ring-3">
+            <div class="ring-lab">
+              <div class="ring-t">Intellectual Honesty</div>
+              <div class="ring-d">You are honest with yourself. You tell apart assuming you understand someone&rsquo;s intended meaning from having verified it.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide grid-bg">
+    <!-- NOTES
+      - NAMED 2026-09-16 (founder: "it's not join Chiang Mai community, it's join communication
+        activism community"), with the benefit line he asked for underneath. The city is no longer
+        in the heading — the community is defined by what it does, not where it meets.
+      - SWAPPED FOR /presi3. /presi asks for the Clarity Champions Program, €295/month, and is
+        DELIBERATELY LEFT ALONE (founder decision, 2026-09-16): that is the paid online funnel's
+        ask to a different audience, so this wording does not transfer to it. This is the
+        OFFLINE configuration — the forum — and its one spoken CTA is the FREE community join.
+        docs/events/clarity-practice-event.md § The offer, founder decision 2026-08-27, verbatim:
+        "For the R and D, I think the ask is join the community. That's it. And I want the community
+        to grow locally." Do not mention €295 from this stage. The paid ladder converts online.
+      - ONE ask. Say it once, plainly, and stop. Do not stack it with the calendar on the next slide.
+      - The bracelet is NOT offered at event #1 — no bracelets have ever been sourced
+        (docs/events/clarity-forum.md:157-159). If someone asks about it, say it is coming.
+      - Anyone who wants more than the free community goes to a separate conversation afterwards,
+        not to a pitch from the stage ("the neighbouring session", same doc).
+      - [FOUNDER DECISION: exact wording] is still open on this one — the source doc names the
+        sayable link as /org/cm/join; the slide uses /groups/cm/join, which is the canonical live
+        route (/org/* is a permanent legacy redirect, P1193). Both work. Pick before Friday.
+    -->
+    <h2 style="font-size:clamp(1.35rem,3.3vw,2.6rem)">Join the <span class="accent">communication&nbsp;activism</span> community</h2>
+    <p class="lead" style="margin-top:.85rem;max-width:44ch;text-wrap:balance">Practice clarity together. Build trust that holds.</p>
+    <div class="qr-wrap" style="--qr-size:min(42vh,340px);margin-top:1.4rem">
+      <img class="qr" alt="QR code to claritypledge.com/groups/cm/join" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYAQMAAACEqAqfAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAACyUlEQVR4nO3cMXLsIAyAYTIptvQROEqOZh/NR/ERUrrYWd5YCJBYJ5PSz/xqdjHwOVU0EvaG9BYhx2e7shzjmF4hTHplDR8nG7GwsLCwrmx9BxPTudXD4bA2uzFiYWFhYY1lzXnZS61H22kXv+RT1q5q6aonFhYWFhZWju3YO+liST2ydtcBFhYWFtYdLNmeFy/ytbapsLCwsLCwgolirccgpj5k7aPVHS2wsLCwsEay+tDFn5poJE1JoslpaqnW20YsLCwsrOtaZ/E4Zp6aO1xZUqbX031YWFhYWGNYdnGObjopXM47NFweemJhYWFhjWWleqBhrrQapkzHdBq77oqlHsLCwsLCurJlXpRwPSsNmTZ1h8QWusDCwsLCGsrqrzhrLoVFHqTWs2p/yYaFhYWFNYzVzcsbGMVysWmbqt03Jv8MLhYWFhbWpa2p1h25sHB9qLY9Wrg9G2V7VlhYWFhYo1jBFhZT8tFdce9cNN3nNCwsLCys21uTjr7q4ocWNNFuj/68w+Ws2rPCwsLCwhrB6nKLwLvCW3Dx0a1tsH1GFwsLCwvrolY661k1a7JHHO04xPSspGqJ3XO1WFhYWFh3tiS3uJNxsXT+pGf10MGm9527nIaFhYWFNYI1H1OrL1Ky3uWhoNZ6fMZyPO56VlhYWFhYV7bkv//Zb3AcMdeLLndI7G0aCwsLC2sQ6yzKGUa08+58e9WvVsXCwsLCGsVKbyGLvjQPtZbWZtOU1DtbtZ4nMhYWFhbWxazWpgrSoXKHEBJzHbTz7bJ7r7fCwsLCwhrKmvOKV7NWne+Ov//U/8LCwsLCGtg65nPqyQ0siSW4MDAWFhYW1v9n1fkcJnfI2tU2sCS28GPdgYWFhYV1R6vFlMp5R+q2l1f09FYvyUwyWH7rf2FhYWFh3dHqQ2uYHHJl8XloP25l3vWefzt3x8LCwsK6nfUPwaj5cHVHSNcAAAAASUVORK5CYII=">
+      <div class="url"><span class="accent">claritypledge.com/groups/cm/join</span></div>
+    </div>
+  </section>
+
+  <section class="slide soft">
+    <!-- NOTES
+      - Everyone on their phone, now. Three minutes. Then: "In three minutes we take the group photo.". This is how the next evening gets better.
+    -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:clamp(1.5rem,5vw,4rem);flex-wrap:wrap">
+      <div style="text-align:left">
+        <div class="big5">3 minutes</div>
+        <h2 style="font-size:clamp(1.6rem,4vw,3rem);margin:.4rem 0 .5rem">Tap <span class="accent">Close</span></h2>
+        <p class="lead" style="margin:0">Give honest feedback. Help us improve.</p>
+      </div>
+      <div class="phone ph-short" style="margin:0">
+        <div class="ph-steps"><span>Ready</span><span>Principle</span><span>Table</span><span>Compare</span><span class="now">Close</span></div>
+        <div class="ph-body"><b style="color:#18181b;font-size:.95rem">The evening is over</b><br>How was it?<br><span class="ph-btn">Give feedback</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide grid-bg">
+    <h2 style="font-size:clamp(2.6rem,8vw,6rem);letter-spacing:-.02em">Group <span class="accent">photo</span> &#128248;</h2>
+  </section>
+
+  <section class="slide grid-bg">
+    <!-- NOTES
+      - IN THE ARC at slide 27 (round 5, founder: "this is a gift i can give"): the deck ends on the ask, then hands the room something free. Venue-specific; skip outside Chiang Mai.
+    -->
+    <div class="badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="7" width="20" height="5" rx="1"/><line x1="12" y1="22" x2="12" y2="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+      A gift for Chiang Mai
+    </div>
+    <h2 style="font-size:clamp(1.5rem,3.6vw,2.8rem);margin-bottom:.3rem">A shared Chiang Mai event calendar.<br><span class="accent">Here's a free one.</span></h2>
+    <div class="qr-wrap">
+      <img class="qr" alt="QR code to claritypledge.com/cm" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbwAAAG8AQMAAACffoKcAAAABlBMVEUKCgv///+Z8yMbAAACFElEQVR42u2cQXKEMAwEVfmA//9L/2ATgpFGguTART40lcNulr64poaxJGyfd9c0QEBAQMC/QPNrHJ/jPz9fx0d/8s+f+WUvL0DAl9ehzLGUuwQ5lozXDfPhNrQK2KVVd9FDmUP8diyJhscOtAq4hVbzg95cpTdJs6qAW2j1NFX3WLQKuGNePe10mgfX2HCRVwHbtap1gH/+qAMAdmv1uQL26673IsB1D6sK2KTVaxsV4rznhPOnia8C9ml1RsHKHTV+slQNQKuA7Xk1baMuocbTX2oCaBWws2aVVepFgFDytNTMRauA3b5an/saVqUpgFYBu7T6UAqY5l2AaASEdFlVwL691XmFc4qSZ6oGkAEA23sBqXUlSXVpWCMrWgVs8dVsnpoBtCYQZSu0CtiaV12TkVR9PvDSrdzGqgJ2aDXPpnpYzZsp06FWtArYtrey1P2PymqZCRz0rQCb86rW/6uLFhmjVcBerYp5ypCqpRCbzJZVBezZW5Wxan3rqpZbmQcAbM+r6q46AOA1AdMSAasK2FMHuE+wlIHVdTd9K8AN9lY6VWVlZMVSmsVXAXd43ypaA+Oh9yqxgVUFbMsA9wNYyuEA+CrgDlo9TbXs96PKmqew8FXATc6y8DGVklQ5ywJwL1+VTVZ9h+UaDkSrgBvlVTP32BIDyACA+9QBVKs6dx2nXKJVwE3OXeEgZUBAQMD34DeZ00wWs84aWQAAAABJRU5ErkJggg==">
+      <div class="url"><span class="accent">claritypledge.com/cm</span></div>
+    </div>
+  </section>
+
+  
+
+  <!-- 2 · AGENDA — the evening's five moves, taken from the EVENT PAGE's own "Agenda"
+       section (claritypledge.com/events/<slug>, read live 2026-09-16) and shortened only
+       for projection. Anyone who registered has already read this; putting it second is
+       what stops "what is about to happen to me" running underneath everything else.
+       IF THE EVENT PAGE'S AGENDA CHANGES, THIS SLIDE IS WRONG — re-read it, do not
+       reword it from memory. -->
+  <style>
+    /* numbered bullets for the agenda; rides on .ritual so it inherits the stagger */
+    .agn-n{flex:0 0 auto;width:clamp(1.55rem,2.9vw,2rem);height:clamp(1.55rem,2.9vw,2rem);
+      border-radius:999px;background:var(--blue);color:#fff;font-weight:800;
+      font-size:clamp(.8rem,1.5vw,1rem);display:flex;align-items:center;
+      justify-content:center;margin-top:.15rem;line-height:1}
+    /* few words per line, so they can be big enough to read from the back row */
+    .agn{max-width:min(72rem,92vw);gap:clamp(1rem,2.8vh,1.7rem)}
+    .agn .ritual-h{font-size:clamp(1.35rem,2.7vw,2.25rem)}
+    .agn .agn-n{width:clamp(1.8rem,3.2vw,2.5rem);height:clamp(1.8rem,3.2vw,2.5rem);font-size:clamp(.95rem,1.7vw,1.25rem);margin-top:.05rem}
+    /* the same numbered badge, inline in a sentence ("back to ③") */
+    .agn .agn-n.agn-inline{display:inline-flex;vertical-align:.1em;margin:0 0 0 .1em}
+    /* a deliberate second line inside one step: never let the badge orphan onto its own line */
+    .agn .agn-sub{display:block;margin-top:.15em}
+    .agn .agn-keep{white-space:nowrap}
+    .agn-rule{margin:clamp(1.2rem,3.4vh,2.2rem) auto 0;max-width:min(72rem,92vw);padding:.7em 1em;border-radius:.6rem;
+      background:rgba(59,130,246,.08);font-size:clamp(1.1rem,2.1vw,1.7rem);font-weight:600;text-align:center}
+  </style>
+  
+
+  
+  
+
+
+  <!-- 8.5 · INFLUENCES — the thinkers behind the work (name cloud; biggest-first reveal + gentle bob via cloudReveal() in JS) -->
+  <style>
+    .cloud-slide .ctitle{color:#fafafa;font-weight:800;letter-spacing:-.02em;
+      font-size:clamp(1.1rem,2.7vw,2rem);margin-bottom:clamp(1.1rem,3.4vh,2.3rem);max-width:38ch}
+    .cloud-slide .cloud{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+      gap:.18em .62em;max-width:90vw;line-height:1.18}
+    .cloud-slide .cw{display:inline-block}
+    .cloud-slide .cw-i{display:inline-block;letter-spacing:-.02em;white-space:nowrap;
+      animation:cbob var(--dur,7s) ease-in-out infinite;animation-delay:var(--dl,0s)}
+    @keyframes cbob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+    .cw.xl .cw-i{font-size:clamp(2rem,5.2vw,4rem);font-weight:800;color:#bfdbfe}
+    .cw.l  .cw-i{font-size:clamp(1.3rem,3vw,2.3rem);font-weight:700;color:#f4f4f5}
+    .cw.m  .cw-i{font-size:clamp(.95rem,1.9vw,1.45rem);font-weight:600;color:#c4c4c8}
+    .cw.s  .cw-i{font-size:clamp(.78rem,1.4vw,1.05rem);font-weight:500;color:#8a8a92}
+    .cw:nth-child(3n)   .cw-i{--dur:8.5s;--dl:-2s}
+    .cw:nth-child(3n+1) .cw-i{--dur:6.5s;--dl:-4s}
+    .cw:nth-child(3n+2) .cw-i{--dur:7.5s;--dl:-1s}
+    @media (prefers-reduced-motion:reduce){.cloud-slide .cw-i{animation:none}}
+  </style>
+  
+
+
+  <!-- CLOSER · PRIOR ART — the same move under three installation regimes.
+       Deliberately NOT pitched as a discovery: the mechanic is old and cited
+       (read-back/teach-back in CRM, Gottman-Rapoport in therapy, Rogers &
+       Roethlisberger HBR 1952). The claim on this slide is about PRACTICE, not
+       invention — "nobody does this", never "nobody thought of this".
+       See docs/research-programme.md citation-discipline row. -->
+  
+
+
+  <!-- 7 · WHAT IS COGNITIVE UNDERSTANDING? — the LinkedIn card that splits the word
+       "understand" into cognitive / emotional / agreement. Pulled back into the arc
+       2026-09-16 ("21, then 31, then 7") and titled by the founder; the headline used to
+       be the post's own question, "A lie, memory issue or misunderstanding?".
+       Its two companion poll slides stayed in the backup block — this card travels alone.
+       Cognitive understanding is the only one this product measures. Say that here. -->
+  
+
+  <!-- CLOSE 2 · TRANSFORM (applied to the meta-problem) — same diagram turned on itself.
+       The obstacle to revealing your understanding gaps; the knowledge that clears it is the rest of the talk. -->
+  
+
+
+  <!-- 9 · THE ARTIFACT (short) — the two load-bearing lines of the Clarity Group Terms at projection size. Both lines are verbatim clauses of VERIFIED_UNDERSTANDING_OATH v5; the full terms are the backing slide. Heading + subtitle quoted from the landing §7b. -->
+  
+
 
   <!-- WHY I RUN THIS · NESTED INTEGRITY — three concentric bands, revealed outer→inner on advance.
        Ends on the concrete atom the whole deck is really about: an honest 4/10.
@@ -1033,32 +1251,7 @@
        people who share my highest value." Say that in your own words; it is the only moment
        in the evening where the host says why HE runs this, and it is said after the room has
        already done the practice, not before. -->
-  <section class="slide soft">
-    <!-- NOTES
-      - ONE SENTENCE, then move on: "the cards put both of you on the same thing — what the
-        speaker actually meant" (founder, 2026-10-05). That is the whole reason the roles are
-        split at all: without it both people defend their own meaning at once and neither is
-        being understood. Do not read both cards aloud; they are wearing them.
-      - If you explain nothing else, explain that the Listener's card is a request: ask me my
-        number. The Speaker's card is a request too: explain back what I meant.
-      - The observer wears no card. Say that, so nobody looks for a third one.
-      - Cards are at the door (facilitator-checklist.md). Source of the artwork, and the file
-        that gets printed: docs/events/badges/single.html + card.css. If you change a word
-        here, change it there — the room can read both at once.
-    -->
-    <div class="kicker">How the cards help</div>
-    <h2>Listen for the speaker&rsquo;s <span class="accent">intended meaning</span></h2>
-    <div class="cards2">
-      <div class="cd s">
-        <div class="big">S</div><div class="role">SPEAKER</div>
-        <div class="rule">Explain back what I mean.<br>Ask me open questions.</div>
-      </div>
-      <div class="cd l">
-        <div class="big">L</div><div class="role">LISTENER</div>
-        <div class="rule">Ask me: how well do I think I understand what you mean, from 0 to 10?</div>
-      </div>
-    </div>
-  </section>
+  
 
   <!-- SHIPPED-BEHAVIOUR CHECKLIST for the recording slide below. /presi3 used this block to
        recruit volunteers from the stage with a three-reason "turn the switch on" slide; in
@@ -1121,16 +1314,7 @@
        helps them verify understanding. Say it as "help me build this", never as a promise that
        it already exists. The research question behind it — does verifying understanding change
        a disagreement? — is yours to say if someone asks. -->
-<section class="slide soft" data-slide="hands-up">
-    <!-- NOTES
-      - Founder, 2026-11-23: "when my hand goes up, yours goes too ... the purpose is when the
-        round ends, we end it. Otherwise we are not on time. I don't count anything."
-      - Train it once, right now: raise your hand, wait until every hand is up and the room is
-        quiet, lower it. Then move on.
-    -->
-    <h2>When my hand goes up, <span class="accent">yours goes up too</span></h2>
-    <div aria-hidden="true" style="font-size:160px;line-height:1;margin-top:.3em">&#9995;</div>
-  </section>
+
 
 
 
@@ -1160,42 +1344,7 @@
        `frame-ancestors 'self'` (plus an `x-frame-options: DENY` that Chrome ignores in
        its presence — verified against prod in a real browser). Locally the frame is
        EMPTY; that is the CSP, and the only real test is claritypledge.com/presi3. -->
-<section class="slide embed-full">
-    <!-- NOTES
-      - Drive it, in this order: the event page is on screen → click "Event Room" at the top
-        (it reads "Join now" from 60 min before start) → you land on the readiness page →
-        answer the slider yourself so the room sees it → then point at the "Transcribe for
-        AI insights" switch underneath, which is the ask from the last slide, in the place
-        they will actually meet it.
-      - THEN, still inside the frame, continue to the principle page (/meet). This replaced a
-        separate slide for it (founder, 2026-09-17: "it's the same as slide 10, I just go there
-        directly"). Tap Opt in so they see the understanding question appear. DO NOT tap
-        Submit: that writes your own answer into the research table. The roster there lists
-        people BY NAME with their understanding number; move on before people start answering.
-        Say that opting out is a real option: those who opt out watch those who opt in.
-      - The slider question is "How up for thinking are you right now?" — read it out.
-      - The faint marks on the track are everyone else in this room, anonymous by
-        construction (a SECURITY DEFINER RPC that returns no identifiers). Say that out
-        loud if anyone asks — it is the same guarantee the roster deliberately does not give.
-      - IF THIS SHOWS A SIGN-IN WALL you are signed out in this browser. Fix it before the
-        room fills, not from the stage.
-      - KEYBOARD: on claritypledge.com, Left/Right still move the deck from inside the
-        frame and Up/Down scroll it. ANYWHERE ELSE (localhost, or a blocked frame) the
-        keyboard stops working the moment you click into the frame — use the two round
-        buttons at the bottom left of this slide. They are in the deck, not the embed,
-        so they always work, and clicking one hands the keyboard back to the deck.
-    -->
-    <iframe src="https://claritypledge.com/events/sales-mastermind-stress-test-your-riskiest-business-assumptions-with-peers-ai-2026-11-12-w7vyacggjqeibgwy"
-            title="Sales Mastermind — the event page, driven through to the room" loading="eager"></iframe>
-    <div class="embed-nav">
-      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
-      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
-      <!-- Founder (2026-10-06): the room's ready page loads everyone's marks once; this reloads
-           ONLY the embedded page, staying where you are in it, so new answers appear without
-           restarting the deck. -->
-      <button type="button" data-embed-nav="reload" aria-label="Refresh the embedded page" title="Refresh">&#8635;</button>
-    </div>
-  </section>
+
 
   <!-- 15 · THE CARDS — NEW in /presi4 (founder, 2026-10-04: "should we reuse our cards? ...
        should we put them into a slide where I explain how they work?"). YES: these are the
@@ -1222,19 +1371,7 @@
     .cards2-note{max-width:820px;margin:clamp(1rem,2.4vh,1.6rem) auto 0;text-align:center;
       font-size:clamp(.95rem,1.6vw,1.3rem);line-height:1.4;color:var(--muted-fg)}
   </style>
-  <section class="slide embed-full">
-    <!-- NOTES
-      - Seat the three from the host panel first (showcase), then come to this slide.
-      - Point at the rows where they are furthest apart: that is the conversation.
-      - Blank or "Only the host can run this event" = signed out in this browser.
-    -->
-    <iframe src="https://claritypledge.com/events/sales-mastermind-stress-test-your-riskiest-business-assumptions-with-peers-ai-2026-11-12-w7vyacggjqeibgwy/host?view=compare&amp;table=1&amp;embed=true"
-            title="The showcase table — where the speaker and the listener stand" loading="lazy"></iframe>
-    <div class="embed-nav">
-      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
-      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
-    </div>
-  </section>
+  
 
 
   <style>
@@ -1320,22 +1457,7 @@
        possible"). The separate slide is still in the backup block if a room needs it spelled out.
        [FOUNDER DECISION: whether the observer rates their own understanding before saying
        back (tentative, 2026-09-28), and whether the two speakers rate the observer.] -->
-  <section class="slide embed-full">
-    <!-- NOTES
-      - Do not narrate the screen. Let them look at their own phone; this is for the two
-        people who cannot find theirs.
-      - If the frame is blank or shows a sign-in wall, you are signed out in this browser.
-        Fall back to the previous slide and read the tables from your own phone.
-      - KEYBOARD: on claritypledge.com, Left/Right still move the deck from inside the frame.
-        Anywhere else, use the two round buttons at the bottom left.
-    -->
-    <iframe src="https://claritypledge.com/events/sales-mastermind-stress-test-your-riskiest-business-assumptions-with-peers-ai-2026-11-12-w7vyacggjqeibgwy/host?view=screen"
-            title="The round screen — the screen the attendees are on" loading="lazy"></iframe>
-    <div class="embed-nav">
-      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
-      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
-    </div>
-  </section>
+  
 
   <!-- 14b · WHEN IT GETS AWKWARD — a BACKUP slide, not part of the run (agent recommendation,
        accepted by the founder 2026-10-05). The main thread shows the loop when it goes well;
@@ -1357,13 +1479,7 @@
     .awk .wa-round{margin:0}
     .awk .wa-body{gap:clamp(.4rem,1.1vh,.7rem);padding:clamp(.7rem,2vh,1rem)}
   </style>
-  <section class="slide soft">
-    <!-- NOTES
-      - Open the floor. The backup block after the gift has slides for the likely questions
-        (why people don't verify, the barrier cards, the Venn, levels of commitment).
-    -->
-    <h2 style="font-size:clamp(3rem,10vw,7rem);letter-spacing:-.02em">Q<span class="accent">&amp;</span>A</h2>
-  </section>
+  
 
 
   <!-- 15 · THE SHOWCASE — stripped to one line (founder, 2026-10-05: "drastically simplify,
@@ -1379,26 +1495,9 @@
        yourself at 3 minutes, which demonstrates the swap as well. For the REAL rounds the
        same question belongs to P1337, since the room screen assigns the roles; nothing here
        binds it. -->
-  <section class="slide soft">
-    <!-- NOTES
-      - Everyone on their phone, now. Five minutes. This is how the next evening gets better.
-    -->
-    <div style="display:flex;align-items:center;justify-content:center;gap:clamp(1.5rem,5vw,4rem);flex-wrap:wrap">
-      <div style="text-align:left">
-        <div class="big5">5 minutes</div>
-        <h2 style="font-size:clamp(1.6rem,4vw,3rem);margin:.4rem 0 .5rem">Tap <span class="accent">Close</span></h2>
-        <p class="lead" style="margin:0">Give honest feedback. Help us improve.</p>
-      </div>
-      <div class="phone ph-short" style="margin:0">
-        <div class="ph-steps"><span>Ready</span><span>Principle</span><span>Table</span><span>Compare</span><span class="now">Close</span></div>
-        <div class="ph-body"><b style="color:#18181b;font-size:.95rem">The evening is over</b><br>How was it?<br><span class="ph-btn">Give feedback</span></div>
-      </div>
-    </div>
-  </section>
+  
 
-  <section class="slide grid-bg">
-    <h2 style="font-size:clamp(2.6rem,8vw,6rem);letter-spacing:-.02em">Group <span class="accent">photo</span> &#128248;</h2>
-  </section>
+  
 
 
     <style>
@@ -1426,20 +1525,7 @@
        last round after you end the showcase. Replaces the phone-framed /room embed (that showed the
        whole room page and only worked if you were seated). Renders only on claritypledge.com, signed in
        as the host. -->
-  <section class="slide grid-bg">
-    <!-- NOTES
-      - IN THE ARC at slide 27 (round 5, founder: "this is a gift i can give"): the deck ends on the ask, then hands the room something free. Venue-specific; skip outside Chiang Mai.
-    -->
-    <div class="badge">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12" stroke-linecap="round" stroke-linejoin="round"/><rect x="2" y="7" width="20" height="5" rx="1"/><line x1="12" y1="22" x2="12" y2="7"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-      A gift for Chiang Mai
-    </div>
-    <h2 style="font-size:clamp(1.5rem,3.6vw,2.8rem);margin-bottom:.3rem">A shared Chiang Mai event calendar.<br><span class="accent">Here's a free one.</span></h2>
-    <div class="qr-wrap">
-      <img class="qr" alt="QR code to claritypledge.com/cm" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAbwAAAG8AQMAAACffoKcAAAABlBMVEUKCgv///+Z8yMbAAACFElEQVR42u2cQXKEMAwEVfmA//9L/2ATgpFGguTART40lcNulr64poaxJGyfd9c0QEBAQMC/QPNrHJ/jPz9fx0d/8s+f+WUvL0DAl9ehzLGUuwQ5lozXDfPhNrQK2KVVd9FDmUP8diyJhscOtAq4hVbzg95cpTdJs6qAW2j1NFX3WLQKuGNePe10mgfX2HCRVwHbtap1gH/+qAMAdmv1uQL26673IsB1D6sK2KTVaxsV4rznhPOnia8C9ml1RsHKHTV+slQNQKuA7Xk1baMuocbTX2oCaBWws2aVVepFgFDytNTMRauA3b5an/saVqUpgFYBu7T6UAqY5l2AaASEdFlVwL691XmFc4qSZ6oGkAEA23sBqXUlSXVpWCMrWgVs8dVsnpoBtCYQZSu0CtiaV12TkVR9PvDSrdzGqgJ2aDXPpnpYzZsp06FWtArYtrey1P2PymqZCRz0rQCb86rW/6uLFhmjVcBerYp5ypCqpRCbzJZVBezZW5Wxan3rqpZbmQcAbM+r6q46AOA1AdMSAasK2FMHuE+wlIHVdTd9K8AN9lY6VWVlZMVSmsVXAXd43ypaA+Oh9yqxgVUFbMsA9wNYyuEA+CrgDlo9TbXs96PKmqew8FXATc6y8DGVklQ5ywJwL1+VTVZ9h+UaDkSrgBvlVTP32BIDyACA+9QBVKs6dx2nXKJVwE3OXeEgZUBAQMD34DeZ00wWs84aWQAAAABJRU5ErkJggg==">
-      <div class="url"><span class="accent">claritypledge.com/cm</span></div>
-    </div>
-  </section>
+  
 
   <!-- 18 · THE ROOM, LIVE — the P1337 screen itself, embedded (founder, 2026-10-04: "keep in
        mind 'screen' of 1337 — we need to bring it too, this is the main thing").
@@ -1499,132 +1585,22 @@
        These are still /presi's slides; edit them there and re-copy for the next event.
        The permanent backing block follows below. -->
   <!-- Also moved to backup (founder, 2026-11-23, round 2): Try mirror agents; Join the community (the close page already asks it). -->
-  <section class="slide soft">
+  <section class="slide embed-full">
     <!-- NOTES
-      - THE ASK, said plainly and once: "On the next screen there's a switch called
-        Transcribe for AI insights. It records through your own phone, and the transcript
-        is shared with the others in this room who have it on. It's off unless you turn
-        it on, and you can turn it off at any point. If you're talking with someone, ask
-        them first. Turning it on is volunteering for the R&D."
-      - The three cards are three DIFFERENT beneficiaries on purpose — the next room,
-        you, the research. The earlier cut had two cards that both meant "I learn what
-        worked" (founder: "maybe they're a bit overlapping"). If you reword one, keep
-        the beneficiaries distinct or they collapse back into one reason said twice.
-      - The "off unless you turn it on" line moved OUT of the slide and into your mouth
-        (founder: "the text before is not needed"). Say it; do not put it back on screen.
-      - Do NOT pressure, do NOT count hands, do NOT look at anyone. A recording consent
-        obtained by social pressure in a room is not consent. Say it once and move on.
-      - The three cards are the whole slide. Say each in one sentence; the detail belongs
-        in your voice, not on the projector.
-      - The switch is on EVERY attendee's phone, not only the six with mics. Say the rule once for
-        everyone: "if you turn it on, only talk with someone who also agreed to be recorded."
-        (decisions.md 2026-09-16, the pair is the unit of consent.)
-      - If asked "who sees it": the people in this room who ALSO have transcription on
-        (privacy policy). Strangers are refused entry server-side. Do not say "everyone
-        in the room" and do not say "only you".
-      - If asked "how long": your own capture runs for this event and you end it yourself
-        by switching it off. Do not quote a retention period from this stage; point at the
-        terms. [FOUNDER DECISION: whether to state a retention period out loud]
+      - Seat the three from the host panel first (showcase), then come to this slide.
+      - Point at the rows where they are furthest apart: that is the conversation.
+      - Blank or "Only the host can run this event" = signed out in this browser.
     -->
-    <div class="kicker">What audio transcription is for</div>
-    <h2 style="font-size:clamp(1.5rem,3.6vw,2.7rem)">Try mirror agents that <span class="accent">build bridges</span></h2>
-    <p class="lead" style="margin-top:.8rem;max-width:46ch;text-wrap:balance">Less time and effort to reach verified understanding, despite differences in opinions, interests and values.</p>
-    <!-- THE BAR, MERGED IN (founder, 2026-10-05: "any way to put visually the visuals from
-         slide 10 into slide 9?"). The separate "start it, pause it, stop it" slide is gone;
-         the two states sit small under the three reasons, so why and how are one beat.
-         Static copy of the shipped room-capture bar — strings verbatim from capture-status.ts.
-         Pause/resume is P1388. WHERE IT STARTS is the next slide: the live event page driven
-         to /ready, where the Transcribe switch sits. -->
-    <!-- ONE LIVE BANNER (founder, 2026-10-06): the event room's own banner from P1337 — idle
-         "Not transcribed" + Transcribe; tap it and it runs, with pause and stop. Strings copied
-         from room-capture-bar.tsx / capture-status.ts; clicking it does not advance the slide. -->
-    <div class="bar2 bar2-sm" data-live>
-      <div class="bar2-row bar2-off" data-st="idle">
-        <span class="bar2-txt">Not transcribed</span>
-        <span class="bar2-btns"><button class="bar2-go" data-to="run">Transcribe</button></span>
-      </div>
-      <div class="bar2-row bar2-on" data-st="run" hidden>
-        <span class="bar2-dot"></span>
-        <span class="bar2-txt">Transcribing for AI insights</span>
-        <span class="bar2-btns"><button class="bar2-ic" data-to="pause" aria-label="Pause">&#10074;&#10074;</button><button class="bar2-ic" data-to="idle" aria-label="Stop">&#9632;</button></span>
-      </div>
-      <div class="bar2-row bar2-off" data-st="pause" hidden>
-        <span class="bar2-txt">Paused, not recording</span>
-        <span class="bar2-btns"><button class="bar2-ic" data-to="run" aria-label="Resume">&#9654;</button><button class="bar2-ic" data-to="idle" aria-label="Stop">&#9632;</button></span>
-      </div>
-    </div>
-    <style>
-      .bar2-go{font:inherit;font-weight:700;color:#fff;background:var(--blue);border:0;border-radius:8px;padding:.45em 1.1em;cursor:pointer}
-      button.bar2-ic{cursor:pointer;font-family:inherit;color:inherit}
-      .bar2-row[hidden]{display:none}
-      @keyframes bar2pulse{50%{opacity:.35}} .bar2-on .bar2-dot{animation:bar2pulse 1.6s ease-in-out infinite}
-    </style>
-  </section>
-  <section class="slide grid-bg">
-    <!-- NOTES
-      - NAMED 2026-09-16 (founder: "it's not join Chiang Mai community, it's join communication
-        activism community"), with the benefit line he asked for underneath. The city is no longer
-        in the heading — the community is defined by what it does, not where it meets.
-      - SWAPPED FOR /presi3. /presi asks for the Clarity Champions Program, €295/month, and is
-        DELIBERATELY LEFT ALONE (founder decision, 2026-09-16): that is the paid online funnel's
-        ask to a different audience, so this wording does not transfer to it. This is the
-        OFFLINE configuration — the forum — and its one spoken CTA is the FREE community join.
-        docs/events/clarity-practice-event.md § The offer, founder decision 2026-08-27, verbatim:
-        "For the R and D, I think the ask is join the community. That's it. And I want the community
-        to grow locally." Do not mention €295 from this stage. The paid ladder converts online.
-      - ONE ask. Say it once, plainly, and stop. Do not stack it with the calendar on the next slide.
-      - The bracelet is NOT offered at event #1 — no bracelets have ever been sourced
-        (docs/events/clarity-forum.md:157-159). If someone asks about it, say it is coming.
-      - Anyone who wants more than the free community goes to a separate conversation afterwards,
-        not to a pitch from the stage ("the neighbouring session", same doc).
-      - [FOUNDER DECISION: exact wording] is still open on this one — the source doc names the
-        sayable link as /org/cm/join; the slide uses /groups/cm/join, which is the canonical live
-        route (/org/* is a permanent legacy redirect, P1193). Both work. Pick before Friday.
-    -->
-    <h2 style="font-size:clamp(1.35rem,3.3vw,2.6rem)">Join the <span class="accent">communication&nbsp;activism</span> community</h2>
-    <p class="lead" style="margin-top:.85rem;max-width:44ch;text-wrap:balance">Practice clarity together. Build trust that holds.</p>
-    <div class="qr-wrap" style="--qr-size:min(42vh,340px);margin-top:1.4rem">
-      <img class="qr" alt="QR code to claritypledge.com/groups/cm/join" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAlgAAAJYAQMAAACEqAqfAAAABlBMVEX///8AAABVwtN+AAAACXBIWXMAAA7EAAAOxAGVKw4bAAACyUlEQVR4nO3cMXLsIAyAYTIptvQROEqOZh/NR/ERUrrYWd5YCJBYJ5PSz/xqdjHwOVU0EvaG9BYhx2e7shzjmF4hTHplDR8nG7GwsLCwrmx9BxPTudXD4bA2uzFiYWFhYY1lzXnZS61H22kXv+RT1q5q6aonFhYWFhZWju3YO+liST2ydtcBFhYWFtYdLNmeFy/ytbapsLCwsLCwgolirccgpj5k7aPVHS2wsLCwsEay+tDFn5poJE1JoslpaqnW20YsLCwsrOtaZ/E4Zp6aO1xZUqbX031YWFhYWGNYdnGObjopXM47NFweemJhYWFhjWWleqBhrrQapkzHdBq77oqlHsLCwsLCurJlXpRwPSsNmTZ1h8QWusDCwsLCGsrqrzhrLoVFHqTWs2p/yYaFhYWFNYzVzcsbGMVysWmbqt03Jv8MLhYWFhbWpa2p1h25sHB9qLY9Wrg9G2V7VlhYWFhYo1jBFhZT8tFdce9cNN3nNCwsLCys21uTjr7q4ocWNNFuj/68w+Ws2rPCwsLCwhrB6nKLwLvCW3Dx0a1tsH1GFwsLCwvrolY661k1a7JHHO04xPSspGqJ3XO1WFhYWFh3tiS3uJNxsXT+pGf10MGm9527nIaFhYWFNYI1H1OrL1Ky3uWhoNZ6fMZyPO56VlhYWFhYV7bkv//Zb3AcMdeLLndI7G0aCwsLC2sQ6yzKGUa08+58e9WvVsXCwsLCGsVKbyGLvjQPtZbWZtOU1DtbtZ4nMhYWFhbWxazWpgrSoXKHEBJzHbTz7bJ7r7fCwsLCwhrKmvOKV7NWne+Ov//U/8LCwsLCGtg65nPqyQ0siSW4MDAWFhYW1v9n1fkcJnfI2tU2sCS28GPdgYWFhYV1R6vFlMp5R+q2l1f09FYvyUwyWH7rf2FhYWFh3dHqQ2uYHHJl8XloP25l3vWefzt3x8LCwsK6nfUPwaj5cHVHSNcAAAAASUVORK5CYII=">
-      <div class="url"><span class="accent">claritypledge.com/groups/cm/join</span></div>
+    <iframe src="https://claritypledge.com/events/sales-mastermind-stress-test-your-riskiest-business-assumptions-with-peers-ai-2026-11-12-w7vyacggjqeibgwy/host?view=compare&amp;table=1&amp;embed=true"
+            title="The showcase table — where the speaker and the listener stand" loading="lazy"></iframe>
+    <div class="embed-nav">
+      <button type="button" data-embed-nav="prev" aria-label="Previous slide">&lsaquo;</button>
+      <button type="button" data-embed-nav="next" aria-label="Next slide">&rsaquo;</button>
     </div>
   </section>
+  
   <!-- Moved to backup for the Sales Mastermind (founder, 2026-11-23): Why I run this, How a round works, What if you can't give a number, Let's show you one round. -->
-  <section class="slide soft nest-slide" data-nest>
-    <!-- NOTES
-      - PROMOTED INTO THE ARC, right after the norm slide (founder, 2026-10-05). It is the
-        "why I run this" beat and the only moment in the evening you talk about yourself.
-      - ADVANCE TWICE: the rings reveal outer to inner. Say one line each, then stop.
-      - The argument, in your own words: integrity is a universal value, and to hold ANY value
-        you have to try to uphold it. Intellectual integrity means admitting when you are
-        wrong. Intellectual honesty is the inner ring — being honest with yourself the moment
-        you do not understand. That is the smallest version of every value above it, and it
-        happens in one second, by saying a number.
-      - Close on it: "my home is with people who share this, and a community that makes it
-        easier to hold." Do NOT turn it into an ask — the ask lives on their phones at the end.
-      - Stop talking after the last line.
-    -->
-    <div class="kicker">Why I run this</div>
-    <div class="nest">
-      <div class="ring ring-1">
-        <div class="ring-lab">
-          <div class="ring-t">General Integrity</div>
-          <div class="ring-d">You consistently choose to follow your values.</div>
-        </div>
-        <div class="ring ring-2">
-          <div class="ring-lab">
-            <div class="ring-t">Intellectual Integrity</div>
-            <div class="ring-d">You admit it when you are not following your values.</div>
-          </div>
-          <div class="ring ring-3">
-            <div class="ring-lab">
-              <div class="ring-t">Intellectual Honesty</div>
-              <div class="ring-d">You are honest with yourself when you have not verified that you understand the view of someone who disagrees with you.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
+  
   <section class="slide soft">
     <!-- NOTES
       - THE OBSERVER GUARDS THE ROLES, and does NOT hold a clock (founder, 2026-10-05 — the
