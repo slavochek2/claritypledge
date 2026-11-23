@@ -38,7 +38,8 @@ registration refusal, which needs a session).
 
 | Risk | Label | Note |
 |---|---|---|
-| A caller whose session lapsed now gets a permission error instead of false | ACCEPT | `getMyEventRemoval` (`src/app/data/event-waitlist.ts:27-34`) already maps any error to false, the same answer anon got before |
+| A caller whose session lapsed now gets a permission error instead of false | ACCEPT | `getMyEventRemoval` (`src/app/data/event-waitlist.ts:27-34`) already maps any error to false, the same answer anon got before. It calls `logDbError` first, so a lapsed session now logs one permission error per read (may reach Sentry). |
+| `e2e/integration/p1700-removal-email-db.spec.ts:107` asserted anon gets false | MITIGATE | Now asserts anon is refused (error set, data null): the regression guard for this change. 5/5 on TEST |
 
 Non-goal: the body of the function; it was already correct.
 

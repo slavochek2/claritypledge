@@ -104,7 +104,10 @@ test.describe('P1700: removed-attendee notice', () => {
 
     const r = await clientFor(removed);
     expect((await r.rpc('my_event_removed', { p_event: eventId })).data).toBe(true);
-    expect((await anon().rpc('my_event_removed', { p_event: eventId })).data).toBe(false);
+    // P1715: signed-out callers are refused (no anon EXECUTE grant), not answered false
+    const anonRead = await anon().rpc('my_event_removed', { p_event: eventId });
+    expect(anonRead.error).not.toBeNull();
+    expect(anonRead.data).toBeNull();
     const b = await clientFor(bystander);
     expect((await b.rpc('my_event_removed', { p_event: eventId })).data).toBe(false);
   });
