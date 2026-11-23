@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-23 [technical]: One mail-link rule wins over a branch's own copy at merge (P1675, P1705)
+
+**Context:** P1675 lived on its branch for a week. Meanwhile main shipped P1705, one rule (`_shared/link-base.ts`, `linkBaseFor`) that decides the site every mailed link points at. P1675 had built its own version for the same need (R11: a TEST confirmation links back to the developer's localhost port), reading the configured site and a body `origin` field itself. Three cherry-picks conflicted in the email files.
+**Decision:** Keep main's rule everywhere; drop the branch's `siteFor`/`localSiteFor`, its body `origin` read and its test. R11 is now met by `linkBaseFor`, which is stricter (request Origin header, known dev origins, known non-prod project). `src/tests/p1691-link-host-source.test.ts` caught the one leftover body-origin read after the first resolution, so the guard did its job.
+**Alternatives rejected:** keeping both rules (the guard test forbids a second link-host source, and two rules drift); porting the branch's rule into link-base (it trusts a request-body field, which the P1691 rule was written to refuse).
+**Consequences:** When a long branch conflicts with a shared rule that landed on main, resolve toward the shared rule and rerun its guard test before resuming; the spec's evidence line is updated to cite the kept rule (done for R11).
+**References:** [P1675](../features/done/2026-06-10/p1675_hike_short_introduction_required.md), `supabase/functions/_shared/link-base.ts`
+
 ## 2026-11-19 [process]: A background task's reported exit code is its last statement's; judge it from the echoed exit= line (epistemic gate 7)
 
 **Context:** In the P1688 session a `commit-to-main` run as a background task failed on the main lock, and it was reported to the founder as landed. The command was `cmd > log 2>&1; echo exit=$?`: the echoed line was correct, but the harness reports the exit code of the task's last statement, which is the `echo`, so the notification said 0.

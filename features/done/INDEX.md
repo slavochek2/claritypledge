@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-19
+Last updated: 2026-11-23
 
 ---
 
@@ -417,6 +417,7 @@ Last updated: 2026-11-19
 - **P459** (Feb 27) Move Agreements to Connections Page — profile sub-page at `/p/:slug/connections`; service-layer filter for current user only (not creator); react-refresh requires named exports
 
 ## Events & Content
+- **P1675** (Nov 26) A hike asks for the short introduction before the seat — a branch-built link rule duplicated main's P1705 rule; the guard test caught it at merge, main's kept.
 - **P1698** (Nov 17) My events tab on /events/list — hidden events reach host and registered only via a per-viewer read; never fold it into the group-keyed list read
 - **P1686** (Nov 16) Next version reviewed and published in the event room — Publish only under the list of the exact revision read; mocked reads hid a wrong field name until a TEST walk
 - **P1595** (Oct 30) Room loader on the content column, one Back, the registered page names its organiser — a centred loader must centre on the shell's content column; the boot splash outside the shell cannot (INBOX-254)
