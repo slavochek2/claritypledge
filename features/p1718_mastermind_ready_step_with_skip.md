@@ -15,6 +15,8 @@ created_date: 2026-11-23
 disclosure: public
 delivery_stage: dev
 pipeline_ran: [change-request, dev]
+spec_review_hash: fc266a3f2ef7220d108eb13107d2ed9562bfe1d73990fccd7953326df5564d79
+spec_review_vendors: [gemini, openrouter]
 ---
 
 # P1718: Ready comes back to the Sales Mastermind's room, with a Skip that records nothing
@@ -152,8 +154,11 @@ States:
 | Moves the slider, taps Continue | their value | nothing extra | straight to `/meet` (has a value) |
 | Taps Skip | nothing | "skipped Ready for this event" | straight to `/meet` |
 | Taps Continue without moving the slider | nothing (same as Skip) | "skipped Ready for this event" | straight to `/meet` |
-| Skipped, later taps Ready in the step bar and answers | their value | n/a | straight to `/meet` |
-| Skipped on one phone, opens the room on another | nothing | nothing there | Ready once more; acceptable |
+| Moves the slider, taps Continue, the save fails | nothing | "skipped Ready for this event" | straight to `/meet` (spec review: otherwise Ready returns on every re-entry) |
+| Skipped, later taps Ready in the step bar and answers | their value | the marker stays; harmless, the value already routes to `/meet` | straight to `/meet` |
+| Skipped on one phone, opens the room on another | nothing | nothing there | Ready once more, unless seated at a running round (R8); acceptable |
+| Another person signs in on the same browser | nothing | the first person's marker does not apply (keyed per person) | Ready, as a first visit |
+| The host of a mastermind opens the room | nothing | nothing | straight to `/meet` (R9) |
 
 A skipped person can still answer later: Ready stays tappable in the step bar, as it is today for
 any step behind the current one (`RoomSteps.tsx` `canOpenStep`).
@@ -179,11 +184,14 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 - **R2. Skip.** The shared Ready screen (`EventRoomReady.tsx`) shows a secondary Skip control under
   Continue. Skip saves nothing and goes to `/meet` with the same route state Continue passes.
 - **R3. Continue saves only an answer.** Continue saves the value only when the slider was moved, or a
-  value was already stored. An untouched Continue behaves exactly like Skip.
-- **R4. A skip is remembered for the evening.** Skip, or an untouched Continue, remembers "skipped Ready for
-  event X" in browser storage, keyed by event id. `EventRoomGate` treats that as a return visit and sends
-  the person to `/meet`. Reads and writes are wrapped in try/catch. With no storage the page still works
-  and the person may see Ready again.
+  value was already stored. An untouched Continue behaves exactly like Skip. A second tap on Continue or Skip
+  while a save is in flight does nothing.
+- **R4. A skip is remembered for the evening.** Skip, an untouched Continue, or a Continue whose save failed
+  remembers "skipped Ready for event X" in `localStorage`, keyed by **the viewer's profile id and the event
+  id** (spec review: an event-only key leaks one person's skip to the next person on a shared phone; the
+  repo's own per-viewer keys, `use-group-chat-opened.ts:69`, do the same). `EventRoomGate` treats that as a
+  return visit and sends the person to `/meet`. Reads and writes are wrapped in try/catch. With no storage
+  the page still works and the person sees Ready again on re-entry.
 - **R5. Step bar on phones.** The mastermind's bar holds up to six steps: Learn and prepare · Ready ·
   Principle · Canvas · Table · Feedback. It must render without overflow or clipping at 320px, 375px and
   desktop, with and without the Canvas step. If "Learn and prepare" breaks the row at 375–430px, a shorter
@@ -193,13 +201,28 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   "Clarity Night and Social Hike are unchanged ... their existing tests pass unchanged" for this one
   screen; the Ready-screen tests that pin Clarity Night's Continue would change. The
   founder accepted this amendment.
+- **R7. The Ready screen's step bar is the room's.** (Spec review, all three reviewers: `EventRoomReady.tsx:157`
+  renders `RoomSteps` with no `hidden`, `labels`, `learn` or `withCanvas`, so a mastermind's `/ready` would
+  show statement Compare and no Learn or Canvas.) `/ready` passes the same recipe-driven bar `/meet` passes:
+  hidden steps (`hiddenRoomSteps`), the series' labels, `closeOpen`, `tableOpen`, the Canvas step when the
+  canvas is made at the event, and the Learn entry. A tap on a step `/ready` cannot show opens it in `/meet`
+  (Learn, Feedback). The bar is built in a component of its own; `EventRoomMeet.tsx` is over the size limit.
+- **R8. Ready never stands at a running table.** `/ready` reads the evening's rounds; when a round is running
+  and the person is seated in it, `/ready` forwards to `/meet`. This covers both the gate's redirect and a tap
+  on Ready in the step bar. A failed read shows Ready (a note, not a gate).
+- **R9. The mastermind's host goes straight to `/meet`.** The distribution RPC excludes only the caller, so a
+  host who moved the slider would enter every attendee's dots, against P1529's "the host is not an attendee in
+  any count". Clarity Night's host routing is unchanged (it already goes through Ready; out of scope).
+- **R10. A skipped Ready shows no done tick.** `/meet` passes `done.ready = readinessValue != null` to the step
+  bar, so the bar does not say "Ready, done" to someone who skipped.
 
 ## Invariants
 
 - **Readiness is a note, never a gate.** No path may leave a person unable to reach `/meet` from Ready:
   not a failed save, not missing storage, not offline-with-a-stored-state.
-- **No fabricated answers.** A stored readiness value always comes from a slider the person moved. That
-  includes a value set on an earlier visit.
+- **No fabricated answers.** From this change's deploy on, a stored readiness value always comes from a
+  slider the person moved. Values stored before it may be untouched-Continue 5s and cannot be told apart;
+  any later analysis of readiness uses values written after the deploy.
 - **The distribution stays anonymous at the boundary.** Others' values arrive only through
   `get_room_readiness_distribution`, which carries no identifiers (2026-08-21 [product]). Skip must not add
   any per-person signal to that read, such as a "skipped" count.
@@ -216,7 +239,9 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 
 - **Clarity Night and Social Hike are unchanged.** An event whose flow is not Sales Mastermind
   renders, seats, titles its round threads and records exactly as today; their existing tests pass
-  unchanged. An event with no series and no flow gets Clarity Night's flow.
+  unchanged. An event with no series and no flow gets Clarity Night's flow. **Amended 2026-11-23 (R6, founder):**
+  Clarity Night's Ready screen gains Skip, save-only-if-moved and R8; the tests that drove an untouched
+  Continue as a save change with it.
 - **No seat without the answers (D16).** For a flow with registration questions, the server refuses a
   registration without the required answers and the recording acceptance, on every path that creates
   one: the page, sign-up with `action=rsvp`, the hidden-event link and any direct insert. Flows without
@@ -254,6 +279,13 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 - **The spirit of "no sliders".** ACCEPT. P1529 D3 kept sliders out of the round because the `/live` sliders
   were hard to follow. Ready is one slider before the round, skippable, and asks nothing during it.
 - **A skip on one device is not known on another.** ACCEPT. The person sees Ready once more there.
+- **An untouched Continue under the "Neutral" label records nothing.** ACCEPT. A pointer tap at the midpoint
+  does record 5 (`slider-track.tsx:263-267` emits on pointer down at any value). A keyboard user reaches 5
+  only by moving away and back (`slider-track.tsx:297`, emits on a change only); the shared slider is out of
+  scope.
+- **Fewer dots in a small room.** ACCEPT. The roster is public by name, so roster size minus dot count now
+  shows how many skipped or have not answered. No individual's value is exposed, and the RPC is unchanged
+  (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
 ## What Stays the Same
@@ -270,8 +302,12 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 
 **In scope:**
 - `src/app/prototypes/events/series-recipes.ts` (mastermind `readiness: true`, and the recipe's doc comment)
-- `src/app/prototypes/events/components/EventRoomReady.tsx` (Skip, save-only-if-touched, remember skip)
-- `src/app/prototypes/events/components/EventRoomGate.tsx` (a remembered skip counts as a return visit)
+- `src/app/prototypes/events/components/EventRoomReady.tsx` (Skip, save-only-if-touched, remember skip, R7 bar, R8)
+- `src/app/prototypes/events/components/EventRoomGate.tsx` (a remembered skip counts as a return visit; R9)
+- `src/app/prototypes/events/components/EventRoomMeet.tsx` (R10, one prop)
+- A new small module for the skip marker and a new component for the Ready step bar
+- `e2e/p1114-event-room.spec.ts` (drives an untouched Continue as a save; moves the slider instead)
+- `src/tests/p1433-event-night-navigation.test.tsx` (the gate's routing; clear storage between cases)
 - Tests that pin the mastermind's hidden steps:
   - `src/tests/p1529-round-screen.test.tsx:953` expects `['compare', 'ready']`; this becomes `['compare']`
   - Ready screen tests: `src/tests/p1307-ready-screen.test.tsx`, `src/tests/p1562-ready.test.tsx`
@@ -291,22 +327,33 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
       goes straight to `/meet`.
 - [ ] Tapping Skip stores no readiness value (`readiness_value` stays null; check the row) and lands in
       `/meet`. Re-entering the room on the same device goes straight to `/meet`.
-- [ ] Tapping Continue without moving the slider stores no value. This is the regression check for the
-      fabricated 5.
+- [ ] Tapping Continue without moving the slider stores no value, on the mastermind and on Clarity Night.
+      This is the regression check for the fabricated 5.
 - [ ] With browser storage throwing, Skip still lands in `/meet`.
 - [ ] After skipping, tapping Ready in the step bar opens it, and answering stores the value.
-- [ ] The others' dots include no value for a person who skipped.
+- [ ] The skip marker is per person: a second profile on the same browser is sent to Ready.
+- [ ] A touched Continue whose save fails lands in `/meet` and re-entry goes to `/meet`.
+- [ ] A person seated at a running round who opens `/ready` (by the gate or a tap) is forwarded to `/meet`.
+- [ ] The mastermind's `/ready` step bar shows Learn and prepare, Ready, Principle, Canvas (when made at the
+      event), Table and Feedback, and no Compare.
+- [ ] The mastermind's host entering the room goes to `/meet`, not `/ready`.
+- [ ] After a skip, `/meet`'s step bar shows no done tick on Ready.
 - [ ] Clarity Night: same order and copy as before, plus Skip.
 - [ ] Hike: still no Ready (`/ready` forwards to `/meet`).
 - [ ] Screenshots of `/ready` and `/meet` for the mastermind at 320px, 375px and desktop, with and without
       the Canvas step: no overflow, clipping or overlapping labels (visual QA checklist, separate reviewer).
-- [ ] Surfaces not in scope are visually unchanged.
-- [ ] All existing P1529, P1307, P1562 and P1542 tests pass, with the hidden-steps assertion updated as
-      listed above.
+- [ ] Clarity Night's `/ready` and `/meet` at 375px look as before apart from the Skip button (screenshot pair).
+- [ ] All existing P1529, P1307, P1562, P1542, P1433 and P1114 tests pass, with the changes listed in
+      Surfaces in Scope.
 
-## Next Steps
+## Spec Review (2026-11-23)
 
-- Founder decisions answered 2026-11-23: R6 yes, Skip label "Skip". A shorter "Learn and prepare" is
-  still a `[FOUNDER DECISION: copy]`, needed only if the screenshots show a break.
-- Then `/dev` in a worktree. The changes are targeted, and the main checkout has another session's
-  uncommitted edits in `series-recipes.ts` (P1675).
+Gemini, GLM and Opus reported; Codex did not (usage limit). Folded after checking each claim against the
+code: the Ready screen's bare step bar (R7), the per-person skip key (R4), the failed-save row (R4), the
+seated-at-a-running-round case (R8), the host in the dots (R9), the false done tick (R10), double taps
+(R3), the invariant scoped to new values, and the amended carried invariant. Dropped after checking: the
+`series-recipes.ts` line numbers (correct at HEAD; the reviewers' excerpt was renumbered), the hidden-steps
+assertion order (the test sorts), "a midpoint tap records nothing" (pointer down always emits), and
+`EventPrepPage.tsx:693` as a mastermind surface (it never renders there, `prepare.words` is null).
+
+A shorter "Learn and prepare" is still a `[FOUNDER DECISION: copy]`, needed only if the screenshots show a break.
