@@ -46,7 +46,7 @@ export const CANVAS_OWN_AI_PROMPT = [
   '',
   // P1658 v9: the word cap (1100, pinned) paid for the state rule, the two routing destinations and the label-free shapes; every cut is
   // listed in the v9 report. "If I have more than one business" was rule 7's "give each its own canvas" said twice.
-  'Return only ONE Markdown file, nothing else. Start each canvas with "This canvas is about <group>." naming who it is for. Write one section per canvas, my main focus first. Each has the nine headings below, in order, without the lines under them.',
+  'Return only ONE Markdown file. Start each canvas with "This canvas is about <group>." naming who it is for. One section per canvas, my main focus first. Each has the nine headings below, in order, without the lines under them.',
   `- Under each heading write up to ${MAX_POINTS_PER_BOX} points, each one short sentence of at most ${MAX_STATEMENT_CHARS} characters.`,
   `- ${THIRD_PERSON_RULE.plain}`,
   // v9: one line in place of four per-heading "Leave out why" sentences.

@@ -426,7 +426,8 @@ describe('S2 box guidance', () => {
     expect(def('canvas:metrics').good).toContain('(target), ahead of');
     const offer = def('canvas:revenue');
     // the price sits after the contrast clause, never inside it, and the lead keeps every part of the terms (v9: no <state> slot after them)
-    expect(offer.shape).toContain('<ahead of|not> <other offer>; <price + currency> per <unit> <cadence>."');
+    // round 2: the price parts are bracketed (written only as stated), still all present in the lead
+    expect(offer.shape).toContain('<ahead of|not> <other offer>[; <price + currency> per <unit> <cadence>]."');
     expect(offer.good).toMatch(/, ahead of [^;\d]+; [\d,]+ baht per shop per month\."/);
   });
 
@@ -487,7 +488,7 @@ describe('S2 box guidance', () => {
 
   it('the Copy prompt is ONE text: the rules come first, then the nine sections', () => {
     expect(CANVAS_OWN_AI_PROMPT.indexOf('Rules:')).toBeLessThan(CANVAS_OWN_AI_PROMPT.indexOf('## Customer Segments'));
-    expect(CANVAS_OWN_AI_PROMPT).toContain('one section per canvas');
+    expect(CANVAS_OWN_AI_PROMPT).toMatch(/one section per canvas/i); // round 2 word cap: "Write one section…" became "One section…"
     expect(CANVAS_OWN_AI_PROMPT).toContain('my main focus first');
   });
 
@@ -580,7 +581,11 @@ describe('P1658 revision 3 / v9', () => {
     const o = def('canvas:revenue');
     expect(deliverableFirst(o.shape)).toBe(true);
     // v9 review: the Copy prompt needs the drafting prompt's Offers rule (the self-run wrote "…: paid, on terms agreed before it starts")
-    expect(o.definition).toBe('What the customer gets, then price per unit per period or once, only as you stated them; no price without what it buys.');
+    expect(o.definition).toBe('What the customer gets, then price per unit per period or once, only as you stated them, nothing else; no price without what it buys.');
+    // round 2: the self-run's "…: paid, on terms agreed before…" filled a required price slot; the price parts are optional in both forms
+    expect(o.shape).toContain('then "<what is bought>[: <price + currency> per <unit> <cadence>]."');
+    // round 2: "you" in a definition is the owner, said once for the drafting agent (the Copy prompt has its own line)
+    expect(DRAFT_RULES).toContain('in their definitions "you" and "your" mean the owner');
     expect(CANVAS_OWN_AI_PROMPT).toContain(`## Offers & Pricing\n${o.definition}\n`);
     expect(o.shape).not.toContain('<state>');
     expect(o.good).toMatch(/ once\."$/);
@@ -590,7 +595,7 @@ describe('P1658 revision 3 / v9', () => {
     expect(DRAFT_RULES).toContain('when they state no price, write what is bought alone. Either way the box\'s question asks for the missing terms.');
     expect(DRAFT_RULES).not.toContain('write the price alone');
     // CONTROL (gate 7d): the real shape with v8's offer-name template ("Install: 4,500 EUR once" names nothing bought) fails it
-    const v8 = o.shape.replace('then "<what is bought>:', 'then "<offer>:');
+    const v8 = o.shape.replace('then "<what is bought>[:', 'then "<offer>[:');
     expect(v8).not.toBe(o.shape);
     expect(deliverableFirst(v8)).toBe(false);
   });
@@ -626,6 +631,13 @@ describe('P1658 revision 3 / v9', () => {
     // direction with no evidence lands here without the model inventing any
     expect(h.definition).toContain('Without evidence, a dropped direction still goes here; a single ruled-out detail is a "not" point in its box.');
     expect(h.shape).toBe('"The business expected <X>[; <contrary evidence>][; so it <stated change>]."');
+    // round 2: the "not" example is a single detail, never a whole customer group (which the definition sends here), and an estimate is no evidence
+    expect(h.not).not.toMatch(/café chains/);
+    expect(h.not).toContain('(one detail with no evidence: a "not" point in its own box)');
+    expect(h.not).toContain('(an estimate, not evidence: a test, an event or a prospect conversation)');
+    // round 2: no label word left in any shape outside the quoted templates (the milestone's "Target:" was the last one)
+    for (const b of BOX_DEFINITIONS) expect(b.shape, b.tag).not.toMatch(/\b(?:Lead|Others?|Target):/);
+    expect(def('canvas:good-at').shape).toContain('challenge is <obstacle>, <ahead of|not> <other obstacle>.'); // round 2: a bare <X> let a Go-to-market choice in
     expect(ONE_SALE_LOOP_PLAIN).toContain('An old direction I dropped goes under Hypotheses I\'ve falsified'); // whole directions still land here (Copy prompt)
     expect(DRAFT_RULES).toContain('Hypotheses I\'ve falsified: a whole direction the owner dropped (a customer group, an offer, a way of selling) is one of its falsified expectations'); // and for the agent, whose rule 7 does not say it
     expect(ROUND_RULES).toContain('a whole direction the owner dropped');

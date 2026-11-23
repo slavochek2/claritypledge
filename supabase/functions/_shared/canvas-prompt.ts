@@ -25,7 +25,7 @@ export const DRAFT_RULES = `You draft a Clarity Canvas for one person (the owner
 Writing rules, for every point in every box:
 ${globalRulesText()}
 
-The boxes (use exactly these tags):
+The boxes (use exactly these tags; in their definitions "you" and "your" mean the owner):
 ${boxGuideText()}
 
 For all boxes:

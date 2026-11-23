@@ -96,15 +96,19 @@ const titleOf = (tag: string) => CANVAS_BOXES.find((b) => b.tag === tag)?.title 
 // ── Revision 3 / v9 checks (pure, lexical HEURISTICS: a human reads every hit; used by --compare, --check-md and each run's summary) ──
 
 /** The v9 rules, in the order they are reported. */
-export const V9_RULES = ['status', 'solution-stance', 'label', 'gtm-timing', 'offer-head', 'falsified-count', 'money-elsewhere', 'pronoun', 'reason'] as const;
+export const V9_RULES = ['status', 'solution-stance', 'label', 'gtm-timing', 'offer-head', 'offer-filler', 'falsified-count', 'money-elsewhere', 'pronoun', 'reason'] as const;
 /** The three boxes whose points must carry no status word or traction count (they say what the business does or sells, not how far it got). */
 const NO_STATUS_BOXES: ReadonlySet<string> = new Set(['canvas:solution', 'canvas:channels', 'canvas:revenue']);
 /** A status word or progress phrase. Word-bounded; the "; live" forms need the semicolon, which marks a status tail. */
 const STATUS_RE = /\b(?:planned|piloted|pilots? run|untested|considering|considered|not tried yet|none sold|nobody (?:has )?paid|being drafted|quoted|paid by|pays? (?:it )?today|so far|not yet|under revisit|live for|is live)\b|; live\b|; planned\b/gi;
 /** A traction count: "4 of its 6", "3 of the first 10", "two shops pay it" (the module's own bad example), "zero contacts were made" (v8). */
-const TRACTION_RE = /\b\d+ of (?:its|the|their)(?: first)? \d+\b|\b(?:\d+|zero|no|one|two|three|four|five|six|seven|eight|nine|ten) \w+ (?:pay|pays|paid|bought|signed|joined)\b|\b(?:zero|no|0) \w+ (?:were |was )?(?:made|run|sold)\b/gi;
-/** v8 status tails the word list missed (Opus review M8): an unset price, a precondition on the terms. */
-const STATUS_EXTRA_RE = /\bprice not set\b|\bnot set\b|\bagreed before\b|\bbefore it starts\b/gi;
+// Round 2: narrowed so the model's own terms stay quiet ("2,500 baht paid per shop", "one owner pays the invoice", "then one buyer pays"):
+// a counted group must "pay it", a zero group must have paid/bought/signed/joined, a zero count needs "were/was".
+const TRACTION_RE = /\b\d+ of (?:its|the|their)(?: first)? \d+\b|\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten) \w+ (?:pay|pays|paid) it\b|\b(?:zero|no) \w+ (?:has |have )?(?:paid|bought|signed|joined)\b|\b(?:zero|no|0) \w+ (?:were|was) (?:made|run|sold)\b/gi;
+/** What stands in a missing price's place in an Offers point: "paid", "free", "terms", "on request", "agreed". The v9 Offers rule is what is bought, then the price as stated, nothing else. */
+const OFFER_FILLER_RE = /\b(?:paid|free|terms|on request|agreed)\b/gi;
+/** v8's unset price (Opus review M8). Price-scoped: "if a budget is not set" in a step is no status (round 2). */
+const STATUS_EXTRA_RE = /\b(?:price|fee|rate|terms) (?:is |are )?not set\b/gi;
 /** A stance the business keeps ("The business does not …"). Anchored on the business as subject, so a step's own negation ("if a receipt does not match") is no stance. */
 const STANCE_RE = /\bthe business\s+(?:does not|doesn't|will not|won't|never)\b/gi;
 /** A leading "Lead:" / "Others:" / "Other:" label, or "Lead:" anywhere. The Customer Segments role prefixes (Pays:, Uses:, Approves:) are none of these. */
@@ -114,11 +118,11 @@ const LABEL_ANY_RE = /Lead:|\bOpen with\b|\bwhen grounded\b/;
 const MONTHS = 'January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec';
 /** Timing words in a Go-to-market point: when the plan waits, or a date. A step order ("before the deadline") is fine elsewhere, so this runs on that one box only. */
 // "once a month" / "once per week" is a cadence, not a condition, so "once" counts only when no period follows it.
-const TIMING_RE = new RegExp(`\\b(?:until|waits?|waiting|once(?! (?:a|an|per|every)\\b)|after|before|when|later|currently|not yet)\\b|\\bby \\d{1,2} (?:${MONTHS})\\b|\\bin (?:${MONTHS})\\b|\\b20\\d\\d\\b`, 'gi');
+const TIMING_RE = new RegExp(`\\b(?:until|waits?|waiting|once(?! (?:a|an|per|every)\\b)|after|before|when|if|later|currently|not yet)\\b|\\bby \\d{1,2} (?:${MONTHS})\\b|\\bin (?:${MONTHS})\\b|\\b20\\d\\d\\b`, 'gi');
 /** A price: a number next to EUR, USD, GBP, baht, a currency word (euro, dollar, pound) or a euro, dollar or pound sign, on either side. The founder's own v8 complaint wrote "4,500 euro". */
 const MONEY_RE = /\d[\d,.]*\s?(?:EUR|USD|GBP|baht|euros?|dollars?|pounds?)\b|\d[\d,.]*\s?[€$£]|[€$£]\s?\d|\b(?:EUR|USD|GBP|baht)\s?\d/i;
-/** A reason inside a point: REASON_RE, or " since ". One test, used by the v9 check and the --compare summary alike. */
-export const hasReason = (text: string): boolean => REASON_RE.test(` ${text} `) || / since /i.test(` ${text} `);
+/** A reason inside a point: REASON_RE, " since ", or a purpose " so the " ("online coaching so the practice keeps going", round 2). One test, used by the v9 check and the --compare summary alike. */
+export const hasReason = (text: string): boolean => REASON_RE.test(` ${text} `) || / since | so the /i.test(` ${text} `);
 const matchesOf = (re: RegExp, text: string): string[] => [...new Set((text.match(re) ?? []).map((m) => m.toLowerCase()))];
 
 /** The words naming an offer: the text before its price, without "The offer to sell first is" and trailing ":" "," ";" "for" "at". Null when the point holds no price. */
@@ -147,6 +151,9 @@ export function v9Violations(points: ReadonlyArray<{ box: string; text: string }
     if (p.box === 'canvas:solution') { const hits = matchesOf(STANCE_RE, p.text); if (hits.length) add(p, 'solution-stance', hits.join(', ')); }
     if (LABEL_START_RE.test(p.text) || LABEL_ANY_RE.test(p.text)) add(p, 'label');
     if (p.box === 'canvas:channels') { const hits = matchesOf(TIMING_RE, p.text); if (hits.length) add(p, 'gtm-timing', hits.join(', ')); }
+    // round 2 (Opus): an offer with no price was never checked, and the self-run filled the price slot with "paid, on terms agreed before…"
+    // the lead's contrast clause (", not free first sessions" / ", ahead of …") names the other offer, not filler, so it is left out of the match
+    if (p.box === 'canvas:revenue' && !MONEY_RE.test(p.text)) { const hits = matchesOf(OFFER_FILLER_RE, p.text.replace(/,\s*(?:not|ahead of)\b[^;]*/i, '')); if (hits.length) add(p, 'offer-filler', hits.join(', ')); }
     if (p.box === 'canvas:revenue') {
       const head = offerHeadOf(p.text);
       if (head !== null) {
@@ -188,49 +195,69 @@ export interface CanvasSection { group: string | null; points: Array<{ box: stri
  * starts each canvas section, "## <Box title>" opens a box (curly apostrophes and a trailing colon tolerated), and under it a point is a
  * line starting "- ", "* " or "1. ", or a plain unindented line (the paragraph form: the v9 self-run wrote no bullets, and a bullets-only
  * reader saw 0 points and reported 0 violations). An indented line that is not "Source:" continues the point above. "Source:" lines,
- * bold or not, are no points; "Not known yet." means the box is empty; code fences and "---" rules are skipped. A heading that is no
- * canvas box title is recorded; the points under it are read by nobody.
+ * bold or not, are no points; "Not known yet." means the box is empty; code fences and "---" rules are skipped. Any "#" heading, or a
+ * bold-only line, naming a box opens it; a "#" line naming no box is recorded as an unknown heading, and the points under it are read by
+ * nobody. An unindented line straight after a point (no blank line) is that point hard-wrapped; a line straight after a Source line that
+ * does not start a sentence is the Source wrapped (round 2 review). Trailing chatter after the last box still reads as a point (a known
+ * limit: the Copy prompt asks for the file alone).
  */
 export function parseCanvasMd(md: string): CanvasSection[] {
   const sections: CanvasSection[] = [];
   let section: CanvasSection | null = null;
   let box: string | null = null;
   let last: { box: string; text: string } | null = null;
+  let prev: 'point' | 'source' | 'blank' = 'blank';
   const open = (group: string | null): CanvasSection => { const s: CanvasSection = { group, points: [], unknownHeadings: [] }; sections.push(s); return s; };
   const plainTitle = (t: string) => t.replace(/[‘’]/g, "'").replace(/[*_:]+$/g, '').replace(/^[*_]+/, '').trim().toLowerCase();
+  const boxOf = (t: string) => CANVAS_BOXES.find((b) => plainTitle(b.title) === plainTitle(t));
   const isSource = (t: string) => /^[*_\s>-]*Source\s*[*_]*\s*:/i.test(t);
   const isEmpty = (t: string) => /^[*_]*Not known yet\.?[*_]*$/i.test(t);
   for (const raw of md.split('\n')) {
     const line = raw.replace(/\r$/, '').trimEnd();
     if (/^\s*(?:```|~~~)/.test(line) || /^\s*-{3,}\s*$/.test(line)) continue;
     const about = /^(?:#+\s*)?[*_]*This canvas is about (.+?)\.?[*_]*$/.exec(line);
-    if (about) { section = open(about[1]!.replace(/[*_.]+$/, '')); box = null; last = null; continue; }
-    const heading = /^#{2,3}\s+(.+)$/.exec(line);
-    if (heading) {
+    if (about) { section = open(about[1]!.replace(/[*_.]+$/, '')); box = null; last = null; prev = 'blank'; continue; }
+    const hash = /^#{1,6}\s+(.+)$/.exec(line);
+    const bold = /^\*\*([^*]+)\*\*:?$/.exec(line.trim());
+    if (hash || (bold && boxOf(bold[1]!))) {
       section ??= open(null);
-      const title = heading[1]!.trim();
-      const found = CANVAS_BOXES.find((b) => plainTitle(b.title) === plainTitle(title));
+      const title = (hash ? hash[1]! : bold![1]!).trim();
+      const found = boxOf(title);
       box = found?.tag ?? null;
       if (!found) section.unknownHeadings.push(title);
       last = null;
+      prev = 'blank';
       continue;
     }
     if (!section || !box) continue;
     const trimmed = line.trim();
-    if (trimmed === '') continue;
+    if (trimmed === '') { prev = 'blank'; continue; }
     // a Source line closes its point: a wrapped Source line under it must not be glued onto the point text
-    if (isSource(trimmed)) { last = null; continue; }
-    if (isEmpty(trimmed)) { last = null; continue; }
-    const bullet = /^\s{0,3}(?:[-*]|\d+\.)\s+(.*)$/.exec(line);
+    if (isSource(trimmed)) { last = null; prev = 'source'; continue; }
+    if (isEmpty(trimmed)) { last = null; prev = 'blank'; continue; }
+    const bullet = /^\s{0,6}(?:[-*]|\d+\.)\s+(.*)$/.exec(line);
+    const startsSentence = /^["“A-Z0-9]/.test(trimmed);
+    if (!bullet && prev === 'source' && !startsSentence) continue; // the Source line, wrapped
+    if (!bullet && prev === 'point' && last) { last.text += ` ${trimmed}`; continue; } // the point, wrapped (indented or not)
     if (bullet || !/^\s/.test(line)) {
       const text = (bullet ? bullet[1]! : line).trim();
       last = text === '' || isEmpty(text) ? null : { box, text };
-      if (last) section.points.push(last);
+      if (last) { section.points.push(last); prev = 'point'; }
       continue;
     }
-    if (last) last.text += ` ${trimmed}`;
   }
   return sections;
+}
+
+/**
+ * Why a file cannot be scored, or null. A wrong file or a format the parser does not know must never read as a clean canvas (round 2: bold
+ * headings and deep indents read nine empty boxes and "violations: 0"). Zero points read is refused too: an all-empty canvas needs a human look.
+ */
+export function unreadableReason(md: string): string | null {
+  const sections = parseCanvasMd(md);
+  if (!sections.length) return 'holds no canvas heading ("## Customer Segments" …)';
+  if (!sections.some((s) => s.points.length)) return 'read 0 points: the format may be one the parser does not know; read it by hand';
+  return null;
 }
 
 /** The --check-md report: per canvas a table, the violations, the offer heads and the empty boxes; then the total (an unknown heading counts as one). */
@@ -429,6 +456,27 @@ export function selfTest(): string[] {
   check(wrapped[0]!.points.length === 1 && wrapped[0]!.points[0]!.text === 'A step, then another.', 'parseCanvasMd glued a wrapped Source line onto the point, or read "- Not known yet." as a point');
   const counted = v9Counts([{ rule: 'label' }, { rule: 'status' }, { rule: 'label' }]);
   check(JSON.stringify(counted) === JSON.stringify({ label: 2, status: 1 }), 'v9Counts does not count exactly the fired rules');
+  // round 2 review: each parser form with a control that fails when its branch is removed
+  check(lp[0]!.points.every((p) => !p.text.startsWith('*')), 'parseCanvasMd kept the "* " bullet marker in the text');
+  const forms = (md: string) => parseCanvasMd(md).flatMap((s) => s.points);
+  check(forms('## Problem\n1. For cafés the problem is a fine.\n   Source: x').map((p) => p.text).join() === 'For cafés the problem is a fine.', 'parseCanvasMd missed a "1." bullet');
+  check(forms('#### Solution\n- A step.').length === 1 && forms('# Solution\n- A step.').length === 1 && forms('**Solution**\n- A step.').length === 1, 'parseCanvasMd missed a "####", "#" or bold-line box heading');
+  check(parseCanvasMd('## Solution\n- A step.\n# Notes from the AI\n- chatter').flatMap((s) => s.unknownHeadings).join() === 'Notes from the AI', 'parseCanvasMd did not record a "#" line naming no box');
+  check(forms('## Solution\n      - A deeply indented step.').length === 1, 'parseCanvasMd missed a bullet indented by six spaces');
+  check(forms('## Solution\nA step, then\nanother step.\nSource: x').map((p) => p.text).join() === 'A step, then another step.', 'parseCanvasMd split a hard-wrapped point');
+  check(forms('## Solution\nA step.\nSource: docs/a.md,\ncontinued text\n\nNext step here.').map((p) => p.text).join('|') === 'A step.|Next step here.', 'parseCanvasMd read a wrapped Source line as a point');
+  check(unreadableReason('') !== null && unreadableReason('This canvas is about x.\n\nhello') !== null && unreadableReason('## Solution\n- A step.') === null, 'unreadableReason let an unreadable file through or refused a readable one');
+  // round 2 review: regexes narrowed (no false status on the model's own terms) and widened (an "if" condition, a " so the " purpose)
+  quiet('canvas:revenue', 'Monthly books: 2,500 baht paid per shop per month.', 'status');
+  quiet('canvas:solution', 'The owner signs, then one buyer pays the invoice, then the business files.', 'status');
+  quiet('canvas:solution', 'If a budget is not set, the business asks for one, then plans the month.', 'status');
+  fires('canvas:revenue', 'Monthly books for one shop; no shop has paid yet.', 'status');
+  fires('canvas:channels', 'The business posts in owner groups if a lead replies.', 'gtm-timing');
+  fires('canvas:solution', 'The team meets weekly for online coaching so the practice keeps going.', 'reason');
+  fires('canvas:revenue', 'A paid, bounded two-week trial with the team, on terms agreed before the first session.', 'offer-filler'); // the run-2 point
+  quiet('canvas:revenue', 'The offer to sell first is a monthly package of chat, transcripts and founder support, not free first sessions; 900 EUR per team per month.', 'offer-filler'); // priced: not checked
+  quiet('canvas:revenue', 'A two-week trial with the change lead\'s own team.', 'offer-filler');
+  quiet('canvas:revenue', 'The offer to sell first is a monthly package of chat, transcripts and founder support, not free first sessions.', 'offer-filler'); // the contrast clause, unpriced
   // ids: a bad --name and a bad pack id are refused, a good one passes
   for (const bad of ['../x', 'a/b', 'A', '', 'Rev2c', 'rev 2']) check(throws(() => validId(bad, '--name')), `unsafe label accepted: ${JSON.stringify(bad)}`);
   check(validId('rev2c', '--name') === 'rev2c', 'a safe label was refused');
@@ -573,7 +621,7 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
     `Computed by \`scripts/p1658-rules-ab-eval.ts --compare ${A},${B}\` from \`<pack>-${A}.jsonl\` and \`<pack>-${B}.jsonl\`. Runs per side: ${runsLine}. Wording: ${wording}. No model judge.`, '',
     `- Lead point (headline, strict): the FIRST point of a ranked box (${RANKED.map(titleOf).join(', ')}) holding a choice word (best, biggest, first, chosen, next) AND an alternative (ahead of, ", not", instead of, rather than) in the same point. "(loose)" marks a first point that has only one of the two (the secondary, lexical count); "before" counts as neither.`,
     '- Pronouns: "I", "we", "my", "our", "ours", "us", "me", "mine", "you" as whole words in point text ("I" and "US" as written); box titles are never counted.',
-    '- Reason in a point: " because ", ", which ", " so they ", " so that ", " since ".',
+    '- Reason in a point: " because ", ", which ", " so they ", " so that ", " since ", " so the ".',
     '- Dropped: the engine\'s count; every point the model wrote and the engine did not keep is named with the engine\'s reason (only for runs made by a script version that keeps the model actions; earlier files carry none).',
     `- v9 checks (lexical heuristics, a human reads every hit; computed here from the kept points, whatever the run's arm): ${V9_RULES.join(', ')}.`, ''];
   const totals: Record<string, { leads: number; strict: number; pron: number; reasons: number; kept: number; dropped: number; named: number; runs: number; v9: number }> = {};
@@ -647,7 +695,8 @@ async function main(): Promise<void> {
     let md: string;
     try { md = readFileSync(file!, 'utf8'); } catch (e) { return refuse(`--check-md: ${(e as Error).message}`); }
     // a wrong file (no canvas heading at all) must not read as a clean canvas
-    if (!parseCanvasMd(md).length) refuse(`--check-md: ${file} holds no canvas heading ("## Customer Segments" …)`);
+    const unreadable = unreadableReason(md);
+    if (unreadable) refuse(`--check-md: ${file} ${unreadable}`);
     const { report, total } = checkCanvasMd(md);
     console.log(report);
     process.exit(total > 0 ? 1 : 0);
