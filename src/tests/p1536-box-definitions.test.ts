@@ -140,7 +140,7 @@ describe('S2 review fixes', () => {
   it('4. the one-sale-loop rule is stated once, and the "you means me" line comes before the first box section', () => {
     expect(CANVAS_OWN_AI_PROMPT.split('Groups of people share a canvas only if').length - 1).toBe(1);
     expect(CANVAS_OWN_AI_PROMPT.split('roles in one sale').length - 1).toBe(1);
-    const you = "In the definitions below, 'you' means me, the business owner.";
+    const you = "Below, 'you' means me, the business owner."; // round 3 word cap: "In the definitions below," became "Below,"
     expect(CANVAS_OWN_AI_PROMPT).toContain(you);
     expect(CANVAS_OWN_AI_PROMPT.indexOf(you)).toBeLessThan(CANVAS_OWN_AI_PROMPT.indexOf('## Customer Segments'));
     expect(CANVAS_OWN_AI_PROMPT.indexOf(you)).toBeGreaterThan(CANVAS_OWN_AI_PROMPT.indexOf('Rules:'));
@@ -427,7 +427,7 @@ describe('S2 box guidance', () => {
     const offer = def('canvas:revenue');
     // the price sits after the contrast clause, never inside it, and the lead keeps every part of the terms (v9: no <state> slot after them)
     // round 2: the price parts are bracketed (written only as stated), still all present in the lead
-    expect(offer.shape).toContain('<ahead of|not> <other offer>[; <price + currency> per <unit> <cadence>]."');
+    expect(offer.shape).toContain('<ahead of|not> <other offer>[; <price + currency>[ per <unit>][ <cadence>]]."'); // round 3: each part optional
     expect(offer.good).toMatch(/, ahead of [^;\d]+; [\d,]+ baht per shop per month\."/);
   });
 
@@ -581,9 +581,11 @@ describe('P1658 revision 3 / v9', () => {
     const o = def('canvas:revenue');
     expect(deliverableFirst(o.shape)).toBe(true);
     // v9 review: the Copy prompt needs the drafting prompt's Offers rule (the self-run wrote "…: paid, on terms agreed before it starts")
-    expect(o.definition).toBe('What the customer gets, then price per unit per period or once, only as you stated them, nothing else; no price without what it buys.');
+    // round 3: run 3 read "nothing else" as allowing stated terms ("with terms agreed before the first session"), so terms and conditions are named
+    expect(o.definition).toBe('What the customer gets, then price per unit per period or once, only as you stated them; no terms or conditions; no price without what it buys.');
     // round 2: the self-run's "…: paid, on terms agreed before…" filled a required price slot; the price parts are optional in both forms
-    expect(o.shape).toContain('then "<what is bought>[: <price + currency> per <unit> <cadence>]."');
+    // round 3: each price part bracketed on its own, so a stated price with no unit or cadence never invites an invented one
+    expect(o.shape).toContain('then "<what is bought>[: <price + currency>[ per <unit>][ <cadence>]]."');
     // round 2: "you" in a definition is the owner, said once for the drafting agent (the Copy prompt has its own line)
     expect(DRAFT_RULES).toContain('in their definitions "you" and "your" mean the owner');
     expect(CANVAS_OWN_AI_PROMPT).toContain(`## Offers & Pricing\n${o.definition}\n`);
@@ -634,7 +636,9 @@ describe('P1658 revision 3 / v9', () => {
     // round 2: the "not" example is a single detail, never a whole customer group (which the definition sends here), and an estimate is no evidence
     expect(h.not).not.toMatch(/café chains/);
     expect(h.not).toContain('(one detail with no evidence: a "not" point in its own box)');
-    expect(h.not).toContain('(an estimate, not evidence: a test, an event or a prospect conversation)');
+    // round 3: a direction with no evidence is shown KEPT (an "estimate is no evidence" example made a test pack drop its own direction)
+    expect(h.good).toContain('(a dropped direction with no evidence still goes here)');
+    expect(h.not).not.toMatch(/estimate|cold outreach/);
     // round 2: no label word left in any shape outside the quoted templates (the milestone's "Target:" was the last one)
     for (const b of BOX_DEFINITIONS) expect(b.shape, b.tag).not.toMatch(/\b(?:Lead|Others?|Target):/);
     expect(def('canvas:good-at').shape).toContain('challenge is <obstacle>, <ahead of|not> <other obstacle>.'); // round 2: a bare <X> let a Go-to-market choice in
@@ -670,7 +674,7 @@ describe('P1658 revision 3 / v9', () => {
 
   it('the Copy prompt is in the owner\'s voice: "owner" only in its "\'you\' means me" line (review round 4)', () => {
     const ownerLines = (t: string) => t.split('\n').filter((l) => /\bowner/i.test(l));
-    expect(ownerLines(CANVAS_OWN_AI_PROMPT)).toEqual(["In the definitions below, 'you' means me, the business owner."]);
+    expect(ownerLines(CANVAS_OWN_AI_PROMPT)).toEqual(["Below, 'you' means me, the business owner."]);
     // CONTROL: the v9 draft wording of a ranked shape is caught
     expect(ownerLines(`${CANVAS_OWN_AI_PROMPT}\nShape: Open with "x" when the owner's words ground it; then "y".`)).toHaveLength(2);
   });

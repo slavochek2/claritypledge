@@ -206,8 +206,10 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // deliverable alone when no price is stated; a price with nothing it buys ("Install: 4,500 EUR once") is no point.
     // Round 2: the self-run filled the price slot with "paid, on terms agreed before the first session". The price parts are bracketed (optional,
     // so nothing has to fill them) and "nothing else" keeps terms and conditions out.
-    definition: `What the customer gets, then price per unit per period or once, only as you stated them, nothing else; no price without what it buys.`,
-    shape: `Open with "The offer to sell first is <what is bought>, <ahead of|not> <other offer>[; <price + currency> per <unit> <cadence>]." when grounded; then "<what is bought>[: <price + currency> per <unit> <cadence>]."`,
+    // Round 3: run 3 still wrote "with terms agreed before the first session" ("nothing else" read as allowing stated terms), so the definition
+    // names it; and each price part is bracketed on its own, so a stated price with no unit or cadence never invites an invented one.
+    definition: `What the customer gets, then price per unit per period or once, only as you stated them; no terms or conditions; no price without what it buys.`,
+    shape: `Open with "The offer to sell first is <what is bought>, <ahead of|not> <other offer>[; <price + currency>[ per <unit>][ <cadence>]]." when grounded; then "<what is bought>[: <price + currency>[ per <unit>][ <cadence>]]."`,
     good: `"The offer to sell first is monthly books and tax filing, ahead of payroll; 2,500 baht per shop per month." / "A year-end tax return filed for the owner: 6,000 baht per shop once."`,
     not: `"Affordable packages." / "Setup: 6,000 baht once." (names no deliverable: what is set up?) / "Monthly books: 2,500 baht per shop per month; two shops pay it." (a traction count) / "I charge 2,500 baht a month because cafés cannot afford an accountant." (first person, with the reason inside)`,
     gap: `What does the customer get, what does it cost, per what unit, how often, and which offer do you sell first, ahead of which other?`,
@@ -258,10 +260,12 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     type: 'Evidence', voice: 'third-person, past',
     definition: `Up to ${MAX_POINTS_PER_BOX} expectations that evidence proved wrong (a test, event or prospect conversation). If more: those you weigh most, else those that most changed the current focus. Without evidence, a dropped direction still goes here; a single ruled-out detail is a "not" point in its box.`,
     shape: `"The business expected <X>[; <contrary evidence>][; so it <stated change>]."`,
-    good: `"The business expected café owners to run a bookkeeping app themselves; 0 of 8 trial cafés still used it after a month, so it now does their books for them." / "The business expected café owners to pay yearly; the owners it asked all wanted to pay monthly."`,
+    good: `"The business expected café owners to run a bookkeeping app themselves; 0 of 8 trial cafés still used it after a month, so it now does their books for them." / "The business expected café owners to pay yearly; the owners it asked all wanted to pay monthly." / "The business expected café chains to buy; so it now sells to independent cafés." (a dropped direction with no evidence still goes here)`,
     // /finish review round 2: a whole customer group is a direction (it lands here, evidence or not), so the "not" example is one detail; and a
     // reason or an estimate is not evidence (an organisations run wrote a projection as the contrary evidence).
-    not: `"The business learned customers value relationships." / "The business expected owners to want a mobile app." (one detail with no evidence: a "not" point in its own box) / "The business expected cold outreach to work; it would take over a year." (an estimate, not evidence: a test, an event or a prospect conversation)`,
+    // Round 3: an "estimate is no evidence" example taken from a test pack's own material made both of its runs drop that pack's whole
+    // falsified direction. Examples stay in the café domain, and a direction with no evidence is shown kept (good, above), never dropped.
+    not: `"The business learned customers value relationships." / "The business expected owners to send receipts by email." (one detail with no evidence: a "not" point in its own box)`,
     gap: `Which expectations did a test, an event or a conversation with a prospect prove wrong, and what did you change?`,
   },
 ];

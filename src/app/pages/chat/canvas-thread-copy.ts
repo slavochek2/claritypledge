@@ -58,7 +58,7 @@ export const CANVAS_OWN_AI_PROMPT = [
   '- Under an empty heading write only: Not known yet.',
   `- ${NAMING_RULE}`,
   '',
-  "In the definitions below, 'you' means me, the business owner.",
+  "Below, 'you' means me, the business owner.",
   '',
   'This canvas is about <group>.',
   '',
