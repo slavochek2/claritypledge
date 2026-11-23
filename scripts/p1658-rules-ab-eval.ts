@@ -106,8 +106,9 @@ const STATUS_RE = /\b(?:planned|piloted|pilots? run|untested|considering|conside
 // a counted group must "pay it", a zero group must have paid/bought/signed/joined, a zero count needs "were/was".
 // Round 3: a count of one or two words of buyers before bought / signed (up) / joined, or "paid" ending its clause ("5 customers paid."),
 // counts again; a currency amount ("2,500 baht paid per shop", "6,000 baht paid once") never does.
-const COUNT = '(?:\\d+|one|two|three|four|five|six|seven|eight|nine|ten)';
-const NOT_MONEY = '(?!(?:baht|eur|usd|gbp|euros?|dollars?|pounds?)\\b)';
+// Round 4: a digit group inside an amount ("2,500") is never a count, and the currency words cover the regions the packs sell in.
+const COUNT = '(?:(?<![\\d,.])\\d+|one|two|three|four|five|six|seven|eight|nine|ten)';
+const NOT_MONEY = '(?!(?:baht|thb|eur|usd|gbp|sgd|myr|idr|inr|jpy|chf|aud|cad|yen|ringgit|rupees?|kronor|euros?|dollars?|pounds?)\\b)';
 const TRACTION_RE = new RegExp(`\\b\\d+ of (?:its|the|their)(?: first)? \\d+\\b|\\b${COUNT} ${NOT_MONEY}\\w+(?: \\w+)? (?:pay|pays|paid) it\\b|\\b${COUNT} ${NOT_MONEY}\\w+(?: \\w+)? (?:bought|signed up|signed|joined)\\b|\\b${COUNT} ${NOT_MONEY}\\w+(?: \\w+)? paid(?=[.;,]|$)|\\b(?:zero|no) \\w+ (?:has |have )?(?:paid|bought|signed|joined)\\b|\\b(?:zero|no|0) \\w+ (?:were|was) (?:made|run|sold)\\b`, 'gi');
 /**
  * Terms or conditions in an Offers point, priced or not (the v9 Offers rule: what is bought, then the price as stated; no terms or
@@ -115,6 +116,12 @@ const TRACTION_RE = new RegExp(`\\b\\d+ of (?:its|the|their)(?: first)? \\d+\\b|
  * compound ("pre-agreed-scope") never counts.
  */
 const OFFER_FILLER_RE = /(?<![-\w])(?:terms|on request|agreed|tbd|negotiable|to be (?:set|agreed|decided))(?![-\w])/gi;
+/**
+ * Round 4 (Opus): a keyword list let reworded terms through ("on conditions set before the first session", "subject to a signed agreement",
+ * v8's "…, weekly, open-ended"). Condition words, measured by the reviewer at 6 of 6 bad probes and 0 of 8 known-good offers. "once" (a
+ * cadence) and "when" ("support when the team gets stuck" describes what is bought) are left out on purpose.
+ */
+const OFFER_CONDITION_RE = /(?<![-\w])(?:before|after|if|until|unless|provided|subject to|upfront|up front|conditions?|open-ended|scoped|bounded|minimum|cancel\w*)(?![-\w])/gi;
 /** v8's unset price (Opus review M8). Price-scoped: "if a budget is not set" in a step is no status (round 2). */
 const STATUS_EXTRA_RE = /\b(?:price|fee|rate|terms) (?:is |are )?not set\b/gi;
 /** A stance the business keeps ("The business does not …"). Anchored on the business as subject, so a step's own negation ("if a receipt does not match") is no stance. */
@@ -162,10 +169,15 @@ export function v9Violations(points: ReadonlyArray<{ box: string; text: string }
     // round 2 (Opus): an offer with no price was never checked, and the self-run filled the price slot with "paid, on terms agreed before…"
     // the lead's contrast clause (", not free first sessions" / ", ahead of …") names the other offer, not filler, so it is left out of the
     // match, up to the next comma or semicolon only (round 3: a clause running to the end hid "…, on terms agreed before" behind it)
-    if (p.box === 'canvas:revenue') { const hits = matchesOf(OFFER_FILLER_RE, p.text.replace(/,\s*(?:not|ahead of)\b[^;,]*/gi, '')); if (hits.length) add(p, 'offer-filler', hits.join(', ')); }
+    if (p.box === 'canvas:revenue') {
+      const rest = p.text.replace(/,\s*(?:not|ahead of)\b[^;,]*/gi, '');
+      const hits = [...matchesOf(OFFER_FILLER_RE, rest), ...matchesOf(OFFER_CONDITION_RE, rest)];
+      if (hits.length) add(p, 'offer-filler', hits.join(', '));
+    }
     if (p.box === 'canvas:revenue') {
       // round 3: price is optional now, so an unpriced offer's name (its text before any ";") is listed and checked too
-      const head = offerHeadOf(p.text) ?? p.text.replace(/^\s*The offer to sell first is\s+/i, '').split(';')[0]!.replace(/[.\s]+$/, '');
+      // round 4: an unpriced name ends at ";" or ":" ("Install: price TBD", "Setup: free" name only "Install" / "Setup")
+      const head = offerHeadOf(p.text) ?? p.text.replace(/^\s*The offer to sell first is\s+/i, '').split(/[;:]/)[0]!.replace(/[.\s]+$/, '');
       offerHeads.push({ text: p.text, head });
       // a head under 3 words, or one bare word before a comma ("Install, for those who …": the rest says who buys, not what is bought)
       const first = head.split(',')[0]!.trim();
@@ -176,7 +188,10 @@ export function v9Violations(points: ReadonlyArray<{ box: string; text: string }
     const pron = pronounsIn(p.text);
     if (pron.length) add(p, 'pronoun', pron.join(', '));
     // Hypotheses' own shape ends "so it <stated change>", so a " so the " there is that change, not a reason (round 3)
-    if (hasReason(p.text) && !(p.box === 'canvas:world-needs' && !REASON_RE.test(` ${p.text} `) && !/ since /i.test(` ${p.text} `))) add(p, 'reason');
+    // round 4: only the shape's own change clause is exempt ("; so it …" / ", so the business …" up to the sentence end), not the whole point
+    // (the whole-point exemption silenced v8's "…, so the retirement is under revisit" and "…use the app so the staff saves time")
+    const reasonText = p.box === 'canvas:world-needs' ? p.text.replace(/[;,]\s*so (?:it|the business)\b[^;.]*/gi, '') : p.text;
+    if (hasReason(reasonText)) add(p, 'reason');
   }
   // one violation per point past the third, so the text names what to cut
   points.filter((p) => p.box === 'canvas:world-needs').slice(3).forEach((p, i, rest) => add(p, 'falsified-count', `${rest.length + 3} points in the box`));
@@ -249,15 +264,16 @@ export function parseCanvasMd(md: string): CanvasSection[] {
     if (isSource(trimmed)) { last = null; prev = 'source'; continue; }
     if (isEmpty(trimmed)) { last = null; prev = 'blank'; continue; }
     const bullet = /^\s{0,6}(?:[-*]|\d+\.)\s+(.*)$/.exec(line);
-    if (!bullet && prev === 'source' && !(startsSentence(trimmed) && endsSentence(trimmed))) { section.unplaced.push(trimmed); continue; } // the Source, wrapped
-    if (!bullet && prev === 'point' && last && !endsSentence(last.text)) { last.text += ` ${trimmed}`; continue; } // the point, hard-wrapped
+    if (!bullet && prev === 'source' && !(startsSentence(trimmed) && endsSentence(trimmed))) { section.unplaced.push(line); continue; } // the Source, wrapped
+    // the point, hard-wrapped: its first line does not end a sentence, or this line starts lowercase (round 4: "…the books.\nand tax filings")
+    if (!bullet && prev === 'point' && last && (!endsSentence(last.text) || /^[a-z]/.test(trimmed))) { last.text += ` ${trimmed}`; continue; }
     if (bullet || !/^\s/.test(line) || prev === 'point') {
       const text = (bullet ? bullet[1]! : line).trim();
       last = text === '' || isEmpty(text) ? null : { box, text };
       if (last) { section.points.push(last); prev = 'point'; }
       continue;
     }
-    section.unplaced.push(trimmed); // indented text after a blank line: neither a point nor a wrap
+    section.unplaced.push(line); // indented text after a blank line: neither a point nor a wrap (kept with its indent, round 4)
   }
   return sections;
 }
@@ -281,7 +297,7 @@ export function unreadableReason(md: string): string | null {
 /** The whole --check-md decision, so the self-test exercises the same gate main() uses: exit 2 unreadable, 1 violations, 0 clean. */
 export function runCheckMd(md: string): { exit: 0 | 1 | 2; out: string } {
   const unreadable = unreadableReason(md);
-  if (unreadable) return { exit: 2, out: `refused: --check-md: ${unreadable}` };
+  if (unreadable) return { exit: 2, out: `--check-md: ${unreadable}` }; // main's refuse() adds its own "refused:" (round 4: it was doubled)
   const { report, total } = checkCanvasMd(md);
   return { exit: total > 0 ? 1 : 0, out: report };
 }
@@ -294,6 +310,8 @@ export function checkCanvasMd(md: string): { report: string; total: number } {
   sections.forEach((s, i) => {
     const { violations, offerHeads } = v9Violations(s.points);
     for (const h of s.unknownHeadings) violations.push({ box: h, text: h, rule: 'unknown-heading' });
+    // round 4: an unplaced line may hold a violation nobody scored, so each one fails the gate until a human reads it (it is still listed below)
+    for (const l of s.unplaced) violations.push({ box: '(unplaced)', text: l.trim(), rule: 'unplaced' });
     total += violations.length;
     out.push(`## Canvas ${i + 1} of ${sections.length}: ${s.group ?? '(no "This canvas is about" line)'}`, '', '| Box | Points | Violations |', '|---|---|---|');
     for (const b of CANVAS_BOXES) out.push(`| ${b.title} | ${s.points.filter((p) => p.box === b.tag).length} | ${violations.filter((v) => v.box === b.tag).length} |`);
@@ -534,6 +552,28 @@ export function selfTest(): string[] {
   check(runCheckMd('').exit === 2 && runCheckMd('## Solution\nNot known yet.').exit === 2, 'runCheckMd let an empty or all-empty file through');
   check(runCheckMd('This canvas is about a.\n## Solution\n- A step.\nThis canvas is about b.\n## Solution\nNot known yet.').exit === 2, 'runCheckMd scored a file whose second canvas read 0 points');
   check(runCheckMd('## Solution\n- Lead: a step.').exit === 1 && runCheckMd('## Solution\n- A step, then another.').exit === 0, 'runCheckMd gave the wrong exit for a violation or a clean canvas');
+  // round 4 (Opus M1): condition words in Offers, priced or not; the reviewer's known-good offers stay quiet
+  for (const t of ['A paid two-week trial with the team, scoped before it starts.', 'A two-week trial with the team, on conditions set before the first session.',
+    'Practice community membership: 295 EUR per month, 3 to 10 people, weekly, open-ended.', 'Monthly books: 900 EUR once, paid upfront if the budget holder signs.',
+    'A monthly team package, subject to a signed agreement.']) fires('canvas:revenue', t, 'offer-filler');
+  for (const t of ['Monthly books and tax filing for one café: 2,500 baht per shop per month.', 'A year-end tax return filed for the owner: 6,000 baht per shop once.',
+    'Clarity Chat for the team\'s stuck conversations and founder support when the team gets stuck, monthly.']) quiet('canvas:revenue', t, 'offer-filler');
+  // round 4 (Gemini #1/#4): an unpriced name ends at ":" too
+  fires('canvas:revenue', 'Install: price TBD.', 'offer-head');
+  fires('canvas:revenue', 'Monthly setup: free.', 'offer-head');
+  // round 4 (Opus M3): only the shape's change clause is exempt in Hypotheses; v8's second-sentence consequence and a purpose clause still count
+  fires('canvas:world-needs', 'The business expected a letter to spread; it did not; so it retired the letter. The figure was corrected, so the retirement is under revisit.', 'reason');
+  fires('canvas:world-needs', 'The business expected cafés to use the app so the staff saves time.', 'reason');
+  quiet('canvas:world-needs', 'The business expected café chains to buy; so it now sells to independent cafés.', 'reason');
+  // round 4 (Gemini #6, criteria L1): an amount is never a count, in any listed currency
+  quiet('canvas:revenue', 'A year-end return: 2,500 THB paid.', 'status');
+  quiet('canvas:solution', 'An owner sends receipts, then 500 ringgit paid.', 'status');
+  // round 4 (GLM #4): a lowercase line after a finished point is the point wrapped; (Gemini #2) an unplaced line fails the gate
+  check(forms('## Solution\n- The business logs the books.\nand files the return.').map((p) => p.text).join('|') === 'The business logs the books. and files the return.', 'parseCanvasMd split a lowercase hard wrap into a fragment point');
+  check(runCheckMd('## Solution\n- A step, then another.\n  Source: x\nwrapped source tail\n').exit === 1, 'runCheckMd passed a file with an unplaced line');
+  check(!runCheckMd('').out.startsWith('refused:'), 'runCheckMd pre-prefixed "refused:", which main() adds again');
+  // GLM round 4 #1 claimed a canvas with one empty box is refused: a section with points and one "Not known yet." box scores normally
+  check(runCheckMd('## Solution\n- A step, then another.\n## Problem\nNot known yet.').exit === 0, 'runCheckMd refused a partial canvas (one empty box)');
   // ids: a bad --name and a bad pack id are refused, a good one passes
   for (const bad of ['../x', 'a/b', 'A', '', 'Rev2c', 'rev 2']) check(throws(() => validId(bad, '--name')), `unsafe label accepted: ${JSON.stringify(bad)}`);
   check(validId('rev2c', '--name') === 'rev2c', 'a safe label was refused');

@@ -200,7 +200,8 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // P1658 v9 (founder: "Install 4,500 euro once … but for what? It doesn't describe the offer"): what the customer gets, then the price per
     // unit per period ("once" is a period), as the intended model: no state slot. With no price stated, the deliverable stays and the gap
     // question asks for the terms (Partial beats empty). The lead's price stays out of its contrast clause (canvas-price.ts, Known limitations).
-    type: 'Claim about what the customer gets and its terms, and which offer comes first', voice: 'third-person',
+    // Round 4: "and its terms" sat one line above "no terms or conditions"; the type names the price instead.
+    type: 'Claim about what the customer gets and its price, and which offer comes first', voice: 'third-person',
     // /finish review of v9: the Copy prompt lacked the drafting prompt's Offers rule, and the self-run wrote "…: paid, on terms agreed before it
     // starts" in the price slot. "Only as you stated them" covers price, unit and period (no invented "once"); Partial beats empty keeps the
     // deliverable alone when no price is stated; a price with nothing it buys ("Install: 4,500 EUR once") is no point.
@@ -265,7 +266,7 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // reason or an estimate is not evidence (an organisations run wrote a projection as the contrary evidence).
     // Round 3: an "estimate is no evidence" example taken from a test pack's own material made both of its runs drop that pack's whole
     // falsified direction. Examples stay in the café domain, and a direction with no evidence is shown kept (good, above), never dropped.
-    not: `"The business learned customers value relationships." / "The business expected owners to send receipts by email." (one detail with no evidence: a "not" point in its own box)`,
+    not: `"The business learned customers value relationships." / "The business expected flyers to bring owners in." (one detail with no evidence: a "not" point in its own box, here Go-to-market strategy)`,
     gap: `Which expectations did a test, an event or a conversation with a prospect prove wrong, and what did you change?`,
   },
 ];

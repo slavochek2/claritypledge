@@ -594,7 +594,9 @@ describe('P1658 revision 3 / v9', () => {
     expect(o.not).toContain('(names no deliverable: what is set up?)');
     expect(o.gap).toMatch(/^What does the customer get, /);
     expect(DRAFT_RULES).toContain('every point names what the customer gets before its price');
-    expect(DRAFT_RULES).toContain('when they state no price, write what is bought alone. Either way the box\'s question asks for the missing terms.');
+    // round 4: "the missing terms" read against "no terms or conditions"; the question asks for what is missing by name
+    expect(DRAFT_RULES).toContain('when they state no price, write what is bought alone. Either way the box\'s question asks for the missing price, unit or period.');
+    expect(o.type).not.toMatch(/\bterms\b/);
     expect(DRAFT_RULES).not.toContain('write the price alone');
     // CONTROL (gate 7d): the real shape with v8's offer-name template ("Install: 4,500 EUR once" names nothing bought) fails it
     const v8 = o.shape.replace('then "<what is bought>[:', 'then "<offer>[:');
@@ -635,7 +637,8 @@ describe('P1658 revision 3 / v9', () => {
     expect(h.shape).toBe('"The business expected <X>[; <contrary evidence>][; so it <stated change>]."');
     // round 2: the "not" example is a single detail, never a whole customer group (which the definition sends here), and an estimate is no evidence
     expect(h.not).not.toMatch(/café chains/);
-    expect(h.not).toContain('(one detail with no evidence: a "not" point in its own box)');
+    // round 4: the detail names a box that has a "not" slot (Go-to-market's [, not <ruled-out path>]); Solution has none
+    expect(h.not).toContain('(one detail with no evidence: a "not" point in its own box, here Go-to-market strategy)');
     // round 3: a direction with no evidence is shown KEPT (an "estimate is no evidence" example made a test pack drop its own direction)
     expect(h.good).toContain('(a dropped direction with no evidence still goes here)');
     expect(h.not).not.toMatch(/estimate|cold outreach/);
