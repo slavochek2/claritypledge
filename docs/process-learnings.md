@@ -1,6 +1,6 @@
 # Process Learnings
 
-**Next ID:** 358
+**Next ID:** 385
 
 **This repo's deferred-work inbox.** Open friction items and proposed fixes not yet implemented.
 Any agent, in any session, can file here with `/note` — file it, don't ask the founder to
@@ -4136,16 +4136,6 @@ scripts/test-p1690-deploy-args.sh and scripts/test-p1464-ship-embargo.sh run onl
 
 ---
 
-## Worktree .env.development.local symlink makes ship and park keep finished slots
-
-**ID:** INBOX-349
-**Date:** 2026-11-17
-**Status:** proposed
-**due:** week
-
-setup-worktree.sh adds a .env.development.local symlink to every slot (P1557), and ship and park count it as uncommitted work, so a finished slot is never removed and shows up as stranded. Do: add it to the same ignore list as the other setup symlinks, or have the cleanup check skip files setup-worktree itself creates. Done when a shipped slot with only that symlink is removed by tidy.
-
----
 
 ## test-p924-sigterm-orphan-reap.sh skips and exits 0
 
@@ -4232,5 +4222,302 @@ The owed after-the-fact Codex review of the P1608 live-transcription e2e harness
 **due:** month
 
 2026-11-17: tidy's ASK verdict for a shipped branch's worktree holding stale staged edits asks 'Delete them anyway?'. After a yes, the git-work-loss hook blocks worktree remove --force, --no-verify is banned, and a wip commit fails the pre-commit build on stale code, so only the founder running it with ! works. Proposed: git-ops.sh tidy --apply accepts a founder-confirmed ASK id, saves a patch to .private/patches, then removes. Also: check-deploy-drift.yml still closes only the first matching issue with --limit 100 across authors (P1697 fixed the smoke gates only).
+
+---
+
+## Embed the Listening Game and the Demo 3 video where they answer the visitor's question
+
+**ID:** INBOX-358
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+Founder asked (2026-11-17) where to embed the new videos. Recommendation given: Listening Game video on the Clarity Practice Community About section; the Demo 3 product video on the use-case landing pages once it is finished; on /manifesto only a "See it in practice" link to /game, not a second embed; no home or landing embeds until manifesto_film_play and /game views show people play them (decisions.md P1682 and P1696 entries). File one spec when Demo 3 is ready. Droppable if the founder decides against embeds.
+
+---
+
+## Decide whether the own-spend check should fire on a vendor's quoted sentence in the metered-services registry
+
+**ID:** INBOX-359
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+The pre-commit own-spend check (privacy_spend_scan in scripts/lib/privacy-figure-scan.sh) blocked a commit on a registry row in docs/technical/metered-services.md that quoted a vendor sentence containing the word billed within 80 characters of a list price: a public price, not our spend. It was worked around by rewording the row without the quote (P1688). Decide whether the scan should skip own-account words inside a quoted vendor sentence in that table, or whether rewording is the accepted cost. Drop this if it does not happen a second time.
+
+---
+
+## Privacy page: name Clarity Hikes and the new hike registration answers
+
+**ID:** INBOX-360
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+P1675 renamed hikes to Clarity Hike and collects how people travel, free seats, a help role and an Other text. The privacy page still says "Social Hikes" and lists none of these. Update with the next policy version; droppable if the hike questions are removed.
+
+---
+
+## Spec members-only events: visible to all, only members can register
+
+**ID:** INBOX-361
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+Founder direction 2026-11-17 (P1675 conversation): a members-only event is visible to everyone, only members can register, and a non-member tapping Reserve is invited to become a member. Nothing exists today beyond hidden link-only events. Done when a spec is filed; droppable if the founder drops members-only events.
+
+---
+
+## Extract one ChoiceRow and question shell for both registration forms
+
+**ID:** INBOX-362
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+ChoiceRow and the missing-answer ring and focus logic are duplicated between RegistrationQuestions.tsx (mastermind) and HikeRegistrationQuestions.tsx (P1675). Extract one shared primitive. Droppable if either form is retired.
+
+---
+
+## Move useHostOptIns to startVisiblePoll (hidden tab makes no request)
+
+**ID:** INBOX-363
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+The host's opt-in groups poll every 30 s with setInterval even in a hidden tab, against metered-services rule 3. P1675 now also enables them on hike host pages. Move it to startVisiblePoll like useEventRoomCounts. Done when a hidden-tab test passes.
+
+---
+
+## Decide whether hikes get the starting-soon email
+
+**ID:** INBOX-364
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+starting-soon.ts keys on events.preparation_enabled, which is false on every hike, so hikes get no starting-soon email while P1675 now gives them the introduction link in confirmation and reminder. Ask the founder; droppable if he says no.
+
+---
+
+## re-create-event: add a same-date duplicate check
+
+**ID:** INBOX-365
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+re-create-event has no check that an event for the target date already exists, under any title prefix (the hike series now has two, Social Hike and Clarity Hike). Add one before creating. Droppable if re-create-event is retired.
+
+---
+
+## Check whether an e2e-only change should send pre-commit to the full unit suite
+
+**ID:** INBOX-366
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+In P1698 (2026-11-17), adding a new e2e spec made pre-commit run the FULL unit suite ("build-affecting file with no import edge to a unit test"), capped at 1 worker with 5 other runs live, about 10 minutes per commit across 5 commits. UNTESTED whether an e2e-only change should count as build-affecting at all. Falsifier: commit a change touching only one e2e spec and read the "Tests plan" line; if it says FULL suite, decide whether e2e/ should be excluded from the unit-test plan. Droppable if the plan already exempts e2e-only changes or the full run is under 2 minutes.
+
+---
+
+## Home page next-events rail never shows You're Going to a registered guest
+
+**ID:** INBOX-367
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+Found in P1698 review round 4 (2026-11-17): the home page's next-events rail renders the event card without the viewer's RSVP, so a registered guest never sees "You're Going" there (the Events page does show it). Present on main before P1698. Fixing it needs the viewer's RSVPs for the rail's few events, one batched read like the Events page's marks read. Droppable if the founder decides the rail should stay badge-free.
+
+---
+
+## Review event publishing skills after the Sales Mastermind promo
+
+**ID:** INBOX-368
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+From the 2026-11-17 Sales Mastermind promotion: (1) promote-all skips Social Layer when the event has no series doc with sola_group, though the founder calls Sola very important; default to the 4seas group for Chiang Mai events. (2) Promotion started without confirming the prod event date against the founder's intended date; prod said 19 Nov instead of 26 Nov and a Facebook event went live with the wrong date, so add a date-confirm gate before filling any platform. (3) No Facebook group fits one-off event types like sales-mastermind. (4) The Sola cover did not auto-unfurl from the /sales short link. (5) The Sola venue picker books a 4Seas room, so the skill should ask which room. Done when promote-all and promote-sola carry these fixes; droppable if the event pipeline is replaced.
+
+---
+
+## Sola venue default for Clarity events: Zuzalu Library Event Space, 1st Floor, Building F
+
+**ID:** INBOX-369
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+Founder 2026-11-17: our 4Seas events always run in the Zuzalu Library Event Space on the 1st floor of Building F, so promote-sola should select that venue without asking. Adds to INBOX-368 point 5. Done when promote-sola selects it by default; droppable if the events move venue.
+
+---
+
+## publish-run takes the two per-event hike question settings
+
+**ID:** INBOX-370
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+P1675 added per-event settings for whether a hike asks how people are coming and whether they would like to help; today a host can change them only on Edit event after publishing. Let the publish-run skill accept both on insert (skill edit lands on main), so an in-city event can be published with the questions already off. Droppable if the founder keeps unticking on Edit without friction.
+
+---
+
+## Founder decision: drop the after-event feedback email for every event
+
+**ID:** INBOX-371
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+P1675 stopped the after-event feedback email for hikes only, because the host asks for feedback at the end of the hike. The founder asked whether to drop it for all events (Clarity Night, mastermind) too. Done when the founder decides; if yes, file a spec for the scheduling, edit and dispatcher paths.
+
+---
+
+## Replace the preparation-time correction factor with measured times
+
+**ID:** INBOX-372
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** month
+
+P1675 multiplies every computed preparation estimate by one observed ratio (the founder timed the hike introduction at about 15 minutes against a computed 8), so Clarity Night and the join page estimates rose too. Once enough real preparations have a start and finish time, set the allowances from the measured middle time and remove the factor. Droppable if founders and attendees report the numbers feel right.
+
+---
+
+## Cancel a person's queued reminder when they unregister or are removed
+
+**ID:** INBOX-373
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+Unregistering or being removed by the host deletes the registration but never cancels that person's reminder already handed to the mail service (it is queued up to 72 hours ahead), so they still get it. Since P1675 a hike reminder also carries the event's group chat link, so a removed person can receive it. Fix: on registration delete, cancel that row's queued reminder and starting-soon ids, as the event-cancel path already does. Done when a removed attendee receives no reminder.
+
+---
+
+## Fix the flaky cancel-participants test that intermittently blocks /ship picks
+
+**ID:** INBOX-374
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+src/tests/p1441-cancel-participants.test.tsx line 160 (waitFor on mockCancelRsvp) timed out once in the full pre-commit suite during a /ship cherry-pick (1 of 15,803 tests) and 1 of 3 runs in isolation on main; the pick touched no event files. Recent commits on that surface are the P1700 removal notice. Done when the test passes 20 isolated runs and a full-suite run; droppable if it has not failed again by the next /weekly.
+
+---
+
+## P1687 explorable: its mistake model lets a Taker share by accident
+
+**ID:** INBOX-375
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+The engine of the unshipped explorable page (branch feature/p1687-third-condition-explorable) flips ANY move on a mistake, so a Taker shares by accident one move in four and Matchers reward it; that accident, not misunderstanding, is what makes the Takers win the mistake rooms. The published Third Condition film had the same flaw: a viewer found it, and a control confirmed it on 2026-11-17 (with one-sided mistakes the Takers lead 1 room of 30 at one mistake in four, not 29). Before P1687 ships: pick the mistake model the page's story tells (the film's draft 6 uses "a share is made, paid for, and never arrives") and add a check that a Taker never earns from its own move. Droppable if P1687 is abandoned or its page drops the mistake rooms.
+
+---
+
+## Decide whether the event room join should refuse a person the host removed
+
+**ID:** INBOX-376
+**Date:** 2026-11-17
+**Status:** proposed
+**due:** week
+
+join_event_room never reads event_removals, so a person removed before entering the room (or whose join commits while the removal runs) can still enter it and shows as here, seatable (P1703 DEFER row; reviewers on P1703 also noted the join race). Decide refuse-at-join (and what the removed person then sees) or accept it: for a public event any signed-in person can already join the room. Done when that decision is recorded and, if refuse, specced; droppable if hosts never meet it.
+
+---
+
+## Check whether p1441-cancel-participants flakes under full-suite load
+
+**ID:** INBOX-377
+**Date:** 2026-11-18
+**Status:** proposed
+**due:** week
+
+src/tests/p1441-cancel-participants.test.tsx failed once inside the full pre-commit suite on 2026-11-18 (a waitFor timeout, on the P1688 branch, which never touches it); it passed alone (2 of 2) and in the next two full-suite runs. Check whether its waitFor timeout is too tight under load. Droppable if it has not failed again in any pre-commit run by the next weekly.
+
+---
+
+## Silence the teardown-time console.log in p1272-reproduce that fails full pre-commit runs
+
+**ID:** INBOX-378
+**Date:** 2026-11-18
+**Status:** proposed
+**due:** week
+
+A full pre-commit vitest run on 2026-11-18 had 15792 tests pass and still blocked on one unhandled EnvironmentTeardownError ("Closing rpc while onUserConsoleLog was pending"), attributed to src/tests/p1272-reproduce.test.tsx. The file passes alone and the retried commit passed, so a console.log is likely still in flight when the worker closes. Done when that test awaits or silences the log; droppable if no full run hits it again within a month.
+
+---
+
+## Confirm button on event prepare shows nothing while the rating saves
+
+**ID:** INBOX-379
+**Date:** 2026-11-19
+**Status:** proposed
+**due:** week
+
+confirmRating in src/app/prototypes/events/prep/EventPrepPage.tsx waits for a queued save with no pending state, so a slow network reads as a dead tap (3 dead clicks by 2 visitors, 11-05..11-07, no replay). Done when the button shows a pending state during save(); drop if the prepare flow is replaced.
+
+---
+
+## Check the Google Calendar subscribe link on /cm completes on a phone
+
+**ID:** INBOX-380
+**Date:** 2026-11-19
+**Status:** proposed
+**due:** week
+
+14 of 15 taps on the /cm calendar subscribe link were dead clicks; most is new-tab noise, but two visitors tapped it 4 and 2 times across days, which suggests the add-calendar flow may not finish on mobile browsers (unverified). Done when one Android and one iPhone subscribe successfully, or the link is changed; drop if nobody repeats taps for a month.
+
+---
+
+## Find out why visitors saw the Refresh Page error screen and a 404 on /prepare
+
+**ID:** INBOX-381
+**Date:** 2026-11-19
+**Status:** proposed
+**due:** week
+
+Two visitors tapped "Refresh Page" (App.tsx ~275 new version, or ~314 something went wrong; which one is unknown) on /cm and /signup, 11-05..11-14. One device on 11-18 got a 404 on /prepare with console "AuthApiError: Legacy API keys are disabled", suggesting a months-old cached app copy (PWA) that never updated (unverified). Done when the screen is identified and stale clients are known to refresh; drop if Sentry and Mixpanel show neither again by month end.
+
+---
+
+## Two P1707 day-page e2e tests fail on main: note wrapping at 320px
+
+**ID:** INBOX-382
+**Date:** 2026-11-19
+**Status:** proposed
+**due:** week
+
+tools/kanban/e2e-day/day-analytics.spec.ts "a long unbroken carried note wraps at 320px" and "a folded note with a long URL wraps at 320px" both fail on clean main (ffb952906, run 2026-11-19 with DAY_E2E_PORT_BASE=9170): the first finds the "Your note:" label added in cb1f714f7, the second measures a 326px card against a 321px limit. Done when both pass or the assertion is corrected with a reason; drop if the note layout is replaced.
+
+---
+
+## Confirm P1712's monthly/weekly Due Board behaviour on the next /day run
+
+**ID:** INBOX-383
+**Date:** 2026-11-19
+**Status:** proposed
+**due:** week
+
+On the next /day with the monthly review overdue and chosen: the dispatcher asks one yes/no before the cp sub-day; on no, or with nobody at the keyboard, the weekly review runs and writes a new analytics read (~/.claude-analytics/reads). These two checks were moved out of P1712's Acceptance Criteria at ship time by founder decision. Done when one run shows both; reopen P1712 if weekly does not run.
+
+---
+
+## Drop the cached test session after p1508's sign-out case
+
+**ID:** INBOX-384
+**Date:** 2026-11-20
+**Status:** proposed
+**due:** week
+
+e2e/p1508-clarity-canvas.spec.ts (around line 740) signs a page out through the app's supabase client. supabase-js signOut, even with scope local, posts /logout and ends that session on the server, while e2e/helpers/test-user.ts keeps reusing the cached tokens for that email in the same worker, so a later case for the same user gets 401s. P1688 hit exactly this (case 15 after case 14, 2026-11-20) and fixed it with forgetTestSession(email) from test-user.ts, once that lands on main. Done when p1508 calls forgetTestSession after its sign-out; droppable if that user is never reused after the sign-out in the same worker.
 
 ---
