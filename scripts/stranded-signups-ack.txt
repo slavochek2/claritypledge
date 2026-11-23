@@ -6,3 +6,4 @@
 92d6b1e2-bc9f-44a3-838f-db94beccf6c6   # signed up 2026-10-24; founder emailed 2026-10-26
 643c972a-b425-42b1-b768-ab33c842dfa3  # founder own plus-address test sign-up, 2026-11-07
 25d5bda6-bd8f-4684-9d67-07bbdb60543b   # signed up 2026-11-07; founder emailed 2026-11-09
+26d47b79-d74b-4b2f-897d-827ed56dfb85   # signed up 2026-11-21 10:20:40Z on a mistyped domain; same person signed up 19 s later and confirmed (verified 2026-11-23); nobody stranded
