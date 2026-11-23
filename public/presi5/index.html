@@ -4,11 +4,13 @@
   /presi5 — the Sales Mastermind deck (P1616). Session 1, in person, about 2h.
 
   Copied from /presi4's look (tokens, type, slide frame, keyboard), NOT its slides:
-  /presi4 teaches Clarity Night (trios, lanyard S/L cards, live embeds of the
-  2026-10-06 event). /presi4 is frozen and unchanged.
+  /presi4 teaches Clarity Night (trios, live embeds of the 2026-10-06 event). The
+  speaker / listener lanyard cards are reused here, as the run-of-show says.
+  /presi4 is frozen and unchanged.
 
   RUN-OF-SHOW this deck sits inside: docs/events/sales-mastermind.md. Slide order is
-  that file's opener, then the evening. IF THAT FILE CHANGES, THESE SLIDES ARE WRONG:
+  that file's opener (roles and rules, the cards, the hands-up signal, recording
+  check, then the live demo), then the evening. IF THAT FILE CHANGES, THESE SLIDES ARE WRONG:
   re-read it, do not reword from memory.
 
   WORDING STATUS: every visible line is an agent DRAFT taken from the run-of-show,
@@ -20,6 +22,7 @@
   Product text quoted on a slide names its source file next to it
   (decisions.md 2026-10-06 [process]).
 
+  The slide number is kept in the URL (#3), so a reload stays where you are.
   Keys: → / Space / PageDown next · ← / PageUp back · Home / End · f fullscreen.
   Click the right 3/4 to advance, the left 1/4 to go back.
   ══════════════════════════════════════════════════════════════════════════════
@@ -66,7 +69,7 @@
   .badge{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem 1.1rem;border-radius:999px;
     background:var(--blue-tint);border:1px solid var(--blue-tint-bd);color:var(--blue-700);
     font-size:clamp(.66rem,1vw,.82rem);font-weight:600;text-transform:uppercase;letter-spacing:.18em;margin-bottom:2rem}
-  .kicker{font-weight:700;text-transform:uppercase;letter-spacing:.2em;font-size:clamp(.66rem,1vw,.82rem);color:var(--blue);margin-bottom:1.2rem}
+  .kicker{font-weight:700;text-transform:uppercase;letter-spacing:.2em;font-size:clamp(.8rem,1.3vw,1.05rem);color:var(--blue);margin-bottom:1.2rem}
 
   /* three role cards */
   .cards{display:flex;gap:clamp(.8rem,2vw,1.6rem);margin-top:2.2rem;flex-wrap:wrap;justify-content:center;max-width:76rem;width:100%}
@@ -102,7 +105,9 @@
   /* phones (the host checking the deck): slides flow, nothing clipped */
   @media (max-width:640px){
     body{overflow:auto}
-    .slide{padding:8vh 16px}
+    .deck{height:auto;min-height:100dvh}
+    .slide{position:relative;inset:auto;min-height:100dvh;overflow:visible;justify-content:flex-start;padding:8vh 16px}
+    .nav{position:fixed}
     .steps li{font-size:1.05rem}
   }
   @media print{
@@ -121,7 +126,7 @@
   <section class="slide grid-bg" data-slide="welcome">
     <div class="badge">Sales Mastermind &middot; Session 1</div>
     <h1>Is your offer as clear to them<br>as it is <span class="accent">to you</span>?</h1>
-    <p class="lead">Four rounds. In each one, someone reads your Clarity Canvas, finds where they would bet against it, and you make a better version.</p>
+    <p class="lead">Four rounds, a new partner each time. Twice tonight, someone reads your Clarity Canvas and finds where they would bet against it. In between, you publish a new version.</p>
   </section>
 
   <!-- 2 · THE THREE ROLES — docs/events/sales-mastermind.md § Format, "Three roles".
@@ -131,27 +136,29 @@
     <div class="kicker">Three roles</div>
     <h2>One canvas per round. <span class="accent">A new partner</span> every round.</h2>
     <div class="cards">
-      <div class="card"><span class="tag">Speaker first</span><h3>Canvas owner</h3><p>The round is about your Clarity Canvas.</p></div>
+      <div class="card"><span class="tag">Speaker first</span><h3>Clarity Canvas owner</h3><p>The round is about your Clarity Canvas.</p></div>
       <div class="card"><span class="tag">Listener first</span><h3>Partner</h3><p>Understand the canvas first. Then you may challenge it.</p></div>
       <div class="card"><span class="tag">Keeps the rules</span><h3>Observer</h3><p>Keeps the pair to the rules. Gives feedback at the end of the round.</p></div>
     </div>
-    <p class="lead" style="font-size:clamp(.95rem,1.7vw,1.3rem)">No canvas yet? You observe this round.</p>
+    <p class="lead" style="font-size:clamp(.95rem,1.7vw,1.3rem)">No canvas? You join as an observer.</p>
   </section>
 
-  <!-- 3 · LIVE DEMO CUE — scripted, 3-5 minutes, two people from the room, filmed for reuse.
-       NO QUESTIONS (run-of-show, opener). The four cards are the loop from
-       docs/events/sales-mastermind.md § The loop (15 minutes plus 3 of feedback).
-       NOTES: start the camera before you call the two people up. -->
-  <section class="slide" data-slide="demo">
-    <div class="kicker">Live demo &middot; 3 to 5 minutes</div>
-    <h2>Watch <span class="accent">one round</span></h2>
-    <div class="loop">
-      <div class="card"><span class="tag">1 &middot; 4 min</span><h3>Read</h3><p>The partner reads the canvas and marks every box they would bet against.</p></div>
-      <div class="card"><span class="tag">2</span><h3>Understand</h3><p>The owner speaks. The partner explains back until the owner says above 8.</p></div>
-      <div class="card"><span class="tag">3</span><h3>Challenge</h3><p>The partner speaks. The owner explains back the reason until the partner says above 8.</p></div>
-      <div class="card"><span class="tag">4 &middot; 3 min</span><h3>Feedback</h3><p>The observer: where the rules slipped, and one thing on content or communication.</p></div>
-    </div>
-    <p class="lead" style="font-size:clamp(.95rem,1.7vw,1.3rem)">We are filming it. No questions during the demo.</p>
+  <!-- 3 · THE RULE — docs/events/sales-mastermind.md § The rules (spoken, not in the app).
+       Nothing in the app scores or enforces this; the host explains it, the observer keeps it.
+       The quoted line is copied from src/app/content/verified-understanding-oath.ts, v5,
+       MY PROMISE (third paragraph), the text the Clarity Meeting Principle renders.
+       NOTES: "Say it out loud" matters: the transcript keeps every number, which is how the
+       evening is measured later. -->
+  <section class="slide" data-slide="rule">
+    <div class="kicker">The rule</div>
+    <p class="big-rule">Both say a number out of 10.<br><span class="accent">The lower one counts.</span></p>
+    <ol class="steps">
+      <li><span class="n">1</span><span>One speaker, one listener. Your card shows which you are.</span></li>
+      <li><span class="n">2</span><span>Say your number out loud: &ldquo;I&rsquo;m at a 7.&rdquo;</span></li>
+      <li><span class="n">3</span><span>Above 8, the partner may challenge. If it falls, back to understanding.</span></li>
+      <li><span class="n">4</span><span>The owner can take the speaker card back at any time.</span></li>
+    </ol>
+    <div class="quote">&ldquo;I&rsquo;ll accept the lower of our two numbers as my verified understanding of your intended meaning.&rdquo;<span class="src">Clarity Meeting Principle</span></div>
   </section>
 
   <!-- 4 · THE HANDS-UP SIGNAL — founder, 2026-11-04: "so I don't forget".
@@ -168,24 +175,7 @@
     </ol>
   </section>
 
-  <!-- 5 · THE RULE — docs/events/sales-mastermind.md § The rules (spoken, not in the app).
-       Nothing in the app scores or enforces this; the host explains it, the observer keeps it.
-       The quoted line is copied from src/app/content/verified-understanding-oath.ts, v5,
-       MY PROMISE (third paragraph), the text the Clarity Meeting Principle renders.
-       NOTES: "Say it out loud" matters: the transcript keeps every number, which is how the
-       evening is measured later. -->
-  <section class="slide" data-slide="rule">
-    <div class="kicker">The rule</div>
-    <p class="big-rule">Both say a number.<br><span class="accent">The lower one counts.</span></p>
-    <ol class="steps">
-      <li><span class="n">1</span><span>Say it out loud: &ldquo;I&rsquo;m at a 7.&rdquo;</span></li>
-      <li><span class="n">2</span><span>Above 8, the partner may challenge. If it falls, back to understanding.</span></li>
-      <li><span class="n">3</span><span>The owner can take the speaker role back at any time.</span></li>
-    </ol>
-    <div class="quote">&ldquo;I&rsquo;ll accept the lower of our two numbers as my verified understanding of your intended meaning.&rdquo;<span class="src">Clarity Meeting Principle</span></div>
-  </section>
-
-  <!-- 6 · RECORDING CHECK — docs/events/sales-mastermind.md § Conditions of attendance, 1.
+  <!-- 5 · RECORDING CHECK — docs/events/sales-mastermind.md § Conditions of attendance, 1.
        Accepted at registration (P1529), so this is a check, not a consent ask.
        The last line restates the terms: "the canvas never quotes or names anyone else".
        NOTES: walk the room. Someone whose hardware fails stays. -->
@@ -193,27 +183,49 @@
     <div class="kicker">Recording check</div>
     <h2>Mic on. <span class="accent">Transcription on.</span></h2>
     <ol class="steps" style="max-width:min(50rem,92vw)">
-      <li><span class="n">1</span><span>Clip on your mic.</span></li>
+      <li><span class="n">1</span><span>Clip on your mic and switch it on.</span></li>
       <li><span class="n">2</span><span>In the event room, switch transcription on.</span></li>
-      <li><span class="n">3</span><span>Your words go to your round&rsquo;s thread. The owner&rsquo;s AI uses them to draft their next version. It never quotes or names you.</span></li>
+      <li><span class="n">3</span><span>The owner&rsquo;s AI uses your words to draft their next version.</span></li>
+      <li><span class="n">4</span><span>Their canvas never quotes you or names you.</span></li>
     </ol>
+  </section>
+
+  <!-- 6 · LIVE DEMO CUE — scripted, 3-5 minutes, two people from the room, filmed for reuse.
+       NO QUESTIONS (run-of-show, opener). The four cards are the loop from
+       docs/events/sales-mastermind.md § The loop (15 minutes plus 3 of feedback).
+       NOTES: start the camera before you call the two people up. -->
+  <section class="slide" data-slide="demo">
+    <div class="kicker">Live demo &middot; 3 to 5 minutes</div>
+    <h2>Watch <span class="accent">one round</span></h2>
+    <div class="loop">
+      <div class="card"><span class="tag">1 &middot; 4 min</span><h3>Read</h3><p>The partner reads the canvas and marks every box they would bet against. Pick one to discuss.</p></div>
+      <div class="card"><span class="tag">2</span><h3>Understand</h3><p>The owner speaks. The partner explains back until the owner says above 8.</p></div>
+      <div class="card"><span class="tag">3</span><h3>Challenge</h3><p>The partner speaks. The owner explains back the reason until the partner says above 8.</p></div>
+      <div class="card"><span class="tag">4 &middot; 3 min</span><h3>Feedback</h3><p>The observer: where the rules slipped, and one thing on content or communication.</p></div>
+    </div>
+    <p class="lead" style="font-size:clamp(.95rem,1.7vw,1.3rem)">We are filming it. No questions during the demo.</p>
   </section>
 
   <!-- 7 · THE CANVAS UPDATE STEP — docs/events/sales-mastermind.md § The new version, and
        the run-of-show row "Canvas update" (12 min, between rounds 2 and 3).
        Button labels copied from src/app/prototypes/events/rounds/MastermindUpdateTask.tsx
        ("Create next version", "Publish") — re-check them there if that file changes.
-       NOTES: publish the draft as it is; refining with the AI is homework after the event.
-       Marking stance is optional and never blocks Publish. -->
+       Publish is drawn under the draft's changes on the same room card
+       (NextVersionChanges.tsx, label from next-version-changes.ts CHANGES_COPY.publish).
+       NOTES: SHOW THIS SLIDE TWICE. First at the end of round 1, for step 1 only: round 1's
+       owners tap now, so their draft is ready by the update step (run-of-show: round 1's
+       drafts are ready during round 2; round 2's owners tap as round 2 ends). Then at the
+       update step, for steps 2-3. Publish the draft as it is; refining with the AI is
+       homework after the event. Marking stance is optional and never blocks Publish. -->
   <section class="slide" data-slide="update">
     <div class="kicker">Canvas update &middot; 12 min</div>
     <h2>Publish your <span class="accent">next version</span></h2>
     <ol class="steps">
-      <li><span class="n">1</span><span>When your round as owner ends, tap <b>Create next version</b> in the event room. <span class="min">The AI drafts it while you partner.</span></span></li>
-      <li><span class="n">2</span><span>Now: open it, read what changed, tap <b>Publish</b>.</span></li>
+      <li><span class="n">1</span><span>Your round as owner just ended? Tap <b>Create next version</b> in the event room. <span class="min">The AI drafts it.</span></span></li>
+      <li><span class="n">2</span><span>At the update step: read the changes on that card, then tap <b>Publish</b>. Publish it as it is.</span></li>
       <li><span class="n">3</span><span class="opt">Optional: mark your stance on the boxes that changed.</span></li>
     </ol>
-    <p class="lead" style="font-size:clamp(.95rem,1.7vw,1.3rem)">Your next partner reads the new version.</p>
+    <p class="lead" style="font-size:clamp(.95rem,1.7vw,1.3rem)">Your next partner reads the new version. Refining comes after the evening.</p>
   </section>
 
   <!-- 8 · CLOSE AND NEXT SESSION — run-of-show: close (everyone, 30-40 seconds), exit card
@@ -224,7 +236,7 @@
     <div class="kicker">Close</div>
     <h2>Everyone, <span class="accent">30 seconds</span></h2>
     <ol class="steps" style="max-width:min(50rem,92vw)">
-      <li><span class="n">1</span><span>One change you will make to your canvas.</span></li>
+      <li><span class="n">1</span><span>One change to your canvas.</span></li>
       <li><span class="n">2</span><span>One test with a real customer before session 2.</span></li>
     </ol>
     <p class="lead">Then the exit card, on paper. Session 2 is online, in two weeks.</p>
@@ -244,18 +256,20 @@
     nav.textContent=(i+1)+' / '+slides.length;
     prog.style.width=((i+1)/slides.length*100)+'%';
     window.scrollTo(0,0);
+    history.replaceState(null,'','#'+(i+1));
   }
   document.addEventListener('keydown',e=>{
+    if(e.altKey||e.ctrlKey||e.metaKey) return;   // leave browser shortcuts (Alt+← = Back) alone
     if(['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)){e.preventDefault();show(i+1)}
     else if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){e.preventDefault();show(i-1)}
     else if(e.key==='Home'){show(0)} else if(e.key==='End'){show(slides.length-1)}
-    else if(e.key==='f'){document.documentElement.requestFullscreen?.()}
+    else if(e.key==='f'||e.key==='F'){document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen?.()}
   });
   document.getElementById('deck').addEventListener('click',e=>{
     if(e.target.closest('a')) return;
     (e.clientX < window.innerWidth*0.25)?show(i-1):show(i+1);
   });
-  show(0);
+  show((parseInt(location.hash.slice(1),10)||1)-1);
 </script>
 </body>
 </html>

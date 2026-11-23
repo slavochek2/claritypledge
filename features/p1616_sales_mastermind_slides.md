@@ -33,12 +33,14 @@ A new static deck copied from `/presi4`, reachable at its own path, leaving `/pr
 
 1. Welcome and what the evening is for.
 2. The three roles: Clarity Canvas owner, partner, observer.
-3. A cue for the scripted 3-5 minute live demo with two people from the room, filmed for reuse. No questions.
+3. The rule: both say a number, the lower one counts, above 8 the partner may challenge, below it back to understanding; the speaker / listener cards.
 4. The hands-up signal: count down, hand up, everyone who sees it does the same and stops talking.
-5. The rule: both say a number, the lower one counts, above 8 the partner may challenge, below it back to understanding.
-6. Recording check: mics on, transcription on in the event room.
-7. What happens at the canvas update step.
+5. Recording check: mics on, transcription on in the event room.
+6. A cue for the scripted 3-5 minute live demo with two people from the room, filmed for reuse. No questions.
+7. What happens at the canvas update step (shown twice: at the end of round 1 for the "Create next version" tap, and at the update step).
 8. The close and the next session.
+
+Order follows the run-of-show's opener (rules before the demo); the earlier draft of this list put the demo third, before the rule it uses (both build reviewers, 2026-11-23).
 
 `[FOUNDER DECISION: all slide wording and the deck's path name.]`
 
@@ -58,7 +60,7 @@ A new static deck copied from `/presi4`, reachable at its own path, leaving `/pr
 
 - [ ] The deck opens at its own path at projector size, and every slide above is present with the founder's approved wording.
 - [ ] No slide or embed points at a past event, checked by clicking through on TEST.
-- [ ] `/presi4` is unchanged, shown by an empty diff.
+- [x] `/presi4` is unchanged, shown by an empty diff.
 
 ## Related
 

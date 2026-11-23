@@ -8,6 +8,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { VERIFIED_UNDERSTANDING_OATH } from '../app/content/verified-understanding-oath';
+import { CHANGES_COPY } from '../app/prototypes/events/rounds/next-version-changes';
 
 const root = resolve(__dirname, '../..');
 const html = readFileSync(resolve(root, 'public/presi5/index.html'), 'utf8');
@@ -16,7 +17,8 @@ const doc = new DOMParser().parseFromString(html, 'text/html');
 describe('P1616 /presi5 deck', () => {
   it('has the eight slides in the run-of-show order', () => {
     const order = [...doc.querySelectorAll('section.slide')].map((s) => s.getAttribute('data-slide'));
-    expect(order).toEqual(['welcome', 'roles', 'demo', 'hands-up', 'rule', 'recording', 'update', 'close']);
+    // docs/events/sales-mastermind.md opener: roles and rules, cards, hands-up, recording check, then the demo.
+    expect(order).toEqual(['welcome', 'roles', 'rule', 'hands-up', 'recording', 'demo', 'update', 'close']);
   });
 
   it('points at no event: no iframe, no event link, no QR', () => {
@@ -42,10 +44,24 @@ describe('P1616 /presi5 deck', () => {
   });
 
   it('quotes the update-step button labels that the room renders', () => {
-    const src = readFileSync(resolve(root, 'src/app/prototypes/events/rounds/MastermindUpdateTask.tsx'), 'utf8');
     const labels = [...doc.querySelectorAll('[data-slide="update"] b')].map((b) => b.textContent);
     expect(labels).toEqual(['Create next version', 'Publish']);
-    for (const l of labels) expect(src).toContain(l!);
+    // "Create next version" is a JSX text node on its own line (not a comment mention).
+    const task = readFileSync(resolve(root, 'src/app/prototypes/events/rounds/MastermindUpdateTask.tsx'), 'utf8');
+    expect(task).toMatch(/^\s+Create next version\s*$/m);
+    // "Publish" is the copy constant the changes card renders.
+    expect(CHANGES_COPY.publish).toBe(labels[1]);
+  });
+
+  it('leaves /presi4 untouched (the frozen Clarity Night deck still teaches its own evening)', () => {
+    const p4 = readFileSync(resolve(root, 'public/presi4/index.html'), 'utf8');
+    expect(p4).toContain('<title>Clarity Night #2');
+  });
+
+  it('lets slides flow and scroll at phone width instead of clipping', () => {
+    const phone = html.slice(html.indexOf('@media (max-width:640px)'));
+    expect(phone).toMatch(/\.slide\{[^}]*position:relative[^}]*overflow:visible/);
+    expect(phone).toMatch(/\.deck\{height:auto/);
   });
 
   it('is reachable at /presi5 without a trailing slash', () => {
