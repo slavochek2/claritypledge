@@ -4,7 +4,7 @@
  * Clarify on a message or on the whole chat, and the Mirror drafts a point. There is no chat to post into, so the action is
  * Create point. Variant A chooses Private/Public on the draft; variant B always creates private and the choice comes after.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DRAFTS, ME, MIRROR, MIRROR_TALK, type FakeMessage } from './model';
 import { Bubble, ChatFrame, ChatPointCard, ClarifyChip, Confirm, DraftCard, MirrorTurn, Note, VariantSwitch, VisibilityChoice, type ShareRule } from './parts';
@@ -23,10 +23,12 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
   const { statement, tags } = allTags(draft);
   // Every Clarify is a fresh draft: the Mirror's text, no tags, private (in B the picker is hidden, so nothing may carry over).
   const [session, setSession] = useState(0);
-  const fresh = (text: string) => { setSession(n => n + 1); update({ text, tags: [], visibility: 'private', position: null }); };
+  const [focusDraft, setFocusDraft] = useState(false);
+  const chip = useRef<HTMLButtonElement>(null);
+  const fresh = (text: string, focus = false) => { setSession(n => n + 1); setFocusDraft(focus); update({ text, tags: [], visibility: 'private', position: null }); };
   const start = (m: FakeMessage | null) => { setSource(m); setBase(DRAFTS.mirror); setClarified(true); setCreated(false); fresh(DRAFTS.mirror); };
-  const another = () => { const next = NEXT[base] ?? DRAFTS.mirror; setBase(next); setCreated(false); setClarified(true); fresh(next); };
-  const reset = () => { setClarified(false); setCreated(false); setSource(null); setBase(DRAFTS.mirror); fresh(DRAFTS.mirror); };
+  const another = () => { const next = NEXT[base] ?? DRAFTS.mirror; setBase(next); setCreated(false); setClarified(true); fresh(next, true); };
+  const reset = () => { setClarified(false); setCreated(false); setSource(null); setBase(DRAFTS.mirror); fresh(DRAFTS.mirror); chip.current?.focus(); };
 
   return (
     <div className="flex flex-col gap-4">
@@ -40,7 +42,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
         onChange={v => { setVariant(v); setCreated(false); setClarified(true); fresh(base); }}
         options={[{ id: 'choose-first', label: 'A. Choose before creating' }, { id: 'private-first', label: 'B. Always private first' }]}
       />
-      <ChatFrame title={MIRROR} mirror action={<ClarifyChip onClick={() => start(null)} label="Clarify" />}>
+      <ChatFrame title={MIRROR} mirror action={<ClarifyChip ref={chip} onClick={() => start(null)} label="Clarify" />}>
         {MIRROR_TALK.map(m => <Bubble key={m.id} msg={m} name={ME} onClarify={start} />)}
         {clarified && !created && (
           <MirrorTurn name={MIRROR}>
@@ -48,6 +50,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
             <p className="text-sm">Here is the point I hear in what you said and what you meant:</p>
             <DraftCard
               key={session}
+              focus={focusDraft}
               draft={draft}
               update={update}
               choose={variant === 'choose-first'}
@@ -64,7 +67,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
         )}
         {created && (
           <MirrorTurn name={MIRROR}>
-            <Confirm>Created. It is on your profile{draft.visibility === 'private' ? ', visible only to you' : ' for anyone'}.</Confirm>
+            <Confirm>Created. {draft.visibility === 'private' ? 'Only you can see it' : 'It is on your profile for anyone to see'}.</Confirm>
             <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => update({ visibility: 'public' })} position={draft.position} onPosition={p => update({ position: p })} />
             {variant === 'private-first' && (
               <div className="flex flex-col gap-1">

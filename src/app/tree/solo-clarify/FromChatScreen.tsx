@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DM_TALK, DRAFTS, ME, MIRROR, OTHER } from './model';
-import { Bubble, ChatFrame, ChatPointCard, Confirm, DraftCard, MakePublicDialog, MirrorTurn, Note, VariantSwitch, type ShareRule } from './parts';
+import { Bubble, ChatFrame, Arrive, ChatPointCard, Confirm, DraftCard, MakePublicDialog, MirrorTurn, Note, VariantSwitch, type ShareRule } from './parts';
 import { allTags, useDraft } from './draft';
 
 type Variant = 'two-actions' | 'publish-only';
@@ -19,8 +19,9 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [draft, update] = useDraft(DRAFTS.dm);
   const [session, setSession] = useState(0);
+  const [focusDraft, setFocusDraft] = useState(false);
   // Start over is a new Clarify: the posted card leaves the chat and the draft is fresh and private again.
-  const startOver = () => { setSession(n => n + 1); setOutcome(null); update({ text: DRAFTS.dm, tags: [], visibility: 'private', position: null }); };
+  const startOver = (focus = false) => { setSession(n => n + 1); setFocusDraft(focus); setOutcome(null); update({ text: DRAFTS.dm, tags: [], visibility: 'private', position: null }); };
   const { statement, tags } = allTags(draft);
 
   return (
@@ -39,9 +40,9 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
         <ChatFrame title={OTHER}>
           {DM_TALK.map(m => <Bubble key={m.id} msg={m} name={m.who === 'me' ? ME : OTHER} />)}
           {outcome === 'posted' && (
-            <div className="self-end w-full max-w-[92%]">
+            <Arrive className="self-end w-full max-w-[92%]">
               <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} position={draft.position} onPosition={p => update({ position: p })} />
-            </div>
+            </Arrive>
           )}
         </ChatFrame>
         <ChatFrame title={MIRROR} mirror>
@@ -50,6 +51,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
             <MirrorTurn name={MIRROR}>
               <DraftCard
                 key={session}
+                focus={focusDraft}
                 draft={draft}
                 update={update}
                 choose
@@ -66,12 +68,12 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
             </MirrorTurn>
           ) : (
             <MirrorTurn name={MIRROR}>
-              <Confirm>
+              <Confirm focus={outcome === 'kept'}>
                 {outcome === 'posted' ? `Posted in the chat with ${OTHER}` : 'Created, not posted anywhere'}, as a {draft.visibility} point.
-                {outcome === 'kept' && ' It is on your profile; share it from here whenever you like.'}
+                {outcome === 'kept' && ' Share it from here whenever you like.'}
               </Confirm>
               {outcome === 'kept' && <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} position={draft.position} onPosition={p => update({ position: p })} />}
-              <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={startOver}>Start over</Button>
+              <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={() => startOver(true)}>Start over</Button>
             </MirrorTurn>
           )}
         </ChatFrame>

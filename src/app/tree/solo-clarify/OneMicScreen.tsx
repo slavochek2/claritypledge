@@ -23,8 +23,9 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
   const [draft, update] = useDraft(DRAFTS.oneMic);
   const { statement, tags } = allTags(draft);
   const [session, setSession] = useState(0);
-  const fresh = (v: Variant) => {
-    setSession(n => n + 1); setCreated(false); setAgreed(false);
+  const [focusDraft, setFocusDraft] = useState(false);
+  const fresh = (v: Variant, focus = false) => {
+    setSession(n => n + 1); setFocusDraft(focus); setCreated(false); setAgreed(false);
     update({ visibility: 'private', tags: [], position: null, text: v === 'my-words' ? ONLY_MINE : DRAFTS.oneMic });
   };
   const choose = (v: Variant) => { setVariant(v); fresh(v); };
@@ -57,6 +58,7 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
             <p className="text-sm">{variant === 'my-words' ? 'From what you said (Speaker 1 only):' : 'From the conversation:'}</p>
             <DraftCard
               key={session}
+              focus={focusDraft}
               draft={draft}
               update={update}
               choose
@@ -67,9 +69,9 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
         ) : (
           <MirrorTurn name={MIRROR}>
             {/* B drafts from your words only, so there is nothing of theirs to warn about, before creation or after */}
-            <Confirm>Created. It is on your profile{draft.visibility === 'private' ? ', visible only to you' : ' for anyone'}.</Confirm>
+            <Confirm>Created. {draft.visibility === 'private' ? 'Only you can see it' : 'It is on your profile for anyone to see'}.</Confirm>
             <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => (variant === 'my-words' ? update({ visibility: 'public' }) : setWarn(true))} position={draft.position} onPosition={p => update({ position: p })} />
-            <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={() => fresh(variant)}>Start over</Button>
+            <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={() => fresh(variant, true)}>Start over</Button>
           </MirrorTurn>
         )}
       </ChatFrame>

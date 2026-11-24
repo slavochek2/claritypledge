@@ -4,7 +4,7 @@
  * visibility icons, the position buttons and the Mirror's face are the product's own; the chat around them is a
  * render-only stand-in (no network, no auth). Toasts are not mounted on /tree, so what a tap would do is said inline.
  */
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react';
 import { Check, Globe, Lock, Pencil, Share2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,17 +35,22 @@ export function Said({ children }: { children: ReactNode }) {
   return <p role="status" className="rounded-md border border-dashed border-gray-400 bg-white px-3 py-2 text-sm text-gray-700"><span className="font-medium">Would happen: </span>{children}</p>;
 }
 
-/** The Clarify control as messages wear it: the Mirror's glyph and the word. */
-/** The Mirror's reply once a point is made. It takes focus, because the button that made the point has gone. */
-export function Confirm({ children }: { children: ReactNode }) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  useEffect(() => { ref.current?.focus(); }, []);
-  return <p ref={ref} tabIndex={-1} className="text-sm outline-none">{children}</p>;
+/** Takes focus when it appears, because the button that led here has gone (focus would otherwise fall to the page). */
+export function Arrive({ on = true, className, children }: { on?: boolean; className?: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (on) ref.current?.focus(); }, [on]);
+  return <div ref={ref} tabIndex={-1} className={cn('outline-none', className)}>{children}</div>;
 }
 
-export function ClarifyChip({ onClick, label = 'Clarify' }: { onClick: () => void; label?: string }) {
+/** The Mirror's reply once a point is made. */
+export function Confirm({ focus = true, children }: { focus?: boolean; children: ReactNode }) {
+  return <Arrive on={focus}><p className="text-sm">{children}</p></Arrive>;
+}
+
+/** The Clarify control as messages wear it: the Mirror's glyph and the word. */
+export function ClarifyChip({ onClick, label = 'Clarify', ref }: { onClick: () => void; label?: string; ref?: Ref<HTMLButtonElement> }) {
   return (
-    <Button type="button" variant="outline" size="sm" className="h-10 min-h-10 gap-1.5" onClick={onClick}>
+    <Button ref={ref} type="button" variant="outline" size="sm" className="h-10 min-h-10 gap-1.5" onClick={onClick}>
       <MirrorGlyph className="h-4 w-4" />{label}
     </Button>
   );
@@ -169,13 +174,15 @@ function TagInput({ onAdd, hintId }: { onAdd: (t: string) => void; hintId: strin
  * The Mirror's draft, on the product's point card frame. `choose`: the card carries the Private/Public choice;
  * otherwise it only shows the lock (every draft starts private). The actions under the card are the caller's.
  */
-export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
+export function DraftCard({ draft, update, choose, onPublicPick, actions, focus = false }: {
   draft: DraftState;
   update: (p: Partial<DraftState>) => void;
   choose: boolean;
   /** Intercepts a switch to Public (the warning dialog); without it the switch is immediate. */
   onPublicPick?: () => void;
   actions: ReactNode;
+  /** Take focus on arrival (after Start over or Another point, whose button is gone). */
+  focus?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [before, setBefore] = useState(draft.text);
@@ -189,7 +196,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
   const { statement, tags } = allTags(draft);
   const pick = (v: Visibility) => (v === 'public' && draft.visibility !== 'public' && onPublicPick ? onPublicPick() : update({ visibility: v }));
   return (
-    <div className="flex flex-col gap-2">
+    <Arrive on={focus} className="flex flex-col gap-2">
       <PointCardShell
         aria-label={statement.trim() ? `Draft point: ${statement}` : 'Draft point, empty'}
         header={
@@ -242,7 +249,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
       {editing ? null : statement.trim()
         ? <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
         : <p className="text-sm text-muted-foreground">Write the point to create it (tags alone are not a point).</p>}
-    </div>
+    </Arrive>
   );
 }
 
