@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -13,15 +13,15 @@ tags:
   - sales-mastermind
 created_date: 2026-11-23
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
 spec_review_hash: fc266a3f2ef7220d108eb13107d2ed9562bfe1d73990fccd7953326df5564d79
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-24
 ---
 
 # P1718: Ready comes back to the Sales Mastermind's room, with a Skip that records nothing
 
-> **Redesign of:** [P1529: The sales mastermind's own registration, event room and host flow](done/2026-06-10/p1529_canvas_event_host_coordination.md)
+> **Redesign of:** [P1529: The sales mastermind's own registration, event room and host flow](p1529_canvas_event_host_coordination.md)
 > **What was wrong:** P1529 removed the Ready step ("How up for thinking are you right now?") from the
 > mastermind's room. The spec line says only "no Ready", with no reason recorded, and no founder decision asking for it
 > was found. So a mastermind attendee never sees their own state or where the room is before they start
