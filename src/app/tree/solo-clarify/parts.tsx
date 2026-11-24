@@ -5,18 +5,18 @@
  * render-only stand-in (no network, no auth). Toasts are not mounted on /tree, so what a tap would do is said inline.
  */
 import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react';
-import { Check, Globe, Lock, Pencil, Share2, X } from 'lucide-react';
+import { Check, Globe, Lock, Pencil, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PointCardShell } from '@/app/components/shared/presentational/point-card-shell';
 import { InlineVisibilityIcon, VisibilityBadge } from '@/app/components/shared/visibility-badge';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import { MirrorGlyph, MirrorMark } from '@/app/pages/chat/chat-kit';
-import { cn, extractHashtags } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { removeTag, type FakeMessage, type Visibility } from './model';
 import { allTags, type DraftState } from './draft';
+import { TagChips, TagInput } from './tags';
 import type { Position } from '@/app/components/shared/prototype-types';
 
 const NO_COUNTS: SevenPointCounts = {
@@ -126,52 +126,6 @@ export function VisibilityChoice({ value, onChange, label = 'Who can see this po
   return <Choice<Visibility> label={label} value={value} onChange={onChange} options={[{ id: 'private', label: 'Private', icon: Lock }, { id: 'public', label: 'Public', icon: Globe }]} />;
 }
 
-export function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (t: string) => void }) {
-  if (tags.length === 0) return null;
-  return (
-    <ul className="flex flex-wrap gap-x-1.5 gap-y-5" aria-label="Tags">
-      {tags.map(t => (
-        <li key={t} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-          #{t}
-          {onRemove && (
-            <button type="button" aria-label={`Remove tag ${t}`} className="-my-2.5 -mr-2 inline-flex h-10 w-10 items-center justify-center" onClick={() => onRemove(t)}>
-              <X className="h-3 w-3" aria-hidden />
-            </button>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** One tag by the product's rule (P1660): `#two words` gives `two`, and text with no tag in it gives nothing. */
-const tagOf = (raw: string): string | undefined => extractHashtags(`#${raw.trim().replace(/^#+/, '')}`)[0];
-
-function TagInput({ onAdd, hintId }: { onAdd: (t: string) => void; hintId: string }) {
-  const [v, setV] = useState('');
-  const pending = tagOf(v);
-  const statusId = useId();
-  const add = () => {
-    if (pending) onAdd(pending);
-    setV('');
-  };
-  return (
-    <div className="flex flex-col gap-1">
-    <Input
-      value={v}
-      onChange={e => setV(e.target.value)}
-      onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); } }}
-      placeholder="Add a tag"
-      aria-label="Add a tag"
-      aria-describedby={`${hintId} ${statusId}`}
-      className="h-10 text-base md:text-sm"
-    />
-    {/* No blur commit (a chip appearing under the pointer moves the button being clicked), so a typed tag says it is not added yet */}
-    <span id={statusId} aria-live="polite" className="text-xs text-muted-foreground">{v.trim() ? (pending ? `Press Enter to add #${pending}` : 'Not a tag you can add: letters and numbers, not a system tag') : null}</span>
-    </div>
-  );
-}
-
 /**
  * The Mirror's draft, on the product's point card frame. `choose`: the card carries the Private/Public choice;
  * otherwise it only shows the lock (every draft starts private). The actions under the card are the caller's.
@@ -215,6 +169,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions, focus 
               autoFocus rows={3} value={draft.text} aria-label="Point text" className="text-base"
               onChange={e => update({ text: e.target.value })}
               onKeyDown={e => {
+                if (e.nativeEvent.isComposing) return;
                 if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
                 else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); endEdit(); }
               }}
@@ -231,13 +186,13 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions, focus 
           <Button type="button" variant="ghost" className={cn(QUIET, 'w-11 px-0')} aria-label="Edit" ref={editBtn} onClick={startEdit}><Pencil aria-hidden /></Button>
         )}
         footer={
-          <div className="flex flex-col gap-3 px-4 pb-4">
+          <div data-tag-scope className="flex flex-col gap-3 px-4 pb-4">
             <TagChips tags={tags} onRemove={editing ? undefined : t => update({ tags: draft.tags.filter(x => x !== t), text: removeTag(draft.text, t) })} />
             <div className="flex flex-col gap-1">
               {!editing && <TagInput hintId={hintId} onAdd={t => update({ tags: Array.from(new Set([...draft.tags, t])) })} />}
               <span id={hintId} className="text-xs text-muted-foreground">{editing ? 'Type #tag in the text to add a tag' : 'Or type #tag in the text'}</span>
             </div>
-            {choose && (
+            {choose && !editing && (
               <div className="flex flex-col gap-1">
                 <span aria-hidden className="text-xs text-muted-foreground">Who can see it</span>
                 <VisibilityChoice label="Who can see it" value={draft.visibility} onChange={pick} />
@@ -279,6 +234,11 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic,
   const at = `${visibility}|${rule}`;
   const [seen, setSeen] = useState(at);
   const [heard, setHeard] = useState('');
+  useEffect(() => {
+    if (!heard) return;
+    const t = setTimeout(() => setHeard(''), 3000);
+    return () => clearTimeout(t);
+  }, [heard]);
   if (seen !== at) {
     if (!seen.startsWith(`${visibility}|`)) setHeard(`Now a ${visibility} point`);
     setSeen(at); setSaid(null);

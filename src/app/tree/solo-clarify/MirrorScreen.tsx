@@ -76,7 +76,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
                 <VisibilityChoice label="Who can see it (change any time)" value={draft.visibility} onChange={v => update({ visibility: v })} />
               </div>
             )}
-            <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={reset}>Back to the chat</Button>
+            <Button type="button" variant="ghost" className="h-11 min-h-11 self-start" onClick={reset}>Back to the chat</Button>
           </MirrorTurn>
         )}
       </ChatFrame>

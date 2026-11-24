@@ -6,7 +6,7 @@
  */
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { DM_TALK, DRAFTS, ME, MIRROR, OTHER } from './model';
+import { DM_TALK, DRAFTS, ME, MIRROR, OTHER, type Visibility } from './model';
 import { Bubble, ChatFrame, Arrive, ChatPointCard, Confirm, DraftCard, MakePublicDialog, MirrorTurn, Note, VariantSwitch, type ShareRule } from './parts';
 import { allTags, useDraft } from './draft';
 
@@ -17,7 +17,9 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
   const [variant, setVariant] = useState<Variant>('two-actions');
   const [warn, setWarn] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>(null);
+  const [madeAs, setMadeAs] = useState<Visibility>('private');
   const [draft, update] = useDraft(DRAFTS.dm);
+  const finish = (o: Exclude<Outcome, null>) => { setMadeAs(draft.visibility); setOutcome(o); };
   const [session, setSession] = useState(0);
   const [focusDraft, setFocusDraft] = useState(false);
   // Start over is a new Clarify: the posted card leaves the chat and the draft is fresh and private again.
@@ -59,9 +61,9 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
                 actions={
                   <>
                     {variant === 'two-actions' && (
-                      <Button type="button" variant="outline" className="h-11 min-h-11" onClick={() => setOutcome('kept')}>Create without posting</Button>
+                      <Button type="button" variant="outline" className="h-11 min-h-11" onClick={() => finish('kept')}>Create without posting</Button>
                     )}
-                    <Button type="button" className="h-11 min-h-11" onClick={() => setOutcome('posted')}>Publish to chat</Button>
+                    <Button type="button" className="h-11 min-h-11" onClick={() => finish('posted')}>Publish to chat</Button>
                   </>
                 }
               />
@@ -69,7 +71,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
           ) : (
             <MirrorTurn name={MIRROR}>
               <Confirm focus={outcome === 'kept'}>
-                {outcome === 'posted' ? `Posted in the chat with ${OTHER}` : 'Created, not posted anywhere'}, as a {draft.visibility} point.
+                {outcome === 'posted' ? `Posted in the chat with ${OTHER}` : 'Created, not posted anywhere'}, as a {madeAs} point.
                 {outcome === 'kept' && ' Share it from here whenever you like.'}
               </Confirm>
               {outcome === 'kept' && <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} position={draft.position} onPosition={p => update({ position: p })} />}

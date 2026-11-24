@@ -56,4 +56,8 @@ export function splitTags(text: string): { statement: string; tags: string[] } {
 }
 
 /** The text without `#tag` (the shared rule, so a tag such as `c++` is matched literally). */
-export const removeTag = (text: string, tag: string): string => stripHashtags(text, [tag]);
+export function removeTag(text: string, tag: string): string {
+  const out = stripHashtags(text, [tag]);
+  if (!extractHashtags(out).includes(tag)) return out;
+  return out.split(/(\s+)/).filter(w => !extractHashtags(w).includes(tag)).join('').replace(/ {2,}/g, ' ').trim();
+}
