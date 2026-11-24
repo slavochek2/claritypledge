@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-23 [product]: One-to-one invitations are a call link, not preparation first; P1709 rejected, superseded by P1688
+
+**Context:** P1709 planned to invite people to the founder's own meetings through preparation: register on a hidden event, do about 15 minutes of preparation, then get the call link. On reflection, a stranger asked to register on a platform and prepare before a 30-minute one-to-one meets three asks before any value. Even a hidden event page reads as signing up for an event, not as a private meeting. Once the ask is explained in conversation, the tool adds nothing.
+**Decision:** Reject P1709 (archived, not deleted). A one-to-one invitation is just a call link into a Clarity room, the Zoom / Google Meet model, which is P1688's job. People meet the practice by using it in the call; preparation and registration become optional and come after. For someone who has already agreed, the standalone `/prepare` page can be sent today.
+**Alternatives rejected:** (1) Build P1709 as specified with a hard preparation gate (the signal is clean, but the friction lands before any value). (2) Run it by hand on the existing hidden-event link (still feels like event registration for a private meeting). (3) A slim P1709 (short form plus a held call link), which has the same before-the-call ordering problem. (4) Reusing the earlier Polymet commitment-gate mockup, which is the same friction-before-joining pattern.
+**Consequences:** The "did they prepare?" signal is replaced by "did they use the practice in a real call, and did they come back or register after?", which arrives with P1688. Until P1688 works, meetings go out as ordinary calendar invites. UNTESTED. Falsifier: invitees joining a Clarity call link use the practice no more than people sent a plain meeting link.
+**References:** [P1709](../features/archive/p1709_meeting_invitations_through_prepare.md), [P1688](../features/p1688_in_app_audio_video_calls_in_rooms.md)
+
+---
+
 ## 2026-11-24 [process]: A new event deck is the previous deck with the event swapped in, changed only where the founder names a slide (P1616) (Status: proposed)
 
 **Context:** Asked to build `/presi5` for the Sales Mastermind, the build session wrote a fresh 8-slide deck from the run-of-show (roles, the rule, a 1-2-3 recording check, the canvas update steps). The founder rejected almost all of it: the room had already seen roles and the principle in the introduction, the slides restated things or invented wording, and `/presi4`'s backup slides were gone ("let's not innovate, let's just do as little as possible").

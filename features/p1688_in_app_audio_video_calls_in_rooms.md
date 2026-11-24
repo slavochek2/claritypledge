@@ -366,3 +366,7 @@ None open. Answered by the founder on 2026-11-16:
 2. No iPhone is on hand; Android only. The iPhone cells of Decision Criteria 1 stay unrun, the
    proof passes or fails on Android and desktop, and step two is specified for those two until
    someone runs the iPhone cells. Until then no call is offered to an iPhone.
+
+## Related
+
+- P1709 (rejected 2026-11-23) is superseded by this spec: a one-to-one invitation is just the call link into a Clarity room; preparation and registration are optional and come after the call, not before it.

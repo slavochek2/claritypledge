@@ -1,5 +1,5 @@
 ---
-status: week
+status: rejected
 type: story
 rank: 351
 workstream: events
@@ -26,6 +26,14 @@ spec_review_vendors: [gemini, openrouter]
 ---
 
 # P1709: Invite people to the founder's own meetings through preparation
+
+## Rejected (2026-11-23), superseded by P1688
+
+Founder decision after reflection. An invitation that makes a stranger register on the platform and prepare for 15 minutes before a 30-minute one-to-one reads as odd unless explained first, and once explained in conversation the tool adds nothing. Even a hidden event page feels like registering for an event, not like a private meeting.
+
+The answer is P1688: the invitation is just a call link (the Zoom / Google Meet model) into a Clarity room, where the practice is present in the call itself. People meet the method by using it; preparation and registration become optional and come after. For someone who has already agreed, `/prepare` can still be sent today.
+
+Founder, verbatim: "I think this is the same as P1688. But P1688 has an actual answer. It's just like inviting them into audio or video call on Clarity Pledge where all of these functions are there. And then if they want to learn about it or register after, that's fine."
 
 ## Problem
 
