@@ -2,122 +2,104 @@
  * @file MeetingStakes.tsx
  * Prototype at /tree/meeting-stakes (P1721, design exploration, DEV-only).
  *
- * A meeting host picks one of their meetings, rates it on the five conditions,
- * and sees (1) whether a check of understanding is worth it and (2) what the
- * check has to catch to pay for its own overhead. Meetings can be collected
- * into a list with yearly totals.
+ * "Would your meeting benefit from ClarityPledge?" in four steps, one on screen at a time:
+ * the meeting and its gate question, five points to agree or disagree with, the host's own
+ * cost estimates (optional), and the result. Nothing is pre-selected (decisions.md:
+ * "Do not prefill our position on their stakes"); every figure is the host's own estimate.
  *
  * WHERE THE CONTENT COMES FROM. The gate question and the five conditions are
- * docs/arbiter-failure-model.md; the meeting list and each meeting's usual
- * pattern are docs/high-stakes-examples.md. This file holds a prototype copy of
- * both. If the prototype is adopted, read them from one place.
+ * docs/arbiter-failure-model.md; the kinds of meeting are docs/high-stakes-examples.md.
+ * The answer scale is the product's own position labels (position-groups.ts) and the step
+ * bar copies the event room's (RoomSteps.tsx).
  *
- * NO NUMBER HERE IS A FINDING. Unlike the key-hire calculator there is no
- * study behind any figure: every number is the visitor's own estimate, and the
- * page says so. That is why the money section leads with a break-even ("pays
- * for itself if it catches one in N") and never with a savings claim: we have
- * no measured rate at which the check catches anything.
+ * NO NUMBER HERE IS A FINDING. There is no study behind any figure, and no measured rate at
+ * which the check catches anything, so the result states a break-even and never a saving.
  *
- * [FOUNDER DECISION: all copy, the verdict thresholds, and the default numbers
- * are agent-proposed placeholders.]
+ * [FOUNDER DECISION: all copy, the verdict thresholds and the call to action are
+ * agent-proposed placeholders.]
  */
-import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { ALL_MEETINGS, CONDITIONS, MEETINGS, MONEY_DEFAULTS, NONE, VERDICT, compute, verdictOf, type Level, type Money, type Ratings, type Saved } from "./model";
-import { CARD, Choices, FIELD, Profile } from "./parts";
-import { MoneySection } from "./MoneySection";
+import { useEffect, useRef, type RefObject } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { worthChecking } from "./model";
+import { backOf } from "./flow";
+import { StepBar } from "./StepBar";
+import { StepFrame } from "./parts";
+import { MeetingQuestions, StakesQuestions } from "./StepQuestions";
+import { CostQuestions } from "./CostQuestions";
+import { ResultView } from "./ResultView";
 import { SavedList } from "./SavedList";
+import { useMeetingFlow, type MeetingFlow } from "./useMeetingFlow";
 
 export function MeetingStakes() {
-  const [meeting, setMeeting] = useState(ALL_MEETINGS[0].name);
-  const [depends, setDepends] = useState(true);
-  const [ratings, setRatings] = useState<Ratings>(ALL_MEETINGS[0].usual);
-  const [money, setMoney] = useState<Money>(MONEY_DEFAULTS);
-  const [saved, setSaved] = useState<Saved[]>([]);
+  const flow = useMeetingFlow();
+  const earlier = flow.saved.filter((m) => m.id !== flow.draftId).length;
+  const heading = useRef<HTMLHeadingElement>(null);
+  const shown = useRef({ step: flow.step, draftId: flow.draftId });
 
-  const nextId = useRef(1);
-
-  const verdict = verdictOf(depends, ratings);
-  const worth = verdict === "worth" || verdict === "borderline";
-  const { checkPerYear, atRiskPerYear } = compute(money);
-
-  const pickMeeting = (name: string) => {
-    setMeeting(name);
-    setRatings(ALL_MEETINGS.find((m) => m.name === name)?.usual ?? NONE);
-    setDepends(true);
-  };
-
-  const save = () =>
-    setSaved((s) => [...s, { id: nextId.current++, name: meeting, verdict, perYear: money.perYear, checkPerYear, atRiskPerYear }]);
+  // On every step change the new step's heading takes focus, so a screen reader announces it. Compared
+  // with the step last shown, not with "first render": Strict Mode replays the effect on load.
+  useEffect(() => {
+    if (shown.current.step === flow.step && shown.current.draftId === flow.draftId) return;
+    shown.current = { step: flow.step, draftId: flow.draftId };
+    window.scrollTo({ top: 0 });
+    heading.current?.focus({ preventScroll: true });
+  }, [flow.step, flow.draftId]);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10 text-foreground sm:py-14">
-      <Link to="/tree" className="text-sm text-blue-600 hover:underline">← Prototypes</Link>
-
-      <header className="mt-4">
-        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Is this meeting worth a check?</h1>
-        <p className="mt-4 text-lg text-muted-foreground">
-          ClarityPledge is for high-stakes meetings, like a kickoff, where success depends on shared understanding. A gap in
-          understanding gets more dangerous the fuzzier the intent behind a decision, the later its results show up, the more
-          damage it can do, the harder it is to undo, and the more each side explains the results its own way. ClarityPledge
-          gives the meeting host a way to check.
-        </p>
-      </header>
-
-      <section className={`${CARD} mt-8`} aria-labelledby="s1">
-        <h2 id="s1" className="text-xl font-semibold">1. Pick one of your meetings</h2>
-        <label className="mt-4 block">
-          <span className="mb-1 block text-sm text-muted-foreground">Meeting or decision</span>
-          <select value={meeting} onChange={(e) => pickMeeting(e.target.value)} className={FIELD}>
-            {MEETINGS.map((g) => (
-              <optgroup key={g.group} label={g.group}>
-                {g.items.map((m) => (
-                  <option key={m.name} value={m.name}>{m.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-
-        <p className="mt-6 font-medium">If two people left this meeting with different readings of it, would the result suffer?</p>
-        <div className="mt-3">
-          <Choices label="Would the result suffer" options={["Yes", "Not really"]} value={depends ? 0 : 1} onChange={(i) => setDepends(i === 0)} />
-        </div>
-      </section>
-
-      {depends && (
-        <section className={`${CARD} mt-6`} aria-labelledby="s2">
-          <h2 id="s2" className="text-xl font-semibold">2. Rate your meeting</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {meeting === "Another meeting"
-              ? "Nothing is filled in for this one. Answer each question for your meeting."
-              : "The answers start at what is usual for this kind of meeting. Change them to fit yours."}
-          </p>
-          <div className="mt-5 grid gap-6">
-            {CONDITIONS.map((c) => (
-              <div key={c.key}>
-                <p className="font-medium">{c.question}</p>
-                <div className="mt-2">
-                  <Choices label={c.question} options={c.options} value={ratings[c.key]} onChange={(i) => setRatings((r) => ({ ...r, [c.key]: i as Level }))} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="mt-6 rounded-xl border-2 border-blue-600 bg-blue-500/5 p-5 sm:p-6" aria-labelledby="verdict">
-        <p className="text-sm text-muted-foreground">{meeting}</p>
-        <div aria-live="polite">
-          <h2 id="verdict" className="mt-1 text-2xl font-semibold">{VERDICT[verdict].title}</h2>
-          <p className="mt-2">{VERDICT[verdict].body}</p>
-        </div>
-        {depends && <Profile ratings={ratings} />}
-      </section>
-
-      <MoneySection worth={worth} money={money} setMoney={setMoney} onSave={save} />
-
-      {saved.length > 0 && <SavedList saved={saved} onRemove={(id) => setSaved((all) => all.filter((x) => x.id !== id))} />}
+    <main className="mx-auto max-w-2xl px-4 pb-16 text-foreground">
+      <StepBar states={flow.states} onSelect={flow.goTo} />
+      <Link to="/tree" className="mt-4 inline-flex min-h-11 items-center text-sm text-blue-700 hover:underline">← Prototypes</Link>
+      <h1 className={flow.step === "meeting" ? "mt-1 text-3xl font-semibold tracking-tight sm:mt-2 sm:text-4xl" : "mt-1 text-sm font-medium text-muted-foreground"}>Would your meeting benefit from ClarityPledge?</h1>
+      <CurrentStep flow={flow} earlier={earlier} headingRef={heading} />
+      {/* On the result from two meetings (one is what the card already shows); on step 1 as soon as another one exists,
+          so a host starting another meeting can still see, and remove, the ones already checked. */}
+      {flow.step === "result" && flow.saved.length >= 2 && <SavedList saved={flow.saved} currentId={flow.draftId} onRemove={flow.remove} />}
+      {/* Before the result, only the other meetings: the current one's row is re-saved on reaching Result, so here it may be stale. */}
+      {flow.step === "meeting" && earlier > 0 && <SavedList saved={flow.saved.filter((m) => m.id !== flow.draftId)} currentId={flow.draftId} onRemove={flow.remove} />}
     </main>
   );
+}
+
+function CurrentStep({ flow, earlier, headingRef }: { flow: MeetingFlow; earlier: number; headingRef: RefObject<HTMLHeadingElement | null> }) {
+  const navigate = useNavigate();
+  const back = (() => {
+    const to = backOf(flow.step, { meeting: flow.meeting, gate: flow.gate, answers: flow.answers, visited: new Set() });
+    return to ? { onClick: () => flow.goTo(to) } : undefined;
+  })();
+  switch (flow.step) {
+    case "meeting":
+      return (
+        <StepFrame title="Your meeting" intro={meetingIntro(earlier)} headingRef={headingRef} next={{ label: "Next", onClick: flow.next }}>
+          <MeetingQuestions meeting={flow.meeting} customName={flow.customName} gate={flow.gate} errors={flow.errors} onMeeting={flow.setMeeting} onCustomName={flow.setCustomName} onGate={flow.setGate} />
+        </StepFrame>
+      );
+    case "stakes":
+      return (
+        <StepFrame title="What is at stake" intro={<>Think of this meeting: <span className="break-words font-medium text-foreground">{flow.name}</span>. How much do you agree with each point?</>} headingRef={headingRef} back={back} next={{ label: "Next", onClick: flow.next }}>
+          <StakesQuestions answers={flow.answers} errors={flow.errors} onAnswer={flow.setAnswer} />
+        </StepFrame>
+      );
+    case "cost":
+      return (
+        <StepFrame title="Your estimates" intro="Optional. Rough guesses are enough, and you can leave blank what you cannot guess." headingRef={headingRef} back={back} next={{ label: "See the result", onClick: flow.next }}>
+          <CostQuestions money={flow.money} onMoney={flow.setMoneyField} />
+        </StepFrame>
+      );
+    case "result": {
+      const another = { label: "Check another meeting", onClick: flow.another };
+      // [FOUNDER DECISION: the call to action's words and where it leads.]
+      const next = worthChecking(flow.verdict) ? { label: "Try a check in ClarityPledge", onClick: () => navigate("/live"), secondary: another } : another;
+      return (
+        <StepFrame title="Your result" headingRef={headingRef} back={back} next={next}>
+          <ResultView name={flow.name} verdict={flow.verdict} gate={flow.gate} answers={flow.answers} money={flow.money} onAddEstimates={() => flow.goTo("cost")} />
+        </StepFrame>
+      );
+    }
+  }
+}
+
+/** Says the list exists before it is shown, so a host starting another meeting knows the earlier ones were kept. */
+function meetingIntro(earlier: number): string {
+  if (earlier === 0) return "One meeting at a time. After its result you can check another.";
+  return `Meeting ${earlier + 1}. The ${earlier === 1 ? "meeting" : `${earlier} meetings`} you checked before ${earlier === 1 ? "is" : "are"} listed below.`;
 }
