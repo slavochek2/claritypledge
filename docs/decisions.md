@@ -98,7 +98,7 @@ All three were fixed by hand. The cause is structural. `write_lane_env` and `lan
 - **Method:** the candidate's full check was run read-only on the occupied lane against the real main config before install. That run, not the fixtures, found the main paths the fixtures could not model: four mail fields, then the two null Caddy fields.
 - **Proof:** the defects were proved on the spare lane2 from the generated file with each defect's lines removed, containers created and never started, then everything removed.
 - **Falsifier:** a lane that is ready while its sign-in, relay or templates differ from main's.
-**References:** [p1724 spec](../features/p1724_lane_config_parity_check.md) · [lanectl.py](../scripts/selfhosted/lanes/vm/lanectl.py) · 2026-11-15 "TEST lanes ship (P1672 stage 1)"
+**References:** [p1724 spec](../features/done/2026-06-10/p1724_lane_config_parity_check.md) · [lanectl.py](../scripts/selfhosted/lanes/vm/lanectl.py) · 2026-11-15 "TEST lanes ship (P1672 stage 1)"
 
 ---
 
