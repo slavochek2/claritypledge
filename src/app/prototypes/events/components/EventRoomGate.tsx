@@ -14,6 +14,7 @@ import { Link, Navigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 import { cn } from '@/lib/utils';
+import type { EventWithHost } from '@/app/types';
 import { PRIMARY_BUTTON_CLASS, ANSWER_BUTTON_CLASS } from '@/app/components/agreements/meeting-principle-view';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
@@ -71,6 +72,12 @@ export function EventRoomGateScreen({
   );
 }
 
+/** P1718 R9: the mastermind's host never answers Ready (the dots exclude only the caller, and the host is not an attendee in
+ * any count, P1529). Read by the gate and by /ready itself, so a direct /ready URL cannot let the host answer either. */
+export function isMastermindHost(event: EventWithHost | null | undefined, profileId: string | null | undefined): boolean {
+  return !!event && !!profileId && !!recipeForEvent(event).mastermind && event.hostId === profileId;
+}
+
 export function EventRoomGate() {
   const { slug, event, loading, granted, isLoggedIn, offline } = useEventRoomAccess();
   // P1542 round 5: the route state (the step the learning returns to) passes through to the room.
@@ -110,9 +117,8 @@ export function EventRoomGate() {
   // P1718 R4: a skip stores no value, so it is remembered on this device (per person and event) instead.
   const returning = self?.readinessValue != null || readySkipped(self?.profileId, event?.id);
   const recipe = recipeForEvent(event);
-  // P1718 R9: the mastermind's host never answers Ready — the dots exclude only the caller, and the host is not an
-  // attendee in any count (P1529). Clarity Night's host routing is unchanged.
-  const mastermindHost = recipe.mastermind && !!event && !!self?.profileId && event.hostId === self.profileId;
+  // P1718 R9: the mastermind's host goes past Ready. Clarity Night's host routing is unchanged.
+  const mastermindHost = isMastermindHost(event, self?.profileId);
   // P1542: a series without a readiness step (hikes) goes straight to the room.
   const destination = alreadyTranscribed || returning || mastermindHost || !recipe.room.readiness ? 'meet' : 'ready';
   // P1586: the loader beside the redirect keeps the mark on screen through the hop (no blank frame).

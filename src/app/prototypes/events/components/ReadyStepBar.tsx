@@ -7,7 +7,8 @@
  * never changes the bar.
  *
  * /ready shows only the Ready step. A tap on a step it cannot show opens it in /meet: Learn as ?view=learn,
- * Feedback as ?view=feedback (use-room-views.ts), with the marks Continue carries.
+ * Feedback as ?view=feedback (use-room-views.ts), with the marks Continue carries. Leaving Ready by the bar with no
+ * answer stored is a skip like Skip itself (R4), so re-entry through /room does not ask again.
  */
 import { useNavigate } from 'react-router-dom';
 import type { EventWithHost } from '@/app/types';
@@ -16,13 +17,16 @@ import { hiddenRoomSteps } from '../rounds/hidden-room-steps';
 import { eventCanvasTiming, useMyCanvasShared } from '../rounds/canvas-setup';
 import { feedbackOpenAnytime, recipeForEvent } from '../series-recipes';
 import { usePrepState } from '../prep/use-prep-state';
+import { rememberReadySkipped } from './ready-skip-memory';
 
-export function ReadyStepBar({ event, slug, fromEvent, viewerId }: {
+export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone }: {
   event: EventWithHost | null;
   slug: string | undefined;
   fromEvent: boolean | undefined;
   /** The caller's profile id (their room row's), for the learning's tick. */
   viewerId: string | null | undefined;
+  /** P1718 R10: a stored readiness value — the same Ready tick /meet draws. */
+  readyDone: boolean;
 }) {
   const navigate = useNavigate();
   const recipe = recipeForEvent(event);
@@ -30,7 +34,10 @@ export function ReadyStepBar({ event, slug, fromEvent, viewerId }: {
   const learnState = usePrepState(learnLabel && event ? event : null, viewerId ?? undefined);
   const withCanvas = !!event && !!recipe.mastermind && eventCanvasTiming(event) === 'at_event';
   const [canvasShared] = useMyCanvasShared(event?.id, withCanvas, null);
-  const toMeet = (search: string) => navigate(`/events/${slug}/meet${search}`, { state: { fromReady: true, fromEvent } });
+  const toMeet = (search: string) => {
+    if (!readyDone) rememberReadySkipped(viewerId, event?.id);
+    navigate(`/events/${slug}/meet${search}`, { state: { fromReady: true, fromEvent } });
+  };
   const onSelect = (step: RoomStep) => {
     if (step === 'close') toMeet('?view=feedback');
     else if (step !== 'ready') toMeet('');
@@ -40,6 +47,7 @@ export function ReadyStepBar({ event, slug, fromEvent, viewerId }: {
       current="ready"
       viewing="ready"
       onSelect={onSelect}
+      done={{ ready: readyDone }}
       hidden={hiddenRoomSteps(recipe)}
       closeOpen={feedbackOpenAnytime(event)}
       tableOpen={recipe.mastermind}

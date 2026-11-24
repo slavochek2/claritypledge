@@ -71,6 +71,30 @@ async function shots(page: Page, name: string, widths: readonly number[] = [1280
     // No horizontal page scroll at any width (R5).
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `horizontal overflow on ${name} at ${w}px`).toBeLessThanOrEqual(0);
+    // R5: the step labels never collide and never hang past the bar. Measured on the glyphs with a Range: a label's
+    // span is stretched to its cell, so its own box never spills (a known-bad control with a lengthened label passed
+    // that version of this check). Labels may use the 4px gap between cells (Clarity Night's live bar puts
+    // "Feedback", 49px, in a 48px cell at 375), so the test is 2px clear of the next label and 1px of the bar's edges.
+    const clashes = await page.evaluate(() => {
+      const bar = document.querySelector('[data-testid="room-steps"] ol');
+      if (!bar) return [];
+      const edge = bar.getBoundingClientRect();
+      const glyphs = [...bar.querySelectorAll('li')].flatMap((li) => {
+        const text = li.querySelector('[data-testid$="-text"]');
+        if (!text) return [];
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        return [{ label: text.textContent ?? '', rect: range.getBoundingClientRect() }];
+      });
+      const out: string[] = [];
+      glyphs.forEach(({ label, rect }, k) => {
+        if (rect.left < edge.left - 1 || rect.right > edge.right + 1) out.push(`${label} past the bar (${rect.left.toFixed(1)}-${rect.right.toFixed(1)} in ${edge.left.toFixed(1)}-${edge.right.toFixed(1)})`);
+        const next = glyphs[k + 1];
+        if (next && next.rect.left - rect.right < 2) out.push(`${label} touches ${next.label} (${(next.rect.left - rect.right).toFixed(1)}px)`);
+      });
+      return out;
+    });
+    expect.soft(clashes, `step labels collide or hang past the bar on ${name} at ${w}px`).toEqual([]);
     const file = `${SHOTS}/${name}-${w}.png`;
     await page.screenshot({ path: file, fullPage: true });
     appendFileSync(`${OUT}/shots.jsonl`, JSON.stringify({ file, width: w, innerWidth: iw }) + '\n');
@@ -159,6 +183,33 @@ test('Continue without moving the slider stores nothing; Continue after moving i
 test('the mastermind host goes straight to the room', async ({ page }) => {
   await enterRoom(page, host, MM);
   await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/meet`), { timeout: 60_000 });
+});
+
+test('a mastermind host opening /ready directly is sent to the room (R9)', async ({ page }) => {
+  await setTestSession(page, host.user.email);
+  await page.goto(`/events/${MM.slug}/ready`);
+  await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/meet`), { timeout: 60_000 });
+});
+
+test('a person seated in the round running now is forwarded from /ready to the room (R8)', async ({ page }) => {
+  const g = await registered('Gus P1718seated', MM);
+  await enterRoom(page, g, MM);
+  await expect(page.getByTestId('room-ready')).toBeVisible();
+  const { data: member, error: me } = await supabaseAdmin.from('event_room_members').select('id')
+    .eq('event_id', MM.id).eq('profile_id', g.user.user.id).single();
+  if (me) throw new Error(`room member: ${me.message}`);
+  const { data: round, error: re } = await supabaseAdmin.from('event_rounds')
+    .insert({ event_id: MM.id, round_no: 1, group_size: 2 }).select('id').single();
+  if (re) throw new Error(`round: ${re.message}`);
+  const { error: se } = await supabaseAdmin.from('event_round_seats')
+    .insert({ round_id: round.id, room_member_id: member.id, table_no: 1, role: 'first' });
+  if (se) throw new Error(`seat: ${se.message}`);
+  try {
+    await page.goto(`/events/${MM.slug}/ready`);
+    await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/meet`), { timeout: 60_000 });
+  } finally {
+    await supabaseAdmin.from('event_rounds').delete().eq('id', round.id);
+  }
 });
 
 test('Canvas made at the event: /ready shows the Canvas step and still no Compare', async ({ page }) => {

@@ -81,7 +81,8 @@ describe('the recipe', () => {
   it('has the hikes\' feedback step shape, the series\' own quote box, and no Clarity Night next-event offer', () => {
     expect(SALES_MASTERMIND_RECIPE.room.feedbackAnytime).toBe(true);
     expect(SALES_MASTERMIND_RECIPE.room.feedbackAlwaysOpen, 'the current step stays the round\'s until the host ends the evening').toBe(false);
-    expect(SALES_MASTERMIND_RECIPE.room.steps?.close).toBe('Feedback');
+    // P1718 (founder 2026-11-24): the mastermind's last step is "Review" ("Feedback" did not fit six steps on a phone).
+    expect(SALES_MASTERMIND_RECIPE.room.steps?.close).toBe('Review');
     expect(SALES_MASTERMIND_RECIPE.closeIntro).toBe(false);
     expect(SALES_MASTERMIND_RECIPE.cmpOneStep).toBe(true);
     expect(SALES_MASTERMIND_RECIPE.roomClose).toEqual({ title: null, body: 'Takes 2 minutes', heading: 'How was the evening?', cta: 'Start now', finished: 'Thanks, your feedback is in.' });
@@ -142,7 +143,7 @@ describe('the room', () => {
     renderRoom(mastermind());
     expect(screen.getByTestId('room-steps').getAttribute('data-current')).toBe('table');
     expect(feedbackTab().disabled).toBe(false);
-    expect(feedbackTab().textContent).toBe('Feedback');
+    expect(feedbackTab().textContent).toBe('Review');
     expect(screen.queryByTestId('room-close')).toBeNull();
     fireEvent.click(feedbackTab());
     expect(screen.getByTestId('room-close-heading').textContent).toBe('How was the evening?');

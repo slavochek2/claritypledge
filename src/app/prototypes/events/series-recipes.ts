@@ -243,7 +243,9 @@ export const SALES_MASTERMIND_RECIPE: SeriesRecipe = {
   // statedMinutes is reset on purpose: the spread would inherit Clarity Night's 15, and the mastermind says its own role minutes.
   prepare: { ...CLARITY_NIGHT_RECIPE.prepare, statedMinutes: undefined, steps: ['story', 'game', 'principle', 'cmp7', 'canvas'], optional: true, keepFinished: true },
   // Founder UAT round 1: "Learn and prepare" stays in the room's step bar for everyone, done or not, as on the hikes (their pattern).
-  room: { ...CLARITY_NIGHT_RECIPE.room, readiness: true, feedbackAnytime: true, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Feedback' } },
+  // P1718 (founder 2026-11-24): the last step is "Review" here. With Ready back and the Canvas made at the evening the
+  // bar holds six steps, and "Feedback" ran ~5px past it on a 320/375 phone; "Review" fits. Clarity Night keeps "Feedback".
+  room: { ...CLARITY_NIGHT_RECIPE.room, readiness: true, feedbackAnytime: true, steps: { learn: 'Learn and prepare', principle: 'Principle', close: 'Review' } },
   registration: 'mastermind',
   mastermind: true,
 };

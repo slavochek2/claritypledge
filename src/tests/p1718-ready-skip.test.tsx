@@ -3,13 +3,14 @@
  * P1718: the mastermind's Ready step, with a Skip.
  *  - R2/R3: Skip and an untouched Continue store nothing and open Meet; a moved slider saves the answer.
  *  - R4: a skip (or a failed save) is remembered per person and event on this device; the gate honours it.
- *  - R5/R6: storage blocked or a double tap never strands or double-saves.
+ *  - R3/R4: storage blocked, a double tap, or a stalled read or save never strands or double-saves.
+ *  - R6: Clarity Night keeps Compare and gains Skip.
  *  - R7: /ready's step bar is the room's own (Learn and prepare for the mastermind, no Compare).
  *  - R8: someone seated at a running round never sees Ready.
  *  - R9: the mastermind's host goes straight to Meet.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
@@ -75,7 +76,8 @@ vi.mock('react-router-dom', async (importOriginal) => {
   };
 });
 
-import { EventRoomReady } from '@/app/prototypes/events/components/EventRoomReady';
+import { EventRoomReady, READY_SAVE_MS } from '@/app/prototypes/events/components/EventRoomReady';
+import { ROUNDS_READ_MS } from '@/app/prototypes/events/components/use-seated-at-running-round';
 import { EventRoomGate } from '@/app/prototypes/events/components/EventRoomGate';
 import { readySkipped } from '@/app/prototypes/events/components/ready-skip-memory';
 import { RoomSteps } from '@/app/prototypes/events/rounds/RoomSteps';
@@ -90,7 +92,9 @@ const hike = { ...base, id: 'ev-hike', slug: 'hike', title: 'Hike', seriesSlug: 
 const selfA = { id: 'member-a', profileId: 'profile-a', readinessValue: null as number | null };
 const selfB = { id: 'member-b', profileId: 'profile-b', readinessValue: null as number | null };
 
-function setRoom(event: typeof night, self: Record<string, unknown> | null = selfA) {
+type TestEvent = typeof base & { id: string; slug: string; title: string; seriesSlug: string | null };
+
+function setRoom(event: TestEvent, self: Record<string, unknown> | null = selfA) {
   room.access = { slug: event.slug, event, loading: false, granted: true, isLoggedIn: true, offline: false };
   room.self = self;
 }
@@ -112,6 +116,22 @@ function mountReadyNoWait(slug: string) {
       <Routes>
         <Route path="/events/:slug/ready" element={<EventRoomReady />} />
         <Route path="/events/:slug/meet" element={<Page name="meet" />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function PageWithSearch() {
+  const location = useLocation();
+  return <p data-testid="page" data-state={JSON.stringify(location.state)}>{`meet${location.search}`}</p>;
+}
+
+function mountWithSearch(slug: string) {
+  render(
+    <MemoryRouter initialEntries={[{ pathname: `/events/${slug}/ready`, state: { fromEvent: true } }]}>
+      <Routes>
+        <Route path="/events/:slug/ready" element={<EventRoomReady />} />
+        <Route path="/events/:slug/meet" element={<PageWithSearch />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -140,6 +160,8 @@ beforeEach(() => {
   room.arrivalGate = false;
   room.capturing = false;
   rounds.read = () => Promise.resolve({ rounds: [], seatsByRound: new Map() });
+  room.refresh = () => Promise.resolve();
+  vi.mocked(setRoomReadiness).mockReset();
   setRoom(night);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -199,6 +221,84 @@ describe('Continue saves only an answer', () => {
     fireEvent.click(cont);
     fireEvent.click(cont);
     expect(setRoomReadiness).toHaveBeenCalledTimes(1);
+  });
+
+  it('Skip during a pending save does nothing more: one save, no skip remembered', async () => {
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    setRoom(mastermind);
+    await mountReady('mm');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    fireEvent.click(screen.getByTestId('room-ready-skip'));
+    expect(setRoomReadiness).toHaveBeenCalledTimes(1);
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
+    expect(screen.queryByTestId('page')).toBeNull();
+  });
+
+  it('a double tap on Skip navigates once', async () => {
+    setRoom(mastermind);
+    await mountReady('mm');
+    const skip = screen.getByTestId('room-ready-skip');
+    fireEvent.click(skip);
+    fireEvent.click(skip);
+    await expectOnMeet();
+    expect(screen.getAllByTestId('page')).toHaveLength(1);
+  });
+
+  it('a value already stored: Continue without moving re-saves it (R3), and Ready is ticked on /ready', async () => {
+    vi.mocked(setRoomReadiness).mockResolvedValue(undefined as never);
+    setRoom(mastermind, { ...selfA, readinessValue: 8 });
+    await mountReady('mm');
+    expect(screen.getByRole('button', { name: /Ready, done/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await expectOnMeet();
+    expect(setRoomReadiness).toHaveBeenCalledWith('member-a', 8);
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
+  });
+
+  it('no value stored: Ready is not ticked on /ready', async () => {
+    setRoom(mastermind);
+    await mountReady('mm');
+    expect(screen.queryByRole('button', { name: /Ready, done/ })).toBeNull();
+  });
+
+  it('the save succeeds but the re-read fails: lands on /meet with no skip remembered', async () => {
+    vi.mocked(setRoomReadiness).mockResolvedValue(undefined as never);
+    room.refresh = () => Promise.reject(new Error('re-read failed'));
+    setRoom(mastermind);
+    await mountReady('mm');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await expectOnMeet();
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
+  });
+});
+
+describe('a stalled connection never strands the person', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('a save that never answers lets them in after READY_SAVE_MS, remembered as a skip', async () => {
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    setRoom(mastermind);
+    await mountReady('mm');
+    vi.useFakeTimers();
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(READY_SAVE_MS + 10); });
+    vi.useRealTimers();
+    await expectOnMeet();
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(true);
+  });
+
+  it('a rounds read that never answers shows Ready after ROUNDS_READ_MS', async () => {
+    vi.useFakeTimers();
+    rounds.read = () => new Promise(() => {});
+    setRoom(mastermind);
+    mountReadyNoWait('mm');
+    expect(screen.queryByTestId('room-ready')).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(ROUNDS_READ_MS + 10); });
+    expect(screen.getByTestId('room-ready')).toBeInTheDocument();
+    expect(redirects).toEqual([]);
   });
 });
 
@@ -276,6 +376,50 @@ describe('the two buttons', () => {
     expect(skip.className).toContain('bg-transparent');
     expect(skip.className).not.toContain('bg-primary');
     expect(cont.className).not.toContain('bg-transparent');
+  });
+});
+
+describe('the mastermind host on a direct /ready URL (R9)', () => {
+  it('is redirected to /meet and never sees the question', async () => {
+    setRoom(mastermind, { id: 'member-h', profileId: 'host-1', readinessValue: null });
+    mountReadyNoWait('mm');
+    await waitFor(() => expect(redirects.at(-1)).toMatchObject({ to: '/events/mm/meet', replace: true }));
+    expect(screen.queryByTestId('room-ready')).toBeNull();
+  });
+
+  it('a Clarity Night host still sees Ready', async () => {
+    setRoom(night, { id: 'member-h', profileId: 'host-1', readinessValue: null });
+    await mountReady('night');
+    expect(redirects).toEqual([]);
+  });
+});
+
+describe("leaving /ready by the step bar", () => {
+  it('Feedback opens /meet?view=feedback with the marks, and counts as a skip', async () => {
+    setRoom(mastermind);
+    mountWithSearch('mm');
+    await screen.findByTestId('room-ready');
+    fireEvent.click(screen.getByTestId('room-step-close'));
+    await waitFor(() => expect(screen.getByTestId('page')).toHaveTextContent('meet?view=feedback'));
+    expect(JSON.parse(screen.getByTestId('page').dataset.state!)).toEqual({ fromReady: true, fromEvent: true });
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(true);
+  });
+
+  it('Learn and prepare opens /meet?view=learn', async () => {
+    setRoom(mastermind);
+    mountWithSearch('mm');
+    await screen.findByTestId('room-ready');
+    fireEvent.click(screen.getByTestId('room-step-learn'));
+    await waitFor(() => expect(screen.getByTestId('page')).toHaveTextContent('meet?view=learn'));
+  });
+
+  it('with a value stored, leaving by Feedback writes no skip', async () => {
+    setRoom(mastermind, { ...selfA, readinessValue: 7 });
+    mountWithSearch('mm');
+    await screen.findByTestId('room-ready');
+    fireEvent.click(screen.getByTestId('room-step-close'));
+    await waitFor(() => expect(screen.getByTestId('page')).toHaveTextContent('meet?view=feedback'));
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
   });
 });
 

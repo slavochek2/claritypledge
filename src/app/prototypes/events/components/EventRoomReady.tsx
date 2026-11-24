@@ -40,7 +40,7 @@ import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
 import { cn } from '@/lib/utils';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
-import { EventRoomGateScreen } from './EventRoomGate';
+import { EventRoomGateScreen, isMastermindHost } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { recipeForEvent } from '../series-recipes';
@@ -50,10 +50,13 @@ import { RoomHeadCapture, RoomHeadRow, RoomStickyHead } from './RoomChrome';
 import { ReadyStepBar } from './ReadyStepBar';
 import { rememberReadySkipped } from './ready-skip-memory';
 import { useSeatedAtRunningRound } from './use-seated-at-running-round';
+import { settleWithin } from './settle-within';
 
 const QUESTION = 'How up for thinking are you right now?';
 const MIDPOINT_LABEL = 'Neutral';
 const MIDPOINT_VALUE = 5;
+/** P1718: a save that has not answered by then lets the person in anyway (remembered as a skip, R4). */
+export const READY_SAVE_MS = 5000;
 const POLE_LABELS = { low: 'Stay on the surface', high: 'Go deep' };
 /** Deliberately the same sentence the general /ready uses for its own marks — this is the
  * screen-reader-only description of the `others` dots, and the two surfaces render the
@@ -127,14 +130,17 @@ export function EventRoomReady() {
     if (leaving.current) return;
     leaving.current = true;
     if (self) {
+      let saved = false;
       try {
-        await setRoomReadiness(self.id, value);
-        await refresh();
+        await settleWithin(setRoomReadiness(self.id, value), READY_SAVE_MS);
+        saved = true;
       } catch {
-        // Readiness is a note, not a gate — the person still goes in. P1718 R4: remembered as a skip, so the
-        // gate does not send them back here on every re-entry.
+        // Readiness is a note, not a gate — the person still goes in. P1718 R4: a failed or stalled save is
+        // remembered as a skip, so the gate does not send them back here on every re-entry.
         rememberReadySkipped(self.profileId, event?.id);
       }
+      // The answer is stored; a failed re-read only leaves the tick for the next read to draw.
+      if (saved) await settleWithin(refresh(), READY_SAVE_MS).catch(() => {});
     }
     goToMeet();
   }, [touched, handleSkip, self, value, refresh, event?.id, goToMeet]);
@@ -143,7 +149,10 @@ export function EventRoomReady() {
     ? Date.now() >= new Date(event.datetime).getTime() + EVENT_GRACE_HOURS * 60 * 60 * 1000
     : false;
   const hasReadiness = !!event && recipeForEvent(event).room.readiness;
-  // P1718 R8: Ready never stands at a running table — asked only when this screen would otherwise show.
+  // P1718 R9: a direct /ready URL does not let the mastermind's host answer either.
+  const mastermindHost = isMastermindHost(event, self?.profileId);
+  // P1718 R8: Ready never stands at a running table. The rounds read starts with the room row's (not after it), and is
+  // asked only when this screen could show.
   const seated = useSeatedAtRunningRound(event?.id, self?.id, granted && !isFrozen && hasReadiness);
 
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
@@ -155,8 +164,8 @@ export function EventRoomReady() {
 
   // P1586: the redirect lands in an effect, so the loader holds the frame until it does.
   // P1542: a series without a readiness step (hikes) never shows this screen; the redirect carries `fromEvent`.
-  // P1718 R8: nor does someone seated in the round running now.
-  if (isFrozen || (event && !hasReadiness) || seated === true) {
+  // P1718 R8/R9: nor does someone seated in the round running now, nor the mastermind's host.
+  if (isFrozen || (event && !hasReadiness) || seated === true || mastermindHost) {
     return (
       <>
         <Navigate to={`/events/${slug}/meet`} replace state={fromEvent ? { fromEvent } : undefined} />
@@ -191,7 +200,7 @@ export function EventRoomReady() {
         <RoomHeadRow
           className="mx-auto w-full max-w-2xl pt-3 pb-2"
           onBack={backToEvent}
-          tabs={<ReadyStepBar event={event} slug={slug} fromEvent={fromEvent} viewerId={self?.profileId} />}
+          tabs={<ReadyStepBar event={event} slug={slug} fromEvent={fromEvent} viewerId={self?.profileId} readyDone={self?.readinessValue != null} />}
         />
       </RoomStickyHead>
       {/* P1336: the preparation stays one tap away for someone who joined without it. */}
@@ -239,7 +248,6 @@ export function EventRoomReady() {
             >
               Skip
             </Button>
-
           </div>
         </div>
       </div>
