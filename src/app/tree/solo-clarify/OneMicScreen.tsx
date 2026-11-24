@@ -22,8 +22,9 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
   const [created, setCreated] = useState(false);
   const [draft, update] = useDraft(DRAFTS.oneMic);
   const { statement, tags } = allTags(draft);
+  const [session, setSession] = useState(0);
   const fresh = (v: Variant) => {
-    setCreated(false); setAgreed(false);
+    setSession(n => n + 1); setCreated(false); setAgreed(false);
     update({ visibility: 'private', tags: [], position: null, text: v === 'my-words' ? ONLY_MINE : DRAFTS.oneMic });
   };
   const choose = (v: Variant) => { setVariant(v); fresh(v); };
@@ -55,17 +56,20 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
           <MirrorTurn name={MIRROR}>
             <p className="text-sm">{variant === 'my-words' ? 'From what you said (Speaker 1 only):' : 'From the conversation:'}</p>
             <DraftCard
+              key={session}
               draft={draft}
               update={update}
               choose
               onPublicPick={variant === 'my-words' ? undefined : () => setWarn(true)}
-              actions={<Button type="button" className="h-11 min-h-11" onClick={() => setCreated(true)}>Create point</Button>}
+              actions={<Button type="button" className="h-11 min-h-11" onClick={() => setCreated(true)}>{draft.visibility === 'public' ? 'Create public point' : 'Create point'}</Button>}
             />
           </MirrorTurn>
         ) : (
           <MirrorTurn name={MIRROR}>
             {/* B drafts from your words only, so there is nothing of theirs to warn about, before creation or after */}
+            <p className="text-sm">Created. It is on your profile{draft.visibility === 'private' ? ', visible only to you' : ' for anyone'}.</p>
             <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => (variant === 'my-words' ? update({ visibility: 'public' }) : setWarn(true))} />
+            <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={() => fresh(variant)}>Start over</Button>
           </MirrorTurn>
         )}
       </ChatFrame>

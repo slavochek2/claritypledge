@@ -195,7 +195,10 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
                 else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setEditing(false); }
               }}
             />
-            <Button type="button" variant="outline" className="h-11 min-h-11 self-end" onClick={() => setEditing(false)}>Done</Button>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" className="h-11 min-h-11" onClick={cancelEdit}>Cancel</Button>
+              <Button type="button" variant="outline" className="h-11 min-h-11" onClick={() => setEditing(false)}>Done</Button>
+            </div>
           </div>
         ) : (
           <p className="min-w-0 flex-1 break-words text-base font-medium text-foreground">{statement}</p>
@@ -254,13 +257,13 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic 
   };
   const off = visibility === 'private' && rule === 'public-only';
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2" data-return-focus>
       <PointCardShell
         aria-label={`Point: ${statement}`}
         statement={<p className="min-w-0 flex-1 break-words text-base font-medium text-foreground"><InlineVisibilityIcon visibility={visibility} /> {statement}</p>}
         footer={
           <div className="flex items-center justify-end px-2 pb-2">
-            <Button type="button" variant="outline" aria-disabled={off} className={cn('h-11 min-h-11 gap-1.5', off && 'opacity-50')} onClick={share}>
+            <Button type="button" variant="outline" data-share aria-disabled={off} className={cn('h-11 min-h-11 gap-1.5', off && 'opacity-50')} onClick={share}>
               <Share2 aria-hidden />{visibility === 'private' && rule === 'people' ? 'Share with people' : 'Share'}
             </Button>
           </div>
@@ -282,8 +285,12 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
 }) {
   const [said, setSaid] = useState<string | null>(null);
   // The screens unmount this dialog rather than closing it, so Radix never hands focus back: return it to what opened it.
+  // A Make public link goes away once the point is public, so its card's Share is the fallback.
   const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
-  useEffect(() => () => { setTimeout(() => { if (opener?.isConnected) opener.focus(); }, 0); }, [opener]);
+  const [fallback] = useState(() => opener?.closest('[data-return-focus]')?.querySelector<HTMLElement>('[data-share]') ?? null);
+  useEffect(() => () => {
+    setTimeout(() => { (opener?.isConnected ? opener : fallback?.isConnected ? fallback : null)?.focus(); }, 0);
+  }, [opener, fallback]);
   const [seen, setSeen] = useState(blocked);
   if (seen !== blocked) { setSeen(blocked); setSaid(null); }
   const confirm = () => {

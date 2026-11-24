@@ -22,7 +22,8 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
   const [draft, update] = useDraft(DRAFTS.mirror);
   const { statement, tags } = allTags(draft);
   // Every Clarify is a fresh draft: the Mirror's text, no tags, private (in B the picker is hidden, so nothing may carry over).
-  const fresh = (text: string) => update({ text, tags: [], visibility: 'private', position: null });
+  const [session, setSession] = useState(0);
+  const fresh = (text: string) => { setSession(n => n + 1); update({ text, tags: [], visibility: 'private', position: null }); };
   const start = (m: FakeMessage | null) => { setSource(m); setBase(DRAFTS.mirror); setClarified(true); setCreated(false); fresh(DRAFTS.mirror); };
   const another = () => { const next = NEXT[base] ?? DRAFTS.mirror; setBase(next); setCreated(false); setClarified(true); fresh(next); };
   const reset = () => { setClarified(false); setCreated(false); setSource(null); setBase(DRAFTS.mirror); fresh(DRAFTS.mirror); };
@@ -46,6 +47,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
             <p className="text-xs text-muted-foreground">{source ? `Clarifying your message from ${source.time}` : 'Clarifying the whole chat'}</p>
             <p className="text-sm">Here is the point I hear in what you said and what you meant:</p>
             <DraftCard
+              key={session}
               draft={draft}
               update={update}
               choose={variant === 'choose-first'}

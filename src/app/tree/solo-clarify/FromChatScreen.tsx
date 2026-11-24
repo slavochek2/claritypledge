@@ -18,6 +18,9 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
   const [warn, setWarn] = useState(false);
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [draft, update] = useDraft(DRAFTS.dm);
+  const [session, setSession] = useState(0);
+  // Start over is a new Clarify: the posted card leaves the chat and the draft is fresh and private again.
+  const startOver = () => { setSession(n => n + 1); setOutcome(null); update({ text: DRAFTS.dm, tags: [], visibility: 'private', position: null }); };
   const { statement, tags } = allTags(draft);
 
   return (
@@ -46,6 +49,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
           {outcome === null ? (
             <MirrorTurn name={MIRROR}>
               <DraftCard
+                key={session}
                 draft={draft}
                 update={update}
                 choose
@@ -67,7 +71,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
                 {outcome === 'kept' && ' It is on your profile; share it from here whenever you like.'}
               </Said>
               {outcome === 'kept' && <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} />}
-              <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={() => setOutcome(null)}>Back to the draft</Button>
+              <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={startOver}>Start over</Button>
             </MirrorTurn>
           )}
         </ChatFrame>
