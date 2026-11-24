@@ -42,7 +42,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
         onChange={v => { setVariant(v); setCreated(false); setClarified(true); fresh(base); }}
         options={[{ id: 'choose-first', label: 'A. Choose before creating' }, { id: 'private-first', label: 'B. Always private first' }]}
       />
-      <ChatFrame title={MIRROR} mirror action={<ClarifyChip ref={chip} onClick={() => start(null)} label="Clarify" scope="Clarify the whole chat" />}>
+      <ChatFrame title={MIRROR} mirror action={<ClarifyChip ref={chip} onClick={() => start(null)} label="Clarify" scope="the whole chat" />}>
         {MIRROR_TALK.map(m => <Bubble key={m.id} msg={m} name={ME} onClarify={start} />)}
         {clarified && !created && (
           <MirrorTurn name={MIRROR}>
