@@ -1,4 +1,5 @@
 /** Shared controls and class strings for the /tree/meeting-stakes prototype. */
+import { useState } from "react";
 import { CONDITIONS, type Ratings } from "./model";
 
 export const CHOICE = "min-h-11 rounded-md border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2";
@@ -9,9 +10,9 @@ export const FIELD = "h-11 w-full rounded-md border border-border bg-background 
 
 export function Choices({ label, options, value, onChange }: { label: string; options: readonly string[]; value: number; onChange: (i: number) => void }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-2">
+    <div role="group" aria-label={label} className="flex flex-wrap gap-2">
       {options.map((o, i) => (
-        <button key={o} type="button" role="radio" aria-checked={value === i} onClick={() => onChange(i)} className={`${CHOICE} ${value === i ? CHOICE_ON : CHOICE_OFF}`}>
+        <button key={o} type="button" aria-pressed={value === i} onClick={() => onChange(i)} className={`${CHOICE} ${value === i ? CHOICE_ON : CHOICE_OFF}`}>
           {o}
         </button>
       ))}
@@ -19,7 +20,16 @@ export function Choices({ label, options, value, onChange }: { label: string; op
   );
 }
 
+const MAX_NUMBER = 1_000_000_000;
+
 export function NumberField({ label, value, onChange, unit, min = 0 }: { label: string; value: number; onChange: (n: number) => void; unit?: string; min?: number }) {
+  // The field keeps the typed text, so it can be cleared and retyped; the model only ever gets a clamped number.
+  const [draft, setDraft] = useState(String(value));
+  const edit = (text: string) => {
+    setDraft(text);
+    const n = Number(text);
+    if (text.trim() !== "" && Number.isFinite(n)) onChange(Math.min(MAX_NUMBER, Math.max(min, n)));
+  };
   return (
     <label className="block">
       <span className="mb-1 block text-sm text-muted-foreground">{label}</span>
@@ -28,8 +38,10 @@ export function NumberField({ label, value, onChange, unit, min = 0 }: { label: 
           type="number"
           inputMode="decimal"
           min={min}
-          value={Number.isFinite(value) ? value : ""}
-          onChange={(e) => onChange(Math.max(min, Number(e.target.value) || 0))}
+          max={MAX_NUMBER}
+          value={draft}
+          onChange={(e) => edit(e.target.value)}
+          onBlur={() => setDraft(String(value))}
           className={FIELD}
         />
         {unit && <span className="shrink-0 text-sm text-muted-foreground">{unit}</span>}
@@ -45,7 +57,7 @@ export function Profile({ ratings }: { ratings: Ratings }) {
       {CONDITIONS.map((c) => (
         <li key={c.key} className="grid grid-cols-[9rem_1fr] items-center gap-3 text-sm">
           <span className="text-muted-foreground">{c.name}</span>
-          <span className="flex gap-1" aria-label={`${c.name}: ${c.options[ratings[c.key]]}`}>
+          <span role="img" className="flex gap-1" aria-label={`${c.name}: ${c.options[ratings[c.key]]}`}>
             {[1, 2].map((step) => (
               <span key={step} className={`h-2 flex-1 rounded-full ${ratings[c.key] >= step ? "bg-blue-600" : "bg-blue-500/15"}`} />
             ))}

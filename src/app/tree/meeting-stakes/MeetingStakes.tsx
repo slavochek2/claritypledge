@@ -21,7 +21,7 @@
  * [FOUNDER DECISION: all copy, the verdict thresholds, and the default numbers
  * are agent-proposed placeholders.]
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ALL_MEETINGS, CONDITIONS, MEETINGS, MONEY_DEFAULTS, NONE, VERDICT, compute, verdictOf, type Level, type Money, type Ratings, type Saved } from "./model";
 import { CARD, Choices, FIELD, Profile } from "./parts";
@@ -35,7 +35,10 @@ export function MeetingStakes() {
   const [money, setMoney] = useState<Money>(MONEY_DEFAULTS);
   const [saved, setSaved] = useState<Saved[]>([]);
 
+  const nextId = useRef(1);
+
   const verdict = verdictOf(depends, ratings);
+  const worth = verdict === "worth" || verdict === "borderline";
   const { checkPerYear, atRiskPerYear } = compute(money);
 
   const pickMeeting = (name: string) => {
@@ -45,7 +48,7 @@ export function MeetingStakes() {
   };
 
   const save = () =>
-    setSaved((s) => [...s, { id: Date.now(), name: meeting, verdict, perYear: money.perYear, checkPerYear, atRiskPerYear }]);
+    setSaved((s) => [...s, { id: nextId.current++, name: meeting, verdict, perYear: money.perYear, checkPerYear, atRiskPerYear }]);
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10 text-foreground sm:py-14">
@@ -108,7 +111,7 @@ export function MeetingStakes() {
         {depends && <Profile ratings={ratings} />}
       </section>
 
-      <MoneySection money={money} setMoney={setMoney} onSave={save} />
+      <MoneySection worth={worth} money={money} setMoney={setMoney} onSave={save} />
 
       {saved.length > 0 && <SavedList saved={saved} onRemove={(id) => setSaved((all) => all.filter((x) => x.id !== id))} />}
     </main>

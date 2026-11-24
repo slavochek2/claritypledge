@@ -89,7 +89,7 @@ export const VERDICT: Record<VerdictKind, { title: string; body: string }> = {
   },
   borderline: {
     title: "Borderline",
-    body: "Check only the one point that the answers below flag.",
+    body: "Check only the points that the answers below flag.",
   },
   worth: {
     title: "Worth a check",

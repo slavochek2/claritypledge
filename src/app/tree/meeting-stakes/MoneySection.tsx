@@ -2,10 +2,17 @@
 import { compute, eur, whole, type Money } from "./model";
 import { CARD, NumberField } from "./parts";
 
-export function MoneySection({ money, setMoney, onSave }: { money: Money; setMoney: (update: (m: Money) => Money) => void; onSave: () => void }) {
+export function MoneySection({ money, setMoney, onSave, worth }: { money: Money; worth: boolean; setMoney: (update: (m: Money) => Money) => void; onSave: () => void }) {
   const { checkPerMeeting, checkPerYear, atRiskPerYear, breakEven } = compute(money);
   const everyN = Math.floor(breakEven);
   const set = (k: keyof Money) => (n: number) => setMoney((m) => ({ ...m, [k]: n }));
+  const addButton = (
+    <button type="button" onClick={onSave} className="min-h-11 rounded-md bg-blue-600 px-5 py-2 font-medium text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
+      Add to my meetings
+    </button>
+  );
+  // No check, nothing to cost: the meeting can still go on the list.
+  if (!worth) return <div className="mt-6">{addButton}</div>;
   return (
     <section className={`${CARD} mt-6`} aria-labelledby="s3">
       <h2 id="s3" className="text-xl font-semibold">3. Does the check pay for itself?</h2>
@@ -43,16 +50,14 @@ export function MoneySection({ money, setMoney, onSave }: { money: Money; setMon
           ? "Enter what the check costs to see when it pays for itself."
           : everyN < 1
             ? "The check costs more than the damage it could prevent. Skip it."
-            : `The check costs ${eur(checkPerMeeting)} a meeting and one misunderstanding costs ${eur(money.damage)}. So the check pays for itself if it catches a single misunderstanding in ${whole(everyN)} meetings like this.`}
+            : `The check costs ${eur(checkPerMeeting)} a meeting and one misunderstanding costs ${eur(money.damage)}. So the check pays for itself if it catches a single misunderstanding ${everyN === 1 ? "in every meeting like this" : `in ${whole(everyN)} meetings like this`}.`}
       </p>
       <p className="mt-2 text-sm text-muted-foreground">
         The check finds gaps in understanding. It does not make a decision right, and it will not catch every gap.
       </p>
 
       <div className="mt-6">
-        <button type="button" onClick={onSave} className="min-h-11 rounded-md bg-blue-600 px-5 py-2 font-medium text-white hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">
-          Add to my meetings
-        </button>
+        {addButton}
       </div>
     </section>
   );

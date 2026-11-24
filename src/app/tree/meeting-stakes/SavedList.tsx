@@ -15,7 +15,8 @@ export function SavedList({ saved, onRemove }: { saved: Saved[]; onRemove: (id: 
             <div className="min-w-0">
               <p className="break-words font-medium">{s.name}</p>
               <p className="text-sm text-muted-foreground">
-                {VERDICT[s.verdict].title} · {whole(s.perYear)} a year · checking {eur(s.checkPerYear)} · at risk {eur(s.atRiskPerYear)}
+                {VERDICT[s.verdict].title} · {whole(s.perYear)} a year
+                {worthRows.includes(s) && ` · checking ${eur(s.checkPerYear)} · at risk ${eur(s.atRiskPerYear)}`}
               </p>
             </div>
             <button type="button" onClick={() => onRemove(s.id)} aria-label={`Remove ${s.name}`} className="min-h-11 self-center rounded-md border border-blue-500 px-3 text-sm font-medium text-blue-600 hover:bg-blue-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
