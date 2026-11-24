@@ -102,14 +102,15 @@ export function EventRoomReady() {
     return () => { cancelled = true; };
   }, [event?.id, granted]);
 
-  const handleChange = useCallback((next: number) => {
-    setValue(next);
-    setTouched(true);
-  }, []);
-
   // P1718 R3: one tap goes through. A second tap on Continue, Skip or the step bar while a save is in flight does
   // nothing (the bar shares this guard: review round 2). `saving` shows it: both buttons are busy until the person moves on.
   const leaving = useRef(false);
+  // Review round 4: once they are leaving, the slider holds still, so it never shows an answer that was not sent.
+  const handleChange = useCallback((next: number) => {
+    if (leaving.current) return;
+    setValue(next);
+    setTouched(true);
+  }, []);
   const [saving, setSaving] = useState(false);
   // Review round 3: Back stays live during the save. Someone who leaves for the event page is not pulled into the room
   // when the save settles.
@@ -153,8 +154,9 @@ export function EventRoomReady() {
         saved = true;
       } catch {
         // Readiness is a note, not a gate — the person still goes in. P1718 R4: a failed or stalled save is
-        // remembered as a skip, so the gate does not send them back here on every re-entry.
-        rememberReadySkipped(self.profileId, event?.id);
+        // remembered as a skip, so the gate does not send them back here on every re-entry. A failed re-save of an
+        // answer already stored is not a skip (review round 4): the stored answer stands.
+        if (self.readinessValue == null) rememberReadySkipped(self.profileId, event?.id);
       }
       // The answer is stored; a failed re-read only leaves the tick for the next read to draw.
       const left = deadline - Date.now();
@@ -172,7 +174,7 @@ export function EventRoomReady() {
   const mastermindHost = isMastermindHost(event, self?.profileId);
   // P1718 R8: Ready never stands at a running table. The rounds read starts with the room row's (not after it), and is
   // asked only when this screen could show.
-  const seated = useSeatedAtRunningRound(event?.id, self?.id, granted && !isFrozen && hasReadiness);
+  const seated = useSeatedAtRunningRound(event?.id, self?.id, granted && !isFrozen && hasReadiness && !mastermindHost);
 
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;

@@ -297,6 +297,20 @@ describe('Continue saves only an answer', () => {
     expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
   });
 
+  it('the slider does not move while the save is in flight, so the screen never shows an answer that was not sent (review round 4)', async () => {
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    setRoom(mastermind);
+    await mountReady('mm');
+    moveSlider();
+    const before = screen.getByRole('slider').getAttribute('aria-valuenow');
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await waitFor(() => expect(screen.getByTestId('room-ready-continue')).toBeDisabled());
+    moveSlider();
+    moveSlider();
+    expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe(before);
+    expect(setRoomReadiness).toHaveBeenCalledTimes(1);
+  });
+
   it('Skip says it is busy too while the save is in flight', async () => {
     vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
     setRoom(mastermind);
@@ -304,6 +318,16 @@ describe('Continue saves only an answer', () => {
     moveSlider();
     fireEvent.click(screen.getByTestId('room-ready-continue'));
     await waitFor(() => expect(screen.getByTestId('room-ready-skip')).toHaveAttribute('aria-busy', 'true'));
+  });
+
+  it('a failed re-save of an answer already stored writes no skip (review round 4)', async () => {
+    vi.mocked(setRoomReadiness).mockRejectedValue(new Error('offline'));
+    setRoom(mastermind, { ...selfA, readinessValue: 7 });
+    await mountReady('mm');
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await expectOnMeet();
+    expect(setRoomReadiness).toHaveBeenCalledTimes(1);
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
   });
 
   it('answering after an earlier skip clears the remembered skip', async () => {
@@ -545,6 +569,13 @@ describe('the room gate', () => {
     expect(destination()).toBe('ready');
   });
 
+  it('storage blocked on re-entry (getItem throws): the gate still decides, and sends a first visit to /ready (review round 4)', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked'); });
+    setRoom(mastermind, { ...selfA });
+    mountGate('mm');
+    expect(destination()).toBe('ready');
+  });
+
   it('a mastermind non-host on a first visit goes to /ready', () => {
     setRoom(mastermind, { ...selfA });
     mountGate('mm');
@@ -591,6 +622,15 @@ describe('RoomSteps done', () => {
   it('the mastermind bar without Canvas (five steps): ticks hidden on a phone too', () => {
     labelled(['compare'], false, false);
     expect(phoneHidden('room-step-ready-check')).toBe(true);
+  });
+
+  it('the six-step bar takes the small face below 430px; the five-step mastermind bar does not (review round 4)', () => {
+    const { unmount } = labelled(['compare'], true, true);
+    expect(screen.getByTestId('room-step-principle-text').getAttribute('class')).toContain('max-[429px]:text-[10px]');
+    expect(screen.getByTestId('room-step-learn-text').getAttribute('class')).toContain('max-[429px]:text-[10px]');
+    unmount();
+    labelled(['compare'], false, true);
+    expect(screen.getByTestId('room-step-principle-text').getAttribute('class')).not.toContain('max-[429px]:text-[10px]');
   });
 
   it("the hike's short bar keeps its ticks at every width", () => {

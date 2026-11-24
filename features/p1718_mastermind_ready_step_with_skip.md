@@ -298,7 +298,7 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 and 3; accepted, none strands anyone):**
+**Known limitations (code review rounds 2 to 4; accepted, none strands anyone):**
 - **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle
   and Canvas cannot be tapped there for someone already past them. Continue, Skip, Table, Review and Learn still
   lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
@@ -309,6 +309,12 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   tick only from its next read of the room.
 - **The Ready tab while seated at a running round** is still tappable in `/meet`; `/ready` then forwards back
   (R8), with a brief loader.
+- **A remembered skip can sit beside a stored answer** when a save landed but the re-read after it did not, and the
+  person then leaves `/ready` by the bar. The gate reads the stored answer first, so where anyone lands never changes.
+- **No member row while online** (the join read failed): Continue saves nothing and remembers nothing, since there is
+  no row to save to and no profile to key the memory by. The next entry asks again.
+- **The buttons show the save only by dimming**, for up to 5s on stalled wifi, with no "Saving…" label. Adding copy
+  is a founder decision.
 
 ## What Stays the Same
 

@@ -62,7 +62,8 @@ async function enterRoom(page: Page, p: Person, ev: TestEvent): Promise<void> {
   await page.goto(`/events/${ev.slug}/room`);
 }
 
-async function shots(page: Page, name: string, widths: readonly number[] = [1280, 375, 320]): Promise<void> {
+// Review round 4 / visual QA: 768 (where the mastermind's ticks return), 430 and 360 (the face breakpoints) too.
+async function shots(page: Page, name: string, widths: readonly number[] = [1280, 768, 430, 375, 360, 320]): Promise<void> {
   for (const w of widths) {
     await page.setViewportSize({ width: w, height: w >= 1280 ? 900 : 812 });
     await page.waitForTimeout(400);
@@ -242,7 +243,7 @@ test('Canvas made at the event: /ready shows the Canvas step and still no Compar
   await page.getByTestId('room-ready-continue').click();
   await expect(page.getByTestId('room-meet')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ready, done' })).toBeVisible();
-  await shots(page, 'mastermind-canvas-meet-answered', [1280, 768, 600, 430, 375, 320]);
+  await shots(page, 'mastermind-canvas-meet-answered', [1280, 768, 600, 430, 375, 360, 320]);
 });
 
 test('Clarity Night: Ready keeps its order and gains Skip; an untouched Continue stores nothing', async ({ page }) => {
@@ -251,9 +252,12 @@ test('Clarity Night: Ready keeps its order and gains Skip; an untouched Continue
   await expect(page).toHaveURL(new RegExp(`/events/${CN.slug}/ready$`));
   await expect(page.getByRole('button', { name: /Compare/ })).toBeVisible();
   await expect(page.getByTestId('room-ready-skip')).toHaveText('Skip');
-  await shots(page, 'clarity-night-ready', [375, 1280, 320]);
+  await shots(page, 'clarity-night-ready', [375, 1280, 430, 360, 320]);
   await page.getByTestId('room-ready-continue').click();
   await expect(page.getByTestId('room-meet')).toBeVisible();
   expect(await readiness(CN, f), 'an untouched Continue stores no value on Clarity Night either').toBeNull();
+  // R10 on Clarity Night too (review round 4): no stored value, no done tick on Ready.
+  await expect(page.getByRole('button', { name: 'Ready, done' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Ready/ })).toBeVisible();
   await shots(page, 'clarity-night-meet', [375]);
 });
