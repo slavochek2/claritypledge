@@ -7350,13 +7350,11 @@ tidy_cwd_inside() {
 }
 # 0 when a non-regenerable file inside the worktree was modified within <minutes>, or when the
 # tree cannot be fully read.
-# .lock*, .activity* and .hold* are bookkeeping about the slot, not work in it: a hold re-ask
-# rewrites .hold, and the hold's own state and hash decide what that file means (P1723).
 tidy_fresh_files() {
   local wt="$1" min="$2" out
   out="$(find "$wt" \( -name .git -o -name node_modules -o -name dist -o -name coverage -o -name test-results \
        -o -name playwright-report -o -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name .mypy_cache \) -prune \
-       -o -type f ! -name '.lock*' ! -name '.activity*' ! -name '.hold*' -mmin "-$min" -print 2>/dev/null)" || return 0
+       -o -type f ! -name '.lock*' ! -name '.activity*' -mmin "-$min" -print 2>/dev/null)" || return 0
   [[ -n "$out" ]]
 }
 
@@ -8314,7 +8312,12 @@ cmd_hold_reask() {
          && printf 'REASK_AT=%s\n' "$until" && printf 'NOTE=%s %s\n' "$(p1723_iso "$now")" "$note"; } > "$tmp"; then
     rm -f "$tmp"; die "hold-reask: could not write the new hold; the hold stays"
   fi
-  p1723_still_idle hold-reask "$slot" "$tmp"   # after the slow steps; the temp file is not a fresh write
+  # The rewrite keeps the hold's own mtime: a re-ask is not work in the slot, so neither its temp
+  # file nor the new .hold may make the slot read active (nothing reads a hold's age from its
+  # mtime; WRITTEN_AT does that). tidy's freshness scan stays as it was, so a hold that does not
+  # block keeps tidy's 12-hour grace (build review round 5).
+  touch -r "$H_FILE" "$tmp" 2>/dev/null || { rm -f "$tmp"; die "hold-reask: could not write the new hold; the hold stays"; }
+  p1723_still_idle hold-reask "$slot" "$tmp"   # after the slow steps
   if [[ "$(p1723_hash "$H_FILE" || true)" != "$expect" ]]; then
     rm -f "$tmp"; die "hold-reask: the hold on $slot changed while it was being archived; it stays (the earlier copy is at $H_COPY)"
   fi

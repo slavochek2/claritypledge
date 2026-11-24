@@ -29,6 +29,8 @@
 #      into use after the gate but before the change keeps its hold (release and re-ask)
 #   Review round 4: a held worktree whose name has a space reads 'on hold' too; a re-ask does not
 #      make its own slot read active; re-ask re-checks liveness after its temp file is built
+#   Review round 5: tidy's freshness scan is unchanged (a re-ask keeps the hold's mtime instead),
+#      so a freshly written hold that does not block still keeps tidy's 12-hour grace
 #
 # Hermetic: builds its own fixture repo under mktemp, never touches the real repo's worktrees,
 # holds or .private. P1723_SCRIPTS_DIR points it at another copy of git-ops.sh and
@@ -378,6 +380,11 @@ o="$(go hold-reask w25 --expect "$(sha "$S25/.hold")" --until "$UNTIL" --note "k
 grep -q '[<>|]' <<<"$o" && fail "5q: re-ask status line has < > |" || pass "5q: re-ask status line has no < > |"
 r="$(row "$(holds)" w25)"
 [[ "$(col "$r" 10)" == idle ]] && pass "5s: a re-ask does not make its own slot read active (rewriting .hold is not work in the slot)" || fail "5s: w25 row after re-ask: $r"
+# control for 5s: tidy's freshness scan is shared and unchanged, so a .hold written now by any
+# other route is still fresh work in the slot (tidy keeps its 12-hour grace for it)
+touch "$S25/.hold"; r="$(row "$(holds)" w25)"
+[[ "$(col "$r" 10)" == active ]] && pass "5t: a .hold written now (not by re-ask) still reads active: tidy's scan is unchanged" || fail "5t: w25 row after touch: $r"
+age "$S25" 13
 # A copy of git-ops.sh that marks the slot in use right after the archive step: the gate saw it
 # idle, the change must not happen. The copy sits beside the original (it sources lib/ from there).
 GOW="$R/scripts/git-ops-window.sh"
