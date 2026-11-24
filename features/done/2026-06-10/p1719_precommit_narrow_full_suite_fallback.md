@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 354
 workstream: infrastructure
 created_date: '2026-11-23'
 tags: [pre-commit, tests, vitest, contention]
 disclosure: public
-delivery_stage: qa
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: sonnet
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: bb80d3a3576614d8acf7e6051df6cb3f3559e7ddae1c8298d489031b44e43552
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-24
 ---
 
 # P1719: Narrow the pre-commit full-suite fallback to files the step truly cannot place
@@ -392,8 +392,8 @@ effect for all sessions at once. No state, flag or migration to unwind.
 
 ## Related
 
-- [P1635](done/2026-06-10/p1635_precommit_suite_contention.md): related tests at commit, the full
+- [P1635](p1635_precommit_suite_contention.md): related tests at commit, the full
   suite on the staging hop. Its invariants are carried above, one amended.
-- [P1676](done/2026-06-10/p1676_unit_test_runs_share_the_machine.md): worker sizing. Untouched.
+- [P1676](p1676_unit_test_runs_share_the_machine.md): worker sizing. Untouched.
 - decisions.md 2026-11-05 (P1635), 2026-11-13 (P1676), 2026-11-17 (a clean cherry-pick runs no
   hook; a conflicted `--continue` does).
