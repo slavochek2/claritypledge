@@ -42,6 +42,7 @@ export function SoloClarify() {
         <div className="mt-4 flex flex-col gap-1">
           <span className="text-sm font-medium text-gray-900">Share rule for private points (all screens)</span>
           <VariantSwitch<ShareRule>
+            label="Share rule for private points"
             value={rule}
             onChange={v => set({ share: v })}
             options={[{ id: 'public-only', label: 'Public only' }, { id: 'people', label: 'Share with people' }]}

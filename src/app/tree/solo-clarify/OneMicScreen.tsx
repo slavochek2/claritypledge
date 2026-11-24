@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DRAFTS, ME, ONE_MIC_TALK, OTHER } from './model';
+import { DRAFTS, ME, MIRROR, ONE_MIC_TALK, OTHER } from './model';
 import { Bubble, ChatFrame, ChatPointCard, ClarifyChip, DraftCard, MakePublicDialog, MirrorTurn, Note, VariantSwitch, type ShareRule } from './parts';
 import { allTags, useDraft } from './draft';
 
@@ -47,11 +47,11 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
         onChange={choose}
         options={[{ id: 'confirm', label: 'A. Confirm they agreed' }, { id: 'my-words', label: 'B. Only my words' }, { id: 'trust', label: 'C. Warning only' }]}
       />
-      <ChatFrame title="Sam's mirror" mirror action={<ClarifyChip onClick={() => setCreated(false)} label="Clarify recording" />}>
+      <ChatFrame title={MIRROR} mirror action={<ClarifyChip onClick={() => setCreated(false)} label="Clarify recording" />}>
         <p className="text-xs text-muted-foreground">Recording on this device · Speaker 1 is {ME}, Speaker 2 is {OTHER}, not on Clarity Pledge</p>
         {ONE_MIC_TALK.map(m => <Bubble key={m.id} msg={m} name={m.who === 'me' ? ME : OTHER} />)}
         {!created ? (
-          <MirrorTurn name="Sam's mirror">
+          <MirrorTurn name={MIRROR}>
             <p className="text-sm">{variant === 'my-words' ? 'From what you said (Speaker 1 only):' : 'From the conversation:'}</p>
             <DraftCard
               draft={draft}
@@ -62,8 +62,9 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
             />
           </MirrorTurn>
         ) : (
-          <MirrorTurn name="Sam's mirror">
-            <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} />
+          <MirrorTurn name={MIRROR}>
+            {/* B drafts from your words only, so there is nothing of theirs to warn about, before creation or after */}
+            <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => (variant === 'my-words' ? update({ visibility: 'public' }) : setWarn(true))} />
           </MirrorTurn>
         )}
       </ChatFrame>

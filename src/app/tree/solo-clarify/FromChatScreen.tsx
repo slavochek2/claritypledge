@@ -6,7 +6,7 @@
  */
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { DM_TALK, DRAFTS, ME, OTHER } from './model';
+import { DM_TALK, DRAFTS, ME, MIRROR, OTHER } from './model';
 import { Bubble, ChatFrame, ChatPointCard, DraftCard, MakePublicDialog, MirrorTurn, Note, Said, VariantSwitch, type ShareRule } from './parts';
 import { allTags, useDraft } from './draft';
 
@@ -41,10 +41,10 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
             </div>
           )}
         </ChatFrame>
-        <ChatFrame title="Sam's mirror" mirror>
+        <ChatFrame title={MIRROR} mirror>
           <p className="text-xs text-muted-foreground">Clarifying {ME}&apos;s message from the chat with {OTHER}</p>
           {outcome === null ? (
-            <MirrorTurn name="Sam's mirror">
+            <MirrorTurn name={MIRROR}>
               <DraftCard
                 draft={draft}
                 update={update}
@@ -61,7 +61,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
               />
             </MirrorTurn>
           ) : (
-            <MirrorTurn name="Sam's mirror">
+            <MirrorTurn name={MIRROR}>
               <Said>
                 {outcome === 'posted' ? `Posted in the chat with ${OTHER}` : 'Created, not posted anywhere'}, as a {draft.visibility} point.
                 {outcome === 'kept' && ' It is on your profile; share it from here whenever you like.'}

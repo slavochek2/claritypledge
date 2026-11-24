@@ -4,7 +4,7 @@
  * visibility icons, the position buttons and the Mirror's face are the product's own; the chat around them is a
  * render-only stand-in (no network, no auth). Toasts are not mounted on /tree, so what a tap would do is said inline.
  */
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Check, Globe, Lock, Pencil, Share2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,7 @@ import { InlineVisibilityIcon, VisibilityBadge } from '@/app/components/shared/v
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import { MirrorGlyph, MirrorMark } from '@/app/pages/chat/chat-kit';
 import { cn } from '@/lib/utils';
-import type { FakeMessage, Visibility } from './model';
+import { removeTag, type FakeMessage, type Visibility } from './model';
 import { allTags, type DraftState } from './draft';
 
 const NO_COUNTS: SevenPointCounts = {
@@ -49,7 +49,7 @@ export function ChatFrame({ title, mirror = false, action, children }: { title: 
       <header className="flex min-h-14 items-center justify-between gap-2 border-b px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           {mirror && <MirrorMark size="md" imageUrl={null} />}
-          <h3 className="truncate text-base font-semibold">{title}</h3>
+          <h2 className="truncate text-base font-semibold">{title}</h2>
         </div>
         {action}
       </header>
@@ -58,7 +58,7 @@ export function ChatFrame({ title, mirror = false, action, children }: { title: 
   );
 }
 
-export function Bubble({ msg, name, onClarify }: { msg: FakeMessage; name: string; onClarify?: () => void }) {
+export function Bubble({ msg, name, onClarify }: { msg: FakeMessage; name: string; onClarify?: (m: FakeMessage) => void }) {
   const mine = msg.who === 'me';
   return (
     <div className={cn('flex max-w-[92%] flex-col gap-1', mine ? 'self-end items-end' : 'self-start items-start')}>
@@ -68,7 +68,7 @@ export function Bubble({ msg, name, onClarify }: { msg: FakeMessage; name: strin
         {msg.transcribed && <span className="rounded-full bg-muted px-2 py-0.5">Transcribed</span>}
       </div>
       <p className={cn('break-words rounded-lg px-3 py-2 text-sm', mine ? 'bg-blue-50 text-foreground' : 'bg-muted text-foreground')}>{msg.text}</p>
-      {onClarify && <ClarifyChip onClick={onClarify} />}
+      {onClarify && <ClarifyChip onClick={() => onClarify(msg)} />}
     </div>
   );
 }
@@ -83,23 +83,32 @@ export function MirrorTurn({ name, children }: { name: string; children: ReactNo
   );
 }
 
-/** Private or Public, a radio pair: the chosen one lightly filled with a tick, so it never competes with the filled primary under the card. */
-export function VisibilityChoice({ value, onChange }: { value: Visibility; onChange: (v: Visibility) => void }) {
-  const opt = (v: Visibility, Icon: typeof Lock, label: string) => {
-    const on = value === v;
-    return (
-      <label className={cn('inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-sm text-blue-700 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring', on ? 'border-blue-600 bg-blue-100 font-semibold' : 'border-blue-600 bg-blue-50')}>
-        <input type="radio" name="visibility" value={v} checked={on} onChange={() => onChange(v)} className="sr-only" />
-        {on ? <Check className="h-4 w-4" aria-hidden /> : <Icon className="h-4 w-4" aria-hidden />}{label}
-      </label>
-    );
-  };
+/**
+ * A radio group drawn as light blue pills: the chosen one a shade darker, bold and ticked, so it never competes with the
+ * filled primary on the screen (one primary per view). Used for Private/Public and for the prototype's variant switches.
+ */
+export function Choice<T extends string>({ label, value, options, onChange }: {
+  label: string; value: T; options: { id: T; label: string; icon?: typeof Lock }[]; onChange: (v: T) => void;
+}) {
+  const name = useId();
   return (
-    <div role="radiogroup" aria-label="Who can see this point" className="flex flex-wrap items-center gap-2">
-      {opt('private', Lock, 'Private')}
-      {opt('public', Globe, 'Public')}
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap items-center gap-2">
+      {options.map(o => {
+        const on = value === o.id;
+        const Icon = on ? Check : o.icon;
+        return (
+          <label key={o.id} className={cn('inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-md border border-blue-600 px-3 text-sm text-blue-700 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring', on ? 'bg-blue-100 font-semibold' : 'bg-blue-50')}>
+            <input type="radio" name={name} value={o.id} checked={on} onChange={() => onChange(o.id)} className="sr-only" />
+            {Icon && <Icon className="h-4 w-4" aria-hidden />}{o.label}
+          </label>
+        );
+      })}
     </div>
   );
+}
+
+export function VisibilityChoice({ value, onChange }: { value: Visibility; onChange: (v: Visibility) => void }) {
+  return <Choice<Visibility> label="Who can see this point" value={value} onChange={onChange} options={[{ id: 'private', label: 'Private', icon: Lock }, { id: 'public', label: 'Public', icon: Globe }]} />;
 }
 
 export function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (t: string) => void }) {
@@ -110,7 +119,7 @@ export function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (t: st
         <li key={t} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
           #{t}
           {onRemove && (
-            <button type="button" aria-label={`Remove tag ${t}`} className="inline-flex h-6 w-6 items-center justify-center" onClick={() => onRemove(t)}>
+            <button type="button" aria-label={`Remove tag ${t}`} className="-my-3 -mr-2 inline-flex h-11 w-10 items-center justify-center" onClick={() => onRemove(t)}>
               <X className="h-3 w-3" aria-hidden />
             </button>
           )}
@@ -120,7 +129,7 @@ export function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (t: st
   );
 }
 
-function TagInput({ onAdd }: { onAdd: (t: string) => void }) {
+function TagInput({ onAdd, hintId }: { onAdd: (t: string) => void; hintId: string }) {
   const [v, setV] = useState('');
   const add = () => {
     const t = v.trim().replace(/^#/, '').toLowerCase();
@@ -132,10 +141,9 @@ function TagInput({ onAdd }: { onAdd: (t: string) => void }) {
       value={v}
       onChange={e => setV(e.target.value)}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); } }}
-      onBlur={add}
       placeholder="Add a tag"
       aria-label="Add a tag"
-      aria-describedby="tag-hint"
+      aria-describedby={hintId}
       className="h-10 text-base md:text-sm"
     />
   );
@@ -154,12 +162,13 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
   actions: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
+  const hintId = useId();
   const { statement, tags } = allTags(draft);
   const pick = (v: Visibility) => (v === 'public' && draft.visibility !== 'public' && onPublicPick ? onPublicPick() : update({ visibility: v }));
   return (
     <div className="flex flex-col gap-2">
       <PointCardShell
-        aria-label={`Draft point: ${statement}`}
+        aria-label={statement ? `Draft point: ${statement}` : 'Draft point, empty'}
         header={
           <div className="mb-1 flex items-center gap-2">
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Draft</span>
@@ -167,7 +176,14 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
           </div>
         }
         statement={editing ? (
-          <Textarea autoFocus rows={3} value={draft.text} aria-label="Point text" className="text-base" onChange={e => update({ text: e.target.value })} onBlur={() => setEditing(false)} />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <Textarea
+              autoFocus rows={3} value={draft.text} aria-label="Point text" className="text-base"
+              onChange={e => update({ text: e.target.value })}
+              onKeyDown={e => { if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Escape') { e.preventDefault(); setEditing(false); } }}
+            />
+            <Button type="button" variant="outline" className="h-11 min-h-11 self-end" onClick={() => setEditing(false)}>Done</Button>
+          </div>
         ) : (
           <p className="min-w-0 flex-1 break-words text-base font-medium text-foreground">{statement}</p>
         )}
@@ -176,10 +192,10 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
         )}
         footer={
           <div className="flex flex-col gap-3 px-4 pb-4">
-            <TagChips tags={tags} onRemove={t => update({ tags: draft.tags.filter(x => x !== t), text: draft.text.replace(new RegExp(`\\s*#${t}\\b`, 'gi'), '') })} />
+            <TagChips tags={tags} onRemove={t => update({ tags: draft.tags.filter(x => x !== t), text: removeTag(draft.text, t) })} />
             <div className="flex flex-col gap-1">
-              <TagInput onAdd={t => update({ tags: Array.from(new Set([...draft.tags, t])) })} />
-              <span id="tag-hint" className="text-xs text-muted-foreground">Or type #tag in the text</span>
+              <TagInput hintId={hintId} onAdd={t => update({ tags: Array.from(new Set([...draft.tags, t])) })} />
+              <span id={hintId} className="text-xs text-muted-foreground">Or type #tag in the text</span>
             </div>
             {choose && (
               <div className="flex flex-col gap-1">
@@ -194,7 +210,9 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
           <PositionButtons userPosition={draft.position} counts={NO_COUNTS} compact narrow onPositionClick={p => update({ position: p })} onClear={() => update({ position: null })} />
         </div>
       </PointCardShell>
-      <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
+      {statement
+        ? <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
+        : <p className="text-sm text-muted-foreground">Write the point to create it (tags alone are not a point).</p>}
     </div>
   );
 }
@@ -208,7 +226,10 @@ export type ShareRule = 'public-only' | 'people';
 export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic }: {
   statement: string; tags: string[]; visibility: Visibility; rule: ShareRule; onMakePublic?: () => void;
 }) {
-  const [said, setSaid] = useState<ReactNode>(null);
+  const [note, setNote] = useState<{ at: string; text: ReactNode } | null>(null);
+  const at = `${visibility}|${rule}`;
+  const said = note?.at === at ? note.text : null;
+  const setSaid = (text: ReactNode) => setNote(text === null ? null : { at, text });
   const share = () => {
     if (visibility === 'public') { setSaid('Opens the share sheet: copy link, send to a chat, post. Anyone with the link can take a position.'); return; }
     if (rule === 'people') { setSaid('Opens "Share with people": pick who may see it. Only they can see it and take a position; it stays off your profile and the feed.'); return; }
@@ -273,12 +294,7 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
 }
 
 /** A two-way switch between the variants a screen compares. */
-export function VariantSwitch<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
-  return (
-    <div role="group" aria-label="Variant" className="flex flex-wrap gap-2">
-      {options.map(o => (
-        <Button key={o.id} type="button" size="sm" variant={value === o.id ? 'default' : 'outline'} aria-pressed={value === o.id} className="h-11 min-h-11" onClick={() => onChange(o.id)}>{o.label}</Button>
-      ))}
-    </div>
-  );
+/** The prototype's own switch between variants (not product UI). */
+export function VariantSwitch<T extends string>({ label = 'Variant', value, options, onChange }: { label?: string; value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
+  return <Choice<T> label={label} value={value} options={options} onChange={onChange} />;
 }

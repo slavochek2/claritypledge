@@ -6,21 +6,26 @@
  */
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ME, MIRROR_TALK, DRAFTS } from './model';
+import { DRAFTS, ME, MIRROR, MIRROR_TALK, type FakeMessage } from './model';
 import { Bubble, ChatFrame, ChatPointCard, ClarifyChip, DraftCard, MirrorTurn, Note, VariantSwitch, VisibilityChoice, type ShareRule } from './parts';
 import { allTags, useDraft } from './draft';
 
 type Variant = 'choose-first' | 'private-first';
-const MIRROR = "Sam's mirror";
+const NEXT = { [DRAFTS.mirror]: DRAFTS.mirrorNext, [DRAFTS.mirrorNext]: DRAFTS.mirror } as Record<string, string>;
 
 export function MirrorScreen({ rule }: { rule: ShareRule }) {
   const [variant, setVariant] = useState<Variant>('choose-first');
   const [clarified, setClarified] = useState(true);
   const [created, setCreated] = useState(false);
+  const [source, setSource] = useState<FakeMessage | null>(null);
+  const [base, setBase] = useState<string>(DRAFTS.mirror);
   const [draft, update] = useDraft(DRAFTS.mirror);
   const { statement, tags } = allTags(draft);
-  const start = () => { setClarified(true); setCreated(false); };
-  const reset = () => { setClarified(false); setCreated(false); update({ visibility: 'private', position: null }); };
+  // Every Clarify is a fresh draft: the Mirror's text, no tags, private (in B the picker is hidden, so nothing may carry over).
+  const fresh = (text: string) => update({ text, tags: [], visibility: 'private', position: null });
+  const start = (m: FakeMessage | null) => { setSource(m); setClarified(true); setCreated(false); fresh(base); };
+  const another = () => { const next = NEXT[base] ?? DRAFTS.mirror; setBase(next); setCreated(false); setClarified(true); fresh(next); };
+  const reset = () => { setClarified(false); setCreated(false); setSource(null); fresh(base); };
 
   return (
     <div className="flex flex-col gap-4">
@@ -34,10 +39,11 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
         onChange={v => { setVariant(v); setCreated(false); update({ visibility: 'private' }); }}
         options={[{ id: 'choose-first', label: 'A. Choose before creating' }, { id: 'private-first', label: 'B. Always private first' }]}
       />
-      <ChatFrame title={MIRROR} mirror action={<ClarifyChip onClick={start} label="Clarify" />}>
+      <ChatFrame title={MIRROR} mirror action={<ClarifyChip onClick={() => start(null)} label="Clarify" />}>
         {MIRROR_TALK.map(m => <Bubble key={m.id} msg={m} name={ME} onClarify={start} />)}
         {clarified && !created && (
           <MirrorTurn name={MIRROR}>
+            <p className="text-xs text-muted-foreground">{source ? `Clarifying your message from ${source.time}` : 'Clarifying the whole chat'}</p>
             <p className="text-sm">Here is the point I hear in what you said and what you meant:</p>
             <DraftCard
               draft={draft}
@@ -45,7 +51,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
               choose={variant === 'choose-first'}
               actions={
                 <>
-                  <Button type="button" variant="outline" className="h-11 min-h-11" onClick={reset}>Another point</Button>
+                  <Button type="button" variant="outline" className="h-11 min-h-11" onClick={another}>Another point</Button>
                   <Button type="button" className="h-11 min-h-11" onClick={() => setCreated(true)}>
                     {variant === 'choose-first' && draft.visibility === 'public' ? 'Create public point' : 'Create point'}
                   </Button>

@@ -2,6 +2,7 @@
  * @file model.ts
  * @description P1722 exploration: the invented data the /tree/solo-clarify screens draw. Obviously fake, no network.
  */
+import { extractHashtags, stripHashtags } from '@/lib/utils';
 export type Visibility = 'private' | 'public';
 
 export interface FakeMessage {
@@ -17,6 +18,7 @@ export interface FakeMessage {
 }
 
 export const ME = 'Sam (example)';
+export const MIRROR = "Sam's mirror";
 export const OTHER = 'Mia (example)';
 
 /** Think out loud in the Mirror chat: voice, then a typed aside to the Mirror. */
@@ -41,14 +43,17 @@ export const DM_TALK: FakeMessage[] = [
 
 /** No tags in the invented drafts (src.md: no agent-authored hashtags): the founder types any to try it. */
 export const DRAFTS = {
+  mirrorNext: 'A conversation goes better when each side says back what they heard before answering.',
   mirror: 'Being restated correctly is what lets people change their mind, not the strength of the arguments.',
   oneMic: 'Launch the course in spring with a smaller promise rather than a smaller course.',
   dm: 'Team meetings run long because nobody is sure what was decided, not because nobody prepares.',
 } as const;
 
-/** A #tag in the statement becomes a tag; the statement shows without it, as the feed does. */
+/** A #tag in the statement becomes a tag and the statement shows without it, as the feed does: the product's own rule (P1660: links masked, whole tokens only). */
 export function splitTags(text: string): { statement: string; tags: string[] } {
-  const tags = Array.from(text.matchAll(/#([\p{L}\p{N}_-]+)/gu), m => (m[1] ?? "").toLowerCase());
-  const statement = text.replace(/\s*#[\p{L}\p{N}_-]+/gu, '').trim();
-  return { statement, tags: Array.from(new Set(tags)) };
+  const tags = extractHashtags(text);
+  return { statement: stripHashtags(text, tags), tags };
 }
+
+/** The text without `#tag` (the shared rule, so a tag such as `c++` is matched literally). */
+export const removeTag = (text: string, tag: string): string => stripHashtags(text, [tag]);
