@@ -97,8 +97,8 @@ stampHistoryBoot();
 void retryPendingOfflineClear();
 
 // P1705: dev server only. Shows whether shared TEST serves this branch's edge functions; the module
-// and its marker string are absent from a production build.
-if (import.meta.env.DEV) {
+// and its marker string are absent from a production build. Opt-in: set VITE_SHOW_FUNCTIONS_BANNER=1.
+if (import.meta.env.DEV && import.meta.env.VITE_SHOW_FUNCTIONS_BANNER === "1") {
   void import("./dev/test-functions-banner").then((m) => m.mountFunctionsBanner());
 }
 
