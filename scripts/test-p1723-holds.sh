@@ -15,6 +15,11 @@
 #      after hold-release --proof archived the next run finishes it
 #   7. an unreadable hold (no OWNER): state unreadable, proof none, due yes; release refused
 #   8. `holds` never prints the hold's REASON (a reason with > and | in it)
+#   Review round 1: a pNNNN only as a whole branch segment (feature/top10-landing is not p10);
+#      a WRITTEN_AT a year ahead is unreadable; --proof answered only on a due hold; a refused
+#      release or re-ask writes no log line and no archive copy; a re-ask turns a date owner
+#      into founder and refuses an expired hold; finish-pending never relays the REASON or a
+#      'delete the .hold yourself' line; HOLDS none when nothing is held
 #
 # Hermetic: builds its own fixture repo under mktemp, never touches the real repo's worktrees,
 # holds or .private. P1723_SCRIPTS_DIR points it at another copy of git-ops.sh and
@@ -127,7 +132,7 @@ hold_file "$S2" founder "waiting for the founder to look at the design" "$((NOW 
 hold_file "$S3" founder "waiting for the founder, nothing committed yet" "$((NOW - 2 * DAY))"
 hold_file "$S4" founder "waiting for founder verify on the qa spec" "$((NOW - 2 * DAY))"
 # 2. archived (w10) and its controls (w11 no proof, w12 stale proof, w13 moved tip)
-S10="$(archive_fixture w10 p9010 good)";    hold_file "$S10" founder "retained until archive-spec runs after the push" "$((NOW - 2 * DAY))"
+S10="$(archive_fixture w10 p9010 good)";    hold_file "$S10" founder 'retained until $(x);& WHYTEXT after the push' "$((NOW - 2 * DAY))"
 S11="$(archive_fixture w11 p9011 noproof)"; hold_file "$S11" founder "retained until archive-spec runs after the push" "$((NOW - 2 * DAY))"
 S12="$(archive_fixture w12 p9012 stale)";   hold_file "$S12" founder "retained until archive-spec runs after the push" "$((NOW - 2 * DAY))"
 S13="$(archive_fixture w13 p9013 good)";    hold_file "$S13" founder "retained until archive-spec runs after the push" "$((NOW - 2 * DAY))"
@@ -139,6 +144,12 @@ S22="$(slot w22 feature/due-reask-past)"; hold_file "$S22" founder "re-ask time 
 S23="$(slot w23 feature/due-reask-next)"; hold_file "$S23" founder "re-ask time is ahead, founder decides" "$((NOW - 30 * DAY))" "REASK_AT=$(minute $((NOW + 3 * DAY)))"
 S24="$(slot w24 feature/due-dated)";      hold_file "$S24" 2099-01-01T00:00Z "date owned, expires on its own date" "$((NOW - 30 * DAY))"
 S25="$(slot w25 feature/due-spec)";       hold_file "$S25" p9999 "waits on another spec to close first" "$((NOW - 8 * DAY))"
+S27="$(slot w27 feature/due-expired)";    hold_file "$S27" 2020-01-01T00:00Z "date owned, already expired" "$((NOW - 30 * DAY))"
+# 1h. a branch whose name only CONTAINS p<digits>, empty, with an old closed p10 spec on main
+spec_on_main features/done/2026-11-01/p10_old.md all-done
+S50="$(slot w50 feature/top10-landing)";  hold_file "$S50" founder "adopt or discard the top10 mockup" "$((NOW - 1 * DAY))"
+# 7c. WRITTEN_AT a year in the future
+S31="$(slot w31 feature/future-hold)";    hold_file "$S31" founder "written with a clock a year ahead" "$((NOW + 400 * DAY))"
 # 4. LIVE (w40) and active (w41)
 S40="$(slot w40 feature/live-slot)"; hold_file "$S40" founder "a live session owns this slot right now" "$((NOW - 9 * DAY))"
 ST="$(ps -o lstart= -p $$ | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]][[:space:]]*/ /g')"
@@ -148,7 +159,7 @@ S41="$(slot w41 feature/active-slot)"; hold_file "$S41" founder "a session worke
 S30="$(slot w30 feature/unreadable)"
 printf 'REASON=somebody wrote this by hand\nWRITTEN_AT=%s\n' "$((NOW - DAY))" > "$S30/.hold"
 
-for s in "$S1" "$S2" "$S3" "$S4" "$S10" "$S11" "$S12" "$S13" "$S20" "$S21" "$S22" "$S23" "$S24" "$S25" "$S40" "$S30"; do age "$s" 13; done
+for s in "$S1" "$S2" "$S3" "$S4" "$S10" "$S11" "$S12" "$S13" "$S20" "$S21" "$S22" "$S23" "$S24" "$S25" "$S27" "$S50" "$S31" "$S40" "$S30"; do age "$s" 13; done
 # S41 is deliberately not aged: its git dir and files were written moments ago.
 
 OUT="$(holds)"; rc=$?
@@ -169,6 +180,8 @@ r="$(row "$OUT" w3)"
 [[ "$(col "$r" 11)" == open && "$(col "$r" 12)" == none ]] && pass "1f control: an empty branch (tip an ancestor of main) with an open spec reads none" || fail "1f: w3 row: $r"
 r="$(row "$OUT" w4)"
 [[ "$(col "$r" 11)" == qa && "$(col "$r" 12)" == none ]] && pass "1g: a spec with status qa on main reads spec qa" || fail "1g: w4 row: $r"
+r="$(row "$OUT" w50)"
+[[ "$(col "$r" 3)" == - && "$(col "$r" 12)" == none ]] && pass "1h control: feature/top10-landing is not p10; an old closed p10 proves nothing" || fail "1h: w50 row: $r"
 
 echo "--- 2. proof archived ---"
 r="$(row "$OUT" w10)"
@@ -195,19 +208,25 @@ r="$(row "$OUT" w30)"
 cp "$S30/.hold" "$SCRATCH/w30.before"
 o="$(go hold-release w30 --expect "$(sha "$S30/.hold")" --proof answered)"; rc=$?
 { [[ $rc -ne 0 ]] && same_bytes "$S30/.hold" "$SCRATCH/w30.before"; } && pass "7b: hold-release refuses an unreadable hold (exit $rc), bytes unchanged" || fail "7b: rc $rc: $o"
+r="$(row "$OUT" w31)"
+[[ "$(col "$r" 9)" == unreadable && "$(col "$r" 13)" == yes ]] && pass "7c: a WRITTEN_AT a year ahead reads unreadable and due" || fail "7c: w31 row: $r"
 
 echo "--- 8. the reason is never printed ---"
 grep -q '[<>|]' <<<"$OUT" && fail "8a: holds output contains a < > or | character" || pass "8a: holds output has no < > | (reason carried > | < )"
 grep -q 'REASONTEXT\|ship it\|founder decides' <<<"$OUT" && fail "8b: holds printed REASON text" || pass "8b: holds prints no REASON text"
 n="$(printf '%s\n' "$OUT" | awk -F'\t' '$1 == "HOLD" && NF == 13' | wc -l | tr -d ' ')"
-[[ "$n" == 17 ]] && pass "8c: one 13-column HOLD line per held slot (17)" || fail "8c: $n well-formed HOLD lines, wanted 17: $OUT"
+[[ "$n" == 20 ]] && pass "8c: one 13-column HOLD line per held slot (20)" || fail "8c: $n well-formed HOLD lines, wanted 20: $OUT"
 
 # ════════════════════════════════════════════════════════════════════════════
 echo "--- 4. hold-release ---"
 H1="$(col "$(row "$OUT" w1)" 8)"; cp "$S1/.hold" "$SCRATCH/w1.before"
 tip1="$(G rev-parse feature/p9001-x)"
+logn() { cat "$RLOG" 2>/dev/null | wc -l | tr -d ' '; }
+archn() { ls "$ARCH" 2>/dev/null | wc -l | tr -d ' '; }
+L0="$(logn)"; A0="$(archn)"
 o="$(go hold-release w1 --expect "$(printf '%064d' 0)" --proof landed)"; rc=$?
 { [[ $rc -ne 0 ]] && same_bytes "$S1/.hold" "$SCRATCH/w1.before"; } && pass "4a: wrong --expect refused (exit $rc), hold bytes unchanged" || fail "4a: rc $rc: $o"
+[[ "$(logn)" == "$L0" && "$(archn)" == "$A0" ]] && pass "4a'': the refused release wrote no log line and no archive copy" || fail "4a'': log $L0 to $(logn), archive $A0 to $(archn)"
 grep -q '[<>|]' <<<"$o" && fail "4a': refusal line has < > |: $o" || pass "4a': refusal line has no < > |"
 cp "$S2/.hold" "$SCRATCH/w2.before"
 o="$(go hold-release w2 --expect "$(sha "$S2/.hold")" --proof landed)"; rc=$?
@@ -222,10 +241,11 @@ o="$(go hold-release w41 --expect "$(sha "$S41/.hold")" --proof answered)"; rc=$
 if [[ "$(id -u)" == 0 ]]; then
   echo "SKIP  4e: running as root, chmod cannot make the archive dir unwritable"
 else
-  mkdir -p "$ARCH"; chmod 555 "$ARCH"; cp "$S3/.hold" "$SCRATCH/w3.before"; lines0="$(cat "$RLOG" 2>/dev/null | wc -l | tr -d ' ')"
-  o="$(go hold-release w3 --expect "$(sha "$S3/.hold")" --proof answered)"; rc=$?
+  # w25 is due, so --proof answered gets past its own guard and reaches the archive step.
+  mkdir -p "$ARCH"; chmod 555 "$ARCH"; cp "$S25/.hold" "$SCRATCH/w25.before"; lines0="$(logn)"
+  o="$(go hold-release w25 --expect "$(sha "$S25/.hold")" --proof answered)"; rc=$?
   chmod 755 "$ARCH"
-  { [[ $rc -ne 0 ]] && same_bytes "$S3/.hold" "$SCRATCH/w3.before" && [[ "$(cat "$RLOG" 2>/dev/null | wc -l | tr -d ' ')" == "$lines0" ]]; } \
+  { [[ $rc -ne 0 ]] && same_bytes "$S25/.hold" "$SCRATCH/w25.before" && [[ "$(logn)" == "$lines0" ]] && grep -q 'archive' <<<"$o"; } \
     && pass "4e: archive dir unwritable: refused (exit $rc), bytes unchanged, nothing logged" || fail "4e: rc $rc: $o"
 fi
 o="$(go hold-release w1 --expect "$H1" --proof landed)"; rc=$?
@@ -238,11 +258,21 @@ last="$(tail -n 1 "$RLOG" 2>/dev/null)"
 { [[ "$(G rev-parse feature/p9001-x)" == "$tip1" && -d "$S1" ]]; } && pass "4i: branch ref and worktree unchanged by the release" || fail "4i: branch or worktree changed"
 grep -q "hold on w1 released (proof landed), copy kept at $COPY" <<<"$o" && pass "4j: status line names the copy" || fail "4j: $o"
 grep -q '[<>|]' <<<"$o" && fail "4k: status line has < > |" || pass "4k: status line has no < > |"
+o="$(go hold-release w2 --expect "$(sha "$S2/.hold")" --proof answered)"; rc=$?
+{ [[ $rc -ne 0 ]] && same_bytes "$S2/.hold" "$SCRATCH/w2.before" && grep -q 'only for a due hold' <<<"$o"; } \
+  && pass "4l: --proof answered on a hold that is not due: refused (exit $rc), bytes unchanged" || fail "4l: rc $rc: $o"
+H22="$(sha "$S22/.hold")"
+o="$(go hold-release w22 --expect "$H22" --proof answered)"; rc=$?
+{ [[ $rc -eq 0 && ! -e "$S22/.hold" ]] && [[ "$(tail -n 1 "$RLOG")" == *$'\t'hold-release$'\t'w22$'\t'*"proof answered"* ]]; } \
+  && pass "4m: --proof answered on a due hold: released, logged as answered" || fail "4m: rc $rc: $o"
 
 echo "--- 5. hold-reask ---"
 cp "$S20/.hold" "$SCRATCH/w20.before"; H20="$(sha "$S20/.hold")"; UNTIL="$(minute $((NOW + 14 * DAY)))"
 o="$(go hold-reask w20 --expect "$(printf '%064d' 0)" --until "$UNTIL" --note "keep two more weeks")"; rc=$?
 { [[ $rc -ne 0 ]] && same_bytes "$S20/.hold" "$SCRATCH/w20.before"; } && pass "5a: wrong --expect refused (exit $rc), bytes unchanged" || fail "5a: rc $rc: $o"
+L1="$(logn)"; A1="$(archn)"
+o="$(go hold-reask w20 --expect "$(printf '%064d' 1)" --until "$UNTIL" --note "keep two more weeks")"
+[[ "$(logn)" == "$L1" && "$(archn)" == "$A1" ]] && pass "5a': the refused re-ask wrote no log line and no archive copy" || fail "5a': log $L1 to $(logn), archive $A1 to $(archn)"
 o="$(go hold-reask w20 --expect "$H20" --until "$(minute $((NOW - 60)))" --note "keep two more weeks")"; rc=$?
 { [[ $rc -ne 0 ]] && same_bytes "$S20/.hold" "$SCRATCH/w20.before"; } && pass "5b: --until in the past refused (exit $rc), bytes unchanged" || fail "5b: rc $rc: $o"
 o="$(go hold-reask w41 --expect "$(sha "$S41/.hold")" --until "$UNTIL" --note "keep two more weeks")"; rc=$?
@@ -267,6 +297,15 @@ o="$(go hold-reask w20 --expect "$(sha "$f")" --until "$UNTIL2" --note "and agai
 age "$S20" 13
 r="$(row "$(holds)" w20)"
 [[ "$(col "$r" 7)" == "$UNTIL2" && "$(col "$r" 13)" == no ]] && pass "5k: holds shows the re-ask time and the hold is no longer due" || fail "5k: $r"
+cp "$S24/.hold" "$SCRATCH/w24.before"
+o="$(go hold-reask w24 --expect "$(sha "$S24/.hold")" --until "$UNTIL" --note "re-ask on the founder's date")"; rc=$?
+{ [[ $rc -eq 0 && "$(grep '^OWNER=' "$S24/.hold")" == OWNER=founder && "$(grep -c '^OWNER=' "$S24/.hold")" == 1 \
+     && "$(grep '^REASK_AT=' "$S24/.hold")" == "REASK_AT=$UNTIL" && "$(grep '^REASON=' "$S24/.hold")" == "$(grep '^REASON=' "$SCRATCH/w24.before")" ]] \
+   && grep -q 'became founder' <<<"$o"; } \
+  && pass "5l: a re-ask on a date-owned hold makes the founder its owner, REASON kept" || fail "5l: rc $rc: $o / $(cat "$S24/.hold")"
+cp "$S27/.hold" "$SCRATCH/w27.before"
+o="$(go hold-reask w27 --expect "$(sha "$S27/.hold")" --until "$UNTIL" --note "too late")"; rc=$?
+{ [[ $rc -ne 0 ]] && same_bytes "$S27/.hold" "$SCRATCH/w27.before"; } && pass "5m: a re-ask on an expired hold is refused (exit $rc), bytes unchanged" || fail "5m: rc $rc: $o"
 
 # ════════════════════════════════════════════════════════════════════════════
 echo "--- 6. archive-spec --finish-pending on a held, archived slot ---"
@@ -280,6 +319,8 @@ l10="$(printf '%s\n' "$o" | grep '^archive-spec: p9010 not finished')"
 [[ "$(printf '%s\n' "$o" | tail -n 1)" == "archive-spec: 0 of 4 pending archive(s) finished" ]] && pass "6e: the count line stays last" || fail "6e: last line: $(printf '%s\n' "$o" | tail -n 1)"
 grep -q '[<>|]' <<<"$o" && fail "6f: finish-pending output has < > |" || pass "6f: finish-pending output has no < > |"
 G rev-parse --verify -q feature/p9010-x >/dev/null && [[ -f "$S10/.hold" ]] && pass "6g: branch and hold kept" || fail "6g: branch or hold gone"
+grep -q 'WHYTEXT\|retained until\|yourself\|hold --clear' <<<"$o" && fail "6l: finish-pending relayed the hold's REASON or a manual-removal line: $o" \
+  || pass "6l: finish-pending relays neither the REASON nor a 'delete the .hold yourself' line"
 o1="$(go archive-spec p9010 --finish)"; rc=$?
 { [[ $rc -ne 0 ]] && [[ "$(printf '%s\n' "$o1" | tail -n 1)" == *"worktree is on hold (owner founder)"* ]]; } \
   && pass "6h: archive-spec p9010 --finish dies with the on-hold reason (exit $rc)" || fail "6h: rc $rc: $o1"
@@ -290,6 +331,11 @@ o="$(go archive-spec --finish-pending)"; rc=$?
 { ! G rev-parse --verify -q feature/p9010-x >/dev/null && [[ ! -d "$S10" ]]; } \
   && pass "6j: the next --finish-pending finishes p9010 (branch deleted, worktree removed)" || fail "6j: output: $o"
 [[ "$(printf '%s\n' "$o" | tail -n 1)" == "archive-spec: 1 of 4 pending archive(s) finished" ]] && pass "6k: count line reports 1 of 4" || fail "6k: $o"
+
+echo "--- 9. nothing held ---"
+rm -f "$WT"/w*/.hold
+o="$(holds)"; rc=$?
+[[ $rc -eq 0 && "$o" == "HOLDS none" ]] && pass "9a: with no hold anywhere, holds prints exactly HOLDS none (exit 0)" || fail "9a: rc $rc: $o"
 
 echo
 echo "p1723 holds: $PASS passed, $FAIL failed"

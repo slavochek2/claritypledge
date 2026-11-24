@@ -4268,16 +4268,25 @@ archive_finish() {
                 /^worktree / { path = substr($0, 10); next }
                 /^branch / { if ($2 == br) print path }
               ' | sed -n '1p' )" || wt_path=""
-  if [[ -n "$wt_path" ]] && ! teardown_worktree_if_clean "$wt_path" "archive-spec"; then
+  # Teardown's own explanation is held back until we know why it kept the worktree: for a
+  # hold it carries the free-text REASON and a "delete the .hold yourself" instruction, and
+  # /day relays this output (P1723). A hold is ended by /day's hold-release, not by hand.
+  local _td="" _tdrc=0
+  if [[ -n "$wt_path" ]]; then
+    { _td="$(teardown_worktree_if_clean "$wt_path" "archive-spec" 2>&1 1>&4)" || _tdrc=$?; } 4>&1
+  fi
+  if (( _tdrc != 0 )); then
     # P1723: say which of teardown's two reasons kept it. A hold is not uncommitted work,
     # and the wrong reason sent the 2026-11-24 /day run looking for edits that did not exist.
     if tidy_hold_blocks "$wt_path"; then
       local _howner; _howner="$(awk 'index($0, "OWNER=") == 1 { print substr($0, 7); exit }' "$wt_path/.hold" 2>/dev/null || true)"
       _howner="$(printf '%s' "$_howner" | tr -c 'A-Za-z0-9._:-' '_')"
-      die "archive-spec: $pn is safe off-machine, but its worktree is on hold (owner ${_howner:-unreadable}) — branch $branch kept"
+      die "archive-spec: $pn is safe off-machine, but its worktree is on hold (owner ${_howner:-unreadable}) — branch $(printf '%s' "$branch" | tr '<>|' ':::') kept"
     fi
+    [[ -z "$_td" ]] || printf '%s\n' "$_td" >&2
     die "archive-spec: $pn is safe off-machine, but its worktree holds uncommitted changes — branch $branch kept"
   fi
+  [[ -z "$_td" ]] || printf '%s\n' "$_td" >&2
   if ( cd "$REPO_ROOT" && git rev-parse --verify -q "$branch" >/dev/null ); then
     ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 \
       || die "archive-spec: branch delete failed for $branch"
@@ -8015,11 +8024,15 @@ p1723_read_hold() {
   H_DIR="$WORKTREES_DIR/$slot"; H_FILE="$H_DIR/.hold"
   H_BRANCH="$(git -C "$H_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null)" || H_BRANCH=""
   H_TIP="$(git -C "$H_DIR" rev-parse -q --verify HEAD 2>/dev/null)" || H_TIP=""
-  H_PN=""; [[ "$H_BRANCH" =~ (p[0-9]+) ]] && H_PN="${BASH_REMATCH[1]}"
+  # Only a whole path segment that starts pNNNN and ends at - or _ names a spec: a bare
+  # substring would read feature/top10-landing as p10 and let an old closed spec prove it.
+  H_PN=""; [[ "$H_BRANCH" =~ (^|/)(p[0-9]+)([-_]|$) ]] && H_PN="${BASH_REMATCH[2]}"
   H_OWNER="$(p1723_field "$H_FILE" OWNER)"
   H_AT="$(p1723_field "$H_FILE" WRITTEN_AT)"
   H_REASK="$(p1723_field "$H_FILE" REASK_AT)"
   H_READABLE=1; [[ -n "$H_OWNER" && "$H_AT" =~ ^[0-9]+$ ]] || H_READABLE=0
+  # A WRITTEN_AT more than a day ahead would never come due; treat it as unreadable.
+  if (( H_READABLE == 1 )) && (( H_AT > $(p1723_now) + 86400 )); then H_READABLE=0; fi
   H_HASH="$(p1723_hash "$H_FILE")" || H_HASH=""
   return 0
 }
@@ -8165,13 +8178,22 @@ p1723_archive_hold() {  # verb slot detail
   adir="$common/cp-hold-archive"
   mkdir -p "$adir" 2>/dev/null || die "$verb: cannot create the hold archive $adir; the hold stays"
   H_COPY="$adir/${slot}-$(p1723_now)-${H_HASH:0:12}.hold"
+  local made=0
   if [[ -e "$H_COPY" ]]; then
     cmp -s "$H_FILE" "$H_COPY" || die "$verb: $H_COPY already exists with other content; the hold stays"
   elif ! cp "$H_FILE" "$H_COPY" 2>/dev/null; then
     rm -f "$H_COPY" 2>/dev/null || true
     die "$verb: could not copy the hold into $adir; the hold stays"
+  else
+    made=1
   fi
   cmp -s "$H_FILE" "$H_COPY" || die "$verb: the archive copy $H_COPY differs from the hold; the hold stays"
+  # The copy must be the hold that was checked, not one rewritten since: otherwise the log
+  # would record an archive of bytes nobody approved, under the checked hash's name.
+  if [[ "$(p1723_hash "$H_COPY" || true)" != "$H_HASH" ]]; then
+    (( made == 0 )) || rm -f "$H_COPY" 2>/dev/null || true
+    die "$verb: the hold on $slot changed since it was read; nothing was changed"
+  fi
   tidy_log_recovery "$verb" "$slot" "${H_BRANCH:--}" "${H_TIP:--}" "$H_COPY" "$detail" \
     || die "$verb: the recovery log could not be written; the hold stays (a copy is at $H_COPY)"
   return 0
@@ -8197,7 +8219,15 @@ cmd_hold_release() {
   export GIT_OPTIONAL_LOCKS=0
   p1723_gate hold-release "$slot" "$expect"
   # answered: the founder said "put it away" on a /day card; there is no proof to recompute.
-  if [[ "$proof" != answered ]]; then
+  # A card exists only for a due hold, so an answer is accepted only for a due hold: any
+  # other hold ends by proof, or by its owner.
+  if [[ "$proof" == answered ]]; then
+    local st due
+    st="$(p1723_state "$slot")"
+    due="$(p1723_due "$st" "$H_OWNER" "$H_AT" "$H_REASK" "$(p1723_now)")"
+    [[ "$st" == valid && "$due" == yes ]] \
+      || die "hold-release: --proof answered is only for a due hold that /day asked about; $slot is $st, due $due; nothing was changed"
+  else
     build_revert_index main
     trap cleanup_revert_index EXIT
     spec="$(p1723_spec_state "$H_PN")"
@@ -8236,16 +8266,27 @@ cmd_hold_reask() {
   [[ "$note" != *$'\n'* && "$note" != *$'\r'* ]] || die "hold-reask: --note must be one line; nothing was changed"
   export GIT_OPTIONAL_LOCKS=0
   p1723_gate hold-reask "$slot" "$expect"
-  p1723_archive_hold hold-reask "$slot" "re-ask at $until; the .hold was copied before it was rewritten"
+  # Only a hold that still blocks can be re-asked: an expired or stale one already lets tidy
+  # through, and a REASK_AT on it would mean nothing.
+  local st owner_note="" newowner=""
+  st="$(p1723_state "$slot")"
+  [[ "$st" == valid ]] || die "hold-reask: the hold on $slot is $st, not valid; nothing was changed"
+  # A date owner was the old way to say "ask me again then" (P1519). REASK_AT says that now,
+  # and a date owner is never due, so the re-ask makes the founder its owner (P1723 Solution 5).
+  if [[ "$H_OWNER" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}Z$ ]]; then
+    newowner=founder; owner_note="owner $(p1723_safe "$H_OWNER") became founder"
+  fi
+  p1723_archive_hold hold-reask "$slot" "re-ask at $until${newowner:+, owner $H_OWNER became founder}; the .hold was copied before it was rewritten"
   tmp="$(mktemp "$H_DIR/.hold.XXXXXX" 2>/dev/null)" || die "hold-reask: cannot write in $H_DIR; the hold stays"
-  if ! { awk '!/^REASK_AT=/' "$H_FILE" && printf 'REASK_AT=%s\n' "$until" && printf 'NOTE=%s %s\n' "$(p1723_iso "$now")" "$note"; } > "$tmp"; then
+  if ! { awk -v nw="$newowner" '/^REASK_AT=/ { next } nw != "" && /^OWNER=/ && !done { print "OWNER=" nw; done = 1; next } { print }' "$H_FILE" \
+         && printf 'REASK_AT=%s\n' "$until" && printf 'NOTE=%s %s\n' "$(p1723_iso "$now")" "$note"; } > "$tmp"; then
     rm -f "$tmp"; die "hold-reask: could not write the new hold; the hold stays"
   fi
   if [[ "$(p1723_hash "$H_FILE" || true)" != "$expect" ]]; then
     rm -f "$tmp"; die "hold-reask: the hold on $slot changed while it was being archived; it stays (the earlier copy is at $H_COPY)"
   fi
   mv -f "$tmp" "$H_FILE" || { rm -f "$tmp"; die "hold-reask: could not replace $H_FILE; the hold stays"; }
-  echo "git-ops: hold on $slot will be asked about again at $until (owner $(p1723_safe "$H_OWNER") kept), copy of the previous hold kept at $H_COPY" >&2
+  echo "git-ops: hold on $slot will be asked about again at $until (${owner_note:-owner $(p1723_safe "$H_OWNER") kept}), copy of the previous hold kept at $H_COPY" >&2
 }
 
 main() {
