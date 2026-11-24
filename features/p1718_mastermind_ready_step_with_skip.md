@@ -13,8 +13,8 @@ tags:
   - sales-mastermind
 created_date: 2026-11-23
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 spec_review_hash: fc266a3f2ef7220d108eb13107d2ed9562bfe1d73990fccd7953326df5564d79
 spec_review_vendors: [gemini, openrouter]
 ---
