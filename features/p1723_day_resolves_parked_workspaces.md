@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 354
 workstream: infrastructure
@@ -132,17 +132,28 @@ Blast radius: medium. It adds two commands that end or rewrite another session's
 
 Each fixture asserts the hold file's bytes, the branch ref, the worktree directory, the log and the archive copy. Clocks are set through an injectable "now".
 
-- [ ] `holds`: a founder hold on a branch whose commits are on main by patch-id, spec closed, reads proof `landed`. **Control:** the same with the spec open reads `none`. An empty branch (tip is an ancestor of main) with an open spec reads `none`
-- [ ] `holds`: an archived-embargo slot with matching manifest, tip and proof reads `archived`. **Controls:** a moved tip, a missing proof and a stale proof each read `none`
-- [ ] `holds`: due at 7 days 0 minutes and not due at 6 days 23 hours. With `REASK_AT` passed, due. With `REASK_AT` in the future, not due. A date-owned hold is never listed as due
-- [ ] `hold-release`: proven, idle and hash matching, so it releases. The archive copy is byte-identical and the log names it. **Controls**, each refused with the hold unchanged: LIVE slot, active slot (written within the idle window), wrong `--expect`, proof `none`, archive dir unwritable
-- [ ] `hold-reask`: sets `REASK_AT` and appends the note while keeping owner and reason. Refused on the same controls
-- [ ] `archive-spec --finish-pending` on a held archived slot: the final error line for that archive says "on hold" (today's `die` text says "uncommitted changes", and the control run against main's copy shows it). After `hold-release`, the next run finishes it
-- [ ] `holds` on an unreadable hold (no OWNER) prints `unreadable`, proof `none`, due. `hold-release` refuses it
-- [ ] Gate 7: with the hash compare removed, the wrong-`--expect` control fails (exit code pasted). With the closed-spec condition removed, the empty-branch control fails. With the due computation forced to `no`, the 7-day case fails (exit codes pasted)
-- [ ] Gate 7c: the existing suites pass unchanged: `test-p1450-tidy.sh`, `test-p1450-strandings.sh`, `test-p1519-slot-closure.sh`, `test-p1705-worktree-holds.sh`, `test-p1507-archive-spec.sh`, and `"$DAY_STEP" check-sync` (the runner lives at `~/.claude/scripts/day-step.sh`), whose control deletes the new step from the real `day-cp.md` and must fail (gate 7d)
-- [ ] The new `/day` step text, run by hand against fixtures, produces one `hold:<key>` finding per due hold with the two options and a recommendation, none for a hold whose spec is `qa`, and a `/note` filed before releasing a proven hold whose reason names an open question
-- [ ] Live run on the day of the build, pasted: `holds` output for every held slot, and w1/w9 rewritten per Solution 5 if they still exist. Live slots are untouched, and every release made is named with its proof. If no slot is due or releasable that day, it says so, and the fixture runs above are the evidence
+- [x] `holds`: a founder hold on a branch whose commits are on main by patch-id, spec closed, reads proof `landed`. **Control:** the same with the spec open reads `none`. An empty branch (tip is an ancestor of main) with an open spec reads `none`
+  Evidence: Suite `scripts/test-p1723-holds.sh` 88 passed / 0 failed: 1a; controls 1e (spec open), 1f (empty branch, open spec); also 1i, 1j.
+- [x] `holds`: an archived-embargo slot with matching manifest, tip and proof reads `archived`. **Controls:** a moved tip, a missing proof and a stale proof each read `none`
+  Evidence: 2a; controls 2d (tip moved), 2b (proof missing), 2c (proof stale).
+- [x] `holds`: due at 7 days 0 minutes and not due at 6 days 23 hours. With `REASK_AT` passed, due. With `REASK_AT` in the future, not due. A date-owned hold is never listed as due
+  Evidence: 3a (7 d 0 min due), 3b (6 d 23 h not due), 3c (REASK_AT passed), 3d (REASK_AT ahead), 3f (date-owned never due); also 3g.
+- [x] `hold-release`: proven, idle and hash matching, so it releases. The archive copy is byte-identical and the log names it. **Controls**, each refused with the hold unchanged: LIVE slot, active slot (written within the idle window), wrong `--expect`, proof `none`, archive dir unwritable
+  Evidence: 4f, 4g (byte-identical copy), 4h (log line); refused with bytes unchanged: 4c LIVE, 4d active, 4a wrong `--expect`, 4b proof none, 4e archive unwritable; also 4p (slot comes into use after the gate).
+- [x] `hold-reask`: sets `REASK_AT` and appends the note while keeping owner and reason. Refused on the same controls
+  Evidence: 5e-5h (REASK_AT set, note appended, owner and reason kept); refused: 5a, 5c, 5n, 5o, 5b; also 5r, 5s.
+- [x] `archive-spec --finish-pending` on a held archived slot: the final error line for that archive says "on hold" (today's `die` text says "uncommitted changes", and the control run against main's copy shows it). After `hold-release`, the next run finishes it
+  Evidence: 6a/6b/6h on this branch. Control against main's copy: 6a/6b/6c FAIL, main's line reads `archive-spec: p9010 is safe off-machine, but its worktree holds uncommitted changes — branch feature/p9010-x kept`. 6i then 6j finishes the archive. (QA found 6b/6c passing vacuously on an empty line against main; both now require the line to exist.)
+- [x] `holds` on an unreadable hold (no OWNER) prints `unreadable`, proof `none`, due. `hold-release` refuses it
+  Evidence: 7a, 7b; also 7c, 7d.
+- [x] Gate 7: with the hash compare removed, the wrong-`--expect` control fails (exit code pasted). With the closed-spec condition removed, the empty-branch control fails. With the due computation forced to `no`, the 7-day case fails (exit codes pasted)
+  Evidence: Mutations on the final code, each `exit=1`: hash compare removed → `FAIL 4a''`; closed-spec condition removed → `FAIL 1e`; due forced to `no` → `FAIL 3a`.
+- [x] Gate 7c: the existing suites pass unchanged: `test-p1450-tidy.sh`, `test-p1450-strandings.sh`, `test-p1519-slot-closure.sh`, `test-p1705-worktree-holds.sh`, `test-p1507-archive-spec.sh`, and `"$DAY_STEP" check-sync` (the runner lives at `~/.claude/scripts/day-step.sh`), whose control deletes the new step from the real `day-cp.md` and must fail (gate 7d)
+  Evidence: Serial runs on the final code: p1450-tidy 88/0, p1450-strandings 11/0, p1519-slot-closure 146/0, p1705-worktree-holds 24/0, p1507-archive-spec all passed. `check-sync` on main's real `day-cp.md` and `day-cp-steps.tsv` with step 4a inserted: `SYNC OK`, exit 0; control (the step's `run` line deleted from that same text): `SYNC FAIL: cp.holds is required by the manifest…`, exit 1. `[post-ship]` the step lands on main (skill files are committed there) and check-sync plus test-p1399-day-registry re-run on the committed files.
+- [x] The new `/day` step text, run by hand against fixtures, produces one `hold:<key>` finding per due hold with the two options and a recommendation, none for a hold whose spec is `qa`, and a `/note` filed before releasing a proven hold whose reason names an open question
+  Evidence: Fixture run of the step text (scratch ledger via `DAY_STEP_LEDGER`, scratch inbox via `INBOX_PROJECT_ROOT`): w101 (due, spec open) one finding with keep/putaway, recommend keep; w102 (due, spec qa) no card; w103 (landed, reason names adopt-or-discard) note INBOX-385 filed, then released; w104 (unreadable) one finding with no options. Main's inbox byte-identical. Found on the way: the inbox takes the note body on stdin, so the step shows it as a heredoc.
+- [x] Live run on the day of the build, pasted: `holds` output for every held slot, and w1/w9 rewritten per Solution 5 if they still exist. Live slots are untouched, and every release made is named with its proof. If no slot is due or releasable that day, it says so, and the fixture runs above are the evidence
+  Evidence: Live run 2026-11-25 (w2's code, real repo): 10 holds listed, exit 0, no REASON printed. Released: w6 (P1713), proof landed, independently confirmed (shipped-tips record maps tip 18458ba8 to close commit 23c0b7cd8; both rule files identical on main; 7 of 7 decision lines present); tidy then removed w6. Re-asked: w1 and w9 until 2026-12-08T00:00Z, owner founder, still idle afterwards. Untouched as live or active: w3, w5, w11, w13, w20, w22. w18 valid, idle, not due.
 
 ## Alternatives Considered
 

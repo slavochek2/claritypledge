@@ -31,6 +31,7 @@
 #      make its own slot read active; re-ask re-checks liveness after its temp file is built
 #   Review round 5: tidy's freshness scan is unchanged (a re-ask keeps the hold's mtime instead),
 #      so a freshly written hold that does not block still keeps tidy's 12-hour grace
+#   QA: 6b/6c require the p9010 line to exist (against main's copy they passed on an empty line)
 #
 # Hermetic: builds its own fixture repo under mktemp, never touches the real repo's worktrees,
 # holds or .private. P1723_SCRIPTS_DIR points it at another copy of git-ops.sh and
@@ -409,8 +410,8 @@ o="$(go archive-spec --finish-pending)"; rc=$?
 [[ -n "${P1723_VERBOSE:-}" ]] && printf '%s\n' "$o"
 l10="$(printf '%s\n' "$o" | grep '^archive-spec: p9010 not finished')"
 [[ "$l10" == *"is on hold (owner founder)"* ]] && pass "6a: the p9010 line says its worktree is on hold (owner founder)" || fail "6a: output: $o"
-[[ "$l10" != *"uncommitted changes"* ]] && pass "6b: the p9010 line no longer blames uncommitted changes" || fail "6b: $l10"
-[[ "$l10" != *"git-ops: "* ]] && pass "6c: 'git-ops: ' prefixes are dropped from the joined reason" || fail "6c: $l10"
+[[ -n "$l10" && "$l10" != *"uncommitted changes"* ]] && pass "6b: the p9010 line no longer blames uncommitted changes" || fail "6b: $l10"
+[[ -n "$l10" && "$l10" != *"git-ops: "* ]] && pass "6c: 'git-ops: ' prefixes are dropped from the joined reason" || fail "6c: $l10"
 [[ "$(printf '%s\n' "$o" | grep '^archive-spec: p9011 not finished')" == *"no backup proof"* ]] && pass "6d: an archive waiting for its proof says so on its own line" || fail "6d: $o"
 [[ "$(printf '%s\n' "$o" | tail -n 1)" == "archive-spec: 0 of 6 pending archive(s) finished" ]] && pass "6e: the count line stays last" || fail "6e: last line: $(printf '%s\n' "$o" | tail -n 1)"
 l14="$(printf '%s\n' "$o" | grep '^archive-spec: p9014 not finished')"
