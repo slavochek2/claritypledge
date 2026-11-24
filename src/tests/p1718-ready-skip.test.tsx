@@ -10,7 +10,7 @@
  *  - R9: the mastermind's host goes straight to Meet.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, within, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
@@ -256,6 +256,54 @@ describe('Continue saves only an answer', () => {
     expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
     expect(screen.queryByTestId('page')).toBeNull();
     expect(setRoomReadiness).toHaveBeenCalledTimes(1);
+  });
+
+  it('Back during a pending save leaves for the event, and the save landing later does not pull them into the room (review round 3)', async () => {
+    let finish: () => void = () => {};
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise<void>((r) => { finish = r; }) as never);
+    setRoom(mastermind);
+    render(
+      <MemoryRouter initialEntries={[{ pathname: '/events/mm/ready', state: { fromEvent: true } }]}>
+        <Routes>
+          <Route path="/events/:slug" element={<Page name="event" />} />
+          <Route path="/events/:slug/ready" element={<EventRoomReady />} />
+          <Route path="/events/:slug/meet" element={<Page name="meet" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByTestId('room-ready');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    fireEvent.click(within(screen.getByTestId('room-head-row')).getAllByRole('button')[0]);
+    expect(await screen.findByTestId('page')).toHaveTextContent('event');
+    await act(async () => { finish(); await Promise.resolve(); await Promise.resolve(); });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.getByTestId('page')).toHaveTextContent('event');
+  });
+
+  it('a save that lands after the budget still clears the skip remembered at the timeout (review round 3)', async () => {
+    let finish: () => void = () => {};
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise<void>((r) => { finish = r; }) as never);
+    setRoom(mastermind);
+    await mountReady('mm');
+    vi.useFakeTimers();
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(READY_SAVE_MS + 10); });
+    vi.useRealTimers();
+    await expectOnMeet();
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(true);
+    await act(async () => { finish(); await Promise.resolve(); await Promise.resolve(); });
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
+  });
+
+  it('Skip says it is busy too while the save is in flight', async () => {
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    setRoom(mastermind);
+    await mountReady('mm');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await waitFor(() => expect(screen.getByTestId('room-ready-skip')).toHaveAttribute('aria-busy', 'true'));
   });
 
   it('answering after an earlier skip clears the remembered skip', async () => {

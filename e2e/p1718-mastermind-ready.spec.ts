@@ -179,6 +179,26 @@ test('Continue without moving the slider stores nothing; Continue after moving i
   await ctx.close();
 });
 
+test('a save the server never answers: Continue shows it is saving, then lets them in and remembers a skip (review round 3)', async ({ page }) => {
+  const e = await registered('Ed P1718stalled', MM);
+  // The real save request is held open, never answered: the venue wifi that stalls.
+  await page.route('**/rest/v1/rpc/set_room_readiness*', () => {});
+  await enterRoom(page, e, MM);
+  await expect(page.getByTestId('room-ready')).toBeVisible();
+  await page.getByRole('slider').press('ArrowRight');
+  const tapped = Date.now();
+  await page.getByTestId('room-ready-continue').click();
+  await expect(page.getByTestId('room-ready-continue')).toBeDisabled();
+  await expect(page.getByTestId('room-ready-skip')).toBeDisabled();
+  await expect(page.getByTestId('room-meet')).toBeVisible({ timeout: 15_000 });
+  expect(Date.now() - tapped, 'held no longer than the 5s save budget, plus slack').toBeLessThan(10_000);
+  expect(await readiness(MM, e), 'the held save stored nothing').toBeNull();
+  await page.unroute('**/rest/v1/rpc/set_room_readiness*');
+  // R4: the stalled save counts as a skip, so the next entry goes to the room.
+  await page.goto(`/events/${MM.slug}/room`);
+  await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/meet`));
+});
+
 test('the mastermind host goes straight to the room', async ({ page }) => {
   await enterRoom(page, host, MM);
   await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/meet`), { timeout: 60_000 });

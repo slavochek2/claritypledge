@@ -111,6 +111,13 @@ export function EventRoomReady() {
   // nothing (the bar shares this guard: review round 2). `saving` shows it: both buttons are busy until the person moves on.
   const leaving = useRef(false);
   const [saving, setSaving] = useState(false);
+  // Review round 3: Back stays live during the save. Someone who leaves for the event page is not pulled into the room
+  // when the save settles.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const goToMeet = useCallback(() => {
     navigate(`/events/${slug}/meet`, { state: { fromReady: true, fromEvent } });
   }, [navigate, slug, fromEvent]);
@@ -136,11 +143,14 @@ export function EventRoomReady() {
       // One budget for the save and the re-read together, so Continue never holds the person past READY_SAVE_MS.
       const deadline = Date.now() + READY_SAVE_MS;
       let saved = false;
+      const save = setRoomReadiness(self.id, value);
+      // A real answer replaces an earlier skip on this device, even one that lands after the budget below and so after
+      // the catch has remembered a skip (review round 3).
+      const { profileId } = self;
+      save.then(() => forgetReadySkipped(profileId, event?.id), () => {});
       try {
-        await settleWithin(setRoomReadiness(self.id, value), READY_SAVE_MS);
+        await settleWithin(save, READY_SAVE_MS);
         saved = true;
-        // A real answer replaces an earlier skip on this device.
-        forgetReadySkipped(self.profileId, event?.id);
       } catch {
         // Readiness is a note, not a gate — the person still goes in. P1718 R4: a failed or stalled save is
         // remembered as a skip, so the gate does not send them back here on every re-entry.
@@ -149,6 +159,7 @@ export function EventRoomReady() {
       // The answer is stored; a failed re-read only leaves the tick for the next read to draw.
       const left = deadline - Date.now();
       if (saved && left > 0) await settleWithin(refresh(), left).catch(() => {});
+      if (!mounted.current) return;
     }
     goToMeet();
   }, [touched, handleSkip, self, value, refresh, event?.id, goToMeet]);
@@ -253,6 +264,7 @@ export function EventRoomReady() {
             <Button
               onClick={handleSkip}
               disabled={saving}
+              aria-busy={saving || undefined}
               size="lg"
               className={cn(ANSWER_BUTTON_CLASS, 'w-full')}
               data-testid="room-ready-skip"

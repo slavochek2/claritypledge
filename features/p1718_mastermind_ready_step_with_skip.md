@@ -199,6 +199,13 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   **Founder decision 2026-11-24: the mastermind's last step is "Review".** Measured by glyph at 11px, "Feedback"
   ran about 5px past the bar's right edge at 375 and 320 with the Canvas step; "Review" ends 1.5px inside it.
   "Learn and prepare" wraps onto lines of its own cell and needs no change. Clarity Night keeps "Feedback".
+  **Founder decision 2026-11-24: on a phone the mastermind's bar drops its done ticks.** Review round 2 and the
+  visual QA found the tick crowding the row: with Ready answered, "✓ Ready" ran into "Principle" (-1.6px at 375,
+  -0.5px at 320), and at 430 every tick together overlapped by up to 8px. The founder chose "drop checks on
+  phones", as Clarity Night's five-step bar already does below 430px. The mastermind's bar shows ticks from 768px;
+  measured, every tick fits from about 500px. The six-step row (with Canvas) also takes the five-step bar's small
+  face (10px, tighter) below 430px, because "Principle" and "Canvas" stood 2.3px apart and read as one label; they
+  are now 8.0px apart at 375 and 5.8px at 320. The hike's short bar keeps its ticks at every width.
 - **R6. Clarity Night keeps its order and copy.** It also gets Skip and save-only-if-moved: **founder decision 2026-11-23, yes**. The fabricated 5 exists on Clarity Night too, and one
   shared screen with two behaviours is a second state to keep in step. This amends P1529's invariant
   "Clarity Night and Social Hike are unchanged ... their existing tests pass unchanged" for this one
@@ -291,6 +298,18 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
+**Known limitations (code review rounds 2 and 3; accepted, none strands anyone):**
+- **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle
+  and Canvas cannot be tapped there for someone already past them. Continue, Skip, Table, Review and Learn still
+  lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
+  moment is not one of them.
+- **A round that starts while someone sits on `/ready` does not forward them.** The seated check runs once, on
+  arrival (R8). Their Continue or Skip takes them to `/meet`, which shows the running round.
+- **A save that lands after the 5s budget** clears the skip remembered at the timeout, but `/meet` draws the Ready
+  tick only from its next read of the room.
+- **The Ready tab while seated at a running round** is still tappable in `/meet`; `/ready` then forwards back
+  (R8), with a brief loader.
+
 ## What Stays the Same
 
 - The arrival question and the preparation gate, and their order before Ready.
@@ -319,7 +338,8 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 - The standalone `/ready` page (`src/app/pages/ready-page.tsx`)
 - Hike recipe and hike room
 - Host panel, projector, seating
-- `RoomSteps.tsx` layout, unless R5's screenshots show a break. Then only the label, by founder decision.
+- `RoomSteps.tsx` layout, unless R5's screenshots show a break. Then only by founder decision: the label
+  ("Review") and the phone ticks and six-step face (both 2026-11-24, R5) are the only changes made.
 - `e2e/p1529-mastermind.spec.ts` enters the room by `/meet` directly, so it is not expected to change. Verify by running it.
 
 ## Acceptance Criteria
