@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { PointCardShell } from '@/app/components/shared/presentational/point-card-shell';
 import { InlineVisibilityIcon, VisibilityBadge } from '@/app/components/shared/visibility-badge';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
+import { TagPills } from '@/app/components/shared/tag-pills';
 import { MirrorGlyph, MirrorMark } from '@/app/pages/chat/chat-kit';
 import { cn } from '@/lib/utils';
 import { removeTag, type FakeMessage, type Visibility } from './model';
@@ -266,7 +267,7 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic,
           </div>
         }
       >
-        {tags.length > 0 ? <div className="pt-2"><TagChips tags={tags} /></div> : null}
+        {tags.length > 0 ? <div className="pt-2"><TagPills tags={tags} context="live" /></div> : null}
         {onPosition && (
           <div className="min-w-0 pt-2">
             <PositionButtons userPosition={position ?? null} counts={NO_COUNTS} compact narrow onPositionClick={onPosition} onClear={() => onPosition(null)} />

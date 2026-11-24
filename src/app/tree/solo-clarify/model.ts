@@ -56,8 +56,17 @@ export function splitTags(text: string): { statement: string; tags: string[] } {
 }
 
 /** The text without `#tag` (the shared rule, so a tag such as `c++` is matched literally). */
+/**
+ * Removing a tag takes its #word out of the text (the shared P1660 rule). Where that rule keeps the token yet still reads the
+ * tag from it (`#ai-powered` gives `ai`), the token loses only its `#`: no wording goes, and a Markdown link target such as
+ * `](#ai` is never touched.
+ */
 export function removeTag(text: string, tag: string): string {
   const out = stripHashtags(text, [tag]);
   if (!extractHashtags(out).includes(tag)) return out;
-  return out.split(/(\s+)/).filter(w => !extractHashtags(w).includes(tag)).join('').replace(/ {2,}/g, ' ').trim();
+  // No lookbehind (Safari < 16.4, src/tests/no-regex-lookbehind.test.ts): the characters before the # are read by offset.
+  return out.replace(/#([\p{L}\p{N}_-]+)/gu, (h: string, word: string, at: number) => {
+    const inWordOrLink = /[\p{L}\p{N}_\]]/u.test(out[at - 1] ?? '') || out.slice(at - 2, at) === '](';
+    return !inWordOrLink && extractHashtags(h).includes(tag) ? word : h;
+  });
 }

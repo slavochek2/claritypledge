@@ -17,6 +17,7 @@ export function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (t: st
     onRemove?.(t);
     // The clicked chip leaves with its button: focus the Remove now in its place (or the last), else the tag field.
     setTimeout(() => {
+      if (document.activeElement && document.activeElement !== document.body) return; // focus already went somewhere on purpose
       const left = scope?.querySelectorAll<HTMLElement>('button[aria-label^="Remove tag"]');
       (left?.length ? left[Math.min(i, left.length - 1)] : scope?.querySelector<HTMLElement>('input[aria-label="Add a tag"]'))?.focus();
     }, 0);
@@ -60,7 +61,7 @@ export function TagInput({ onAdd, hintId }: { onAdd: (t: string) => void; hintId
       className="h-10 text-base md:text-sm"
     />
     {/* No blur commit (a chip appearing under the pointer moves the button being clicked), so a typed tag says it is not added yet */}
-    <span id={statusId} aria-live="polite" className="text-xs text-muted-foreground">{v.trim() ? (pending ? `Press Enter to add #${pending}` : 'Not a tag you can add: letters and numbers, not a system tag') : null}</span>
+    <span id={statusId} aria-live="polite" className="break-all text-xs text-muted-foreground">{v.trim() ? (pending ? `Press Enter to add #${pending}` : 'Not a tag you can add: letters and numbers, not a system tag') : null}</span>
     </div>
   );
 }
