@@ -307,7 +307,7 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 to 14; accepted, none strands anyone):**
+**Known limitations (code review rounds 2 to 15; accepted, none strands anyone):**
 - **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle,
   Canvas and Table cannot be tapped there for someone already past them (checked against `canOpenStep`, review
   round 5). Continue, Skip, Review and Learn still lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
@@ -329,6 +329,13 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   transcribing") above the bar and `/ready` does not, so at 768 the bar sits lower on `/meet`. This is the room's existing
   chrome, as on Clarity Night. Review reads dark beside greyed steps because it is tappable from `/ready` (R7), not
   done. "Learn and prepare" wraps on phones as it already does on `/meet`.
+- **Review round 15, not taken up** (Gemini): (a) the preparation page's room bar has no mastermind host hiding,
+  but that bar never draws for the mastermind (its recipe has no learning words, so `inRoom` is false); (b) the
+  screen sets its "question shown" state during render, which costs one discarded render and starts no read (React's
+  documented pattern for derived state); (c) a tab revealed at the moment the connection drops spends one of the Learn
+  read's two attempts, and the reconnect still has the second; (d) the e2e label-collision check measures the text
+  range, whose box includes the elements inside it (CSSOM `Range.getClientRects`), the tick icon among them;
+  the 768px screenshots were also checked by eye.
 - **The Ready tab while seated at a running round** is still tappable in `/meet`; `/ready` then forwards back
   (R8), with a brief loader.
 - **A remembered skip can sit beside a stored answer** when a save landed but the re-read after it did not, and the

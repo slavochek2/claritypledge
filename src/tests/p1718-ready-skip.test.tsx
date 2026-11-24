@@ -10,7 +10,7 @@
  *  - R9: the mastermind's host goes straight to Meet.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, cleanup, within, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, within, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
@@ -57,14 +57,15 @@ vi.mock('@/app/prototypes/events/prep/use-learned', async () => {
     useLearned: (ev: unknown) => { useState(() => { prep.mounts += 1; return 0; }); prep.asked.push(ev); return prep.state; },
   };
 });
-const canvas = vi.hoisted(() => ({ shared: false, asked: [] as boolean[], mounts: 0 }));
+const canvas = vi.hoisted(() => ({ shared: false, asked: [] as boolean[], mounts: 0, again: [] as unknown[] }));
 vi.mock('@/app/prototypes/events/rounds/canvas-setup', async (importOriginal) => {
   const { useState } = await import('react');
   return {
     ...(await importOriginal<typeof import('@/app/prototypes/events/rounds/canvas-setup')>()),
-    useMyCanvasShared: (_eventId: string | undefined, enabled: boolean) => {
+    useMyCanvasShared: (_eventId: string | undefined, enabled: boolean, again: unknown) => {
       useState(() => { canvas.mounts += 1; return 0; });
       canvas.asked.push(enabled);
+      if (enabled) canvas.again.push(again);
       return [canvas.shared, vi.fn()];
     },
   };
@@ -102,6 +103,7 @@ vi.mock('react-router-dom', async (importOriginal) => {
 });
 
 import { EventRoomReady, READY_SAVE_MS } from '@/app/prototypes/events/components/EventRoomReady';
+import { useReadyStepBarReads } from '@/app/prototypes/events/components/ReadyStepBar';
 import { ROUNDS_READ_MS } from '@/app/prototypes/events/components/use-seated-at-running-round';
 import { EventRoomGate } from '@/app/prototypes/events/components/EventRoomGate';
 import { readySkipped, rememberReadySkipped } from '@/app/prototypes/events/components/ready-skip-memory';
@@ -194,6 +196,7 @@ beforeEach(() => {
   canvas.shared = false;
   canvas.asked.length = 0;
   canvas.mounts = 0;
+  canvas.again.length = 0;
   prep.state = { loading: false, error: false, learned: false };
   prep.asked.length = 0;
   prep.mounts = 0;
@@ -878,6 +881,16 @@ describe("/ready's step bar", () => {
     expect(bar).not.toHaveTextContent('Feedback');
     expect(bar).not.toHaveTextContent('Compare');
     expect(screen.queryByTestId('room-step-compare')).toBeNull();
+  });
+
+  // Review round 15 (Gemini): the Canvas read is asked per event and per viewer, as the Learn read is.
+  it('another person signed in on the same screen gets their own Canvas read', () => {
+    const ev = { ...mastermind, canvasTiming: 'at_event' } as unknown as Parameters<typeof useReadyStepBarReads>[0];
+    const { rerender } = renderHook(({ viewer }) => useReadyStepBarReads(ev, viewer, true), { initialProps: { viewer: 'profile-a' } });
+    expect(canvas.again).toContain('profile-a');
+    expect(canvas.again).not.toContain('profile-b');
+    rerender({ viewer: 'profile-b' });
+    expect(canvas.again).toContain('profile-b');
   });
 
   // Review round 6 (Gemini): both branches of ReadyStepBar's withCanvas, and its canvasDone tick.

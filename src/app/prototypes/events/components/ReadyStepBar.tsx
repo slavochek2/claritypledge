@@ -42,11 +42,13 @@ export function useReadyStepBarReads(event: EventWithHost | null, viewerId: stri
   const learnState = useLearned(enabled && learnLabel && event ? event : null, viewerId ?? undefined);
   const withCanvas = !!event && !!recipe.mastermind && eventCanvasTiming(event) === 'at_event';
   // Review round 12 (Codex): no Canvas read while known offline. Round 13 (Codex, metered rule 4): once asked online it
-  // stays asked, so going offline and back does not read it again. Round 14 (Gemini): asked per event.
+  // stays asked, so going offline and back does not read it again. Round 14 (Gemini): asked per event. Round 15 (Gemini):
+  // and per viewer, as useLearned is, so another person signed in on this screen gets their own Canvas read.
   const { offline } = useConnectivity();
+  const canvasKey = event && viewerId ? `${event.id}:${viewerId}` : null;
   const [canvasAskedFor, setCanvasAskedFor] = useState<string | null>(null);
-  if (enabled && withCanvas && !offline && event && canvasAskedFor !== event.id) setCanvasAskedFor(event.id);
-  const [canvasShared] = useMyCanvasShared(event?.id, withCanvas && !!event && canvasAskedFor === event.id, null);
+  if (enabled && withCanvas && !offline && canvasKey && canvasAskedFor !== canvasKey) setCanvasAskedFor(canvasKey);
+  const [canvasShared] = useMyCanvasShared(event?.id, withCanvas && !!canvasKey && canvasAskedFor === canvasKey, viewerId ?? null);
   return {
     learned: !learnState.loading && !learnState.error && learnState.learned,
     canvasShared: withCanvas ? canvasShared : undefined,
