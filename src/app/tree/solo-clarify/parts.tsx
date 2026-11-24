@@ -44,7 +44,9 @@ export function Arrive({ on = true, label, className, children }: { on?: boolean
 
 /** The Mirror's reply once a point is made. */
 export function Confirm({ focus = true, children }: { focus?: boolean; children: ReactNode }) {
-  return <Arrive on={focus}><p className="text-sm">{children}</p></Arrive>;
+  const ref = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { if (focus) ref.current?.focus(); }, [focus]);
+  return <p ref={ref} tabIndex={-1} className="text-sm outline-none">{children}</p>;
 }
 
 /** The Clarify control as messages wear it: the Mirror's glyph and the word. */
@@ -174,7 +176,7 @@ function TagInput({ onAdd, hintId }: { onAdd: (t: string) => void; hintId: strin
  * The Mirror's draft, on the product's point card frame. `choose`: the card carries the Private/Public choice;
  * otherwise it only shows the lock (every draft starts private). The actions under the card are the caller's.
  */
-export function DraftCard({ draft, update, choose, onPublicPick, actions, focus = false }: {
+export function DraftCard({ draft, update, choose, onPublicPick, actions, focus = false, focusLabel = 'New draft point' }: {
   draft: DraftState;
   update: (p: Partial<DraftState>) => void;
   choose: boolean;
@@ -183,6 +185,8 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions, focus 
   actions: ReactNode;
   /** Take focus on arrival (after Start over or Another point, whose button is gone). */
   focus?: boolean;
+  /** What the arrival announces, when the draft's origin sits outside the card. */
+  focusLabel?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [before, setBefore] = useState(draft.text);
@@ -196,7 +200,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions, focus 
   const { statement, tags } = allTags(draft);
   const pick = (v: Visibility) => (v === 'public' && draft.visibility !== 'public' && onPublicPick ? onPublicPick() : update({ visibility: v }));
   return (
-    <Arrive on={focus} label="New draft point" className="flex flex-col gap-2">
+    <Arrive on={focus} label={focusLabel} className="flex flex-col gap-2">
       <PointCardShell
         aria-label={statement.trim() ? `Draft point: ${statement}` : 'Draft point, empty'}
         header={

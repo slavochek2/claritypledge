@@ -51,6 +51,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
             <DraftCard
               key={session}
               focus={focusDraft}
+              focusLabel={source ? `New draft point from your message at ${source.time}` : 'New draft point from the whole chat'}
               draft={draft}
               update={update}
               choose={variant === 'choose-first'}
