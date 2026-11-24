@@ -207,20 +207,20 @@ export function v9Violations(points: ReadonlyArray<{ box: string; text: string }
 export const V10_MAX_WORDS = 20;
 export const V10_RULES = ['point-words', 'chained', 'solution-kind', 'falsified-change', 'solution-offer'] as const;
 /** A contrast, as the spec measures it: ", not <Y>" or "ahead of <Y>". Revision 4 allows one per point. */
-const CONTRAST_RE = /,\s*not\b|\bahead of\b/gi; // the spec's measure: ", not <Y>" or "ahead of <Y>"
+export const CONTRAST_RE = /,\s*not\b|\bahead of\b/gi; // the spec's measure: ", not <Y>" or "ahead of <Y>"
 /** A clause marker (the spec's list). Revision 4 allows one per point, so "X over Y, even when <cost>" and "Pays: owners who …" stay legal. */
-const CLAUSE_RE = /\b(?:who|whose|which|where|while|but|if|unless|even when)\b/gi;
+export const CLAUSE_RE = /\b(?:who|whose|which|where|while|but|if|unless|even when)\b/gi;
 /** A falsified hypothesis that goes on to state the change it made: ", so …", "; therefore …", "and so …", or "so it / so the business / so now" with no comma.
  *  Also "it now sells", "and now sells", "and now only sells", "led it to". "so few / so many / so much / so little / so far / so that" is evidence or degree,
  *  and "so it could / would / can" (or "so now it could") is the expectation's purpose: neither is a change, and neither fires. */
-const FALSIFIED_CHANGE_RE = /(?:[;,]\s*(?:and\s+)?(?:so|therefore|thus|hence)\b(?!\s+(?:few|many|much|little|far|that|(?:it|the business)\s+(?:could|would|can|might|may)\b))|\b(?:and\s+)?therefore\b|\bso (?:it|the business|now)\b(?!\s+(?:(?:it|the business)\s+)?(?:could|would|can|might|may)\b)|\b(?:it|the business|and)\s+now\s+(?:(?:only|instead|just|also)\s+)?[a-z]+s\b|\bled (?:it|the business) to\b)/i;
+const FALSIFIED_CHANGE_RE = /(?:[;,]\s*(?:and\s+)?(?:so|therefore|thus|hence)\b(?!\s+(?:few|many|much|little|far|that|(?:now\s+)?(?:it|the business)\s+(?:could|would|can|might|may)\b))|\b(?:and\s+)?therefore\b|\bso (?:it|the business|now)\b(?!\s+(?:(?:it|the business)\s+)?(?:could|would|can|might|may)\b)|\b(?:it|the business|and)\s+now\s+(?:(?:only|instead|just|also)\s+)?[a-z]+s\b|\bled (?:it|the business) to\b)/i;
 
 /** What the rules say is bought, never the kind: ROUTING_RULE's "package, sessions" and the Solution definition's "(package, workshop)", plus "bundle".
  *  A hyphenated compound ("package-tracking software", "bundle-size analyzer") is a product, not a deliverable, and does not fire. */
 const DELIVERABLE_RE = /(?<![\w-])(?:packages?|bundles?|workshops?|sessions?)(?![\w-])/i;
 /** A sentence break inside a point: ". " / "! " / "? " followed by a capital (accented too), a digit, a currency sign or an opening quote.
  *  The full stop of a common abbreviation ("St. Paul", "vs. Annual", "Ltd. founders") is not a break. */
-const SENTENCE_BREAK_RE = /(?:(?<!\b(?:vs|ca|St|Ltd|Inc|Co|Dr|Mr|Mrs|Ms|Jr|Sr|No|approx))\.|[!?])["”')\]]*\s+(?=["“A-Z0-9€$£฿¥₹À-ÖØ-Þ])/g; // a sentence may open with a number or a currency ("… an app. 0 of 8 …")
+export const SENTENCE_BREAK_RE = /(?:(?<!\b(?:vs|ca|St|Ltd|Inc|Co|Dr|Mr|Mrs|Ms|Jr|Sr|No|approx))\.|[!?])["”')\]]*\s+(?=["“A-Z0-9€$£฿¥₹À-ÖØ-Þ])/g; // a sentence may open with a number or a currency ("… an app. 0 of 8 …")
 
 export interface PointShape { words: number; semicolons: number; thens: number; contrasts: number; clauses: string[]; sentences: number }
 
@@ -476,7 +476,8 @@ export function runIdentity(shared: string, boxDefinitions: unknown): { git: str
     git = `${sha}${dirty ? '+dirty' : ''}`;
   } catch { /* the old rules live in an extracted copy, outside any repository */ }
   // every _shared file that shapes what a run drafts or drops: the rule texts (ROUTING_RULE, LEAD_POINT_RULE, DRAFT_RULES...), the drop gates and the draft limits,
-  // so two arms that differ only outside BOX_DEFINITIONS are told apart
+  // so two arms that differ only outside BOX_DEFINITIONS are told apart. Rows recorded before the round-3 review hashed only the first two
+  // files: their rulesSha256 compares with each other, never with a later row's.
   const rules = createHash('sha256');
   for (const f of ['canvas-box-definitions.ts', 'canvas-prompt.ts', 'canvas-eval-rules.ts', 'canvas-draft.ts', 'canvas-run.ts']) { try { rules.update(readFileSync(join(shared, f), 'utf8')); } catch { rules.update(`(no ${f})`); } }
   return { git, boxDefinitionsSha256: createHash('sha256').update(JSON.stringify(boxDefinitions)).digest('hex').slice(0, 16), rulesSha256: rules.digest('hex').slice(0, 16) };
@@ -748,6 +749,8 @@ export function selfTest(): string[] {
   check(!sOffer('The product is a coaching service for founders.', 'Two-week coaching: 500 euro month-to-month.'), 'v10 counted hyphenated period words as offer content');
   // round-3 review: "so now it could" is purpose; an adverb before the verb still states the change
   check(!v10Rules('canvas:world-needs', 'The business expected yearly pay so now it could plan cash, but none paid.').includes('falsified-change'), 'v10 fired falsified-change on "so now it could"');
+  check(!v10Rules('canvas:world-needs', 'The business expected yearly pay, so now it could plan cash, but none paid.').includes('falsified-change'), 'v10 fired falsified-change on ", so now it could"');
+  check(v10Rules('canvas:world-needs', 'The business expected chains to buy so now it sells only to cafés.').includes('falsified-change'), 'v10 missed "so now it sells"');
   for (const t of ['The business expected chains to buy and now only sells to cafés.', 'The business expected yearly pay, but it now instead bills monthly.'])
     check(v10Rules('canvas:world-needs', t).includes('falsified-change'), `v10 missed a falsified change with an adverb: ${t}`);
   // round-3 review: an abbreviation is no sentence break; an accented capital or a baht sign opens a second sentence
@@ -1117,4 +1120,5 @@ async function main(): Promise<void> {
 }
 
 // only as a script: src/tests/p1658-harness-self-test.test.ts imports selfTest without running a model call
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((e) => { console.error('eval crashed:', (e as Error).name); process.exit(1); });
+const isEntry = (): boolean => { try { return !!process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };
+if (isEntry()) main().catch((e) => { console.error('eval crashed:', (e as Error).name); process.exit(1); });
