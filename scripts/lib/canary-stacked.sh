@@ -35,8 +35,10 @@ canary_base_contained() {
         found=1
         [ "$(git rev-list --parents -n1 "refs/heads/$b" 2>/dev/null | wc -w | tr -d ' ')" = 2 ] || return 1
         grep -qiE "$token" <<< "$(git log -1 --format=%s "refs/heads/$b" 2>/dev/null)" || return 1
-        for base in "$main" "origin/$main"; do
-            [ "$base" = "$main" ] || git rev-parse --verify -q "refs/remotes/$base" >/dev/null || continue
+        # Round 20 (Opus L7): the bases by their full refs too; a bare name is resolved as a tag before a branch, and
+        # origin/main as a local branch before the remote one.
+        for base in "refs/heads/$main" "refs/remotes/origin/$main"; do
+            [ "$base" = "refs/heads/$main" ] || git rev-parse --verify -q "$base" >/dev/null || continue
             [ "$(git rev-list --count -i -E --grep="$token" "$base..refs/heads/$b" 2>/dev/null || echo 0)" -gt 0 ] || return 1
         done
         git merge-base --is-ancestor "refs/heads/$b" "$head" 2>/dev/null || return 1

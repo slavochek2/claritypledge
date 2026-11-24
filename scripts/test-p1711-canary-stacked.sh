@@ -6,6 +6,7 @@
 # pre-commit-checks.sh under /bin/bash with set -e (Opus M1). Round 18: cases 16-19 (a branch's tip must be pN's
 # own non-merge commit, any letter case or nesting of the branch name) and 20-22 (the guard still blocks an
 # unrelated canary with the library loaded, and a broken library ends nothing). Round 19: case 23 (same-named tags).
+# Round 20: case 24 (main and origin/main shadowed by a tag or a branch).
 set -uo pipefail
 # Round 18 (Codex 4): a git hook exports GIT_DIR and GIT_INDEX_FILE, and they override the fixture's own repository.
 for v in $(git rev-parse --local-env-vars 2>/dev/null); do unset "$v"; done
@@ -155,6 +156,25 @@ canary_base_contained p100; check "tag named like the outside branch: still bloc
 git branch -D -q feature/p100-active; git tag -d feature/p100-active >/dev/null
 git tag feature/p100-old main
 canary_base_contained p100; check "control: tag named like the contained branch: still allowed" 0 $?
+done_with
+
+# 24. Round 20 (Opus L7): main and origin/main are read by their full refs too. p100's work is already on main, so
+#     nothing of it lies past main (blocked). A stale tag named main, or a local branch named origin/main, would be
+#     resolved first by a bare name (git tries tags before branches) and turn that into allowed.
+fresh; OLD=$(git rev-parse HEAD); git commit -q --allow-empty -m "feat(p100): one"; git branch feature/p100-a
+git checkout -q -b feature/p200-top; commit_on feature/p200-top "feat(p200): two"
+canary_base_contained p100; check "control: p100 already on main: blocked" 1 $?
+git tag main "$OLD"
+canary_base_contained p100 2>/dev/null; check "a stale tag named main: still blocked" 1 $?
+git tag -d main >/dev/null
+done_with
+fresh; OLD=$(git rev-parse HEAD); git commit -q --allow-empty -m "feat(p100): one"; git branch feature/p100-a
+git update-ref refs/remotes/origin/main main
+git checkout -q -b feature/p200-top; commit_on feature/p200-top "feat(p200): two"
+git checkout -q main; git reset -q --hard "$OLD"; git checkout -q feature/p200-top
+canary_base_contained p100; check "control: origin/main already holds p100: blocked" 1 $?
+git branch origin/main "$OLD" 2>/dev/null
+canary_base_contained p100 2>/dev/null; check "a local branch named origin/main: still blocked" 1 $?
 done_with
 
 # 13-15, 20-22. The real guard block, run under /bin/bash with set -e as pre-commit-checks.sh runs it. The block
