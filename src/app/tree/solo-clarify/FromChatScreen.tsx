@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DM_TALK, DRAFTS, ME, MIRROR, OTHER } from './model';
-import { Bubble, ChatFrame, ChatPointCard, DraftCard, MakePublicDialog, MirrorTurn, Note, VariantSwitch, type ShareRule } from './parts';
+import { Bubble, ChatFrame, ChatPointCard, Confirm, DraftCard, MakePublicDialog, MirrorTurn, Note, VariantSwitch, type ShareRule } from './parts';
 import { allTags, useDraft } from './draft';
 
 type Variant = 'two-actions' | 'publish-only';
@@ -66,10 +66,10 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
             </MirrorTurn>
           ) : (
             <MirrorTurn name={MIRROR}>
-              <p className="text-sm">
+              <Confirm>
                 {outcome === 'posted' ? `Posted in the chat with ${OTHER}` : 'Created, not posted anywhere'}, as a {draft.visibility} point.
                 {outcome === 'kept' && ' It is on your profile; share it from here whenever you like.'}
-              </p>
+              </Confirm>
               {outcome === 'kept' && <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} position={draft.position} onPosition={p => update({ position: p })} />}
               <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={startOver}>Start over</Button>
             </MirrorTurn>

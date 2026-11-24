@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DRAFTS, ME, MIRROR, ONE_MIC_TALK, OTHER } from './model';
-import { Bubble, ChatFrame, ChatPointCard, ClarifyChip, DraftCard, MakePublicDialog, MirrorTurn, Note, VariantSwitch, type ShareRule } from './parts';
+import { Bubble, ChatFrame, ChatPointCard, ClarifyChip, Confirm, DraftCard, MakePublicDialog, MirrorTurn, Note, VariantSwitch, type ShareRule } from './parts';
 import { allTags, useDraft } from './draft';
 
 type Variant = 'confirm' | 'my-words' | 'trust';
@@ -67,7 +67,7 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
         ) : (
           <MirrorTurn name={MIRROR}>
             {/* B drafts from your words only, so there is nothing of theirs to warn about, before creation or after */}
-            <p className="text-sm">Created. It is on your profile{draft.visibility === 'private' ? ', visible only to you' : ' for anyone'}.</p>
+            <Confirm>Created. It is on your profile{draft.visibility === 'private' ? ', visible only to you' : ' for anyone'}.</Confirm>
             <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => (variant === 'my-words' ? update({ visibility: 'public' }) : setWarn(true))} position={draft.position} onPosition={p => update({ position: p })} />
             <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={() => fresh(variant)}>Start over</Button>
           </MirrorTurn>

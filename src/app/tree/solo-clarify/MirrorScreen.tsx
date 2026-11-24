@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DRAFTS, ME, MIRROR, MIRROR_TALK, type FakeMessage } from './model';
-import { Bubble, ChatFrame, ChatPointCard, ClarifyChip, DraftCard, MirrorTurn, Note, VariantSwitch, VisibilityChoice, type ShareRule } from './parts';
+import { Bubble, ChatFrame, ChatPointCard, ClarifyChip, Confirm, DraftCard, MirrorTurn, Note, VariantSwitch, VisibilityChoice, type ShareRule } from './parts';
 import { allTags, useDraft } from './draft';
 
 type Variant = 'choose-first' | 'private-first';
@@ -64,7 +64,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
         )}
         {created && (
           <MirrorTurn name={MIRROR}>
-            <p className="text-sm">Created. It is on your profile{draft.visibility === 'private' ? ', visible only to you' : ' for anyone'}.</p>
+            <Confirm>Created. It is on your profile{draft.visibility === 'private' ? ', visible only to you' : ' for anyone'}.</Confirm>
             <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => update({ visibility: 'public' })} position={draft.position} onPosition={p => update({ position: p })} />
             {variant === 'private-first' && (
               <div className="flex flex-col gap-1">

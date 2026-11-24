@@ -4,7 +4,7 @@
  * visibility icons, the position buttons and the Mirror's face are the product's own; the chat around them is a
  * render-only stand-in (no network, no auth). Toasts are not mounted on /tree, so what a tap would do is said inline.
  */
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Check, Globe, Lock, Pencil, Share2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +36,13 @@ export function Said({ children }: { children: ReactNode }) {
 }
 
 /** The Clarify control as messages wear it: the Mirror's glyph and the word. */
+/** The Mirror's reply once a point is made. It takes focus, because the button that made the point has gone. */
+export function Confirm({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  useEffect(() => { ref.current?.focus(); }, []);
+  return <p ref={ref} tabIndex={-1} className="text-sm outline-none">{children}</p>;
+}
+
 export function ClarifyChip({ onClick, label = 'Clarify' }: { onClick: () => void; label?: string }) {
   return (
     <Button type="button" variant="outline" size="sm" className="h-10 min-h-10 gap-1.5" onClick={onClick}>
@@ -172,8 +179,12 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
 }) {
   const [editing, setEditing] = useState(false);
   const [before, setBefore] = useState(draft.text);
+  const editBtn = useRef<HTMLButtonElement>(null);
+  const back = useRef(false);
+  useEffect(() => { if (!editing && back.current) { back.current = false; editBtn.current?.focus(); } }, [editing]);
   const startEdit = () => { setBefore(draft.text); setEditing(true); };
-  const cancelEdit = () => { update({ text: before }); setEditing(false); };
+  const endEdit = () => { back.current = true; setEditing(false); };
+  const cancelEdit = () => { update({ text: before }); endEdit(); };
   const hintId = useId();
   const { statement, tags } = allTags(draft);
   const pick = (v: Visibility) => (v === 'public' && draft.visibility !== 'public' && onPublicPick ? onPublicPick() : update({ visibility: v }));
@@ -194,26 +205,26 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
               onChange={e => update({ text: e.target.value })}
               onKeyDown={e => {
                 if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
-                else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setEditing(false); }
+                else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); endEdit(); }
               }}
             />
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" className="h-11 min-h-11" onClick={cancelEdit}>Cancel</Button>
-              <Button type="button" variant="outline" className="h-11 min-h-11" onClick={() => setEditing(false)}>Done</Button>
+              <Button type="button" variant="outline" className="h-11 min-h-11" onClick={endEdit}>Done</Button>
             </div>
           </div>
         ) : (
           <p className="min-w-0 flex-1 break-words text-base font-medium text-foreground">{statement}</p>
         )}
         corner={!editing && (
-          <Button type="button" variant="ghost" className={cn(QUIET, 'w-11 px-0')} aria-label="Edit" onClick={startEdit}><Pencil aria-hidden /></Button>
+          <Button type="button" variant="ghost" className={cn(QUIET, 'w-11 px-0')} aria-label="Edit" ref={editBtn} onClick={startEdit}><Pencil aria-hidden /></Button>
         )}
         footer={
           <div className="flex flex-col gap-3 px-4 pb-4">
             <TagChips tags={tags} onRemove={editing ? undefined : t => update({ tags: draft.tags.filter(x => x !== t), text: removeTag(draft.text, t) })} />
             <div className="flex flex-col gap-1">
               {!editing && <TagInput hintId={hintId} onAdd={t => update({ tags: Array.from(new Set([...draft.tags, t])) })} />}
-              <span id={hintId} className="text-xs text-muted-foreground">Or type #tag in the text</span>
+              <span id={hintId} className="text-xs text-muted-foreground">{editing ? 'Type #tag in the text to add a tag' : 'Or type #tag in the text'}</span>
             </div>
             {choose && (
               <div className="flex flex-col gap-1">
