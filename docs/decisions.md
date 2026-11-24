@@ -8,6 +8,51 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-24 [product]: A readiness answer is stored only when the person moved the slider; Skip stores nothing (P1718)
+
+**Context:** The Sales Mastermind's room had lost its Ready step. On every room, a Continue on an untouched slider
+saved the slider's starting value, so the host's mood distribution counted people who never answered as a
+mid-scale answer, and the room had no way to say "not now".
+**Decision:** Ready is back in the mastermind's room, between Learn and prepare and Principle. Its screen and Clarity
+Night's both have **Skip**. A value is stored only when the person moved the slider; Skip, an untouched Continue,
+or a save that fails or stalls past 5s store nothing (`readiness_value` stays null) and are remembered on the device,
+per person and per event, so re-entering the room does not ask again. Ready can still be opened from the step bar
+and answered later. The mastermind's last step is labelled **Review** (founder 2026-11-24: "Feedback" did not fit the
+six-step bar on a 320 to 375px phone), narrowing the earlier founder UAT ruling (2026-10-23, recorded only in a test
+comment) that every room calls it Feedback; Clarity Night and the hike keep "Feedback". On phones below 768px the
+mastermind's bar shows no done ticks (founder 2026-11-24), so its six labels stay apart.
+**Alternatives rejected:** a disabled Continue until the slider moves (a dead control, P955); keeping the stored
+starting value and filtering it later (an untouched answer cannot be told apart from a chosen one); a server-side
+skip flag (a migration for a note the device can hold).
+**Consequences:** Values stored before this change may be untouched-Continue starting values and cannot be
+separated from real answers. Every room screen that reads the step bar's ticks now reads them in the screen, not
+the bar (see the [technical] entry below). Open for the founder: whether the slider should look locked while a
+save runs (P1718 known limitations).
+**References:** [features/p1718_mastermind_ready_step_with_skip.md](../features/p1718_mastermind_ready_step_with_skip.md)
+
+## 2026-11-24 [technical]: A screen's reads live in the component a shared loader does not unmount, and a test that leaves a promise hanging must end it (P1718)
+
+**Context:** Sixteen review rounds on P1718's `/ready`, mostly Codex and Gemini under the metered-services rules
+(rule 3, no request from a hidden tab; rule 4, bounded retries and reconnects). Two findings generalise. (1) The
+shared access check (`useEventRoomAccess`) shows a loader on a reconnect, which unmounted the step bar, so every
+reconnect re-ran the bar's Learn and Canvas reads and reset their per-mount attempt caps. (2) Under load, unit tests
+failed at random in later tests: a save mock that never answered left `settleWithin`'s 5s timer running, and its
+catch wrote a remembered skip into whichever test was running when it fired. Proven by a 5.2s wait inserted before
+one assertion: it failed only after the hanging-save test ran.
+**Decision:** (1) Reads a screen needs are held by the screen (`useReadyStepBarReads` in `EventRoomReady`), gated
+on the screen having shown its question, and passed to the bar as data; attempt caps are keyed by their inputs
+(event and viewer) and survive going offline and back; a known-offline state spends no attempt. (2) Every
+never-answering promise a test creates is registered and rejected in `afterEach`, after which the test yields one
+macrotask, so its timer's side effects land before the next test clears storage.
+**Alternatives rejected:** moving the loader out of the shared access hook (changes every room route, outside
+P1718's scope; recorded as a known limitation); fake timers for the hanging-save tests (they hide the real 5s
+budget the e2e also checks).
+**Consequences:** A component that a shared loader can unmount should not own metered reads. A flaky unit test
+that fails in a different test each run is first suspected of a timer leaked by an earlier test; a wait inserted
+before the assertion is the cheap deterministic probe, and it must be run against the earlier test that sets up the
+leak, since the target's own successful path can clear the evidence.
+**References:** [features/p1718_mastermind_ready_step_with_skip.md](../features/p1718_mastermind_ready_step_with_skip.md) ·
+`src/app/prototypes/events/components/ReadyStepBar.tsx` · `src/tests/p1718-ready-skip.test.tsx`
 ## 2026-11-24 [product]: Change-lead outreach path: event, then one-on-one, then a letter only where a gap remains; sending waits for the call with the game. Founder decision, UNTESTED
 
 **Context:** Follow-up to 2026-11-17 "The change-lead session is the product demo…". Since then, a partner call produced P1709 (meetings through preparation) and P1708 (preparation feels too long), and P1688 step one passed on a real Android phone.

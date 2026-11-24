@@ -1021,7 +1021,8 @@ test.describe('P1542 series recipes', () => {
     await expect(page.getByTestId('room-close')).toContainText('The evening has ended. Two minutes to tell us how it went?');
     // Clarity Night keeps Ready, Table and Compare in its bar.
     for (const step of ['ready', 'table', 'compare']) await expect(page.getByTestId(`room-step-${step}`)).toBeVisible();
-    // UAT 2026-10-23 #1: one shared label — every room calls the last step Feedback. No Learn step there.
+    // UAT 2026-10-23 #1: Clarity Night calls the last step Feedback (the Sales Mastermind's is Review since P1718,
+    // founder 2026-11-24). No Learn step there.
     await expect(page.getByTestId('room-step-close')).toHaveText('Feedback');
     await expect(page.getByTestId('room-step-learn')).toHaveCount(0);
 
