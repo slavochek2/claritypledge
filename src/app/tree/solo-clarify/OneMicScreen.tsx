@@ -68,7 +68,7 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
           <MirrorTurn name={MIRROR}>
             {/* B drafts from your words only, so there is nothing of theirs to warn about, before creation or after */}
             <p className="text-sm">Created. It is on your profile{draft.visibility === 'private' ? ', visible only to you' : ' for anyone'}.</p>
-            <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => (variant === 'my-words' ? update({ visibility: 'public' }) : setWarn(true))} />
+            <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => (variant === 'my-words' ? update({ visibility: 'public' }) : setWarn(true))} position={draft.position} onPosition={p => update({ position: p })} />
             <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={() => fresh(variant)}>Start over</Button>
           </MirrorTurn>
         )}

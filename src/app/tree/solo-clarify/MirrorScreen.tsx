@@ -37,7 +37,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
       </Note>
       <VariantSwitch<Variant>
         value={variant}
-        onChange={v => { setVariant(v); setCreated(false); update({ visibility: 'private' }); }}
+        onChange={v => { setVariant(v); setCreated(false); setClarified(true); fresh(base); }}
         options={[{ id: 'choose-first', label: 'A. Choose before creating' }, { id: 'private-first', label: 'B. Always private first' }]}
       />
       <ChatFrame title={MIRROR} mirror action={<ClarifyChip onClick={() => start(null)} label="Clarify" />}>
@@ -65,14 +65,14 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
         {created && (
           <MirrorTurn name={MIRROR}>
             <p className="text-sm">Created. It is on your profile{draft.visibility === 'private' ? ', visible only to you' : ' for anyone'}.</p>
-            <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => update({ visibility: 'public' })} />
+            <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => update({ visibility: 'public' })} position={draft.position} onPosition={p => update({ position: p })} />
             {variant === 'private-first' && (
               <div className="flex flex-col gap-1">
                 <span className="text-xs text-muted-foreground">Who can see it (change any time)</span>
                 <VisibilityChoice value={draft.visibility} onChange={v => update({ visibility: v })} />
               </div>
             )}
-            <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={reset}>Start over</Button>
+            <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={reset}>Back to the chat</Button>
           </MirrorTurn>
         )}
       </ChatFrame>

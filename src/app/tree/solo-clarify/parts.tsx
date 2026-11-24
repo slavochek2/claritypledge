@@ -17,6 +17,7 @@ import { MirrorGlyph, MirrorMark } from '@/app/pages/chat/chat-kit';
 import { cn, extractHashtags } from '@/lib/utils';
 import { removeTag, type FakeMessage, type Visibility } from './model';
 import { allTags, type DraftState } from './draft';
+import type { Position } from '@/app/components/shared/prototype-types';
 
 const NO_COUNTS: SevenPointCounts = {
   strongly_agree: 0, agree: 0, somewhat_agree: 0, unsure: 0, somewhat_disagree: 0, disagree: 0, strongly_disagree: 0,
@@ -239,8 +240,10 @@ export type ShareRule = 'public-only' | 'people';
  * A point as a chat shows it, with the visibility icon in front of the statement (the feed's InlineVisibilityIcon)
  * and Share. `rule` decides what Share means on a private point: off with a reason, or "share with people".
  */
-export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic }: {
+export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic, position, onPosition }: {
   statement: string; tags: string[]; visibility: Visibility; rule: ShareRule; onMakePublic?: () => void;
+  /** The owner's position, carried over from the draft (the card can change it, as the product's cards do). */
+  position?: Position; onPosition?: (p: Position) => void;
 }) {
   const [said, setSaid] = useState<ReactNode>(null);
   const at = `${visibility}|${rule}`;
@@ -270,6 +273,11 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic 
         }
       >
         {tags.length > 0 ? <div className="pt-2"><TagChips tags={tags} /></div> : null}
+        {onPosition && (
+          <div className="min-w-0 pt-2">
+            <PositionButtons userPosition={position ?? null} counts={NO_COUNTS} compact narrow onPositionClick={onPosition} onClear={() => onPosition(null)} />
+          </div>
+        )}
       </PointCardShell>
       {said && <Said>{said}</Said>}
     </div>
@@ -289,7 +297,12 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
   const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
   const [fallback] = useState(() => opener?.closest('[data-return-focus]')?.querySelector<HTMLElement>('[data-share]') ?? null);
   useEffect(() => () => {
-    setTimeout(() => { (opener?.isConnected ? opener : fallback?.isConnected ? fallback : null)?.focus(); }, 0);
+    setTimeout(() => {
+      const target = opener?.isConnected ? opener : fallback?.isConnected ? fallback : null;
+      const radio = target instanceof HTMLInputElement && target.type === 'radio' && !target.checked
+        ? target.closest('[role="radiogroup"]')?.querySelector<HTMLElement>('input:checked') : null;
+      (radio ?? target)?.focus();
+    }, 0);
   }, [opener, fallback]);
   const [seen, setSeen] = useState(blocked);
   if (seen !== blocked) { setSeen(blocked); setSaid(null); }

@@ -32,7 +32,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
       </Note>
       <VariantSwitch<Variant>
         value={variant}
-        onChange={v => { setVariant(v); setOutcome(null); }}
+        onChange={v => { setVariant(v); startOver(); }}
         options={[{ id: 'two-actions', label: 'A. Publish or just create' }, { id: 'publish-only', label: 'B. Publish to chat only' }]}
       />
       <div className="grid gap-4 lg:grid-cols-2">
@@ -40,7 +40,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
           {DM_TALK.map(m => <Bubble key={m.id} msg={m} name={m.who === 'me' ? ME : OTHER} />)}
           {outcome === 'posted' && (
             <div className="self-end w-full max-w-[92%]">
-              <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} />
+              <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} position={draft.position} onPosition={p => update({ position: p })} />
             </div>
           )}
         </ChatFrame>
@@ -70,7 +70,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
                 {outcome === 'posted' ? `Posted in the chat with ${OTHER}` : 'Created, not posted anywhere'}, as a {draft.visibility} point.
                 {outcome === 'kept' && ' It is on your profile; share it from here whenever you like.'}
               </Said>
-              {outcome === 'kept' && <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} />}
+              {outcome === 'kept' && <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} position={draft.position} onPosition={p => update({ position: p })} />}
               <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={startOver}>Start over</Button>
             </MirrorTurn>
           )}
