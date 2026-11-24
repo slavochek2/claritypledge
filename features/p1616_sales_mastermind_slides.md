@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 94
 workstream: events
@@ -29,18 +29,17 @@ Blast radius: one static page. Reversibility: git revert. Decision density: the 
 
 ## Solution
 
-A new static deck copied from `/presi4`, reachable at its own path, leaving `/presi4` unchanged. Blocked by P1529 so its slides describe the room as built. Slides, in the run-of-show's order (`docs/events/sales-mastermind.md`):
+A copy of `/presi4` with the event substituted, at `/presi5`, leaving `/presi4` unchanged (founder, 2026-11-23: "copy /presi4 as is mostly and just substitute the event"; a first 8-slide draft written from the run-of-show was rejected as invented). Founder-approved main run, after three rounds of edits on 2026-11-23:
 
-1. Welcome and what the evening is for.
-2. The three roles: Clarity Canvas owner, partner, observer.
-3. The rule: both say a number, the lower one counts, above 8 the partner may challenge, below it back to understanding; the speaker / listener cards.
-4. The hands-up signal: count down, hand up, everyone who sees it does the same and stops talking.
-5. Recording check: mics on, transcription on in the event room.
-6. A cue for the scripted 3-5 minute live demo with two people from the room, filmed for reuse. No questions.
-7. What happens at the canvas update step (shown twice: at the end of round 1 for the "Create next version" tap, and at the update step).
-8. The close and the next session.
+1. Title: the published event title and subtitle, QR and link to `/sales`.
+2. Agenda.
+3. Why many business discussions fail (owner doesn't see the full picture; partner doesn't understand it; when challenged, the owner assumes and never verifies).
+4. Shared challenge. 5. Thinkers. 6. Closed-Loop Communication. 7. Admit "I don't understand". 8. Listen for the speaker's intended meaning. 9. What is Cognitive Understanding?
+10. Hands up: "When my hand goes up, yours goes up too" / "See a hand up? Raise yours and stop speaking." Bell and host behaviour in the notes.
+11. The event page, embedded (how to join, where to switch on recording). 12. The host screen page (table arrangement).
+13. Q&A. 14. Universal values (integrity, intellectual integrity, intellectual honesty, reworded). 15. Join the community. 16. Close: 3 minutes of feedback, then "photo in three minutes". 17. Group photo. 18. Calendar.
 
-Order follows the run-of-show's opener (rules before the demo); the earlier draft of this list put the demo third, before the rule it uses (both build reviewers, 2026-11-23).
+The Ikigai slide and the mirror-agents slide are removed; the host compare view, how a round works, the no-number exception and the demo round sit in the backup block with /presi4's backup slides.
 
 `[FOUNDER DECISION: all slide wording and the deck's path name.]`
 
@@ -58,8 +57,8 @@ Order follows the run-of-show's opener (rules before the demo); the earlier draf
 
 ## Done-When
 
-- [ ] The deck opens at its own path at projector size, and every slide above is present with the founder's approved wording.
-- [ ] No slide or embed points at a past event, checked by clicking through on TEST.
+- [x] The deck opens at its own path at projector size, and every slide above is present with the founder's approved wording. (Founder reviewed it on localhost:5117/presi5 over three rounds and approved with "ok ... ship", 2026-11-24; `src/tests/p1616-presi5-deck.test.ts` 8/8.)
+- [x] No slide or embed points at a past event. (Every embed points at the Sales Mastermind event of 2026-11-26, read from the prod event row; `/sales` 307s to the same page; asserted in the deck test. The embeds are prod pages, so the click-through is on prod at the event, not TEST: the frames are blank on localhost by design.)
 - [x] `/presi4` is unchanged, shown by an empty diff.
 
 ## Related

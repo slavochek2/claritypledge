@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-24 [process]: A new event deck is the previous deck with the event swapped in, changed only where the founder names a slide (P1616) (Status: proposed)
+
+**Context:** Asked to build `/presi5` for the Sales Mastermind, the build session wrote a fresh 8-slide deck from the run-of-show (roles, the rule, a 1-2-3 recording check, the canvas update steps). The founder rejected almost all of it: the room had already seen roles and the principle in the introduction, the slides restated things or invented wording, and `/presi4`'s backup slides were gone ("let's not innovate, let's just do as little as possible").
+**Decision:**
+- **Copy the last deck whole, then substitute the event**: title and subtitle as published, QR to the series short link (`/sales`, never a dated slug), embeds pointed at the current event, backup block kept.
+- **Every further change is a slide the founder names**, applied as said; the session's own ideas are offered, not built. Each slide that teaches a signal says its purpose (hands up = the round ends, everyone stops speaking).
+- **Moved slides go to the backup block, not the bin**, unless the founder says delete.
+**Alternatives rejected:** drafting slides from the run-of-show doc (restates what the room already learned, and slide wording is a founder decision); a fresh minimal deck without the backup block.
+**Consequences:** `/presi5` shipped as `/presi4` minus Ikigai and mirror agents, plus a hands-up slide, after three rounds of founder edits on localhost. The embeds are prod pages and show blank on localhost, so they are checked at the venue. **UNTESTED** as a rule for the next deck. Falsifier: the next event's deck, built this way, still needs a full rewrite round.
+**References:** `features/p1616_sales_mastermind_slides.md`; `public/presi5/index.html`; `src/tests/p1616-presi5-deck.test.ts`.
 ## 2026-11-23 [technical]: One mail-link rule wins over a branch's own copy at merge (P1675, P1705)
 
 **Context:** P1675 lived on its branch for a week. Meanwhile main shipped P1705, one rule (`_shared/link-base.ts`, `linkBaseFor`) that decides the site every mailed link points at. P1675 had built its own version for the same need (R11: a TEST confirmation links back to the developer's localhost port), reading the configured site and a body `origin` field itself. Three cherry-picks conflicted in the email files.
