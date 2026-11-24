@@ -31,7 +31,8 @@
 #      make its own slot read active; re-ask re-checks liveness after its temp file is built
 #   Review round 5: tidy's freshness scan is unchanged (a re-ask keeps the hold's mtime instead),
 #      so a freshly written hold that does not block still keeps tidy's 12-hour grace
-#   QA: 6b/6c require the p9010 line to exist (against main's copy they passed on an empty line)
+#   QA: 6b/6c/6f require the p9010 line to exist (against main's copy they passed on an empty line);
+#      p9010's REASON carries < > | so 6f fails on any copy that relays it
 #
 # Hermetic: builds its own fixture repo under mktemp, never touches the real repo's worktrees,
 # holds or .private. P1723_SCRIPTS_DIR points it at another copy of git-ops.sh and
@@ -147,7 +148,7 @@ hold_file "$S2" founder "waiting for the founder to look at the design" "$((NOW 
 hold_file "$S3" founder "waiting for the founder, nothing committed yet" "$((NOW - 2 * DAY))"
 hold_file "$S4" founder "waiting for founder verify on the qa spec" "$((NOW - 2 * DAY))"
 # 2. archived (w10) and its controls (w11 no proof, w12 stale proof, w13 moved tip)
-S10="$(archive_fixture w10 p9010 good)";    hold_file "$S10" founder 'retained until $(x);& WHYTEXT after the push' "$((NOW - 2 * DAY))"
+S10="$(archive_fixture w10 p9010 good)";    hold_file "$S10" founder 'retained until $(x);& WHYTEXT <after> the | push' "$((NOW - 2 * DAY))"
 S11="$(archive_fixture w11 p9011 noproof)"; hold_file "$S11" founder "retained until archive-spec runs after the push" "$((NOW - 2 * DAY))"
 S12="$(archive_fixture w12 p9012 stale)";   hold_file "$S12" founder "retained until archive-spec runs after the push" "$((NOW - 2 * DAY))"
 S13="$(archive_fixture w13 p9013 good)";    hold_file "$S13" founder "retained until archive-spec runs after the push" "$((NOW - 2 * DAY))"
@@ -420,7 +421,7 @@ l14="$(printf '%s\n' "$o" | grep '^archive-spec: p9014 not finished')"
 l15="$(printf '%s\n' "$o" | grep '^archive-spec: p9015 not finished')"
 { [[ "$l15" == *"is on hold (owner founder)"* && "$l15" != *"uncommitted changes"* ]]; } \
   && pass "6n: a held worktree whose name has a space also reads 'on hold'" || fail "6n: $l15"
-grep -q '[<>|]' <<<"$o" && fail "6f: finish-pending output has < > |" || pass "6f: finish-pending output has no < > |"
+{ [[ -z "$l10" ]] || grep -q '[<>|]' <<<"$o"; } && fail "6f: finish-pending output has < > | (or no p9010 line; its REASON carries < > |)" || pass "6f: finish-pending output has no < > | (the p9010 REASON carries them)"
 G rev-parse --verify -q feature/p9010-x >/dev/null && [[ -f "$S10/.hold" ]] && pass "6g: branch and hold kept" || fail "6g: branch or hold gone"
 grep -q 'WHYTEXT\|retained until\|yourself\|hold --clear' <<<"$o" && fail "6l: finish-pending relayed the hold's REASON or a manual-removal line: $o" \
   || pass "6l: finish-pending relays neither the REASON nor a 'delete the .hold yourself' line"
