@@ -55,18 +55,20 @@ export function splitTags(text: string): { statement: string; tags: string[] } {
   return { statement: stripHashtags(text, tags), tags };
 }
 
+/** A tag no draft carries: put in a #word's place, it shows whether the shared rule reads a hashtag at that spot. */
+const PROBE = 'pprobe1722';
+
 /**
  * Removing a tag takes its #word out of the text (the shared P1660 rule). Where that rule keeps the token yet still reads the
- * tag from it (`#ai-powered` gives `ai`), the token loses only its `#`: no wording goes, and a link target such as
- * `](#ai` or `https://example.com/#ai` is never touched.
+ * tag from it (`#ai-powered` gives `ai`), the token loses only its `#`, and only where the shared rule itself reads a hashtag
+ * (tried by putting PROBE there), so links, link titles and its other masks are never touched and no wording goes.
  */
 export function removeTag(text: string, tag: string): string {
   const out = stripHashtags(text, [tag]);
   if (!extractHashtags(out).includes(tag)) return out;
-  // No lookbehind (Safari < 16.4, src/tests/no-regex-lookbehind.test.ts): the characters before the # are read by offset.
   return out.replace(/#([\p{L}\p{N}_-]+)/gu, (h: string, word: string, at: number) => {
-    const lead = out.slice(0, at).split(/\s/).pop() ?? ''; // the token's text before the #
-    const inWordOrLink = /[\p{L}\p{N}_]/u.test(out[at - 1] ?? '') || lead.includes('](') || /[/:]/.test(lead);
-    return !inWordOrLink && extractHashtags(h).includes(tag) ? word : h;
+    if (!extractHashtags(h).includes(tag)) return h;
+    const tried = `${out.slice(0, at)}#${PROBE}${out.slice(at + h.length)}`;
+    return extractHashtags(tried).includes(PROBE) ? word : h;
   });
 }
