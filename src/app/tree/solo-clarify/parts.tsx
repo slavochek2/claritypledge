@@ -35,7 +35,7 @@ export function Said({ children }: { children: ReactNode }) {
   return <p role="status" className="rounded-md border border-dashed border-gray-400 bg-white px-3 py-2 text-sm text-gray-700"><span className="font-medium">Would happen: </span>{children}</p>;
 }
 
-/** Takes focus when it appears, because the button that led here has gone (focus would otherwise fall to the page). */
+/** Takes focus when it appears: the button that led here has gone (focus would fall to the page), or what it made appears out of view. */
 export function Arrive({ on = true, label, className, children }: { on?: boolean; label?: string; className?: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { if (on) ref.current?.focus(); }, [on]);
@@ -122,19 +122,19 @@ export function Choice<T extends string>({ label, value, options, onChange }: {
   );
 }
 
-export function VisibilityChoice({ value, onChange }: { value: Visibility; onChange: (v: Visibility) => void }) {
-  return <Choice<Visibility> label="Who can see this point" value={value} onChange={onChange} options={[{ id: 'private', label: 'Private', icon: Lock }, { id: 'public', label: 'Public', icon: Globe }]} />;
+export function VisibilityChoice({ value, onChange, label = 'Who can see this point' }: { value: Visibility; onChange: (v: Visibility) => void; label?: string }) {
+  return <Choice<Visibility> label={label} value={value} onChange={onChange} options={[{ id: 'private', label: 'Private', icon: Lock }, { id: 'public', label: 'Public', icon: Globe }]} />;
 }
 
 export function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (t: string) => void }) {
   if (tags.length === 0) return null;
   return (
-    <ul className="flex flex-wrap gap-1.5" aria-label="Tags">
+    <ul className="flex flex-wrap gap-x-1.5 gap-y-5" aria-label="Tags">
       {tags.map(t => (
         <li key={t} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
           #{t}
           {onRemove && (
-            <button type="button" aria-label={`Remove tag ${t}`} className="-my-3 -mr-2 inline-flex h-11 w-10 items-center justify-center" onClick={() => onRemove(t)}>
+            <button type="button" aria-label={`Remove tag ${t}`} className="-my-2.5 -mr-2 inline-flex h-10 w-10 items-center justify-center" onClick={() => onRemove(t)}>
               <X className="h-3 w-3" aria-hidden />
             </button>
           )}
@@ -239,8 +239,8 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions, focus 
             </div>
             {choose && (
               <div className="flex flex-col gap-1">
-                <span className="text-xs text-muted-foreground">Who can see it</span>
-                <VisibilityChoice value={draft.visibility} onChange={pick} />
+                <span aria-hidden className="text-xs text-muted-foreground">Who can see it</span>
+                <VisibilityChoice label="Who can see it" value={draft.visibility} onChange={pick} />
               </div>
             )}
           </div>
@@ -278,7 +278,11 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic,
   }, [visibility]);
   const at = `${visibility}|${rule}`;
   const [seen, setSeen] = useState(at);
-  if (seen !== at) { setSeen(at); setSaid(null); }
+  const [heard, setHeard] = useState('');
+  if (seen !== at) {
+    if (!seen.startsWith(`${visibility}|`)) setHeard(`Now a ${visibility} point`);
+    setSeen(at); setSaid(null);
+  }
   const share = () => {
     if (visibility === 'public') { setSaid('Opens the share sheet: copy link, send to a chat, post. Anyone with the link can take a position.'); return; }
     if (rule === 'people') { setSaid('Opens "Share with people": pick who may see it. Only they can see it and take a position; it stays off your profile and the feed.'); return; }
@@ -310,6 +314,7 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic,
         )}
       </PointCardShell>
       {said && <Said>{said}</Said>}
+      <span className="sr-only" aria-live="polite">{heard}</span>
     </div>
   );
 }
@@ -322,6 +327,7 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
   onConfirm: () => void; onClose: () => void;
 }) {
   const [said, setSaid] = useState<string | null>(null);
+  const [tries, setTries] = useState(0);
   // The screens unmount this dialog rather than closing it, so Radix never hands focus back: return it to what opened it.
   // A Make public link goes away once the point is public, so its card's Share is the fallback.
   const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
@@ -337,7 +343,7 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
   const [seen, setSeen] = useState(blocked);
   if (seen !== blocked) { setSeen(blocked); setSaid(null); }
   const confirm = () => {
-    if (blocked) { setSaid(blocked); return; }
+    if (blocked) { setSaid(blocked); setTries(n => n + 1); return; }
     onConfirm(); onClose();
   };
   return (
@@ -351,7 +357,7 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
           </DialogDescription>
         </DialogHeader>
         {extra}
-        {said && blocked && <p role="alert" className="text-sm text-red-800">{said}</p>}
+        {said && blocked && <p key={tries} role="alert" className="text-sm text-red-800">{said}</p>}
         {/* Design-system rule 7: main action filled, the other ghost; phone stacked with the main one on top */}
         <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button type="button" variant="ghost" className="h-11 min-h-11" onClick={onClose}>Keep private</Button>

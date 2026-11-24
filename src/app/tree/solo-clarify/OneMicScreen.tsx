@@ -31,7 +31,7 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
   const choose = (v: Variant) => { setVariant(v); fresh(v); };
 
   const consent = variant === 'confirm' ? (
-    <label className="flex min-h-11 items-start gap-3 text-sm">
+    <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm">
       <Checkbox checked={agreed} onCheckedChange={c => setAgreed(c === true)} className="mt-0.5" />
       <span>{OTHER} agreed that what they said can be part of a public point.</span>
     </label>

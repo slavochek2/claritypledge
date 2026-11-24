@@ -40,7 +40,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
         <ChatFrame title={OTHER}>
           {DM_TALK.map(m => <Bubble key={m.id} msg={m} name={m.who === 'me' ? ME : OTHER} />)}
           {outcome === 'posted' && (
-            <Arrive label={`Posted in the chat with ${OTHER}`} className="self-end w-full max-w-[92%]">
+            <Arrive label={`Posted in the chat with ${OTHER}, as a ${draft.visibility} point`} className="self-end w-full max-w-[92%]">
               <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} position={draft.position} onPosition={p => update({ position: p })} />
             </Arrive>
           )}

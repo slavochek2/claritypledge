@@ -40,7 +40,7 @@ export function SoloClarify() {
           any point. Invented data, nothing is saved.
         </p>
         <div className="mt-4 flex flex-col gap-1">
-          <span className="text-sm font-medium text-gray-900">Share rule for private points (all screens)</span>
+          <span aria-hidden className="text-sm font-medium text-gray-900">Share rule for private points (all screens)</span>
           <VariantSwitch<ShareRule>
             label="Share rule for private points"
             value={rule}
