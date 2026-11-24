@@ -335,6 +335,10 @@ services:
       GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${{GOOGLE_CLIENT_ID}}
       GOTRUE_EXTERNAL_GOOGLE_SECRET: ${{GOOGLE_SECRET}}
       GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: https://{host}:{c['https_port']}/auth/v1/callback
+      GOTRUE_MAILER_TEMPLATES_MAGIC_LINK: https://{host}:{c['https_port']}/_cp-email-templates/magic_link.html
+      GOTRUE_MAILER_TEMPLATES_CONFIRMATION: https://{host}:{c['https_port']}/_cp-email-templates/confirmation.html
+    extra_hosts:
+      - "{host}:{ts_ip}"
     networks:
       default: {{}}
       edge: {{}}
@@ -647,6 +651,11 @@ https://{host}:{c['https_port']} {{
 			max_size 50MB
 		}}
 		reverse_proxy 127.0.0.1:{c['kong_port']}
+	}}
+	# Production e-mail designs, the same files the main lane serves (auth fetches them by URL).
+	handle_path /_cp-email-templates/* {{
+		root * /srv/cp-email-templates
+		file_server
 	}}
 	handle {{
 		respond "Not Found" 404
