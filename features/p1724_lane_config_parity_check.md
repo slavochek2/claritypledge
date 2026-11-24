@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: task
 rank: 355
 workstream: infrastructure
@@ -224,7 +224,12 @@ nothing of lane2's project is left.
   - The live proof runs every cleanup step, the residue check and the lane1 fingerprint even when the proof itself fails, and reports that failure as an expectation.
   - The Google replay now reproduces the historical lane: the key is present and set to `"false"`, and the client fields are blank. Deleting the keys would also fail on key presence alone.
   - The recovery order after a boot refusal is written into the Risks row (finding 3).
-- Accepted (Codex round 4, finding 2, corrected in round 5): on a failed boot preflight the lane database starts before quarantine turns cron off. Jobs that call functions have no gateway to reach. Jobs local to the database (an expiry delete, for example) can run in that interval, which lasts from the database becoming healthy until quarantine. A lane that was serving before the reboot ran the same jobs on the same data, so this is no new exposure. If the database never becomes healthy, quarantine can fail before it records the flag (`quarantine` ordering, unchanged since P1672). The lane is then still `ready` with only its database up, and the next boot or `check` refuses it again.
+- Accepted (Codex round 4, finding 2, corrected in round 5): on a failed boot preflight the lane database starts before quarantine turns cron off. Jobs that call functions have no gateway to reach. Jobs local to the database (an expiry delete, for example) can run in that interval, which lasts from the database becoming healthy until quarantine. A lane that was serving before the reboot ran the same jobs on the same data, so this is no new exposure.
+- Sixth and last review round (2026-11-25, Codex on 1c4cb7a92: 4 of the 6 round-5 findings verified fixed; 3 new HIGH and 1 MEDIUM). Review rounds stop here (decisions.md 2026-10-14 [process], "when to stop review rounds"). These four are recorded, not fixed, and go to the founder:
+  - **A stale route can outlive quarantine (HIGH).** If Caddy is running but its reload fails, the route file is gone while Caddy still holds the route in memory. A later removal skips the reload because the file is already gone, and a boot of the quarantined lane starts its gateway. This predates P1724: `quarantine` (P1672) has always kept the gateway up, because deploy and migrate need it, and has always skipped the reload when the file was absent. It applies to every quarantined lane, however it was quarantined. The fix belongs in `caddy_route_remove`: always reload, and verify the route is gone. That is follow-up work.
+  - **Mailpit runs during the boot comparison and stays up after a refusal (HIGH).** The lane's mail UI is published on the tailnet. Quarantine has never stopped mail (P1672), and before P1724 boot started it with no check at all. Exposure is the TEST lane's own captured mail on the private tailnet.
+  - **A refusal ignores a failed stop (HIGH, needs three faults at once).** Compose cannot load the lane files, so `stop` fails. Before that, the lane was already running and Caddy's reload failed. Each stop exit code is ignored.
+  - **Ctrl-C during the live proof skips its cleanup (MEDIUM).** The next run fails safe: it refuses a lane2 that is not empty. If the database never becomes healthy, quarantine can fail before it records the flag (`quarantine` ordering, unchanged since P1672). The lane is then still `ready` with only its database up, and the next boot or `check` refuses it again.
 - The live proof exercises the running comparison through `container_drift` on created, never-started containers. Its path through `parity_report(running=True)` is covered offline and by the read-only lane1 run.
 
 **Non-Goals**
@@ -281,8 +286,11 @@ nothing of lane2's project is left.
       `SystemExit`, which the provision handler does not catch).
       Evidence: offline tests "provision: no relay list raises RuntimeError" and "provision: no relay list leaves
       the lane failed" pass.
-- [ ] The installed `lanectl` on the VM matches the committed file (hash), and `lanectl parity --lane lane1`
+- [x] The installed `lanectl` on the VM matches the committed file (hash), and `lanectl parity --lane lane1`
       passes with it installed.
+      Evidence (2026-11-25): `lane.py vm-install` exit 0 ("installed lanectl protocol 1"). The VM's `bin/lanectl.py`
+      is sha256 `b9816096666537b6`, the file committed in 1c4cb7a92; `bin/lanectl` is the 72-byte wrapper that
+      execs it. `lane.py vm -- parity --lane lane1` exit 0: "lane1: parity with the main lane: pass".
 
 ## Rollback Strategy
 
