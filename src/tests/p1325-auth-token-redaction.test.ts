@@ -15,7 +15,7 @@ import type { ErrorEvent } from '@sentry/react';
 import { AUTH_TOKEN_IN_URL, sentryBeforeBreadcrumb, sentryBeforeSend } from '@/lib/sentry-filters';
 
 const html = readFileSync(join(__dirname, '../../index.html'), 'utf8');
-const SECRET = 'pkce_FAKE-TOKEN-HASH-FOR-TESTS';
+const SECRET = 'pkce_FAKE-TOKEN-HASH-FOR-TESTS'; // gitleaks:allow
 const JWT = 'FAKE.JWT.FOR-TESTS';
 
 function loadBlock(pathname: string) {

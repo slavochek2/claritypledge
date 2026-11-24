@@ -33,7 +33,7 @@ const DELIVERY_ID = 'delivery-uuid-714';
 const SENDER_ID = 'sender-uuid-714';
 const STORY_ID = 'story-uuid-714';
 const POINT_ID = 'point-uuid-714';
-const CONSUMED_TOKEN = 'consumed-token-xyz';
+const CONSUMED_TOKEN = 'consumed-token-xyz'; // gitleaks:allow
 
 // ── Service mocks ──────────────────────────────────────────────────────────────
 

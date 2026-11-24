@@ -95,7 +95,7 @@ test.describe('Auth Callback & Profile Creation', () => {
 
   test('should handle auth callback errors gracefully', async ({ page }) => {
     // Visit callback page with INVALID token
-    await page.goto('/auth/callback?token=invalid-token-123&type=magiclink');
+    await page.goto('/auth/callback?token=invalid-token-123&type=magiclink'); // gitleaks:allow
 
     // Should show error message or redirect to error state
     // Don't wait too long - if there's an error, it should show quickly

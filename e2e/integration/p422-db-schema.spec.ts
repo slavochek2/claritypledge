@@ -91,7 +91,7 @@ test.describe('P422: clarity_agreements schema + RLS', () => {
       process.env.VITE_SUPABASE_URL!,
       process.env.VITE_SUPABASE_ANON_KEY!,
     );
-    const { data, error } = await anonClient.rpc('get_agreement_by_token', { p_token: 'invalid-token-xyz' });
+    const { data, error } = await anonClient.rpc('get_agreement_by_token', { p_token: 'invalid-token-xyz' }); // gitleaks:allow
     expect(error).toBeNull();
     expect(Array.isArray(data) ? data.length : 0).toBe(0);
   });

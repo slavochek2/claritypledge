@@ -16,7 +16,7 @@ import { join } from 'node:path';
 const html = readFileSync(join(__dirname, '../../index.html'), 'utf8');
 
 const CODE = 'QX7K2M';
-const TOKEN = 'pkce_FAKE-TOKEN-HASH-FOR-TESTS';
+const TOKEN = 'pkce_FAKE-TOKEN-HASH-FOR-TESTS'; // gitleaks:allow
 
 interface WindowOpts {
   webdriver?: boolean | undefined;

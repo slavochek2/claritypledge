@@ -31,7 +31,7 @@ const MOCK_AGREEMENTS: ClarityAgreement[] = [
       'We agree to communicate with honesty and care. We will give each other direct, calibrated feedback without softening or exaggerating. We will flag when we notice miscalibration and receive that feedback with openness.',
     status: 'active',
     visibility: 'private',
-    invitationToken: 'mock-token-active-001',
+    invitationToken: 'mock-token-active-001', // gitleaks:allow
     invitationExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
     partnerSignedAt: new Date(Date.now() - 13 * 24 * 60 * 60 * 1000).toISOString(),
@@ -52,7 +52,7 @@ const MOCK_AGREEMENTS: ClarityAgreement[] = [
       'We commit to practicing calibrated communication in our coaching sessions. Direct, honest, and kind — always.',
     status: 'pending',
     visibility: 'public',
-    invitationToken: 'mock-token-pending-002',
+    invitationToken: 'mock-token-pending-002', // gitleaks:allow
     invitationExpiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     partnerSignedAt: null,

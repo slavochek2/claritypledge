@@ -366,7 +366,7 @@ unhook
 check "  the spec is in no commit on main" "no" "$(on_main_ever features/p9021_secret.md)"
 check "  main's commit, index and features files are untouched" "$M21" "$(main_state)"
 check "  worktree removed" "no" "$([[ -d "$W21" ]] && echo yes || echo no)"
-check "  the branch still holds the spec" "0" "$(rc git -C "$REPO" cat-file -e feature/p9021-secret:features/p9021_secret.md)"
+check "  the branch still holds the spec" "0" "$(rc git -C "$REPO" cat-file -e feature/p9021-secret:features/p9021_secret.md)" # gitleaks:allow
 check "  park says the spec was withheld" "yes" "$(said_withheld)"
 PK21="$( ( cd "$REPO" && bash scripts/pipeline-strandings.sh --all ) | grep "PARKED            feature/p9021-secret" || true )"
 check "  startup report shows it PARKED" "1" "$(printf '%s\n' "$PK21" | grep -c "PARKED" || true)"

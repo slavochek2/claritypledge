@@ -87,7 +87,7 @@ test.describe('P1532 worker user pool', () => {
 
   test('a user whose password changed is not reused', async () => {
     await deleteTestUser(first.user.id); // released
-    const { error } = await admin.auth.admin.updateUserById(first.user.id, { password: 'p1532-changed-password' });
+    const { error } = await admin.auth.admin.updateUserById(first.user.id, { password: 'p1532-changed-password' }); // gitleaks:allow
     expect(error).toBeNull();
     const fresh = await createTestUser({ name: 'P1532 Pool C' });
     try {

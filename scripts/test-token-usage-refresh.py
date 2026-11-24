@@ -145,7 +145,14 @@ with tempfile.TemporaryDirectory() as h:
                gem(D2 + 'T12:00:00Z').replace('/work/demo', '/work/REFUSED-notes')])  # REFUSED in a path is not a refusal
     g = tur.parse_gemini_calls(lg)
     check('gemini: counts sent calls per day, skipping REFUSED, other vendors, payload lines and bad days', g == {D1: 2, D2: 2}, g)
-    check('gemini: a missing log is None, not an empty dict', tur.parse_gemini_calls(h + '/nope.log') is None, '')
+    # the refused header now names the rule and payload line: `REFUSED:SECRET rule=<rule> line=<n>`
+    write(lg, [gem(D1 + 'T10:00:00Z'),
+               gem(D1 + 'T11:00:00Z', end='REFUSED:SECRET rule=sk-key line=3'),
+               gem(D2 + 'T10:00:00Z', end='REFUSED:SECRET rule=assign-entropy line=12'),
+               gem(D2 + 'T11:00:00Z', end='REFUSED:SECRET rule=scan-error line=1')])
+    g = tur.parse_gemini_calls(lg)
+    check('gemini: a refused record in the new rule=/line= format is not a sent call', g == {D1: 1}, g)
+    check('gemini: a missing log is None, not an empty dict',tur.parse_gemini_calls(h + '/nope.log') is None, '')
     gb = tur.reduce_tokens(rows, T, {'2026-09-30': 1, '2026-10-13': 2, '2026-10-14': 1})
     gw = {w['p']: w for w in gb['weeks']}
     check('gemini: calls and days per week from the first entry on', gw['2026-09-28']['gemini_calls'] == 1 and gw['2026-10-12']['gemini_calls'] == 3 and gw['2026-10-12']['days']['gemini'] == 2, gw['2026-10-12'])

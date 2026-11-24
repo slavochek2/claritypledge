@@ -197,13 +197,15 @@ FAKE_UNCLASSIFIED_LIVE_KEY=live-value-not-in-any-registry-001
 FAKE_PLAINTEXT_LEAK_KEY=SuperSecretFakeValue123456789
 ENV_EOF
 
-cat > "${ENV_DIR}/fixture-env-b.env" <<'ENV_EOF'
-# synthetic env fixture — fixture-env-b.env
-FAKE_MISLOCATED_SECRET=live-value-mislocated-002
-FAKE_DUAL_REGISTERED_KEY=live-value-dual-003
-FAKE_RETIRED_SECRET=live-value-retired-004
-FAKE_STALE_CONSUMER_KEY=live-value-stale-005
-ENV_EOF
+# Written line by line (not a heredoc) so the source line can carry the scan marker while the
+# generated file stays byte-identical to the heredoc it replaces.
+{
+  echo '# synthetic env fixture — fixture-env-b.env'
+  echo 'FAKE_MISLOCATED_SECRET=live-value-mislocated-002' # gitleaks:allow
+  echo 'FAKE_DUAL_REGISTERED_KEY=live-value-dual-003'
+  echo 'FAKE_RETIRED_SECRET=live-value-retired-004' # gitleaks:allow
+  echo 'FAKE_STALE_CONSUMER_KEY=live-value-stale-005'
+} > "${ENV_DIR}/fixture-env-b.env"
 
 # Registry A: mirrors the shape of accounts.md/edge-function-secrets.md after
 # the tier/consumers/interval/last_rotated/status columns land. Note the

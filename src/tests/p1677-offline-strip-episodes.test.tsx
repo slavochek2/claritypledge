@@ -20,7 +20,7 @@ vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 const track = vi.mocked(analytics.track);
 
 const UUID = '3f2b8c1e-9a4d-4e6b-8f10-2c7d5a9e1b34';
-const TOKEN = 'not-a-real-token-but-a-mistyped-url-segment'; // stands in for any unknown first segment
+const TOKEN = 'not-a-real-token-but-a-mistyped-url-segment'; // stands in for any unknown first segment (gitleaks:allow)
 const T0 = new Date('2026-11-13T10:00:00Z').getTime();
 
 let navigateTo: (to: string) => void = () => {};

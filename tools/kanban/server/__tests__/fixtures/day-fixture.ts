@@ -5,7 +5,7 @@
 import { SYNTH_TOKENS } from './day-tokens'
 import type { DayStatement, DayReport, DayIssue, DayCheck } from '../../../src/lib/day'
 
-export const SECRET = 'FIXTURE-SECRET-DAY-91c2'
+export const SECRET = 'FIXTURE-SECRET-DAY-91c2' // gitleaks:allow
 
 const agent = (why: string, rec = true) => ({ id: 'agent', label: 'Give to the agent', agent: true, recommended: rec, why })
 const park = { id: 'park', label: 'Park: stop asking until I bring it back' }

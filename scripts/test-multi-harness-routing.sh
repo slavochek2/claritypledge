@@ -204,7 +204,7 @@ run_tier_c() {
   # model is verified, and vendor failure shapes are non-zero, never a clean run.
   echo "=== Tier C - delegation wrapper outcomes ==="
   run_exit "public bounded corpus passes scan" 0 bash -c "printf '%s' 'Summarize the public README into five bullets.' | '$WRAPPER' --check"
-  run_exit "credential-shaped content refuses" 2 bash -c "printf '%s' 'Rotate AKIA0123456789ABCDEF today.' | '$WRAPPER' --check"
+  run_exit "credential-shaped content refuses" 2 bash -c "printf '%s' 'Rotate AKIA01234567''89ABCDEF today.' | '$WRAPPER' --check"
   run_exit "path/PII mentions are not refused by the scan" 0 bash -c "printf '%s' 'Contact fixture@example.com about Projects/private/notes.txt' | '$WRAPPER' --check"
   run_exit "missing defaults file is exit 3 (setup failure), never a silent model fallback" 3 env HOME="$TMP_ROOT/empty-home" ASK_MODEL_DEFAULTS_FILE="$TMP_ROOT/absent.env" bash -c "printf '%s' 'Summarize a public README.' | '$WRAPPER'"
 

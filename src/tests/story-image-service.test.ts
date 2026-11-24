@@ -17,7 +17,7 @@ const mockProcessImage = vi.mocked(processImageForUpload);
 
 describe('uploadStoryImage', () => {
   const mockFile = new File(['pixels'], 'photo.jpg', { type: 'image/jpeg' });
-  const mockToken = 'bearer-token-123';
+  const mockToken = 'bearer-token-123'; // gitleaks:allow
   const mockStoryId = 'story-abc';
 
   beforeEach(() => {

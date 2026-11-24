@@ -725,7 +725,7 @@ test.describe('Edge-fn authz regression — dispatch-event-emails CRON_SECRET gu
         apikey: SUPABASE_ANON_KEY,
         // A real JWT — satisfies the gateway, carries no authority of its own here.
         Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        'x-cron-secret': 'wrong-cron-secret-value',
+        'x-cron-secret': 'wrong-cron-secret-value', // gitleaks:allow
       },
       body: JSON.stringify({}),
     });
@@ -768,7 +768,7 @@ test.describe('Edge-fn authz regression — enqueue-transcription WEBHOOK_SECRET
       headers: {
         'Content-Type': 'application/json',
         apikey: SUPABASE_ANON_KEY,
-        'x-webhook-secret': 'wrong-secret-not-matching-env',
+        'x-webhook-secret': 'wrong-secret-not-matching-env', // gitleaks:allow
       },
       body: JSON.stringify({
         type: 'INSERT',
