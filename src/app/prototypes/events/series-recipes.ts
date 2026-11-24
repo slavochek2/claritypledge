@@ -225,8 +225,8 @@ export const SOCIAL_HIKE_RECIPE: SeriesRecipe = {
 
 /**
  * P1529: the sales mastermind. Preparation is the learning, optional at the room's door so nobody without a
- * canvas is turned away (D5, D20). The room is Ready · Principle · Table · Feedback; no statement Compare (P1718: Ready is back).
- * Feedback is the hikes' step: open at any time (`feedbackAnytime`), the room lands on it when the host ends the evening, its
+ * canvas is turned away (D5, D20). The room is Ready · Principle · Table · Review; no statement Compare (P1718: Ready is back).
+ * Review (the feedback step, named "Review" here by P1718) is the hikes' step: open at any time (`feedbackAnytime`), the room lands on it when the host ends the evening, its
  * card is the intro (`closeIntro: false`) and the CMP re-check is one step. What stays the Clarity Night's: the quote box
  * (`appreciate`, the server derives consent by series, so the box is right here) and the personal asks. Registration asks its
  * questions before the seat (D16).

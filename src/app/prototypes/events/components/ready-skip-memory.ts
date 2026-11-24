@@ -16,6 +16,12 @@ export function rememberReadySkipped(profileId: string | null | undefined, event
   try { localStorage.setItem(readySkippedKey(profileId, eventId), '1'); } catch { /* storage blocked: Ready shows again */ }
 }
 
+/** A saved answer replaces an earlier skip (review round 2), so the device never says "skipped" about an answered Ready. */
+export function forgetReadySkipped(profileId: string | null | undefined, eventId: string | null | undefined): void {
+  if (!profileId || !eventId) return;
+  try { localStorage.removeItem(readySkippedKey(profileId, eventId)); } catch { /* storage blocked: nothing was stored */ }
+}
+
 export function readySkipped(profileId: string | null | undefined, eventId: string | null | undefined): boolean {
   if (!profileId || !eventId) return false;
   try { return localStorage.getItem(readySkippedKey(profileId, eventId)) === '1'; } catch { return false; }

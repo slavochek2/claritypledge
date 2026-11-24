@@ -79,8 +79,8 @@ vi.mock('react-router-dom', async (importOriginal) => {
 import { EventRoomReady, READY_SAVE_MS } from '@/app/prototypes/events/components/EventRoomReady';
 import { ROUNDS_READ_MS } from '@/app/prototypes/events/components/use-seated-at-running-round';
 import { EventRoomGate } from '@/app/prototypes/events/components/EventRoomGate';
-import { readySkipped } from '@/app/prototypes/events/components/ready-skip-memory';
-import { RoomSteps } from '@/app/prototypes/events/rounds/RoomSteps';
+import { readySkipped, rememberReadySkipped } from '@/app/prototypes/events/components/ready-skip-memory';
+import { RoomSteps, type RoomStep } from '@/app/prototypes/events/rounds/RoomSteps';
 import { SALES_MASTERMIND_RECIPE, SOCIAL_HIKE_RECIPE } from '@/app/prototypes/events/series-recipes';
 import { setRoomReadiness } from '@/app/data/event-room-service';
 
@@ -160,8 +160,6 @@ beforeEach(() => {
   room.arrivalGate = false;
   room.capturing = false;
   rounds.read = () => Promise.resolve({ rounds: [], seatsByRound: new Map() });
-  room.refresh = () => Promise.resolve();
-  vi.mocked(setRoomReadiness).mockReset();
   setRoom(night);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -233,6 +231,42 @@ describe('Continue saves only an answer', () => {
     expect(setRoomReadiness).toHaveBeenCalledTimes(1);
     expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
     expect(screen.queryByTestId('page')).toBeNull();
+  });
+
+  it('while the save is in flight both buttons are busy (disabled), and Continue says so', async () => {
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    setRoom(mastermind);
+    await mountReady('mm');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await waitFor(() => expect(screen.getByTestId('room-ready-continue')).toBeDisabled());
+    expect(screen.getByTestId('room-ready-continue')).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByTestId('room-ready-skip')).toBeDisabled();
+  });
+
+  it('a step-bar tap during a pending save does nothing: no skip over the answer, no navigation (review round 2)', async () => {
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    setRoom(mastermind);
+    mountWithSearch('mm');
+    await screen.findByTestId('room-ready');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    fireEvent.click(screen.getByTestId('room-step-close'));
+    fireEvent.click(screen.getByTestId('room-step-learn'));
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
+    expect(screen.queryByTestId('page')).toBeNull();
+    expect(setRoomReadiness).toHaveBeenCalledTimes(1);
+  });
+
+  it('answering after an earlier skip clears the remembered skip', async () => {
+    vi.mocked(setRoomReadiness).mockResolvedValue(undefined as never);
+    rememberReadySkipped('profile-a', 'ev-mm');
+    setRoom(mastermind);
+    await mountReady('mm');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await expectOnMeet();
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
   });
 
   it('a double tap on Skip navigates once', async () => {
@@ -351,6 +385,9 @@ describe("/ready's step bar", () => {
     const bar = await screen.findByTestId('room-steps');
     expect(bar).toHaveTextContent('Ready');
     expect(bar).toHaveTextContent('Learn and prepare');
+    // R5 (founder 2026-11-24): the mastermind's last step is "Review" on /ready as on /meet.
+    expect(screen.getByTestId('room-step-close')).toHaveTextContent(/^Review$/);
+    expect(bar).not.toHaveTextContent('Feedback');
     expect(bar).not.toHaveTextContent('Compare');
     expect(screen.queryByTestId('room-step-compare')).toBeNull();
   });
@@ -395,7 +432,7 @@ describe('the mastermind host on a direct /ready URL (R9)', () => {
 });
 
 describe("leaving /ready by the step bar", () => {
-  it('Feedback opens /meet?view=feedback with the marks, and counts as a skip', async () => {
+  it('Review (the feedback step) opens /meet?view=feedback with the marks, and counts as a skip', async () => {
     setRoom(mastermind);
     mountWithSearch('mm');
     await screen.findByTestId('room-ready');
@@ -411,9 +448,10 @@ describe("leaving /ready by the step bar", () => {
     await screen.findByTestId('room-ready');
     fireEvent.click(screen.getByTestId('room-step-learn'));
     await waitFor(() => expect(screen.getByTestId('page')).toHaveTextContent('meet?view=learn'));
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(true);
   });
 
-  it('with a value stored, leaving by Feedback writes no skip', async () => {
+  it('with a value stored, leaving by Review writes no skip', async () => {
     setRoom(mastermind, { ...selfA, readinessValue: 7 });
     mountWithSearch('mm');
     await screen.findByTestId('room-ready');
@@ -485,6 +523,32 @@ describe('RoomSteps done', () => {
   it('done.ready true: the Ready button is announced as done', () => {
     bar({ ready: true });
     expect(screen.getByRole('button', { name: /Ready, done/ })).toBeInTheDocument();
+  });
+
+  // P1718 (founder 2026-11-24): on a phone the mastermind's labelled bar (five or six steps) drops its ticks; they show
+  // from 768px (tablets, laptops). The hike's short bar keeps them at every width.
+  const labelled = (hidden: RoomStep[], withCanvas: boolean, learnDone: boolean) => render(
+    <RoomSteps current="table" viewing="table" onSelect={() => {}} done={{ ready: true }} hidden={hidden} withCanvas={withCanvas}
+      labels={{ principle: 'Principle', close: 'Review' }} learn={{ done: learnDone, label: 'Learn and prepare', active: false, onOpen: () => {} }} />,
+  );
+  const phoneHidden = (testId: string) => screen.getByTestId(testId).getAttribute('class')?.includes('hidden md:block');
+
+  it('the mastermind bar with Canvas (six steps): every tick is hidden on a phone, drawn from 768px', () => {
+    labelled(['compare'], true, true);
+    expect(phoneHidden('room-step-ready-check')).toBe(true);
+    expect(phoneHidden('room-step-principle-check')).toBe(true);
+    expect(phoneHidden('room-step-learn-check')).toBe(true);
+  });
+
+  it('the mastermind bar without Canvas (five steps): ticks hidden on a phone too', () => {
+    labelled(['compare'], false, false);
+    expect(phoneHidden('room-step-ready-check')).toBe(true);
+  });
+
+  it("the hike's short bar keeps its ticks at every width", () => {
+    labelled(['ready', 'compare', 'table'], false, true);
+    expect(phoneHidden('room-step-learn-check')).toBe(false);
+    expect(screen.queryByTestId('room-step-ready-check')).toBeNull();
   });
 });
 

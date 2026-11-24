@@ -48,7 +48,7 @@ import { useBackToEvent } from '../use-back-to-event';
 import { readRoomNav } from './use-room-back';
 import { RoomHeadCapture, RoomHeadRow, RoomStickyHead } from './RoomChrome';
 import { ReadyStepBar } from './ReadyStepBar';
-import { rememberReadySkipped } from './ready-skip-memory';
+import { forgetReadySkipped, rememberReadySkipped } from './ready-skip-memory';
 import { useSeatedAtRunningRound } from './use-seated-at-running-round';
 import { settleWithin } from './settle-within';
 
@@ -107,8 +107,10 @@ export function EventRoomReady() {
     setTouched(true);
   }, []);
 
-  // P1718 R3: one tap goes through. A second tap on Continue or Skip while a save is in flight does nothing.
+  // P1718 R3: one tap goes through. A second tap on Continue, Skip or the step bar while a save is in flight does
+  // nothing (the bar shares this guard: review round 2). `saving` shows it: both buttons are busy until the person moves on.
   const leaving = useRef(false);
+  const [saving, setSaving] = useState(false);
   const goToMeet = useCallback(() => {
     navigate(`/events/${slug}/meet`, { state: { fromReady: true, fromEvent } });
   }, [navigate, slug, fromEvent]);
@@ -130,17 +132,23 @@ export function EventRoomReady() {
     if (leaving.current) return;
     leaving.current = true;
     if (self) {
+      setSaving(true);
+      // One budget for the save and the re-read together, so Continue never holds the person past READY_SAVE_MS.
+      const deadline = Date.now() + READY_SAVE_MS;
       let saved = false;
       try {
         await settleWithin(setRoomReadiness(self.id, value), READY_SAVE_MS);
         saved = true;
+        // A real answer replaces an earlier skip on this device.
+        forgetReadySkipped(self.profileId, event?.id);
       } catch {
         // Readiness is a note, not a gate — the person still goes in. P1718 R4: a failed or stalled save is
         // remembered as a skip, so the gate does not send them back here on every re-entry.
         rememberReadySkipped(self.profileId, event?.id);
       }
       // The answer is stored; a failed re-read only leaves the tick for the next read to draw.
-      if (saved) await settleWithin(refresh(), READY_SAVE_MS).catch(() => {});
+      const left = deadline - Date.now();
+      if (saved && left > 0) await settleWithin(refresh(), left).catch(() => {});
     }
     goToMeet();
   }, [touched, handleSkip, self, value, refresh, event?.id, goToMeet]);
@@ -200,7 +208,7 @@ export function EventRoomReady() {
         <RoomHeadRow
           className="mx-auto w-full max-w-2xl pt-3 pb-2"
           onBack={backToEvent}
-          tabs={<ReadyStepBar event={event} slug={slug} fromEvent={fromEvent} viewerId={self?.profileId} readyDone={self?.readinessValue != null} />}
+          tabs={<ReadyStepBar event={event} slug={slug} fromEvent={fromEvent} viewerId={self?.profileId} readyDone={self?.readinessValue != null} leaving={leaving} />}
         />
       </RoomStickyHead>
       {/* P1336: the preparation stays one tap away for someone who joined without it. */}
@@ -233,6 +241,8 @@ export function EventRoomReady() {
           <div className="flex flex-col gap-4">
             <Button
               onClick={handleContinue}
+              disabled={saving}
+              aria-busy={saving || undefined}
               size="lg"
               className={cn(PRIMARY_BUTTON_CLASS, 'w-full')}
               data-testid="room-ready-continue"
@@ -242,6 +252,7 @@ export function EventRoomReady() {
             {/* P1718 R2 (founder 2026-11-23: label "Skip"): blue-bordered, never a second primary (P955). */}
             <Button
               onClick={handleSkip}
+              disabled={saving}
               size="lg"
               className={cn(ANSWER_BUTTON_CLASS, 'w-full')}
               data-testid="room-ready-skip"

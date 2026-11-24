@@ -2,14 +2,17 @@
  * @file ReadyStepBar.tsx
  * @description P1718 R7: the room's step bar as /ready draws it. Until P1718 only Clarity Night reached /ready, so
  * the screen drew the bare default bar (Ready · Principle · Table · Compare · Feedback). The mastermind's room has
- * its own: Learn and prepare · Ready · Principle · (Canvas) · Table · Feedback, with no statement Compare. This
+ * its own: Learn and prepare · Ready · Principle · (Canvas) · Table · Review, with no statement Compare. This
  * passes the same recipe-driven props /meet passes (EventRoomMeet.tsx's stepBar), so walking /ready to /meet
  * never changes the bar.
  *
  * /ready shows only the Ready step. A tap on a step it cannot show opens it in /meet: Learn as ?view=learn,
- * Feedback as ?view=feedback (use-room-views.ts), with the marks Continue carries. Leaving Ready by the bar with no
- * answer stored is a skip like Skip itself (R4), so re-entry through /room does not ask again.
+ * the last step (Feedback, the mastermind's Review) as ?view=feedback (use-room-views.ts), with the marks Continue
+ * carries. Leaving Ready by the bar with no answer stored is a skip like Skip itself (R4), so re-entry through /room
+ * does not ask again. The bar shares the screen's one-tap guard: a tap while Continue's save is in flight does nothing,
+ * so it can neither record a skip over the answer being saved nor be followed by Continue's own navigation.
  */
+import type { MutableRefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { EventWithHost } from '@/app/types';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
@@ -19,7 +22,7 @@ import { feedbackOpenAnytime, recipeForEvent } from '../series-recipes';
 import { usePrepState } from '../prep/use-prep-state';
 import { rememberReadySkipped } from './ready-skip-memory';
 
-export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone }: {
+export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone, leaving }: {
   event: EventWithHost | null;
   slug: string | undefined;
   fromEvent: boolean | undefined;
@@ -27,6 +30,8 @@ export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone }: {
   viewerId: string | null | undefined;
   /** P1718 R10: a stored readiness value — the same Ready tick /meet draws. */
   readyDone: boolean;
+  /** EventRoomReady's one-tap guard (R3): set once the person is leaving by any control. */
+  leaving: MutableRefObject<boolean>;
 }) {
   const navigate = useNavigate();
   const recipe = recipeForEvent(event);
@@ -35,6 +40,8 @@ export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone }: {
   const withCanvas = !!event && !!recipe.mastermind && eventCanvasTiming(event) === 'at_event';
   const [canvasShared] = useMyCanvasShared(event?.id, withCanvas, null);
   const toMeet = (search: string) => {
+    if (leaving.current) return;
+    leaving.current = true;
     if (!readyDone) rememberReadySkipped(viewerId, event?.id);
     navigate(`/events/${slug}/meet${search}`, { state: { fromReady: true, fromEvent } });
   };

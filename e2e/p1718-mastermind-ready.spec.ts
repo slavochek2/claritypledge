@@ -128,9 +128,8 @@ test('smoke: a first visit to the mastermind room lands on Ready, with the room\
   await expect(page.getByTestId('room-ready')).toBeVisible();
   await expect(page.getByTestId('room-ready-continue')).toBeVisible();
   await expect(page.getByTestId('room-ready-skip')).toHaveText('Skip');
-  // R7: the mastermind's bar — Learn and prepare · Ready · Principle · Table · Feedback, no statement Compare.
-  await expect(page.getByRole('button', { name: /^Ready/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Compare/ })).toHaveCount(0);
+  // R7: the mastermind's bar, no statement Compare. R5 (founder 2026-11-24): its last step is "Review".
+  await expect(page.getByTestId('room-steps').getByRole('listitem')).toHaveText(['Learn and prepare', 'Ready', 'Principle', 'Table', 'Review']);
   await shots(page, 'mastermind-ready');
   expect(errors, errors.join('\n')).toEqual([]);
 });
@@ -145,7 +144,7 @@ test('Skip stores nothing, opens the room, re-entry goes straight to the room, a
   expect(await readiness(MM, b), 'a skip stores no readiness value').toBeNull();
   // R10: the Ready step is not shown as done after a skip.
   await expect(page.getByRole('button', { name: 'Ready, done' })).toHaveCount(0);
-  await shots(page, 'mastermind-meet-after-skip', [1280, 375]);
+  await shots(page, 'mastermind-meet-after-skip');
   // R4: the next entry through /room goes to the room, not back to Ready.
   await page.goto(`/events/${MM.slug}/room`);
   await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/meet`));
@@ -216,9 +215,14 @@ test('Canvas made at the event: /ready shows the Canvas step and still no Compar
   const e = await registered('Ed P1718canvas', MMC);
   await enterRoom(page, e, MMC);
   await expect(page).toHaveURL(new RegExp(`/events/${MMC.slug}/ready$`));
-  await expect(page.getByRole('button', { name: /^Canvas/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Compare/ })).toHaveCount(0);
+  await expect(page.getByTestId('room-steps').getByRole('listitem')).toHaveText(['Learn and prepare', 'Ready', 'Principle', 'Canvas', 'Table', 'Review']);
   await shots(page, 'mastermind-canvas-ready');
+  // Six steps with a tick (review round 2): an answered Ready carries its check on /meet, and the bar still fits.
+  await page.getByRole('slider').press('ArrowRight');
+  await page.getByTestId('room-ready-continue').click();
+  await expect(page.getByTestId('room-meet')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Ready, done' })).toBeVisible();
+  await shots(page, 'mastermind-canvas-meet-answered', [1280, 768, 600, 430, 375, 320]);
 });
 
 test('Clarity Night: Ready keeps its order and gains Skip; an untouched Continue stores nothing', async ({ page }) => {
@@ -231,4 +235,5 @@ test('Clarity Night: Ready keeps its order and gains Skip; an untouched Continue
   await page.getByTestId('room-ready-continue').click();
   await expect(page.getByTestId('room-meet')).toBeVisible();
   expect(await readiness(CN, f), 'an untouched Continue stores no value on Clarity Night either').toBeNull();
+  await shots(page, 'clarity-night-meet', [375]);
 });

@@ -100,12 +100,21 @@ export function RoomSteps({
   canvasDone?: boolean;
 }) {
   const steps = (withCanvas ? ALL_STEPS : ROOM_STEPS).filter(({ key }) => !hidden.includes(key));
+  const columns = steps.length + (learn ? 1 : 0);
+  // P1718 (founder 2026-11-24: phones drop the ticks, laptops and tablets keep them): the mastermind's bar (five or six
+  // labelled steps) has no room for a tick on a phone. "✓ Ready" ran into "Principle" at 375, and at 430 (where the
+  // labels grow to 12px) every tick together overlapped by up to 8px; they all fit from about 500px. So its ticks show
+  // from 768px (md). The five-step bar (Clarity Night) keeps its own 430px; the hike's short bar keeps them everywhere.
+  const tickClass = !labels ? 'hidden min-[430px]:block' : columns >= 5 ? 'hidden md:block' : 'max-[359px]:h-2.5 max-[359px]:w-2.5';
+  // P1718 visual QA: six labelled steps (the mastermind with the Canvas made at the event) left "Principle" and "Canvas"
+  // 2.3px apart at 320/375, reading as one label. Below 430px they take the five-step bar's small face (10px, tighter).
+  const smallFace = labels && columns >= 6 && 'max-[429px]:text-[10px] max-[429px]:tracking-tighter';
   // P1430 (founder walkthrough 9): done steps carry a check and a muted label, the step on screen
   // is bold with a thicker bar, steps ahead are grey. A step that cannot open says so (aria-disabled)
   // and looks it. At 360px and below only the shown step keeps its label; the rest are bars.
   return (
     <nav aria-label="Your evening" className={className} data-testid="room-steps" data-current={current}>
-      <ol className={cn('grid gap-1', labels && 'border-b border-border')} style={{ gridTemplateColumns: `repeat(${steps.length + (learn ? 1 : 0)}, minmax(0, 1fr))` }}>
+      <ol className={cn('grid gap-1', labels && 'border-b border-border')} style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
         {learn && (
           <li key="learn">
             <button
@@ -124,13 +133,14 @@ export function RoomSteps({
                   'inline-flex items-center justify-center gap-0.5 whitespace-nowrap text-[11px] tracking-tight min-[430px]:text-xs min-[430px]:tracking-normal',
                   // Visual review round 5 (I): below 360px "(optional)" goes on a second line under "Learn".
                   'max-[359px]:flex-col max-[359px]:gap-0 max-[359px]:tracking-tighter',
+                  smallFace,
                   // Round 6e: one colour per state. Learn is always open (reached), so it reads dark like any reached step;
                   // the step on screen is bold dark.
                   learn.active ? 'font-semibold text-foreground' : 'text-foreground',
                 )} data-testid="room-step-learn-text">
                   {/* Round 6b: the same label on every room view — "Learn (optional)" — with the tick added once learned. */}
                   <span className={cn('inline-flex items-center gap-0.5 max-[359px]:gap-px', learn.label && 'whitespace-normal text-balance')}>
-                    {learn.done && <Check className={cn(TICK_CLASS, 'max-[359px]:h-2.5 max-[359px]:w-2.5')} strokeWidth={TICK_STROKE} aria-hidden="true" data-testid="room-step-learn-check" />}
+                    {learn.done && <Check className={cn(TICK_CLASS, tickClass)} strokeWidth={TICK_STROKE} aria-hidden="true" data-testid="room-step-learn-check" />}
                     {learn.label ?? 'Learn'}
                   </span>
                   {/* Round 6e/7b: "(optional)" is the muted grey at full strength (4.8:1) at EVERY width; below 360px it is
@@ -185,12 +195,13 @@ export function RoomSteps({
                     // Founder, solo test 2026-11-02: tab names stay visible on phones. The five-step bar's labels get a
                     // smaller, tighter face below 360px so all five fit beside the arrow-only Back at 320px.
                     !labels && 'max-[359px]:text-[10px] max-[359px]:tracking-tighter',
+                    smallFace,
                   )}
                   data-testid={`room-step-${key}-text`}
                 >
-                  {/* A short bar (labels) has room for the check at every width (VQA round 4: 375 showed none); the
-                      five-step bar still drops it below 430px. */}
-                  {done && (!shown || explicit !== undefined) && <Check className={cn(TICK_CLASS, labels && 'max-[359px]:h-2.5 max-[359px]:w-2.5', !labels && 'hidden min-[430px]:block')} strokeWidth={TICK_STROKE} aria-hidden="true" data-testid={`room-step-${key}-check`} />}
+                  {/* A short bar (labels, a hike's) has room for the check at every width (VQA round 4: 375 showed none);
+                      the five-step bar drops it below 430px, the mastermind's below 768px (tickClass). */}
+                  {done && (!shown || explicit !== undefined) && <Check className={cn(TICK_CLASS, tickClass)} strokeWidth={TICK_STROKE} aria-hidden="true" data-testid={`room-step-${key}-check`} />}
                   {label}
                 </span>
                 <span
