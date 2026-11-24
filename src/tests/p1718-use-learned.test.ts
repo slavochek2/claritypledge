@@ -156,6 +156,57 @@ describe('useLearned', () => {
     expect(reads.parts).toHaveBeenCalledTimes(2);
   });
 
+  // Review round 13 (Codex), metered rule 4: a read still out is never doubled by a reconnect, and its answer still lands.
+  it('a read still out when the connection comes back is not started again, and its answer still lands', async () => {
+    let land: (v: unknown) => void = () => undefined;
+    reads.prep.mockReturnValue(new Promise((r) => { land = r; }));
+    const { result, rerender } = renderHook(() => useLearned(event, 'profile-1'));
+    for (const tick of [1, 2, 3]) {
+      net.tick = tick;
+      rerender();
+      await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    }
+    expect(reads.prep).toHaveBeenCalledTimes(1);
+    expect(reads.parts).toHaveBeenCalledTimes(1);
+    await act(async () => { land({ completedAt: at }); });
+    await waitFor(() => expect(result.current).toEqual({ loading: false, error: false, learned: true }));
+  });
+
+  it('a reconnect during the one re-read neither discards it nor starts another', async () => {
+    reads.prep.mockRejectedValueOnce(new Error('down'));
+    const { result, rerender } = renderHook(() => useLearned(event, 'profile-1'));
+    await waitFor(() => expect(result.current.error).toBe(true));
+    let land: (v: unknown) => void = () => undefined;
+    reads.prep.mockReturnValue(new Promise((r) => { land = r; }));
+    net.tick = 1;
+    rerender();
+    await waitFor(() => expect(reads.prep).toHaveBeenCalledTimes(2));
+    net.tick = 2;
+    rerender();
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    expect(reads.prep).toHaveBeenCalledTimes(2);
+    await act(async () => { land({ completedAt: at }); });
+    await waitFor(() => expect(result.current).toEqual({ loading: false, error: false, learned: true }));
+  });
+
+  // Review round 13 (Gemini): the attempts are counted per inputs, so another viewer in the same mount gets its own.
+  it('another viewer in the same mount gets its own read and re-read', async () => {
+    reads.prep.mockRejectedValue(new Error('down'));
+    const { result, rerender } = renderHook(({ viewer }) => useLearned(event, viewer), { initialProps: { viewer: 'profile-1' } });
+    await waitFor(() => expect(result.current.error).toBe(true));
+    net.tick = 1;
+    rerender({ viewer: 'profile-1' });
+    await waitFor(() => expect(reads.prep).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.error).toBe(true));
+    rerender({ viewer: 'profile-2' });
+    await waitFor(() => expect(reads.prep).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(result.current.error).toBe(true));
+    net.tick = 2;
+    rerender({ viewer: 'profile-2' });
+    await waitFor(() => expect(reads.prep).toHaveBeenCalledTimes(4));
+    expect(reads.prep).toHaveBeenLastCalledWith('ev-1', 'profile-2');
+  });
+
   it('not asked with no preparation offered, no viewer, or no event: no read, not loading', () => {
     reads.offers = false;
     expect(renderHook(() => useLearned(event, 'profile-1')).result.current).toEqual({ loading: false, error: false, learned: false });

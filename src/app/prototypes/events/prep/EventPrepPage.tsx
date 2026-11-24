@@ -696,6 +696,7 @@ export function PrepFlow({
                 onSelect={toRoom}
                 hidden={[...(roomRecipe.room.readiness ? [] : ['ready' as const]), ...(roomRecipe.room.rounds ? [] : ['table' as const, 'compare' as const])]}
                 labels={roomRecipe.room.steps ? { principle: roomRecipe.room.steps.principle, close: roomRecipe.room.steps.close } : undefined}
+                phoneTicks={!roomRecipe.mastermind}
                 learn={{ done: state.learned, active: true, label: roomRecipe.room.steps?.learn ?? undefined, onOpen: () => undefined }}
                 done={{ principle: roomAnswered, close: feedbackFinished === true }}
               />

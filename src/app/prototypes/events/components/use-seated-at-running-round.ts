@@ -7,14 +7,15 @@
  * finds after that still forwards them (review round 12).
  *
  * Review round 7: one request (`isSeatedInRunningRound`), keyed on the event and the member, so it waits for the room
- * row; the answer belongs to that key and to the read that produced it, so a read started again (reconnecting after
- * offline) is pending until it answers rather than repeating the last answer.
+ * row; the answer belongs to that key. Review round 13 (Codex, metered rule 4): one read a visit. Going offline and
+ * back neither drops the answer nor asks again (a reconnect re-read put the screen back on its loader, which remounted
+ * the step bar and repeated its reads), as the arrival read is the only one: there is no subscription either.
  *
  * Metered-services rule 3 (a hidden tab makes no requests; review round 6): the read waits for the tab to be shown,
  * through `whenVisible` as `useMyCanvasShared` does, and the 4 s budget starts then. A hidden tab shows nothing, so
  * the loader it holds until then is never seen.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { isSeatedInRunningRound } from '@/app/data/event-rounds-service';
 import { whenVisible } from '../when-visible';
 
@@ -25,23 +26,28 @@ export const ROUNDS_READ_MS = 4000;
 export function useSeatedAtRunningRound(eventId: string | undefined, memberId: string | undefined, enabled: boolean): boolean | null {
   const [answer, setAnswer] = useState<{ key: string; seated: boolean } | null>(null);
   const key = enabled && eventId && memberId ? `${eventId}:${memberId}` : null;
+  const started = useRef<string | null>(null); // the key this mount has read for
+  const mounted = useRef(true);
   useEffect(() => {
-    // Not asked (offline, hidden by the caller, no member): forget the last answer, so asking again starts pending.
-    setAnswer(null);
-    if (!key || !eventId || !memberId) return;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const cancelWait = whenVisible(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useEffect(() => {
+    // Not asked (offline, hidden by the caller, no member), or already read for this key in this mount.
+    if (!key || !eventId || !memberId || started.current === key) return;
+    return whenVisible(() => {
+      if (started.current === key) return;
+      started.current = key;
       let late = false;
+      const publish = (seated: boolean) => { if (mounted.current) setAnswer({ key, seated }); };
       // After ROUNDS_READ_MS the question shows; the read keeps going, and a seat it finds later still forwards (review
-      // round 12, Codex). A late "not seated" or a failure changes nothing.
-      timer = setTimeout(() => { late = true; if (!cancelled) setAnswer({ key, seated: false }); }, ROUNDS_READ_MS);
+      // round 12, Codex). A late "not seated" or a failure changes nothing. Going offline does not stop it (round 13).
+      const timer = setTimeout(() => { late = true; publish(false); }, ROUNDS_READ_MS);
       isSeatedInRunningRound(eventId, memberId)
-        .then((seated) => { if (!cancelled && (seated || !late)) setAnswer({ key, seated }); })
-        .catch(() => { if (!cancelled && !late) setAnswer({ key, seated: false }); })
+        .then((seated) => { if (seated || !late) publish(seated); })
+        .catch(() => { if (!late) publish(false); })
         .finally(() => clearTimeout(timer));
     });
-    return () => { cancelled = true; cancelWait(); clearTimeout(timer); };
     // eventId and memberId are inside key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);

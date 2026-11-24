@@ -98,7 +98,7 @@ async function shots(page: Page, name: string, labels: number, widths: readonly 
       const hidden = [...bar.querySelectorAll('[data-testid$="-text"]')].filter((el) => !el.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
       if (hidden.length) out.push(`${hidden.length} step labels not shown`);
       glyphs.forEach(({ label, rect, text }, k) => {
-        if (rect.left < edge.left - 1 || rect.right > edge.right + 1) out.push(`${label} past the bar (${rect.left.toFixed(1)}-${rect.right.toFixed(1)} in ${edge.left.toFixed(1)}-${edge.right.toFixed(1)})`);
+        if (rect.left < edge.left - 1 || rect.right > edge.right + 1 || rect.top < edge.top - 1 || rect.bottom > edge.bottom + 1) out.push(`${label} past the bar (${rect.left.toFixed(1)}-${rect.right.toFixed(1)} in ${edge.left.toFixed(1)}-${edge.right.toFixed(1)})`);
         // Review round 12 (Codex): a Range reports the glyphs before any clipping, so a label cut off by a clipping
         // ancestor (overflow other than visible) fails here too.
         for (let el = text.parentElement; el && el !== document.body; el = el.parentElement) {

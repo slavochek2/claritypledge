@@ -602,22 +602,44 @@ describe('a stalled connection never strands the person', () => {
     expect(dist).not.toHaveBeenCalled();
   });
 
-  // Review round 7 (Codex): back online, the last answer is not reused; the screen waits for the new read.
-  it('offline and back: a seat found by the new read forwards, though the first read found none', async () => {
-    rounds.read = () => Promise.resolve({ rounds: [], seatsByRound: new Map() });
-    setRoom(mastermind);
+  // Review round 13 (Codex, metered rule 4; replaces round 7's re-read): one seat read and one marks read a visit.
+  // Going offline and back keeps the answer and the screen: no loader, no second read, and the step bar is not remounted,
+  // so it asks nothing again either.
+  it('offline and back: Ready stays, with no second seat, marks or step-bar read', async () => {
+    const dist = vi.mocked(getRoomReadinessDistribution);
+    const first = vi.fn(() => Promise.resolve({ rounds: [], seatsByRound: new Map() }));
+    rounds.read = first;
+    setRoom({ ...mastermind, canvasTiming: 'at_event' } as TestEvent);
     const view = mountReadyNoWait('mm');
     expect(await screen.findByTestId('room-ready')).toBeInTheDocument();
+    await waitFor(() => expect(dist).toHaveBeenCalledTimes(1));
+    for (let i = 0; i < 3; i += 1) {
+      net.offline = true;
+      view.rerender();
+      expect(screen.getByTestId('room-ready')).toBeInTheDocument();
+      net.offline = false;
+      view.rerender();
+      expect(screen.getByTestId('room-ready')).toBeInTheDocument();
+    }
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(dist).toHaveBeenCalledTimes(1);
+    // The Canvas read, once asked, stays asked through the toggles (its hook re-reads when `enabled` turns true again).
+    expect(canvas.asked.slice(canvas.asked.indexOf(true))).not.toContain(false);
+  });
+
+  it('a seat read still out when the browser goes offline and back is not restarted, and its seat still forwards', async () => {
     let answer: (v: unknown) => void = () => undefined;
-    const second = vi.fn(() => new Promise((r) => { answer = r; }));
-    rounds.read = second;
+    const read = vi.fn(() => new Promise((r) => { answer = r; }));
+    rounds.read = read;
+    setRoom(mastermind);
+    const view = mountReadyNoWait('mm');
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
     net.offline = true;
     view.rerender();
     net.offline = false;
     view.rerender();
-    await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
-    // Pending: the loader, not the question answered by the first read.
-    expect(screen.queryByTestId('room-ready')).toBeNull();
+    expect(read).toHaveBeenCalledTimes(1);
     await act(async () => { answer({ rounds: [{ id: 'r1', endedAt: null }], seatsByRound: new Map([['r1', [{ id: 'member-a' }]]]) }); });
     await waitFor(() => expect(redirects.at(-1)).toMatchObject({ to: '/events/mm/meet', replace: true }));
   });
@@ -651,6 +673,41 @@ describe('a stalled connection never strands the person', () => {
       expect(redirects).toEqual([]);
       expect(screen.getByTestId('room-ready')).toBeInTheDocument();
     }
+  });
+
+  // Review round 13 (Gemini): a seat found while Continue is saving leaves the save to take them to /meet, once.
+  it('a seat found late while Continue is saving: no second redirect, the save takes them in', async () => {
+    vi.useFakeTimers();
+    let answer: (v: unknown) => void = () => undefined;
+    rounds.read = () => new Promise((r) => { answer = r; });
+    let land: () => void = () => {};
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise((r) => { land = () => r({} as never); }) as never);
+    setRoom(mastermind);
+    mountReadyNoWait('mm');
+    await act(async () => { await vi.advanceTimersByTimeAsync(ROUNDS_READ_MS + 10); });
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await act(async () => {
+      answer({ rounds: [{ id: 'r1', endedAt: null }], seatsByRound: new Map([['r1', [{ id: 'member-a' }]]]) });
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    expect(redirects).toEqual([]);
+    await act(async () => { land(); await vi.advanceTimersByTimeAsync(10); });
+    vi.useRealTimers();
+    await expectOnMeet();
+    expect(redirects).toEqual([]);
+  });
+
+  it('a rounds read failing after ROUNDS_READ_MS leaves Ready as it is', async () => {
+    vi.useFakeTimers();
+    let fail: (e: unknown) => void = () => undefined;
+    rounds.read = () => new Promise((_r, j) => { fail = j; });
+    setRoom(mastermind);
+    mountReadyNoWait('mm');
+    await act(async () => { await vi.advanceTimersByTimeAsync(ROUNDS_READ_MS + 10); });
+    await act(async () => { fail(new Error('down')); await vi.advanceTimersByTimeAsync(10); });
+    expect(redirects).toEqual([]);
+    expect(screen.getByTestId('room-ready')).toBeInTheDocument();
   });
 });
 
@@ -972,6 +1029,17 @@ describe('RoomSteps done', () => {
     unmount();
     labelled(['compare'], false, true);
     expect(screen.getByTestId('room-step-principle-text').getAttribute('class')).not.toContain('max-[429px]:text-[10px]');
+  });
+
+  // Review round 13 (Codex): the mastermind host's bar (no Ready, Canvas before the event: four columns) is still the
+  // mastermind's, so with phoneTicks off it drops its ticks on a phone too.
+  it("the mastermind host's four-column bar: ticks hidden on a phone when the caller says so", () => {
+    render(
+      <RoomSteps current="table" viewing="table" onSelect={() => {}} done={{ principle: true }} hidden={['ready', 'compare']} phoneTicks={false}
+        labels={{ principle: 'Principle', close: 'Review' }} learn={{ done: true, label: 'Learn and prepare', active: false, onOpen: () => {} }} />,
+    );
+    expect(phoneHidden('room-step-learn-check')).toBe(true);
+    expect(phoneHidden('room-step-principle-check')).toBe(true);
   });
 
   it("the hike's short bar keeps its ticks at every width", () => {

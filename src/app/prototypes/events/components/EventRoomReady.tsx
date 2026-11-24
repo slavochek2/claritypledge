@@ -72,7 +72,7 @@ export function EventRoomReady() {
   // P1562 §2: Back to the event — a pop when the event page opened the room (the gate replaces itself with /ready and
   // carries `fromEvent`), otherwise a replace. Meet gets both marks, so its Back pops here and this one still knows.
   const { fromEvent } = readRoomNav(useLocation().state);
-  const backToEvent = useBackToEvent(slug, fromEvent, 0);
+  const goBack = useBackToEvent(slug, fromEvent, 0);
 
   const [value, setValue] = useState(MIDPOINT_VALUE);
   const [touched, setTouched] = useState(false);
@@ -118,6 +118,15 @@ export function EventRoomReady() {
     mounted.current = true;
     return () => { mounted.current = false; reread.current?.abort(); };
   }, []);
+  // Review round 13 (Codex): Back may pop history asynchronously, so it stops the save's follow-ups at once: no re-read
+  // starts and Continue does not navigate after it.
+  const departed = useRef(false);
+  const backToEvent = useCallback(() => {
+    departed.current = true;
+    leaving.current = true;
+    reread.current?.abort();
+    goBack();
+  }, [goBack]);
   const goToMeet = useCallback(() => {
     navigate(`/events/${slug}/meet`, { state: { fromReady: true, fromEvent } });
   }, [navigate, slug, fromEvent]);
@@ -165,13 +174,13 @@ export function EventRoomReady() {
       // Review round 8 (Codex): the re-read is told when this screen stops waiting, so its fallback (the room join after
       // a status read with no row) never starts once the budget is spent or the tab is hidden (EventRoomAccess.tsx `load`).
       // Review round 9 (Codex): nor after Back left the screen while the save ran.
-      if (saved && left > 0 && document.visibilityState !== 'hidden' && mounted.current) {
+      if (saved && left > 0 && document.visibilityState !== 'hidden' && mounted.current && !departed.current) {
         const stop = new AbortController();
         reread.current = stop;
         await settleWithin(refresh(stop.signal), left).catch(() => {});
         stop.abort();
       }
-      if (!mounted.current) return;
+      if (!mounted.current || departed.current) return;
     }
     goToMeet();
   }, [touched, handleSkip, self, value, refresh, event?.id, goToMeet]);
@@ -193,17 +202,20 @@ export function EventRoomReady() {
   // Review round 9 (Codex): and only once the seat read found no seat, so a seated person forwarded to /meet makes none.
   // The screen shows its loader until that answer, so the marks lose no time.
   const askDistribution = granted && !offline && !isFrozen && hasReadiness && !mastermindHost && !!self && seated === false;
+  // Review round 13 (Codex, metered rule 4): one read a visit; going offline and back does not read them again.
+  const marksAsked = useRef<string | null>(null);
   useEffect(() => {
-    if (!event || !askDistribution) return;
-    let cancelled = false;
-    const cancelWait = whenVisible(() => {
-      void getRoomReadinessDistribution(event.id).then((values) => {
+    if (!event || !askDistribution || marksAsked.current === event.id) return;
+    const eventId = event.id;
+    return whenVisible(() => {
+      if (marksAsked.current === eventId) return;
+      marksAsked.current = eventId;
+      void getRoomReadinessDistribution(eventId).then((values) => {
         // getRoomReadinessDistribution resolves to [] on its own failures, so there is no
         // error branch to handle here — an absent distribution renders as no marks.
-        if (!cancelled) setOthers(values);
+        if (mounted.current) setOthers(values);
       });
     });
-    return () => { cancelled = true; cancelWait(); };
   }, [event?.id, askDistribution]);
 
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
@@ -215,8 +227,9 @@ export function EventRoomReady() {
 
   // P1586: the redirect lands in an effect, so the loader holds the frame until it does.
   // P1542: a series without a readiness step (hikes) never shows this screen; the redirect carries `fromEvent`.
-  // P1718 R8/R9: nor does someone seated in the round running now, nor the mastermind's host.
-  if (isFrozen || (event && !hasReadiness) || seated === true || mastermindHost) {
+  // P1718 R8/R9: nor does someone seated in the round running now, nor the mastermind's host. A seat found late, while
+  // Continue is already saving on its way to /meet, leaves that save to finish and take them there (review round 13).
+  if (isFrozen || (event && !hasReadiness) || (seated === true && !saving) || mastermindHost) {
     return (
       <>
         <Navigate to={`/events/${slug}/meet`} replace state={fromEvent ? { fromEvent } : undefined} />

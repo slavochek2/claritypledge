@@ -211,7 +211,10 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   phones", as Clarity Night's five-step bar already does below 430px. The mastermind's bar shows ticks from 768px;
   measured, every tick fits from about 500px. The six-step row (with Canvas) also takes the five-step bar's small
   face (10px, tighter) below 430px, because "Principle" and "Canvas" stood 2.3px apart and read as one label; they
-  are now 8.0px apart at 375 and 5.8px at 320. The hike's short bar keeps its ticks at every width.
+  are now 8.0px apart at 375 and 5.8px at 320. The hike's short bar keeps its ticks at every width. The mastermind
+  host's shorter bar (no Ready; four columns when the Canvas is made before the event) follows the same rule: each
+  caller passes the recipe's choice (`phoneTicks`) rather than the bar inferring it from its column count (review
+  round 13, Codex).
 - **R6. Clarity Night keeps its order and copy.** It also gets Skip and save-only-if-moved: **founder decision 2026-11-23, yes**. The fabricated 5 exists on Clarity Night too, and one
   shared screen with two behaviours is a second state to keep in step. This amends P1529's invariant
   "Clarity Night and Social Hike are unchanged ... their existing tests pass unchanged" for this one
@@ -304,13 +307,15 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 to 11; accepted, none strands anyone):**
+**Known limitations (code review rounds 2 to 13; accepted, none strands anyone):**
 - **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle,
   Canvas and Table cannot be tapped there for someone already past them (checked against `canOpenStep`, review
   round 5). Continue, Skip, Review and Learn still lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
   moment is not one of them.
 - **A round that starts while someone sits on `/ready` does not forward them.** The seated check runs once, on
-  arrival (R8). Their Continue or Skip takes them to `/meet`, which shows the running round.
+  arrival (R8), and not again after going offline and back (review round 13). Their Continue or Skip takes them to
+  `/meet`, which shows the running round. A seat that read finds late still forwards them, unless Continue is already
+  saving on its way to `/meet` (review rounds 12 and 13).
 - **A save that lands after the 5s budget** clears the skip remembered at the timeout, but `/meet` draws the Ready
   tick only from its next read of the room.
 - **The Ready tab while seated at a running round** is still tappable in `/meet`; `/ready` then forwards back
@@ -379,7 +384,8 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 - `src/app/prototypes/events/series-recipes.ts` (mastermind `readiness: true`, and the recipe's doc comment)
 - `src/app/prototypes/events/components/EventRoomReady.tsx` (Skip, save-only-if-touched, remember skip, R7 bar, R8)
 - `src/app/prototypes/events/components/EventRoomGate.tsx` (a remembered skip counts as a return visit; R9)
-- `src/app/prototypes/events/components/EventRoomMeet.tsx` (R10, one prop)
+- `src/app/prototypes/events/components/EventRoomMeet.tsx` (R10, one prop; and `phoneTicks`, R5, review round 13)
+- `src/app/prototypes/events/prep/EventPrepPage.tsx` (`phoneTicks` on its room step bar only, R5, review round 13)
 - A new small module for the skip marker and a new component for the Ready step bar
 - `e2e/p1114-event-room.spec.ts` (drives an untouched Continue as a save; moves the slider instead)
 - `src/tests/p1433-event-night-navigation.test.tsx` (the gate's routing; clear storage between cases)
@@ -408,29 +414,38 @@ review round 7 counted every read the screen makes, review round 8 re-derived th
   has not loaded, and the join; a direct `/ready` link before the room was opened; review round 10, Codex);
 - the seat read (R8) 1: one query, `isSeatedInRunningRound` (review round 7; it was 1 to 3 through
   `getEventRoundsState`). After 4 s Ready shows and the same read keeps going: a seat it finds later still forwards
-  (review round 12, Codex), so no second read;
-- the readiness marks 1 (`getRoomReadinessDistribution`, the RPC Clarity Night's `/ready` already made);
+  (review round 12, Codex), so no second read. One read a visit: going offline and back keeps its answer and asks
+  nothing again, and a read still out keeps going (review round 13, Codex; round 7 had re-read after reconnecting,
+  which put the screen back on its loader and remounted the step bar, repeating its reads);
+- the readiness marks 1 (`getRoomReadinessDistribution`, the RPC Clarity Night's `/ready` already made), once a visit
+  (review round 13);
 - the Canvas-shared read 1 when the Canvas is made at the event (`getMyEventCanvas`); not made while offline (review
-  round 12, Codex);
+  round 12, Codex), and once asked online not asked again after going offline and back (round 13);
 - the step bar's Learn tick 2 when the event offers preparation and the bar has a Learn entry (the mastermind; Clarity
   Night's bar has none): the preparation and the parts, both started together and nothing after them (`useLearned`,
   review round 8); none when this device alone shows the learning done, and read once more after reconnecting only
   when a failed read left the answer unknown, at most once a visit (an offline failure never reached the server, so
-  the visit still makes 2; a read the server keeps failing costs 2 more once, so up to 4; review rounds 11 and 12). Until round 8 the bar used `usePrepState`, which also read two points feeds (each a feed, a
+  the visit still makes 2; a read the server keeps failing costs 2 more once, so up to 4; review rounds 11 and 12).
+  Round 13 (Codex): at most these two attempts for the same person and event in a visit, never one while another is
+  still out, and a reconnect never discards an answer already on its way. Until round 8 the bar used `usePrepState`, which also read two points feeds (each a feed, a
   position count and a viewer-position read), the social proof and the registration role, and wrote parts done
   signed out: 10 to 16 requests a visit, some started by a response after the tab was hidden (Codex round 8). Parts
   done signed out still count toward the tick; `/meet` moves them to the account, as before;
 - Continue with a moved slider 2 (the save RPC and the room-row re-read), and up to 4 when the re-read finds no row and
   falls back to the room join, with the profile-name read first if the name has not loaded (review round 9, Codex).
-  No re-read from a hidden tab or after Back, the join waits for a visible tab, and it is aborted once Continue stops
-  waiting; Skip or an untouched Continue 0.
+  No re-read from a hidden tab or after Back (Back stops it at the tap, before history moves; review round 13), the
+  join waits for a visible tab, and it is aborted once Continue stops waiting; Skip or an untouched Continue 0.
+
+These are upper bounds whatever the connection does: going offline and back any number of times adds no request
+(review round 13, Codex, metered rule 4; pinned by the offline-and-back tests in `p1718-ready-skip.test.tsx` and
+`p1718-use-learned.test.ts`).
 
 None of these reads is made for the host (sent on to `/meet` first), on a past evening or before the room row is
 known, and each starts only on a visible tab (rule 3, `whenVisible`; review rounds 6 to 10). Round 10 (Codex, Gemini)
 gated the room's shared mount read too (`useEventRoomSelf`): a room opened in a background tab makes its first read
 when it is shown, and its join fallback waits for a visible tab and stops when the screen goes. The room row, seat and
-marks reads are also not made while offline; the step bar's Learn and Canvas reads are (review round 8, Gemini), but an
-offline browser fails them before they reach the server, so they cost nothing. The mastermind no longer mounts the
+marks reads are also not made while offline, nor the Canvas read (round 12); the step bar's Learn reads are (review
+round 8, Gemini), but an offline browser fails them before they reach the server, so they cost nothing. The mastermind no longer mounts the
 preparation banner on `/ready` (its Learn entry is that tap), so its reads are not doubled.
 
 Inputs (a usage assumption, not a limit the code enforces): 16 people; at most 2 `/ready` visits each per evening

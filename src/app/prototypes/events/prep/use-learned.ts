@@ -12,7 +12,9 @@
  * Learning done on this device needs no read. Otherwise both reads start together, once, on a visible tab
  * (`whenVisible`), and the tick shows as soon as either proves the learning; the answer belongs to the inputs it was
  * read for. A failed read (offline among them) leaves the answer unknown (`error`, no tick) unless what did answer
- * proves it, and an unknown answer is read again, once a visit, when the connection comes back.
+ * proves it, and an unknown answer is read again when the connection comes back. Review round 13 (Codex, metered rule
+ * 4): at most two attempts per inputs in a mount (the first and one re-read), never one while another is still out,
+ * and a reconnect never discards an answer already on its way.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
@@ -37,25 +39,34 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
   // Review round 11 (Gemini): an answer left unknown by a failed read (offline) is read again once the connection is back.
   const { reconnectTick } = useConnectivity();
   const last = useRef(answer);
-  const rereads = useRef(0);
   last.current = answer;
+  const current = useRef(key);
+  current.current = key;
+  const attempt = useRef<{ key: string | null; count: number; inFlight: boolean }>({ key: null, count: 0, inFlight: false });
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   useEffect(() => {
     if (!key || !eventId || !viewerId) return;
     if (last.current?.key === key && !last.current.error) return; // answered for these inputs: nothing to re-read
-    // Review round 12 (Codex), metered rule 4: one re-read a visit at most, so a read that keeps failing is not repeated
-    // on every reconnect.
-    if (last.current?.key === key) {
-      if (rereads.current >= 1) return;
-      rereads.current += 1;
-    }
-    let cancelled = false;
-    const publish = (next: { error: boolean; learned: boolean }) => { if (!cancelled) setAnswer({ key, ...next }); };
+    const publish = (next: { error: boolean; learned: boolean }) => {
+      if (mounted.current && current.current === key) setAnswer({ key, ...next });
+    };
     // Review round 11 (Codex): learning done on this device needs no read at all.
     if (hasLearned(localPartRows(readLocalParts()), null)) {
       publish({ error: false, learned: true });
-      return () => { cancelled = true; };
+      return;
     }
-    const cancelWait = whenVisible(() => {
+    if (attempt.current.key !== key) attempt.current = { key, count: 0, inFlight: false };
+    // Review rounds 12 and 13 (Codex), metered rule 4: the first read and one re-read after reconnecting, never two out.
+    if (attempt.current.inFlight || attempt.current.count >= 2) return;
+    return whenVisible(() => {
+      const mine = attempt.current;
+      if (mine.key !== key || mine.inFlight || mine.count >= 2) return;
+      mine.count += 1;
+      mine.inFlight = true;
       // Review rounds 10 and 11 (Codex): each read counts on its own, so one that fails or hangs never hides what the
       // other proves: a tick shows as soon as either read proves the learning.
       let prep: { completedAt?: string | null } | null | undefined; // undefined: not answered
@@ -67,6 +78,7 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
         const rows = [...(parts ?? []), ...localPartRows(readLocalParts())];
         const done = rows.filter((row) => isPartDone([row], row.part));
         const learned = hasLearned([...done, ...rows], prep?.completedAt ?? null);
+        if (settled === 2) mine.inFlight = false;
         // Review round 9 (Gemini): a failed read (offline among them) is unknown (error) unless what did answer proves it.
         if (learned) publish({ error: false, learned: true });
         else if (settled === 2) publish({ error: failed, learned: false });
@@ -78,7 +90,6 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
       void settle(getMyPreparation(eventId, viewerId), (value) => { prep = value; });
       void settle(getMyPrepParts(viewerId), (value) => { parts = value; });
     });
-    return () => { cancelled = true; cancelWait(); };
     // eventId and viewerId are inside key; reconnectTick re-runs only an unknown answer (see `last` above).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, reconnectTick]);

@@ -12,7 +12,7 @@
  * does not ask again. The bar shares the screen's one-tap guard: a tap while Continue's save is in flight does nothing,
  * so it can neither record a skip over the answer being saved nor be followed by Continue's own navigation.
  */
-import type { MutableRefObject } from 'react';
+import { useState, type MutableRefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
 import type { EventWithHost } from '@/app/types';
@@ -40,9 +40,12 @@ export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone, leav
   // Review round 8: only the two reads the Learn tick needs, not the preparation page's plan (use-learned.ts).
   const learnState = useLearned(learnLabel && event ? event : null, viewerId ?? undefined);
   const withCanvas = !!event && !!recipe.mastermind && eventCanvasTiming(event) === 'at_event';
-  // Review round 12 (Codex): no Canvas read while known offline; coming back online re-renders and asks it then.
+  // Review round 12 (Codex): no Canvas read while known offline. Round 13 (Codex, metered rule 4): once asked online it
+  // stays asked, so going offline and back does not read it again.
   const { offline } = useConnectivity();
-  const [canvasShared] = useMyCanvasShared(event?.id, withCanvas && !offline, null);
+  const [canvasAsked, setCanvasAsked] = useState(false);
+  if (withCanvas && !offline && !canvasAsked) setCanvasAsked(true);
+  const [canvasShared] = useMyCanvasShared(event?.id, withCanvas && canvasAsked, null);
   const toMeet = (search: string) => {
     if (leaving.current) return;
     leaving.current = true;
@@ -60,6 +63,7 @@ export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone, leav
       onSelect={onSelect}
       done={{ ready: readyDone }}
       hidden={hiddenRoomSteps(recipe)}
+      phoneTicks={!recipe.mastermind}
       closeOpen={feedbackOpenAnytime(event)}
       tableOpen={recipe.mastermind}
       withCanvas={withCanvas}

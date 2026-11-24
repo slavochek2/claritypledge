@@ -510,6 +510,7 @@ export function EventRoomMeet() {
       hidden={isMastermindHost(event, self?.profileId) ? [...hiddenSteps, 'ready'] : hiddenSteps}
       closeOpen={feedbackOpenAnytime(event)}
       tableOpen={roomRecipe.mastermind}
+      phoneTicks={!roomRecipe.mastermind}
       withCanvas={canvasTab}
       labels={roomRecipe.room.steps ? { principle: roomRecipe.room.steps.principle, close: roomRecipe.room.steps.close } : undefined}
       learn={learnsInBar && event

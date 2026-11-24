@@ -65,6 +65,7 @@ export function RoomSteps({
   tableOpen = false,
   withCanvas = false,
   canvasDone,
+  phoneTicks = true,
 }: {
   /** Where the evening has the person now. */
   current: RoomStep;
@@ -99,6 +100,8 @@ export function RoomSteps({
   withCanvas?: boolean;
   /** With the Canvas step: whether this person's canvas is shared with the event (its tick). */
   canvasDone?: boolean;
+  /** P1718 R5 (founder 2026-11-24): false for the mastermind, whose bar shows its done ticks from 768px only. */
+  phoneTicks?: boolean;
 }) {
   const steps = (withCanvas ? ALL_STEPS : ROOM_STEPS).filter(({ key }) => !hidden.includes(key));
   const columns = steps.length + (learn ? 1 : 0);
@@ -106,7 +109,9 @@ export function RoomSteps({
   // labelled steps) has no room for a tick on a phone. "✓ Ready" ran into "Principle" at 375, and at 430 (where the
   // labels grow to 12px) every tick together overlapped by up to 8px; they all fit from about 500px. So its ticks show
   // from 768px (md). The five-step bar (Clarity Night) keeps its own 430px; the hike's short bar keeps them everywhere.
-  const tickClass = !labels ? 'hidden min-[430px]:block' : columns >= 5 ? 'hidden md:block' : 'max-[359px]:h-2.5 max-[359px]:w-2.5';
+  // Review round 13 (Codex): the founder's rule is the mastermind's, so its host's shorter bar (no Ready, the Canvas made
+  // before the event: four columns) drops them too; the caller says so (`phoneTicks`), not the column count alone.
+  const tickClass = !labels ? 'hidden min-[430px]:block' : !phoneTicks || columns >= 5 ? 'hidden md:block' : 'max-[359px]:h-2.5 max-[359px]:w-2.5';
   // P1718 visual QA: six labelled steps (the mastermind with the Canvas made at the event) left "Principle" and "Canvas"
   // 2.3px apart at 320/375, reading as one label. Below 430px they take the five-step bar's small face (10px, tighter).
   const smallFace = labels && columns >= 6 && 'max-[429px]:text-[10px] max-[429px]:tracking-tighter';
