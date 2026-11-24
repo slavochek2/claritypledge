@@ -8,10 +8,15 @@
  * The read keys on the event only, so it runs alongside the room row's read rather than after it; the member is
  * matched once both are in. Seats are room-member rows (host_set_round_seats joins event_room_members), so the
  * match is on the room row's id.
+ *
+ * Metered-services rule 3 (a hidden tab makes no requests; review round 6): the read waits for the tab to be shown,
+ * through `whenVisible` as `useMyCanvasShared` does, and the 4 s budget starts then. A hidden tab shows nothing, so
+ * the loader it holds until then is never seen.
  */
 import { useEffect, useState } from 'react';
 import { currentRound, getEventRoundsState } from '@/app/data/event-rounds-service';
 import { settleWithin } from './settle-within';
+import { whenVisible } from '../when-visible';
 
 /** How long /ready waits for the rounds read before it shows the question anyway. */
 export const ROUNDS_READ_MS = 4000;
@@ -24,16 +29,18 @@ export function useSeatedAtRunningRound(eventId: string | undefined, memberId: s
   useEffect(() => {
     if (!key) return;
     let cancelled = false;
-    settleWithin(getEventRoundsState(key), ROUNDS_READ_MS)
-      .then((state) => {
-        const round = currentRound(state);
-        const ids = new Set(round ? (state.seatsByRound.get(round.id) ?? []).map((seat) => seat.id) : []);
-        if (!cancelled) setSeats({ eventId: key, ids });
-      })
-      .catch(() => {
-        if (!cancelled) setSeats({ eventId: key, ids: null });
-      });
-    return () => { cancelled = true; };
+    const cancelWait = whenVisible(() => {
+      settleWithin(getEventRoundsState(key), ROUNDS_READ_MS)
+        .then((state) => {
+          const round = currentRound(state);
+          const ids = new Set(round ? (state.seatsByRound.get(round.id) ?? []).map((seat) => seat.id) : []);
+          if (!cancelled) setSeats({ eventId: key, ids });
+        })
+        .catch(() => {
+          if (!cancelled) setSeats({ eventId: key, ids: null });
+        });
+    });
+    return () => { cancelled = true; cancelWait(); };
   }, [key]);
   if (!key || !memberId || seats?.eventId !== key) return null;
   return seats.ids ? seats.ids.has(memberId) : false;

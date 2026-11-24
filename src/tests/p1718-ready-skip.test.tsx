@@ -52,9 +52,10 @@ vi.mock('@/app/contexts/room-capture-context', () => ({
 vi.mock('@/app/prototypes/events/prep/use-prep-state', () => ({
   usePrepState: () => ({ loading: false, error: false, learned: false }),
 }));
+const canvas = vi.hoisted(() => ({ shared: false, asked: [] as boolean[] }));
 vi.mock('@/app/prototypes/events/rounds/canvas-setup', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/app/prototypes/events/rounds/canvas-setup')>()),
-  useMyCanvasShared: () => [false, vi.fn()],
+  useMyCanvasShared: (_eventId: string | undefined, enabled: boolean) => { canvas.asked.push(enabled); return [canvas.shared, vi.fn()]; },
 }));
 
 const rounds = vi.hoisted(() => ({
@@ -164,6 +165,8 @@ beforeEach(() => {
   room.arrivalGate = false;
   room.capturing = false;
   rounds.read = () => Promise.resolve({ rounds: [], seatsByRound: new Map() });
+  canvas.shared = false;
+  canvas.asked.length = 0;
   setRoom(night);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -498,6 +501,39 @@ describe('Ready never stands at a running table', () => {
     expect(await screen.findByTestId('room-ready')).toBeInTheDocument();
     expect(redirects).toEqual([]);
   });
+
+  // Review round 6 (GLM): R6 gives Clarity Night R8 too, and its host is not exempt.
+  it('Clarity Night: seated in the running round, /ready redirects to /meet', async () => {
+    rounds.read = () => Promise.resolve({
+      rounds: [{ id: 'r1', endedAt: null }],
+      seatsByRound: new Map([['r1', [{ id: 'member-a' }]]]),
+    });
+    setRoom(night);
+    mountReadyNoWait('night');
+    await waitFor(() => expect(redirects.at(-1)).toMatchObject({ to: '/events/night/meet', replace: true }));
+    expect(screen.queryByTestId('room-ready')).toBeNull();
+  });
+
+  // Review round 6 (Codex), metered-services rule 3: a hidden tab makes no requests.
+  it('a hidden tab makes no rounds read until it is shown, then forwards a seated person', async () => {
+    let state: DocumentVisibilityState = 'hidden';
+    const vis = vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => state);
+    const read = vi.fn(() => Promise.resolve({
+      rounds: [{ id: 'r1', endedAt: null }],
+      seatsByRound: new Map([['r1', [{ id: 'member-a' }]]]),
+    }));
+    rounds.read = read;
+    setRoom(mastermind);
+    mountReadyNoWait('mm');
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(read).not.toHaveBeenCalled();
+    expect(redirects).toEqual([]);
+    state = 'visible';
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    await waitFor(() => expect(redirects.at(-1)).toMatchObject({ to: '/events/mm/meet', replace: true }));
+    expect(read).toHaveBeenCalledTimes(1);
+    vis.mockRestore();
+  });
 });
 
 describe("/ready's step bar", () => {
@@ -512,6 +548,25 @@ describe("/ready's step bar", () => {
     expect(bar).not.toHaveTextContent('Feedback');
     expect(bar).not.toHaveTextContent('Compare');
     expect(screen.queryByTestId('room-step-compare')).toBeNull();
+  });
+
+  // Review round 6 (Gemini): both branches of ReadyStepBar's withCanvas, and its canvasDone tick.
+  it('the mastermind with the Canvas made at the event: Canvas shows, done once shared', async () => {
+    canvas.shared = true;
+    setRoom({ ...mastermind, canvasTiming: 'at_event' } as TestEvent);
+    await mountReady('mm');
+    const step = await screen.findByTestId('room-step-canvas');
+    expect(step).toHaveAttribute('aria-label', expect.stringMatching(/, done$/));
+    expect(canvas.asked).toContain(true);
+  });
+
+  it('the mastermind with the Canvas before the event: no Canvas step, and the shared read is not asked', async () => {
+    canvas.shared = true;
+    setRoom({ ...mastermind, canvasTiming: 'before' } as TestEvent);
+    await mountReady('mm');
+    await screen.findByTestId('room-steps');
+    expect(screen.queryByTestId('room-step-canvas')).toBeNull();
+    expect(canvas.asked).not.toContain(true);
   });
 
   it('a Clarity Night keeps Compare', async () => {

@@ -193,8 +193,9 @@ export function RoomSteps({
                     // Round 6e: at 320 a tick + "Give feedback" fits its cell — a hairline gap and tighter tracking.
                     labels && 'max-[359px]:gap-px max-[359px]:tracking-tighter',
                     // Founder, solo test 2026-11-02: tab names stay visible on phones. The five-step bar's labels get a
-                    // smaller, tighter face below 360px so all five fit beside the arrow-only Back at 320px.
-                    !labels && 'max-[359px]:text-[10px] max-[359px]:tracking-tighter',
+                    // smaller, tighter face below 375px so all five fit beside the Back at 320px and at 360px. (P1718 e2e:
+                    // at 360 the 11px face ran "Compare" into "Feedback" and past the bar beside the worded "← Event".)
+                    !labels && 'max-[374px]:text-[10px] max-[374px]:tracking-tighter',
                     smallFace,
                   )}
                   data-testid={`room-step-${key}-text`}

@@ -298,7 +298,7 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 to 5; accepted, none strands anyone):**
+**Known limitations (code review rounds 2 to 6; accepted, none strands anyone):**
 - **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle,
   Canvas and Table cannot be tapped there for someone already past them (checked against `canOpenStep`, review
   round 5). Continue, Skip, Review and Learn still lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
@@ -315,6 +315,19 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   no row to save to and no profile to key the memory by. The next entry asks again.
 - **The buttons show the save only by dimming**, for up to 5s on stalled wifi, with no "Saving…" label. Adding copy
   is a founder decision.
+- **A timed-out save can land after a newer one** (review round 6): an answer whose save outran the 5s budget,
+  then a second answer from a later visit, can reach the database in reverse order, so the earlier value wins. It
+  needs two answers inside one stall, and the cost is a mood dot one step off; a server-side version on the write
+  would be a migration for that.
+- **The step bar's open tabs look tappable while a save runs** (up to 5s); a tap then does nothing, as the screen
+  is already leaving (round 6).
+- **One mounted `/ready` keeps its leaving state if the URL moves to another event's `/ready`** without leaving the
+  page (round 6). No link in the app goes from one event's `/ready` to another's; typing the URL reloads the page.
+- **The mastermind's host on `/ready` with no room row** (the join failed) sees the question, since the host check
+  reads the room row's profile; Skip or Continue still lead to `/meet` (round 6).
+- **R8 is proven on the direct `/ready` URL.** The gate's redirect and `/meet`'s Ready tab both end on the same
+  `/ready` code, which forwards with `replace`, so Back from the forwarded `/meet` goes to the entry below it.
+  They have no seated test of their own (round 6).
 
 ## What Stays the Same
 
@@ -347,6 +360,42 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 - `RoomSteps.tsx` layout, unless R5's screenshots show a break. Then only by founder decision: the label
   ("Review") and the phone ticks and six-step face (both 2026-11-24, R5) are the only changes made.
 - `e2e/p1529-mastermind.spec.ts` enters the room by `/meet` directly, so it is not expected to change. Verify by running it.
+
+## Cost Budget
+
+Added in code review round 6 (Codex): the change reads Supabase per user (the rounds read on each `/ready` visit) and
+its e2e creates and deletes test users, so `docs/technical/metered-services.md` applies. No timer, poll, retry or
+subscription is added: every read below is one-shot on arrival.
+
+Requests on one `/ready` visit, by its parts (the event and access reads were already made by every room page):
+the room row 1; the rounds read (R8) 1 while the evening has no round, 3 once it has (`event_rounds`, then
+`event_round_seats` and `event_round_tables` together, `getEventRoundsState`); the Canvas-shared read 1 when the
+Canvas is made at the event (`getMyEventCanvas`, the same read `/meet` makes); Continue with a moved slider 2 (the
+save RPC and the room-row re-read); Skip or an untouched Continue 0. The rounds read is not made for the host, while
+offline, on a past evening, with no room row, or on a hidden tab (rule 3, `whenVisible`; review round 6).
+
+Inputs: 16 people; at most 2 `/ready` visits each per evening (the arrival, plus one tap on Ready; re-entry goes
+to `/meet`, R4); 4 rounds of 16 seats and 8 tables at the most; row sizes about 250 B a round, 120 B a seat, 80 B a
+table (UNVERIFIED sizes, read from the selected columns, not measured).
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | worst: 2 visits x (1 room row + 3 rounds + 1 canvas) + 2 save = 12; typical (one visit before any round, answered): 1 + 1 + 1 + 2 = 5 | 16 people x 12 = 192 at most, all in the arrival window | users 9 x (2 create + 1 release) = 27; events 3 x (1 create + 2 updates + 1 delete) = 12; registrations 8; sessions 9; seated fixture 4 (member read, round insert, seat insert, round delete); readiness row checks 4; cleanup deletes 6; app traffic about 10 page loads x 10 = 100 (UNVERIFIED): 27 + 12 + 8 + 9 + 4 + 4 + 6 + 100 = 170 |
+| Egress (bytes) | worst: 2 x (4 x 250 + 64 x 120 + 32 x 80) = 2 x 11,240 = about 22 KB; before any round about 1 KB | 16 x 22 KB = about 360 KB | 170 requests x about 2 KB = about 340 KB |
+| Log lines | 0: a failed read or save shows Ready or lets the person in and logs nothing (no console call in `EventRoomReady.tsx`, `ReadyStepBar.tsx` or `use-seated-at-running-round.ts`) | 0 | 0 expected |
+
+Against main: the mastermind had no `/ready`, so its visit is new traffic (5 to 12 requests per attendee per
+evening). Clarity Night already made the room-row read and, on every Continue, the save and re-read (3); it now adds
+the rounds read (1 to 3) and drops the save and re-read on Skip or an untouched Continue (0 instead of 2).
+
+The e2e runs against the self-hosted TEST server only (`assertSelfHostedTest`), which has no per-request billing
+(as P1529's seed room); it is run at ship, by hand, never on a schedule.
+
+1. **Fits the plan limit today?** Supabase Free plan row: egress 5 GB a month. Monthly = (mastermind evenings per
+   month) x 16 x 22 KB + (Clarity Night evenings per month) x 16 x 22 KB; at 4 evenings a month that is
+   4 x 360 KB = about 1.4 MB, which fits. Requests are not a billed unit on the row. Fits.
+2. **Fits at 10x?** 160 people x 22 KB x 4 evenings = about 14 MB a month: fits.
+3. Neither answer is no, so no upgrade is named.
 
 ## Acceptance Criteria
 
