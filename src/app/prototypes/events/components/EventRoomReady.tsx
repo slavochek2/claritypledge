@@ -112,9 +112,11 @@ export function EventRoomReady() {
   // Review round 3: Back stays live during the save. Someone who leaves for the event page is not pulled into the room
   // when the save settles.
   const mounted = useRef(false);
+  // Review round 9 (Codex): the post-save re-read stops with the screen too, so its join fallback never runs after Back.
+  const reread = useRef<AbortController | null>(null);
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; };
+    return () => { mounted.current = false; reread.current?.abort(); };
   }, []);
   const goToMeet = useCallback(() => {
     navigate(`/events/${slug}/meet`, { state: { fromReady: true, fromEvent } });
@@ -162,8 +164,10 @@ export function EventRoomReady() {
       // again when it is shown.
       // Review round 8 (Codex): the re-read is told when this screen stops waiting, so its fallback (the room join after
       // a status read with no row) never starts once the budget is spent or the tab is hidden (EventRoomAccess.tsx `load`).
-      if (saved && left > 0 && document.visibilityState !== 'hidden') {
+      // Review round 9 (Codex): nor after Back left the screen while the save ran.
+      if (saved && left > 0 && document.visibilityState !== 'hidden' && mounted.current) {
         const stop = new AbortController();
+        reread.current = stop;
         await settleWithin(refresh(stop.signal), left).catch(() => {});
         stop.abort();
       }
@@ -186,7 +190,9 @@ export function EventRoomReady() {
   const seated = useSeatedAtRunningRound(event?.id, self?.id, askSeated);
   // Review round 7 (metered-services rule 3 and the Cost Budget): the marks are read only where the question can show
   // (not for the host, a past evening, offline, or before the room row), and on a visible tab.
-  const askDistribution = granted && !offline && !isFrozen && hasReadiness && !mastermindHost && !!self;
+  // Review round 9 (Codex): and only once the seat read found no seat, so a seated person forwarded to /meet makes none.
+  // The screen shows its loader until that answer, so the marks lose no time.
+  const askDistribution = granted && !offline && !isFrozen && hasReadiness && !mastermindHost && !!self && seated === false;
   useEffect(() => {
     if (!event || !askDistribution) return;
     let cancelled = false;

@@ -61,6 +61,29 @@ describe('the profile-name read before a join', () => {
     expect(svc.join).not.toHaveBeenCalled();
   });
 
+  // P1718 review round 9 (Codex), metered rule 3: hidden during the name read, the join waits for the tab.
+  it('hidden while the name is being read: no join until the tab is shown again', async () => {
+    const { result } = await mounted();
+    let name!: (v: unknown) => void;
+    svc.name.mockImplementationOnce(() => new Promise((r) => { name = r; }));
+    svc.status.mockResolvedValueOnce(null);
+    let state: DocumentVisibilityState = 'visible';
+    const spy = vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => state);
+    try {
+      let done!: Promise<boolean>;
+      act(() => { done = result.current.refresh(new AbortController().signal); });
+      await waitFor(() => expect(svc.name).toHaveBeenCalled());
+      state = 'hidden';
+      await act(async () => { name({ data: { name: 'Ana' } }); await new Promise((r) => setTimeout(r, 20)); });
+      expect(svc.join).not.toHaveBeenCalled();
+      state = 'visible';
+      await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await expect(done).resolves.toBe(true); });
+      expect(svc.join).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('a name read that never answers ends the refresh at the deadline, without a join as Guest', async () => {
     const { result } = await mounted();
     vi.useFakeTimers();

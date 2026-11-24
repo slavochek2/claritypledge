@@ -244,7 +244,8 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
       // The read is the third request of a refresh: bounded, and dropped with the caller that gave up. A name that does
       // not arrive joins nobody (no "Guest" title); the next refresh tries again.
       const name = user?.name || (viewerId ? await withDeadline(readProfileName(viewerId), NAME_DEADLINE_MS, 'profile name read') : null);
-      if (signal?.aborted) return false;
+      // P1718 review round 9 (Codex): the tab can be hidden while the name is read, so the join waits for it again.
+      if (signal && !(await untilVisible(signal))) return false;
       const joined = await joinEventRoom(event.id, name || 'Guest');
       offer(ticket, joined);
       // P1369 Scope v2 item 5: a first visit's check-in (the row the join just created) is the

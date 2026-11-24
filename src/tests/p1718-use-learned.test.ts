@@ -74,6 +74,17 @@ describe('useLearned', () => {
     expect(result.current).toEqual({ loading: false, error: true, learned: false });
   });
 
+  it('a failed read (offline) still ticks learning done on this device', async () => {
+    reads.prep.mockRejectedValue(new TypeError('Failed to fetch'));
+    reads.local = {
+      cognitive_video: { contentVersion: PART_VERSIONS.cognitive_video, completedAt: at },
+      cmp7: { contentVersion: PART_VERSIONS.cmp7, completedAt: at },
+    };
+    const { result } = renderHook(() => useLearned(event, 'profile-1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current).toEqual({ loading: false, error: false, learned: true });
+  });
+
   it('not asked with no preparation offered, no viewer, or no event: no read, not loading', () => {
     reads.offers = false;
     expect(renderHook(() => useLearned(event, 'profile-1')).result.current).toEqual({ loading: false, error: false, learned: false });

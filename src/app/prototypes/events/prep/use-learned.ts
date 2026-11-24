@@ -10,7 +10,8 @@
  * (`syncLocalPrepParts`), so the tick matches /meet's without this screen writing anything.
  *
  * Both reads start together, once, on a visible tab (`whenVisible`); the answer belongs to the inputs it was read
- * for. A failed read is `error`, and the bar then draws no tick.
+ * for. A failed read (offline among them) is `error`, and the bar then draws no tick, unless this device alone shows the
+ * learning done.
  */
 import { useEffect, useState } from 'react';
 import { getMyPreparation, getMyPrepParts } from '@/app/data/event-prep-service';
@@ -42,7 +43,13 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
           const learned = hasLearned([...done, ...rows], prep?.completedAt);
           if (!cancelled) setAnswer({ key, error: false, learned });
         })
-        .catch(() => { if (!cancelled) setAnswer({ key, error: true, learned: false }); });
+        .catch(() => {
+          // Review round 9 (Gemini): offline, or a failed read, still shows the tick for learning done on this device;
+          // anything less is unknown (error), and the bar draws no tick.
+          const local = localPartRows(readLocalParts());
+          const learned = hasLearned(local, null);
+          if (!cancelled) setAnswer({ key, error: !learned, learned });
+        });
     });
     return () => { cancelled = true; cancelWait(); };
     // eventId and viewerId are inside key.

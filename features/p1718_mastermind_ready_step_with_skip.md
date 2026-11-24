@@ -129,6 +129,11 @@ otherwise send the person back to Ready on every re-entry that evening.
 Have you arrived? ──I'm here──▶ [preparation offer, only if not prepared] ──▶ /ready ──Continue/Skip──▶ /meet
 ```
 
+Review round 9 (Codex): the bracket is the door's preparation gate, which stops people only where preparation is
+required (`gatesRoomOnPreparation`). The mastermind's preparation is optional (`SALES_MASTERMIND_RECIPE.prepare.optional`),
+so on main and after this change its door has no preparation offer: "I'm here" leads straight to `/ready`, and the
+preparation is the step bar's "Learn and prepare". This change does not touch that gate.
+
 **Ready screen (after, every series that has Ready):**
 
 ```
@@ -179,7 +184,8 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 ## Requirements
 
 - **R1. Ready is on for the mastermind.** `SALES_MASTERMIND_RECIPE.room.readiness` becomes `true`. A first
-  visit goes: arrival question → preparation offer (only if not prepared) → `/ready` → `/meet`. Ready sits
+  visit goes: arrival question → preparation offer (only where preparation is required, so never for the mastermind,
+  whose preparation is optional; see Redesign) → `/ready` → `/meet`. Ready sits
   before Principle, as in every series that has it.
 - **R2. Skip.** The shared Ready screen (`EventRoomReady.tsx`) shows a secondary Skip control under
   Continue. Skip saves nothing and goes to `/meet` with the same route state Continue passes.
@@ -298,7 +304,7 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 to 8; accepted, none strands anyone):**
+**Known limitations (code review rounds 2 to 9; accepted, none strands anyone):**
 - **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle,
   Canvas and Table cannot be tapped there for someone already past them (checked against `canOpenStep`, review
   round 5). Continue, Skip, Review and Learn still lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
@@ -321,19 +327,28 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   would be a migration for that.
 - **The step bar's open tabs look tappable while a save runs** (up to 5s); a tap then does nothing, as the screen
   is already leaving (round 6).
-- **One mounted `/ready` keeps its leaving state if the URL moves to another event's `/ready`** without leaving the
-  page (round 6). No link in the app goes from one event's `/ready` to another's; typing the URL reloads the page.
+- **One mounted `/ready` keeps its leaving state, its slider and its marks if the URL moves to another event's `/ready`,
+  or the signed-in person changes,** without leaving the page (rounds 6 and 9). No link in the app goes from one
+  event's `/ready` to another's, typing the URL reloads the page, and changing account goes through the sign-in pages,
+  which leave the room.
 - **The mastermind's host on `/ready` with no room row** (the join failed) sees the question, since the host check
   reads the room row's profile; Skip or Continue still lead to `/meet` (round 6).
 - **R8 is proven on the direct `/ready` URL.** The gate's redirect and `/meet`'s Ready tab both end on the same
   `/ready` code, which forwards with `replace`, so Back from the forwarded `/meet` goes to the entry below it.
   They have no seated test of their own (round 6).
+- **After the host ends the mastermind evening, someone entering for the first time (or on another device) within the
+  grace hours still sees Ready once** (review round 9, Codex). The seat read finds no running round, and `/ready` does
+  not read whether the evening has ended (that would be one more read on every visit). Skip or Continue then land on
+  `/meet`, which opens on Review. Clarity Night's `/ready` has always behaved this way.
 - **`/meet`'s step bar still reads the whole preparation plan for its Learn tick** (`usePrepState`, `EventRoomMeet.tsx`),
   so a points feed answering after the tab is hidden can still start its follow-up reads there (Codex round 8). That
   is `/meet` as it is on main; `/ready` now uses the two-read `useLearned`. Moving `/meet` onto it is its own change.
 - **Visual QA round 8 findings outside this change's diff**, left as they are on main: the slider's pale track and
   thumb before it is touched, "Stay on the surface" and "Neutral" about 6px apart at 320 (INBOX-396), the Back
   control shrinking to an arrow at 320, and "Start transcribing" about 30px tall on `/meet`.
+- **Visual QA after round 8 (Clarity Night's five-step bar):** at 320 and 360 "Compare" and "Feedback" stand 8px
+  apart, no overlap, unchanged by this change's 430px breakpoint (the same as main measured at those widths); at
+  375 the gap went from 5px to 11px. Left as is; a narrower face would trade legibility for 2px.
 
 ## What Stays the Same
 
@@ -387,11 +402,13 @@ review round 7 counted every read the screen makes, review round 8 re-derived th
   position count and a viewer-position read), the social proof and the registration role, and wrote parts done
   signed out: 10 to 16 requests a visit, some started by a response after the tab was hidden (Codex round 8). Parts
   done signed out still count toward the tick; `/meet` moves them to the account, as before;
-- Continue with a moved slider 2 (the save RPC and the room-row re-read; no re-read from a hidden tab, and the
-  re-read's join fallback is aborted once Continue stops waiting); Skip or an untouched Continue 0.
+- Continue with a moved slider 2 (the save RPC and the room-row re-read), and up to 4 when the re-read finds no row and
+  falls back to the room join, with the profile-name read first if the name has not loaded (review round 9, Codex).
+  No re-read from a hidden tab or after Back, the join waits for a visible tab, and it is aborted once Continue stops
+  waiting; Skip or an untouched Continue 0.
 
 None of these reads is made for the host (sent on to `/meet` first), on a past evening or before the room row is
-known, and each starts only on a visible tab (rule 3, `whenVisible`; review rounds 6 to 8). The room row, seat and
+known, and each starts only on a visible tab (rule 3, `whenVisible`; review rounds 6 to 9). The room row, seat and
 marks reads are also not made while offline; the step bar's Learn and Canvas reads are (review round 8, Gemini), but an
 offline browser fails them before they reach the server, so they cost nothing. The mastermind no longer mounts the
 preparation banner on `/ready` (its Learn entry is that tap), so its reads are not doubled.
@@ -403,11 +420,11 @@ answer be saved again. Row sizes (UNVERIFIED, read from the selected columns, no
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | worst: 2 visits x (1 room row + 1 seat + 1 marks + 1 canvas + 2 learn + 2 save) = 16; typical (one visit, answered): 6 + 2 = 8 | 16 people x 16 = 256 at most, all in the arrival window | users 10 x (2 create + 1 release) = 30; events 3 x (1 create + 2 updates + 1 delete) = 12; registrations 9; sessions 10; seat fixtures 2 x 4 (member read, round insert, seat insert, round delete) = 8; readiness row checks 6; cleanup deletes 5; app traffic about 25 route loads (10 room entries, 5 direct visits, about 10 in-app moves) x 10 = 250 (UNVERIFIED): 30 + 12 + 9 + 10 + 8 + 6 + 5 + 250 = 330 |
-| Egress (bytes) | worst: 2 visits x (2 KB canvas + 7 x 1 KB) = about 18 KB; with no Canvas at the event about 14 KB | 16 x 18 KB = about 290 KB | 330 requests x about 2 KB = about 660 KB (the e2e events offer no preparation) |
+| Requests | worst: 2 visits x (1 room row + 1 seat + 1 marks + 1 canvas + 2 learn + 4 save) = 20; typical (one visit, answered): 6 + 2 = 8 | 16 people x 20 = 320 at most, all in the arrival window | users 10 x (2 create + 1 release) = 30; events 3 x (1 create + 2 updates + 1 delete) = 12; registrations 9; sessions 10; seat fixtures 2 x 4 (member read, round insert, seat insert, round delete) = 8; readiness row checks 6; cleanup deletes 5; app traffic about 25 route loads (10 room entries, 5 direct visits, about 10 in-app moves) x 10 = 250 (UNVERIFIED): 30 + 12 + 9 + 10 + 8 + 6 + 5 + 250 = 330 |
+| Egress (bytes) | worst: 2 visits x (2 KB canvas + 9 x 1 KB) = about 22 KB; with no Canvas at the event about 18 KB | 16 x 22 KB = about 350 KB | 330 requests x about 2 KB = about 660 KB (the mastermind's optional preparation still makes its 2 Learn reads per `/ready` load; they are inside the 10 a route load) |
 | Log lines | 0: a failed read or save shows Ready or lets the person in and logs nothing (no console call in `EventRoomReady.tsx`, `ReadyStepBar.tsx`, `use-learned.ts` or `use-seated-at-running-round.ts`) | 0 | 0 expected |
 
-Against main: the mastermind had no `/ready`, so its visit is new traffic (6 to 16 requests per attendee per
+Against main: the mastermind had no `/ready`, so its visit is new traffic (6 to 20 requests per attendee per
 evening). Clarity Night already made the room-row read, the marks and, on every Continue, the save and re-read; it
 now adds the seat read (1) and drops the save and re-read on Skip or an untouched Continue (0 instead of 2).
 
@@ -415,9 +432,9 @@ The e2e runs against the self-hosted TEST server only (`assertSelfHostedTest`), 
 (as P1529's seed room); it is run at ship, by hand, never on a schedule.
 
 1. **Fits the plan limit today?** Supabase Free plan row: egress 5 GB a month. Monthly = (evenings a month) x
-   16 x 18 KB; at 4 evenings a month that is about 1.2 MB, which fits. Requests are not a billed unit on the row.
+   16 x 22 KB; at 4 evenings a month that is about 1.4 MB, which fits. Requests are not a billed unit on the row.
    Fits.
-2. **Fits at 10x?** 160 people x 18 KB x 4 evenings = about 12 MB a month: fits.
+2. **Fits at 10x?** 160 people x 22 KB x 4 evenings = about 14 MB a month: fits.
 3. Neither answer is no, so no upgrade is named.
 
 ## Acceptance Criteria

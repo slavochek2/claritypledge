@@ -17,10 +17,10 @@ const capture = vi.hoisted(() => ({ phase: 'idle', barVisible: false, isCapturin
 vi.mock('@/app/contexts/room-capture-context', () => ({ useRoomCapture: () => capture }));
 vi.mock('@/app/contexts/offline-status-context', () => ({ useConnectivity: () => ({ offline: false, reconnectTick: 0 }), useOfflineStripShown: () => false }));
 vi.mock('@/app/components/layout/app-shell/shell-nav', () => ({ useHideTodaysStripForEvent: () => {} }));
-const room = vi.hoisted(() => ({ access: {} as Record<string, unknown> }));
+const room = vi.hoisted(() => ({ access: {} as Record<string, unknown>, self: null as Record<string, unknown> | null }));
 vi.mock('@/app/prototypes/events/components/EventRoomAccess', () => ({
   useEventRoomAccess: () => room.access,
-  useEventRoomSelf: () => ({ self: null, loading: false, refresh: vi.fn().mockResolvedValue(true), runSelfWrite: vi.fn() }),
+  useEventRoomSelf: () => ({ self: room.self, loading: false, refresh: vi.fn().mockResolvedValue(true), runSelfWrite: vi.fn() }),
 }));
 vi.mock('@/app/data/event-room-service', () => ({
   setRoomOptIn: vi.fn(), setRoomRating: vi.fn(), resetRoomAnswer: vi.fn(),
@@ -74,6 +74,7 @@ const feedbackTab = () => screen.getByTestId('room-step-close') as HTMLButtonEle
 
 beforeEach(() => {
   sessionStorage.clear();
+  room.self = null;
   moment.value = { seated: false, atTable: false, eveningOver: false, live: false, waiting: true };
 });
 
@@ -191,5 +192,30 @@ describe('the room', () => {
     moment.value = { seated: true, atTable: false, eveningOver: false, live: true, waiting: false };
     renderRoom(soon({ seriesSlug: null }));
     expect(feedbackTab().disabled).toBe(true);
+  });
+});
+
+// P1718 (review round 9, Gemini): /meet's own step bar. The mastermind's host never sees Ready (they are sent past it),
+// Clarity Night's host keeps it; an attendee's Ready carries its tick exactly when an answer is stored.
+describe('P1718: the Ready tab on /meet', () => {
+  const member = (profileId: string, readinessValue: number | null) =>
+    ({ id: `member-${profileId}`, profileId, readinessValue, optIn: null, rating: null });
+  const readyTab = () => screen.queryByTestId('room-step-ready');
+
+  it('the mastermind host\'s bar has no Ready tab; Clarity Night\'s host keeps it', () => {
+    room.self = member('h', null);
+    const { unmount } = renderRoom(soon({ seriesSlug: 'sales-mastermind' }));
+    expect(screen.getByTestId('room-steps')).toBeTruthy();
+    expect(readyTab()).toBeNull();
+    unmount();
+    renderRoom(soon({ seriesSlug: null }));
+    expect(readyTab()).not.toBeNull();
+  });
+
+  it.each([[6, true], [null, false]] as const)('an attendee with a stored answer of %s: Ready done is %s', (value, done) => {
+    room.self = member('u1', value);
+    renderRoom(soon({ seriesSlug: 'sales-mastermind' }));
+    expect(readyTab()).not.toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ready, done' }) !== null).toBe(done);
   });
 });

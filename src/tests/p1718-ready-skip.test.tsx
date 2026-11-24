@@ -174,6 +174,7 @@ beforeEach(() => {
   net.offline = false;
   localStorage.clear();
   vi.mocked(setRoomReadiness).mockReset();
+  vi.mocked(getRoomReadinessDistribution).mockClear();
   room.refresh = () => Promise.resolve();
   room.prepGate = false;
   room.arrivalGate = false;
@@ -301,6 +302,45 @@ describe('Continue saves only an answer', () => {
     await act(async () => { finish(); await Promise.resolve(); await Promise.resolve(); });
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.getByTestId('page')).toHaveTextContent('event');
+  });
+
+  // Review round 9 (Codex): Back stops the post-save re-read too — none starts after Back, and one running is aborted.
+  it('a save landing after Back starts no re-read; Back during the re-read aborts it', async () => {
+    const reads: (AbortSignal | undefined)[] = [];
+    room.refresh = vi.fn((signal?: AbortSignal) => { reads.push(signal); return new Promise<void>(() => {}); }) as typeof room.refresh;
+    const mountWithEvent = () => render(
+      <MemoryRouter initialEntries={[{ pathname: '/events/mm/ready', state: { fromEvent: true } }]}>
+        <Routes>
+          <Route path="/events/:slug" element={<Page name="event" />} />
+          <Route path="/events/:slug/ready" element={<EventRoomReady />} />
+          <Route path="/events/:slug/meet" element={<Page name="meet" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const back = () => fireEvent.click(within(screen.getByTestId('room-head-row')).getAllByRole('button')[0]);
+    setRoom(mastermind);
+
+    let finish: () => void = () => {};
+    vi.mocked(setRoomReadiness).mockReturnValueOnce(new Promise<void>((r) => { finish = r; }) as never);
+    const first = mountWithEvent();
+    await screen.findByTestId('room-ready');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    back();
+    await act(async () => { finish(); await new Promise((r) => setTimeout(r, 20)); });
+    expect(reads).toHaveLength(0);
+    first.unmount();
+
+    vi.mocked(setRoomReadiness).mockResolvedValueOnce(undefined as never);
+    mountWithEvent();
+    await screen.findByTestId('room-ready');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await waitFor(() => expect(reads).toHaveLength(1));
+    expect(reads[0]?.aborted).toBe(false);
+    back();
+    expect(await screen.findByTestId('page')).toHaveTextContent('event');
+    expect(reads[0]?.aborted).toBe(true);
   });
 
   it('a save that lands after the budget still clears the skip remembered at the timeout (review round 3)', async () => {
@@ -613,6 +653,9 @@ describe('Ready never stands at a running table', () => {
     mountReadyNoWait('mm');
     await waitFor(() => expect(redirects.at(-1)).toMatchObject({ to: '/events/mm/meet', replace: true }));
     expect(screen.queryByTestId('room-ready')).toBeNull();
+    // Review round 9 (Codex): the readiness marks are not read for someone forwarded.
+    await act(async () => { await new Promise((r) => setTimeout(r, 30)); });
+    expect(vi.mocked(getRoomReadinessDistribution)).not.toHaveBeenCalled();
   });
 
   it('not seated in the running round: Ready renders', async () => {
