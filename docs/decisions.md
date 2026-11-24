@@ -8,6 +8,26 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-24 [product]: The Clarify Mirror does not score whether a decision is high-stakes; pressing Clarify is that judgment
+
+**Context:** Someone presses Clarify in a live room and the Mirror drafts a point from the transcript (P1631). The question was whether the Mirror should also say which high-stakes conditions the decision meets, or score it. The question was explored against the new high-stakes model agreed the same day in the demo-film session and not yet written into the docs: success depends on shared understanding (the heading), five dimensions each scored on a scale (fuzzy intent, delayed feedback, serious damage, irreversible, explanatory divergence; "concentrated consequences" deleted), high-stakes when the scores together pass a threshold, judged with the person whose decision it is. A separate spec will update the docs, skills and prompt to that model.
+
+**What the code showed:** nothing about stakes reaches the person today. The bundled prepare skill points the live Mirror at `docs/arbiter-failure-model.md` and its condition tags, but the live Mirror has no files, its output JSON has no tag field, and `parseClarifyResponse` drops every free-text field. Its only gate is the refusal test (is there a real disagreement).
+
+**Decision:** do not build stakes flags or scores into Clarify. Pressing Clarify is the person's own judgment that the item matters. Per 2026-07-29 [product] ("Retracting corroboration"), naming what is high-stakes is something people do within seconds of being asked, so it is not the product; finding the hidden gap inside it is. A Mirror score after the press repeats the part the person just did. One prompt cleanup applied: `clarify-adapter.md` now lists the arbiter-failure model and its tags under "What does not apply here", so the live Mirror is no longer pointed at a file it cannot read and a tag it never outputs. Whether that pointer changed drafts before was never tested.
+
+**Alternatives rejected:** (B) a private hint: the Mirror names at most the one or two dimensions the transcript shows, with cited lines, as a question to the presser, never a number or a threshold and never on the published point. Held for later, see below. (C) full scoring: the Mirror proposes all five scores with bars, and a threshold marks the published point. Rejected: under a scale with a threshold, a Mirror score is a verdict on the team's stakes, which 2026-07-29 rules out ("Do not prefill our position on their stakes").
+
+**Where this depends on the new model:** (1) a scale with a threshold makes any Mirror number count toward a verdict, which strengthens the no; (2) the threshold has no number or adding rule yet, so C could not be built anyway; (3) serious damage and irreversible depend on facts outside the transcript, while fuzzy intent and explanatory divergence are the two a transcript can show better than people see themselves, so a future B covers only those two; (4) deleting "concentrated consequences" removes a pull toward naming people, which the adapter forbids; (5) "judged with the person whose decision it is" is open for meetings: the Mirror draft is private to the presser, who is often not the decision owner.
+
+**Consequences:** the definition spec should answer who judges stakes in a meeting (anyone present, or only the decision owner). Stakes scoring is the right question for an agent that raises decisions without anyone pressing, which the landing page already promises ("Agents flag the high-stakes matters"), and only in B's shape. The prompt change takes effect in prod when `clarify-draft` is next deployed. **UNTESTED.**
+
+**Falsifier:** if people often press Clarify on items they then say did not matter, or if most founders cannot name a high-stakes item within a minute (the 2026-07-29 falsifier), naming stakes is not free and B becomes worth building.
+
+**References:** `supabase/functions/clarify-draft/clarify-adapter.md` · `clarify-model.ts` · `.claude/commands/slava/disagreement/prepare.md` · [arbiter-failure-model.md](arbiter-failure-model.md) · [definitions.md](definitions.md) §High Stakes · 2026-07-29 [product] (both entries) · P1631
+
+---
+
 ## 2026-11-24 [process]: Name the viewer and the action before making a film; the Third Condition film is parked (Status: proposed)
 
 **Context:** The Third Condition explainer film went through three full versions in a week (draft 6, draft 7, draft 8). Each version answered a different unstated guess about who would watch it: community organizers, people arguing about AI risk, then the internal champion. The founder judged draft 7 much worse than draft 6. After draft 8 was finished, the founder said it was not clear what the film is for or whether anyone needs it.
