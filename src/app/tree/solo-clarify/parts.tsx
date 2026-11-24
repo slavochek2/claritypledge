@@ -36,10 +36,10 @@ export function Said({ children }: { children: ReactNode }) {
 }
 
 /** Takes focus when it appears, because the button that led here has gone (focus would otherwise fall to the page). */
-export function Arrive({ on = true, className, children }: { on?: boolean; className?: string; children: ReactNode }) {
+export function Arrive({ on = true, label, className, children }: { on?: boolean; label?: string; className?: string; children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { if (on) ref.current?.focus(); }, [on]);
-  return <div ref={ref} tabIndex={-1} className={cn('outline-none', className)}>{children}</div>;
+  return <div ref={ref} tabIndex={-1} role={label ? 'group' : undefined} aria-label={label} className={cn('outline-none', className)}>{children}</div>;
 }
 
 /** The Mirror's reply once a point is made. */
@@ -196,7 +196,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions, focus 
   const { statement, tags } = allTags(draft);
   const pick = (v: Visibility) => (v === 'public' && draft.visibility !== 'public' && onPublicPick ? onPublicPick() : update({ visibility: v }));
   return (
-    <Arrive on={focus} className="flex flex-col gap-2">
+    <Arrive on={focus} label="New draft point" className="flex flex-col gap-2">
       <PointCardShell
         aria-label={statement.trim() ? `Draft point: ${statement}` : 'Draft point, empty'}
         header={
@@ -265,6 +265,13 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic,
   position?: Position; onPosition?: (p: Position) => void;
 }) {
   const [said, setSaid] = useState<ReactNode>(null);
+  const shareBtn = useRef<HTMLButtonElement>(null);
+  const was = useRef(visibility);
+  useEffect(() => {
+    if (was.current === visibility) return;
+    was.current = visibility;
+    if (!document.activeElement || document.activeElement === document.body) shareBtn.current?.focus();
+  }, [visibility]);
   const at = `${visibility}|${rule}`;
   const [seen, setSeen] = useState(at);
   if (seen !== at) { setSeen(at); setSaid(null); }
@@ -285,7 +292,7 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic,
         statement={<p className="min-w-0 flex-1 break-words text-base font-medium text-foreground"><InlineVisibilityIcon visibility={visibility} /> {statement}</p>}
         footer={
           <div className="flex items-center justify-end px-2 pb-2">
-            <Button type="button" variant="outline" data-share aria-disabled={off} className={cn('h-11 min-h-11 gap-1.5', off && 'opacity-50')} onClick={share}>
+            <Button ref={shareBtn} type="button" variant="outline" data-share aria-disabled={off} className={cn('h-11 min-h-11 gap-1.5', off && 'opacity-50')} onClick={share}>
               <Share2 aria-hidden />{visibility === 'private' && rule === 'people' ? 'Share with people' : 'Share'}
             </Button>
           </div>

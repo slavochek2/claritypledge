@@ -50,7 +50,7 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
         onChange={choose}
         options={[{ id: 'confirm', label: 'A. Confirm they agreed' }, { id: 'my-words', label: 'B. Only my words' }, { id: 'trust', label: 'C. Warning only' }]}
       />
-      <ChatFrame title={MIRROR} mirror action={<ClarifyChip onClick={() => fresh(variant)} label="Clarify recording" />}>
+      <ChatFrame title={MIRROR} mirror action={<ClarifyChip onClick={() => fresh(variant, true)} label="Clarify recording" />}>
         <p className="text-xs text-muted-foreground">Recording on this device · Speaker 1 is {ME}, Speaker 2 is {OTHER}, not on Clarity Pledge</p>
         {ONE_MIC_TALK.map(m => <Bubble key={m.id} msg={m} name={m.who === 'me' ? ME : OTHER} />)}
         {!created ? (

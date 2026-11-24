@@ -26,7 +26,7 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
   const [focusDraft, setFocusDraft] = useState(false);
   const chip = useRef<HTMLButtonElement>(null);
   const fresh = (text: string, focus = false) => { setSession(n => n + 1); setFocusDraft(focus); update({ text, tags: [], visibility: 'private', position: null }); };
-  const start = (m: FakeMessage | null) => { setSource(m); setBase(DRAFTS.mirror); setClarified(true); setCreated(false); fresh(DRAFTS.mirror); };
+  const start = (m: FakeMessage | null) => { setSource(m); setBase(DRAFTS.mirror); setClarified(true); setCreated(false); fresh(DRAFTS.mirror, true); };
   const another = () => { const next = NEXT[base] ?? DRAFTS.mirror; setBase(next); setCreated(false); setClarified(true); fresh(next, true); };
   const reset = () => { setClarified(false); setCreated(false); setSource(null); setBase(DRAFTS.mirror); fresh(DRAFTS.mirror); chip.current?.focus(); };
 

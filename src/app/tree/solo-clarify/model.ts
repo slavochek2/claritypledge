@@ -45,7 +45,7 @@ export const DM_TALK: FakeMessage[] = [
 export const DRAFTS = {
   mirrorNext: 'A conversation goes better when each side says back what they heard before answering.',
   mirror: 'Being restated correctly is what lets people change their mind, not the strength of the arguments.',
-  oneMic: 'Launch the course in spring with a smaller promise rather than a smaller course.',
+  oneMic: 'Launch the course in spring with a smaller promise, because people judge a half-finished course on the half that is there.',
   dm: 'Team meetings run long because nobody is sure what was decided, not because nobody prepares.',
 } as const;
 
