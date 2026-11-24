@@ -92,6 +92,26 @@ interface DbSeat {
   confirmed_at: string | null;
 }
 
+/**
+ * P1718 R8: does this room member hold a seat in the evening's running round? One request: the member's seats joined to
+ * their round, filtered to this event and to a round not yet ended. host_start_round ends any open round before it
+ * inserts the next, in one transaction under the event's round lock, so an event has at most one open round: the
+ * running one, the round `currentRound` picks. One request rather
+ * than `getEventRoundsState`'s three, so a tab hidden mid-read starts no follow-up (metered-services rule 3; review
+ * round 7). Throws on failure.
+ */
+export async function isSeatedInRunningRound(eventId: string, memberId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('event_round_seats')
+    .select('round_id, event_rounds!inner(event_id, ended_at)')
+    .eq('room_member_id', memberId)
+    .eq('event_rounds.event_id', eventId)
+    .is('event_rounds.ended_at', null)
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
 /** Throws on failure — callers keep the last good state rather than painting an empty room. */
 export async function getEventRoundsState(eventId: string): Promise<EventRoundsState> {
   const { data: rounds, error } = await supabase

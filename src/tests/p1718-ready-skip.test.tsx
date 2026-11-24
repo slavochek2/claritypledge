@@ -10,7 +10,7 @@
  *  - R9: the mastermind's host goes straight to Meet.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, within, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, within, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
 vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
@@ -37,7 +37,7 @@ vi.mock('@/app/data/event-room-service', () => ({
   setRoomReadiness: vi.fn(),
 }));
 vi.mock('@/app/prototypes/events/prep/PrepRoom', () => ({
-  PrepRoomBanner: () => null,
+  PrepRoomBanner: () => <div data-testid="prep-room-banner" />,
   PrepRoomGate: () => <p data-testid="prep-gate" />,
   useRoomPrepGate: () => ({ gate: room.prepGate }),
 }));
@@ -49,8 +49,9 @@ vi.mock('@/app/contexts/room-capture-context', () => ({
   useRoomCapture: () => ({ isCapturingForEvent: () => room.capturing }),
 }));
 // The mastermind's step bar reads the learning and the canvas; neither is the subject here.
+const prep = vi.hoisted(() => ({ state: { loading: false, error: false, learned: false } }));
 vi.mock('@/app/prototypes/events/prep/use-prep-state', () => ({
-  usePrepState: () => ({ loading: false, error: false, learned: false }),
+  usePrepState: () => prep.state,
 }));
 const canvas = vi.hoisted(() => ({ shared: false, asked: [] as boolean[] }));
 vi.mock('@/app/prototypes/events/rounds/canvas-setup', async (importOriginal) => ({
@@ -61,11 +62,20 @@ vi.mock('@/app/prototypes/events/rounds/canvas-setup', async (importOriginal) =>
 const rounds = vi.hoisted(() => ({
   read: (() => Promise.resolve({ rounds: [], seatsByRound: new Map() })) as () => Promise<unknown>,
 }));
-// Review round 5: only the read is stubbed; currentRound is the real selection rule.
-vi.mock('@/app/data/event-rounds-service', async (importActual) => ({
-  ...(await importActual<typeof import('@/app/data/event-rounds-service')>()),
-  getEventRoundsState: () => rounds.read(),
-}));
+// Review round 7: /ready asks one question, isSeatedInRunningRound. The fixtures still describe the evening's rounds and
+// seats, answered through the real currentRound, so each test states the evening rather than the answer.
+vi.mock('@/app/data/event-rounds-service', async (importActual) => {
+  const actual = await importActual<typeof import('@/app/data/event-rounds-service')>();
+  return {
+    ...actual,
+    getEventRoundsState: () => rounds.read(),
+    isSeatedInRunningRound: (_eventId: string, memberId: string) => rounds.read().then((state) => {
+      const s = state as Parameters<typeof actual.currentRound>[0];
+      const round = actual.currentRound(s);
+      return !!round && (s.seatsByRound.get(round.id) ?? []).some((seat) => seat.id === memberId);
+    }),
+  };
+});
 
 // The redirect's element, recorded instead of followed.
 const redirects = vi.hoisted(() => [] as { to: unknown; replace?: boolean; state?: unknown }[]);
@@ -86,7 +96,7 @@ import { EventRoomGate } from '@/app/prototypes/events/components/EventRoomGate'
 import { readySkipped, rememberReadySkipped } from '@/app/prototypes/events/components/ready-skip-memory';
 import { RoomSteps, type RoomStep } from '@/app/prototypes/events/rounds/RoomSteps';
 import { SALES_MASTERMIND_RECIPE, SOCIAL_HIKE_RECIPE } from '@/app/prototypes/events/series-recipes';
-import { setRoomReadiness } from '@/app/data/event-room-service';
+import { getRoomReadinessDistribution, setRoomReadiness } from '@/app/data/event-room-service';
 
 const base = { datetime: '2099-01-01T11:00:00Z', durationMinutes: 60, hostId: 'host-1' };
 const night = { ...base, id: 'ev-night', slug: 'night', title: 'Night', seriesSlug: null };
@@ -115,14 +125,18 @@ async function mountReady(slug: string) {
 }
 
 function mountReadyNoWait(slug: string) {
-  render(
+  // A fresh element each time: re-rendering the identical one lets React skip the subtree.
+  const tree = () => (
     <MemoryRouter initialEntries={[{ pathname: `/events/${slug}/ready`, state: { fromEvent: true } }]}>
       <Routes>
         <Route path="/events/:slug/ready" element={<EventRoomReady />} />
         <Route path="/events/:slug/meet" element={<Page name="meet" />} />
       </Routes>
-    </MemoryRouter>,
+    </MemoryRouter>
   );
+  const view = render(tree());
+  // Re-render the mounted screen, so a changed mock (connectivity) is read again (MemoryRouter keeps its entries).
+  return { rerender: () => view.rerender(tree()) };
 }
 
 function PageWithSearch() {
@@ -167,6 +181,7 @@ beforeEach(() => {
   rounds.read = () => Promise.resolve({ rounds: [], seatsByRound: new Map() });
   canvas.shared = false;
   canvas.asked.length = 0;
+  prep.state = { loading: false, error: false, learned: false };
   setRoom(night);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -449,6 +464,49 @@ describe('a stalled connection never strands the person', () => {
     expect(read).not.toHaveBeenCalled();
   });
 
+  // Review round 7 (Gemini), metered-services rule 3: the readiness marks wait for a visible tab, and are not read where
+  // Ready redirects (the mastermind's host).
+  it('the readiness marks: not read on a hidden tab until it is shown, nor for the mastermind host', async () => {
+    const dist = vi.mocked(getRoomReadinessDistribution);
+    dist.mockClear();
+    let state: DocumentVisibilityState = 'hidden';
+    const vis = vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => state);
+    setRoom(mastermind);
+    mountReadyNoWait('mm');
+    await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+    expect(dist).not.toHaveBeenCalled();
+    state = 'visible';
+    act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+    await waitFor(() => expect(dist).toHaveBeenCalledTimes(1));
+    vis.mockRestore();
+    cleanup();
+    dist.mockClear();
+    setRoom(mastermind, { id: 'member-h', profileId: 'host-1', readinessValue: null });
+    mountReadyNoWait('mm');
+    await waitFor(() => expect(redirects.at(-1)).toMatchObject({ to: '/events/mm/meet', replace: true }));
+    expect(dist).not.toHaveBeenCalled();
+  });
+
+  // Review round 7 (Codex): back online, the last answer is not reused; the screen waits for the new read.
+  it('offline and back: a seat found by the new read forwards, though the first read found none', async () => {
+    rounds.read = () => Promise.resolve({ rounds: [], seatsByRound: new Map() });
+    setRoom(mastermind);
+    const view = mountReadyNoWait('mm');
+    expect(await screen.findByTestId('room-ready')).toBeInTheDocument();
+    let answer: (v: unknown) => void = () => undefined;
+    const second = vi.fn(() => new Promise((r) => { answer = r; }));
+    rounds.read = second;
+    net.offline = true;
+    view.rerender();
+    net.offline = false;
+    view.rerender();
+    await waitFor(() => expect(second).toHaveBeenCalledTimes(1));
+    // Pending: the loader, not the question answered by the first read.
+    expect(screen.queryByTestId('room-ready')).toBeNull();
+    await act(async () => { answer({ rounds: [{ id: 'r1', endedAt: null }], seatsByRound: new Map([['r1', [{ id: 'member-a' }]]]) }); });
+    await waitFor(() => expect(redirects.at(-1)).toMatchObject({ to: '/events/mm/meet', replace: true }));
+  });
+
   it('a rounds read that never answers shows Ready after ROUNDS_READ_MS', async () => {
     vi.useFakeTimers();
     rounds.read = () => new Promise(() => {});
@@ -567,6 +625,33 @@ describe("/ready's step bar", () => {
     await screen.findByTestId('room-steps');
     expect(screen.queryByTestId('room-step-canvas')).toBeNull();
     expect(canvas.asked).not.toContain(true);
+  });
+
+  // Review round 7 (Gemini): the Learn tick on /ready's bar follows the learning, and not while it is read or failed.
+  it.each([
+    [{ loading: false, error: false, learned: true }, true],
+    [{ loading: true, error: false, learned: true }, false],
+    [{ loading: false, error: true, learned: true }, false],
+    [{ loading: false, error: false, learned: false }, false],
+  ])('the mastermind\'s Learn step with %o: done %s', async (state, done) => {
+    prep.state = state;
+    setRoom(mastermind);
+    await mountReady('mm');
+    const learn = await screen.findByTestId('room-step-learn');
+    if (done) expect(learn).toHaveAttribute('aria-label', expect.stringMatching(/, done$/));
+    else expect(learn).not.toHaveAttribute('aria-label');
+  });
+
+  // Review round 7 (Codex): the bar's Learn entry is the preparation's one tap; the banner is not mounted beside it.
+  it('the mastermind mounts no preparation banner; Clarity Night keeps it', async () => {
+    setRoom(mastermind);
+    await mountReady('mm');
+    await screen.findByTestId('room-ready');
+    expect(screen.queryByTestId('prep-room-banner')).toBeNull();
+    cleanup();
+    setRoom(night);
+    await mountReady('night');
+    expect(await screen.findByTestId('prep-room-banner')).toBeInTheDocument();
   });
 
   it('a Clarity Night keeps Compare', async () => {

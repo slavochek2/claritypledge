@@ -298,7 +298,7 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 to 6; accepted, none strands anyone):**
+**Known limitations (code review rounds 2 to 7; accepted, none strands anyone):**
 - **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle,
   Canvas and Table cannot be tapped there for someone already past them (checked against `canOpenStep`, review
   round 5). Continue, Skip, Review and Learn still lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
@@ -363,38 +363,52 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 
 ## Cost Budget
 
-Added in code review round 6 (Codex): the change reads Supabase per user (the rounds read on each `/ready` visit) and
+Added in code review round 6 (Codex): the change reads Supabase per user (the reads on each `/ready` visit) and
 its e2e creates and deletes test users, so `docs/technical/metered-services.md` applies. No timer, poll, retry or
 subscription is added: every read below is one-shot on arrival.
 
-Requests on one `/ready` visit, by its parts (the event and access reads were already made by every room page):
-the room row 1; the rounds read (R8) 1 while the evening has no round, 3 once it has (`event_rounds`, then
-`event_round_seats` and `event_round_tables` together, `getEventRoundsState`); the Canvas-shared read 1 when the
-Canvas is made at the event (`getMyEventCanvas`, the same read `/meet` makes); Continue with a moved slider 2 (the
-save RPC and the room-row re-read); Skip or an untouched Continue 0. The rounds read is not made for the host, while
-offline, on a past evening, with no room row, or on a hidden tab (rule 3, `whenVisible`; review round 6).
+Requests on one `/ready` visit, by its parts (the event and access reads were already made by every room page;
+review round 7 counted every read the screen makes, not only the ones this change wrote):
+
+- the room row 1;
+- the seat read (R8) 1: one query, `isSeatedInRunningRound` (review round 7; it was 1 to 3 through
+  `getEventRoundsState`);
+- the readiness marks 1 (`getRoomReadinessDistribution`, the RPC Clarity Night's `/ready` already made);
+- the Canvas-shared read 1 when the Canvas is made at the event (`getMyEventCanvas`);
+- the step bar's Learn entry 5 when the event offers preparation (`usePrepState`: the preparation, the parts, the two
+  points feeds, the social proof), the same reads `/meet`'s bar makes for the mastermind (`EventRoomMeet.tsx:273`).
+  Once per device, parts done signed out are written to the account the first time any page reads them: up to 5
+  writes and 1 re-read;
+- Continue with a moved slider 2 (the save RPC and the room-row re-read; no re-read from a hidden tab); Skip or an
+  untouched Continue 0.
+
+None of these reads is made for the host (sent on to `/meet` first), while offline, on a past evening or before the
+room row is known, and each waits for a visible tab (rule 3, `whenVisible`; review rounds 6 and 7). The mastermind
+no longer mounts the preparation banner on `/ready` (its Learn entry is that tap), so its reads are not doubled.
 
 Inputs: 16 people; at most 2 `/ready` visits each per evening (the arrival, plus one tap on Ready; re-entry goes
-to `/meet`, R4); 4 rounds of 16 seats and 8 tables at the most; row sizes about 250 B a round, 120 B a seat, 80 B a
-table (UNVERIFIED sizes, read from the selected columns, not measured).
+to `/meet`, R4); each points feed at most 50 points (`TAG_POINTS_LIMIT`). Row sizes (UNVERIFIED, read from the
+selected columns, not measured): a point with its position about 1.5 KB, the Canvas row about 2 KB, every other
+answer under 1 KB.
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | worst: 2 visits x (1 room row + 3 rounds + 1 canvas) + 2 save = 12; typical (one visit before any round, answered): 1 + 1 + 1 + 2 = 5 | 16 people x 12 = 192 at most, all in the arrival window | users 9 x (2 create + 1 release) = 27; events 3 x (1 create + 2 updates + 1 delete) = 12; registrations 8; sessions 9; seated fixture 4 (member read, round insert, seat insert, round delete); readiness row checks 4; cleanup deletes 6; app traffic about 10 page loads x 10 = 100 (UNVERIFIED): 27 + 12 + 8 + 9 + 4 + 4 + 6 + 100 = 170 |
-| Egress (bytes) | worst: 2 x (4 x 250 + 64 x 120 + 32 x 80) = 2 x 11,240 = about 22 KB; before any round about 1 KB | 16 x 22 KB = about 360 KB | 170 requests x about 2 KB = about 340 KB |
+| Requests | worst: 2 visits x (1 room row + 1 seat + 1 marks + 1 canvas + 5 learn) + 6 sync once + 2 save = 26; typical (one visit, answered): 9 + 2 = 11 | 16 people x 26 = 416 at most, all in the arrival window | users 9 x (2 create + 1 release) = 27; events 3 x (1 create + 2 updates + 1 delete) = 12; registrations 8; sessions 9; seated fixture 4 (member read, round insert, seat insert, round delete); readiness row checks 4; cleanup deletes 6; app traffic about 10 page loads x 10 = 100 (UNVERIFIED): 27 + 12 + 8 + 9 + 4 + 4 + 6 + 100 = 170 |
+| Egress (bytes) | worst: 2 visits x (2 feeds x 50 x 1.5 KB + 2 KB canvas + 5 x 1 KB) = 2 x 157 KB = about 314 KB; with no preparation offered about 4 KB a visit | 16 x 314 KB = about 5 MB | 170 requests x about 2 KB = about 340 KB (the e2e events offer no preparation) |
 | Log lines | 0: a failed read or save shows Ready or lets the person in and logs nothing (no console call in `EventRoomReady.tsx`, `ReadyStepBar.tsx` or `use-seated-at-running-round.ts`) | 0 | 0 expected |
 
-Against main: the mastermind had no `/ready`, so its visit is new traffic (5 to 12 requests per attendee per
-evening). Clarity Night already made the room-row read and, on every Continue, the save and re-read (3); it now adds
-the rounds read (1 to 3) and drops the save and re-read on Skip or an untouched Continue (0 instead of 2).
+Against main: the mastermind had no `/ready`, so its visit is new traffic (9 to 26 requests per attendee per
+evening), of which the Learn and Canvas reads repeat what its `/meet` makes on every load. Clarity Night already made
+the room-row read, the marks and, on every Continue, the save and re-read; it now adds the seat read (1) and drops the
+save and re-read on Skip or an untouched Continue (0 instead of 2).
 
 The e2e runs against the self-hosted TEST server only (`assertSelfHostedTest`), which has no per-request billing
 (as P1529's seed room); it is run at ship, by hand, never on a schedule.
 
-1. **Fits the plan limit today?** Supabase Free plan row: egress 5 GB a month. Monthly = (mastermind evenings per
-   month) x 16 x 22 KB + (Clarity Night evenings per month) x 16 x 22 KB; at 4 evenings a month that is
-   4 x 360 KB = about 1.4 MB, which fits. Requests are not a billed unit on the row. Fits.
-2. **Fits at 10x?** 160 people x 22 KB x 4 evenings = about 14 MB a month: fits.
+1. **Fits the plan limit today?** Supabase Free plan row: egress 5 GB a month. Monthly = (evenings a month) x
+   16 x 314 KB; at 4 evenings a month that is 4 x 5 MB = about 20 MB, which fits. Requests are not a billed unit on
+   the row. Fits.
+2. **Fits at 10x?** 160 people x 314 KB x 4 evenings = about 200 MB a month: fits.
 3. Neither answer is no, so no upgrade is named.
 
 ## Acceptance Criteria

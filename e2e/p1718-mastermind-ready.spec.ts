@@ -200,9 +200,13 @@ test('a save the server never answers: Continue shows it is saving, then lets th
   await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/meet`));
 });
 
-test('the mastermind host goes straight to the room', async ({ page }) => {
+test('the mastermind host goes straight to the room, whose step bar has no Ready tab', async ({ page }) => {
   await enterRoom(page, host, MM);
   await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/meet`), { timeout: 60_000 });
+  // Review round 7: Ready would only bounce the host back here (R9), so their bar does not offer it.
+  await expect(page.getByTestId('room-steps')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('room-step-principle')).toBeVisible();
+  await expect(page.getByTestId('room-step-ready')).toHaveCount(0);
 });
 
 test('a mastermind host opening /ready directly is sent to the room (R9)', async ({ page }) => {

@@ -44,6 +44,7 @@ import { EventRoomGateScreen, isMastermindHost } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { PrepRoomBanner } from '../prep/PrepRoom';
 import { recipeForEvent } from '../series-recipes';
+import { whenVisible } from '../when-visible';
 import { useBackToEvent } from '../use-back-to-event';
 import { readRoomNav } from './use-room-back';
 import { RoomHeadCapture, RoomHeadRow, RoomStickyHead } from './RoomChrome';
@@ -90,17 +91,8 @@ export function EventRoomReady() {
   // marks that shuffle while someone is deciding their own number turn a static reference
   // into a moving one, and the value being answered here is "right now, for you". The
   // general page has the same one-shot behaviour.
+  // The read itself is below, once it is known whether this screen will show (review round 7).
   const [others, setOthers] = useState<number[]>([]);
-  useEffect(() => {
-    if (!event || !granted) return;
-    let cancelled = false;
-    void getRoomReadinessDistribution(event.id).then((values) => {
-      // getRoomReadinessDistribution resolves to [] on its own failures, so there is no
-      // error branch to handle here — an absent distribution renders as no marks.
-      if (!cancelled) setOthers(values);
-    });
-    return () => { cancelled = true; };
-  }, [event?.id, granted]);
 
   // P1718 R3: one tap goes through. A second tap on Continue, Skip or the step bar while a save is in flight does
   // nothing (the bar shares this guard: review round 2). `saving` shows it: both buttons are busy until the person moves on.
@@ -160,7 +152,9 @@ export function EventRoomReady() {
       }
       // The answer is stored; a failed re-read only leaves the tick for the next read to draw.
       const left = deadline - Date.now();
-      if (saved && left > 0) await settleWithin(refresh(), left).catch(() => {});
+      // Review round 7 (metered-services rule 3): no re-read from a tab hidden while the save ran; /meet reads the row
+      // again when it is shown.
+      if (saved && left > 0 && document.visibilityState !== 'hidden') await settleWithin(refresh(), left).catch(() => {});
       if (!mounted.current) return;
     }
     goToMeet();
@@ -178,6 +172,21 @@ export function EventRoomReady() {
   // Nor once the room row has come back empty: no member, no seat to find.
   const askSeated = granted && !offline && !isFrozen && hasReadiness && !mastermindHost && (selfLoading || !!self);
   const seated = useSeatedAtRunningRound(event?.id, self?.id, askSeated);
+  // Review round 7 (metered-services rule 3 and the Cost Budget): the marks are read only where the question can show
+  // (not for the host, a past evening, offline, or before the room row), and on a visible tab.
+  const askDistribution = granted && !offline && !isFrozen && hasReadiness && !mastermindHost && !!self;
+  useEffect(() => {
+    if (!event || !askDistribution) return;
+    let cancelled = false;
+    const cancelWait = whenVisible(() => {
+      void getRoomReadinessDistribution(event.id).then((values) => {
+        // getRoomReadinessDistribution resolves to [] on its own failures, so there is no
+        // error branch to handle here — an absent distribution renders as no marks.
+        if (!cancelled) setOthers(values);
+      });
+    });
+    return () => { cancelled = true; cancelWait(); };
+  }, [event?.id, askDistribution]);
 
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;
@@ -227,10 +236,14 @@ export function EventRoomReady() {
           tabs={<ReadyStepBar event={event} slug={slug} fromEvent={fromEvent} viewerId={self?.profileId} readyDone={self?.readinessValue != null} leaving={leaving} />}
         />
       </RoomStickyHead>
-      {/* P1336: the preparation stays one tap away for someone who joined without it. */}
-      <div className="mx-auto mt-2 flex w-full max-w-2xl justify-end">
-        <PrepRoomBanner event={event} />
-      </div>
+      {/* P1336: the preparation stays one tap away for someone who joined without it. P1718 review round 7: not where
+          the step bar carries the Learn entry (the mastermind's), which is that one tap already, as on /meet; the
+          banner would read the preparation a second time and show nothing. */}
+      {!(event && recipeForEvent(event).room.steps?.learn) && (
+        <div className="mx-auto mt-2 flex w-full max-w-2xl justify-end">
+          <PrepRoomBanner event={event} />
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col items-center justify-center">
         <div className="flex w-full max-w-sm flex-col gap-10">

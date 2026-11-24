@@ -101,7 +101,7 @@ import {
 } from '@/app/components/agreements/meeting-principle-view';
 import { setRoomOptIn, setRoomRating, resetRoomAnswer } from '@/app/data/event-room-service';
 import { EVENT_GRACE_HOURS } from '@/app/data/events-service-real';
-import { EventRoomGateScreen } from './EventRoomGate';
+import { EventRoomGateScreen, isMastermindHost } from './EventRoomGate';
 import { useEventRoomAccess, useEventRoomSelf } from './EventRoomAccess';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 import { RoomPreparation } from '../prep/RoomPreparation';
@@ -506,7 +506,8 @@ export function EventRoomMeet() {
       current={currentStep}
       viewing={learning ? null : feedback ? 'close' : viewing}
       onSelect={onStep}
-      hidden={hiddenSteps}
+      // P1718 review round 7: the mastermind's host never sees Ready (R9), so the tab would only bounce back here.
+      hidden={isMastermindHost(event, self?.profileId) ? [...hiddenSteps, 'ready'] : hiddenSteps}
       closeOpen={feedbackOpenAnytime(event)}
       tableOpen={roomRecipe.mastermind}
       withCanvas={canvasTab}

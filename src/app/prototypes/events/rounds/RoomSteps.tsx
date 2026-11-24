@@ -111,7 +111,8 @@ export function RoomSteps({
   const smallFace = labels && columns >= 6 && 'max-[429px]:text-[10px] max-[429px]:tracking-tighter';
   // P1430 (founder walkthrough 9): done steps carry a check and a muted label, the step on screen
   // is bold with a thicker bar, steps ahead are grey. A step that cannot open says so (aria-disabled)
-  // and looks it. At 360px and below only the shown step keeps its label; the rest are bars.
+  // and looks it. Every label stays on phones (founder solo test 2026-11-02); the five-step bar takes a 10px face below
+  // 375px, and a labelled bar of five or more columns hides its ticks below 768px (P1718).
   return (
     <nav aria-label="Your evening" className={className} data-testid="room-steps" data-current={current}>
       <ol className={cn('grid gap-1', labels && 'border-b border-border')} style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
@@ -211,7 +212,7 @@ export function RoomSteps({
                     'rounded-full',
                     // P1542 founder (B, 2026-10-29): the short bar (a hike's) is plain tabs — a thin underline under the
                     // shown tab only, nothing under the others (done keeps its tick). The five-step bar (Clarity Night)
-                    // keeps its bars: below 360px it shows them instead of labels.
+                    // keeps its bars under every step, at every width, beside its labels.
                     labels
                       ? cn('h-0.5', shown ? 'bg-blue-600' : 'bg-transparent')
                       : shown ? 'h-1.5 bg-blue-600' : done || reached ? 'h-1 bg-blue-300' : 'h-1 bg-muted',
