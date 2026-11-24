@@ -149,6 +149,9 @@ describe('Q1 real-model finding: a Customer Segments point uses every dimension 
     const { DRAFT_RULES } = await import('../../supabase/functions/_shared/canvas-prompt');
     expect(DRAFT_RULES).toMatch(/Customer Segments: use every one of industry, company size, demographics and psychographics that the owner's material states/);
     expect(DRAFT_RULES).toMatch(/never guess the rest/);
+    // P1658 revision 4: every stated dimension is still used, but a point holds at least two within its word cap; one that does not fit is left out
+    expect(DRAFT_RULES).toContain('that fits in one point\'s word cap, at least two on each point that names the customers ("Pays:", "Uses:" and "Approves:" role points need none). One that does not fit is left out, never a point of its own.');
+    expect(DRAFT_RULES).not.toContain('psychographics that the owner\'s material states about those people, in the same point');
   });
 });
 

@@ -144,6 +144,59 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
          | Solution | "sketch out the simplest thing you could build to address each problem" · "Bind a solution to your problem as late as possible." | "The product is <kind> for <customer>", then what solving one listed problem looks like. | The kind-and-category point is not in Maurya's box. It is the founder's 2026-11-24 decision (2). Maurya's "less than one-ninth of the entire canvas" backs keeping it high level. |
          | Channels (Go-to-market strategy) | "Failing to build a clear path to customers is among the top reasons startups fail." · "relying on any channels that get you in front of potential customers is OK." | Where and how the business reaches the segment, with no timing. | None. Scalable channels are a later choice and need no rule. |
          | Revenue Streams (Offers & Pricing) | "Price is part of the product." · "Many startups defer the 'pricing question' to a later stage, but this is a mistake." | What is bought, then its price; the deliverable stays when no price is stated. | The page's Revenue Streams section names no lifetime value or margin, so the box asks for none. |
+
+       - **Built and measured (2026-11-24).** Copy prompt `79861bfa83cc`, 1099 words, within the cap. Every cut is listed in `.private/canvas-rules-test/v10-copy-word-budget.md`: the first build; the fix round after the first `/finish` review, which cut 15 words and added 15; and the second review round, which saved 1.
+         - **The per-point rule is the same in both prompts:**
+           - one sentence of at most 20 words
+           - no ";" or "then"
+           - at most one ", not" or "ahead of"
+           - at most one of who, whose, which, where, while, but, if, unless, even when
+
+           The Copy prompt now carries the clause-marker limit too.
+         - **The fix round changed five things:**
+           - **Solution:** the kind is what sort of product it is. What is bought (a package, a workshop) goes in Offers & Pricing, and the drafting prompt's routing rule says so. Outcomes must be ones the owner claims. The optional contrast is `<ruled-out kind>`, grounded like every other "not".
+           - **Customer Segments:** "what they buy or use today" left the qualifier list and the gap question, because Problem already holds the existing alternative (Maurya). A qualifier that does not fit the 20 words is left out, never made a point of its own.
+           - **The A/B harness:** it now flags a falsified hypothesis that states the change it made (`falsified-change`), and a Solution kind that names what is bought (a package, bundle, workshop or sessions) or repeats the offer (`solution-offer`).
+           - **The contrast measure:** narrowed to ", not" and "ahead of", in the harness and the tests alike.
+           - **The tests:** they pin each branch of the measure with a real-example control. One comment edit had silently dropped a box from a coverage map, and that is now guarded.
+         - **"Open with" was not applied to Solution's kind point.** In the Copy prompt "Open with" means "skip it if no other option exists", so the kind point would drop whenever nothing is ruled out. Grounding (rule 1) covers the kind instead.
+         - **Second review round** (Gemini, GLM, Opus; Codex skipped by the founder). It found the harness blind to the commonest real hit, so the earlier A/B counts were too low; they are corrected below. Fixed:
+           - `solution-offer` now reads "the kind names what is bought" (package, bundle, workshop, sessions; a negated "…, not a package" does not fire), and the tests pin it with controls.
+           - `falsified-change` catches "so it now bills", "and therefore", "which led it to" and "and now sells"; a sentence that opens with a digit or currency counts as a second sentence, in the harness and the tests.
+           - The routing rule's Solution clause scopes to the kind ("as its kind, Solution names what sort of product it is"); "names only" had forbidden the outcome points.
+           - Segments' "at least two" qualifiers apply to each point that names the customers, not to Pays:/Uses:/Approves: role points. The Copy prompt's per-point line says "at most" for both limits.
+           - Each run records a hash of the two rule files, and the compare table shows empty Solution and Offers counts.
+         - **Builder's Copy-prompt run** (fresh agent, sources `docs/lean-canvas.md`, `docs/goals.md` and `docs/decisions.md` only): `.private/canvas-rules-test/v10-copy-run1-79861bfa83cc.md`.
+           - On the revision-4 measure it scores 0 in every box: no point over 20 words, nothing chained. Solution opens "The product is a chat and call app with an AI mirror for change leads' teams, not facilitated training"; the package sits in Offers & Pricing.
+           - Every sampled claim was found in the three sources by grep (0 of 765, fishbowl, the fewer-than-3 falsifier, 100 to 1,000, paid and bounded, the discovery call, weeks late).
+           - Two v9-heuristic hits, both read as fine: a Uses: point with one "which", and the owner's own word "bounded".
+           - The agent's notes: it turned the 3-of-10 falsifier into the milestone target, marked "(target)"; it wrote no Pays: point because no source names the payer; no prices, because the price ladder is marked carried.
+         - **A/B, v9-final against revision 4, 4 packs × 3 runs.** v10c is the first fix round; v10d adds the second review round's wording (`.private/canvas-rules-test/summary-v9final-vs-v10d.md`, `summary-v10c-vs-v10d.md`). The Done-When asks it to report the per-point measure per box; it does, per box in those files.
+
+           | Pack | Over 20 words, v9-final → v10c → v10d | Chained, v9-final → v10c → v10d |
+           |---|---|---|
+           | salesmastermind-v2 | 6 → 0 → 0 | 8 → 0 → 0 |
+           | claritypledge-stories | 12 → 0 → 0 | 12 → 0 → 0 |
+           | organisations | 12 → 0 → 0 | 13 → 2 → 2 |
+           | founder-v6 | 28 → 0 → 1 | 29 → 0 → 1 |
+
+           Mean words per point: 20.6 (v9-final), 13.0 (v10c), 13.4 (v10d). Revision-4 violations: 150, 6, 13. Kept points: 123, 143, 142. One v10d founder-v6 run failed on the network and that pack was rerun; the failed file is kept beside it.
+
+           | Arm | Runs with Solution | Runs with Offers & Pricing | Kind names what is bought (`solution-offer`) | Solution does not open "The product is" |
+           |---|---|---|---|---|
+           | v10 (first build) | 12 | 6 | 6 | 2 |
+           | v10b (definition fix) | 9 | 8 | 5 | 1 |
+           | v10c (plus routing wording) | 11 | 9 | 4 | 0 |
+           | v10d (second review round) | 11 | 9 | 6 | 3 |
+
+           A human read every v10d hit:
+           - `solution-offer`, 6 real: organisations names a workshop as the kind in 3 of 3 runs (also in v10c), salesmastermind once ("event workshops"), founder-v6 a transcript package twice.
+           - `solution-kind`, 3: all claritypledge-stories, where Solution opens with the outcome. A controlled rerun of that pack (3 runs each, only the routing clause differing) gave 2 kind points and 1 empty Solution with the new clause, and 0 Solutions of 3 with "names only", so the new clause is not the cause.
+           - `chained`, 3: two organisations Go-to-market points with "who" and "where" that read as one idea, and one founder-v6 challenge with "who" and "but".
+           - `point-words`, 1: a founder-v6 Problem point at 22 words.
+           - Not caught by the measure: kinds that list the parts sold ("chat and meeting transcript service") and salesmastermind's "clarity sprint events" with Offers empty.
+
+           At 3 runs per pack the v10c-to-v10d difference in `solution-offer` (4 to 6) is within run-to-run noise; the same packs produce it. When the owner's material describes the product only as a workshop or package, the drafting model names that as the kind, whatever the rule says. Whether a service business may name a workshop as its kind is a founder decision.
 2. **Test before shipping**, two ways:
    - The founder presses Copy prompt on a localhost branch build, runs it in his own AI with his own material, and compares the result with his current canvas.
    - The drafting agent runs on two or three real canvases with the old and new rules, side by side.

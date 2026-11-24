@@ -5,7 +5,7 @@
 
 // Edge-shared, so the Copy prompt, the drafting prompt and the empty-box questions read one text (precedent: api.ts imports participant-name.ts).
 import {
-  BOX_DEFINITIONS, LEAD_POINT_RULE, MAX_POINTS_PER_BOX, MAX_STATEMENT_CHARS, NAMING_RULE, ROUTING_RULE, THIRD_PERSON_RULE, copyPromptSection, globalRulesText,
+  BOX_DEFINITIONS, LEAD_POINT_RULE, MAX_POINT_WORDS, MAX_POINTS_PER_BOX, NAMING_RULE, ROUTING_RULE, THIRD_PERSON_RULE, copyPromptSection, globalRulesText,
 } from '../../../../supabase/functions/_shared/canvas-box-definitions.ts';
 // The approved reply sentences are the server's (one source).
 import { WORDS } from '../../../../supabase/functions/_shared/canvas-reply-table.ts';
@@ -35,7 +35,10 @@ export const CANVAS_REPLY_HINT = 'Reply, or upload a file';
  * order) and, under each heading, its definition and shape. Every box word comes from the shared definitions module.
  */
 export const CANVAS_OWN_AI_PROMPT = [
-  'Help me draft my Clarity Canvas: nine short sections about my business, open to disagreement.',
+  // P1658 revision 4: "short" moved to the per-point line, which now states the word cap (v10-copy-word-budget.md lists every cut).
+  // Revision 4 fix round: "nine sections about my business" cut. Below, a "section" is one canvas, holding nine headings; "about my business"
+  // is the next paragraph's first line.
+  'Help me draft my Clarity Canvas, open to disagreement.',
   '',
   // P1658 founder test: an owner's AI that read one file asked five questions instead of looking. It looks first (own business only, this chat or
   // project, never the web), and asks only when most headings would stay empty. No "newest wins": rule 7 keeps dropped directions. The "Source:" line below names these sources, so rule 1 covers them.
@@ -46,8 +49,11 @@ export const CANVAS_OWN_AI_PROMPT = [
   '',
   // P1658 v9: the word cap (1100, pinned) paid for the state rule, the two routing destinations and the label-free shapes; every cut is
   // listed in the v9 report. "If I have more than one business" was rule 7's "give each its own canvas" said twice.
-  'Return only ONE Markdown file. Start each canvas with "This canvas is about <group>." naming who it is for. One section per canvas, my main focus first. Each has the nine headings below, in order, without the lines under them.',
-  `- Under each heading write up to ${MAX_POINTS_PER_BOX} points, each one short sentence of at most ${MAX_STATEMENT_CHARS} characters.`,
+  'Return only ONE Markdown file. One section per canvas, my main focus first, each starting "This canvas is about <group>." naming who it is for. Each has the nine headings below, in order, without the lines under them.',
+  // P1658 revision 4 (founder: "It's like long sentences. It has to be short"): the word cap replaces "at most 300 characters"; the engine
+  // still cuts at MAX_STATEMENT_CHARS as a backstop. Same measure as the drafting prompt's per-point line: the contrast is ", not" (a bare "not",
+  // as in "who do not use an accountant", is no contrast) and the clause markers are the spec's list.
+  `- Up to ${MAX_POINTS_PER_BOX} points per heading, each one idea: one sentence, at most ${MAX_POINT_WORDS} words, no ";" or "then", at most one ", not"/"ahead of", at most one who/whose/which/where/while/but/if/unless/even when.`,
   `- ${THIRD_PERSON_RULE.plain}`,
   // v9: one line in place of four per-heading "Leave out why" sentences.
   '- A point never says why.',

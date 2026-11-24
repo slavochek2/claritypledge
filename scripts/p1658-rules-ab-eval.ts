@@ -4,14 +4,14 @@
  * Adapted from scripts/p1536-real-model-eval.ts (same fake rpc capture, same guard, same --shared loading, same judge). The database is faked;
  * nothing is written to any database.
  *
- * Usage:   EVAL_GEMINI_KEY=... npx tsx scripts/p1658-rules-ab-eval.ts --material a.md[,b.md] --arm old|new|rev2|v9 --shared DIR --out DIR [--repeat 2] [--name LABEL]
+ * Usage:   EVAL_GEMINI_KEY=... npx tsx scripts/p1658-rules-ab-eval.ts --material a.md[,b.md] --arm old|new|rev2|v9|v10 --shared DIR --out DIR [--repeat 2] [--name LABEL]
  *          npx tsx scripts/p1658-rules-ab-eval.ts --compare LABEL_A,LABEL_B --packs a,b --out DIR   (no model call: reads the .jsonl files, writes summary-<LABEL_B>.md)
- *          npx tsx scripts/p1658-rules-ab-eval.ts --check-md FILE   (no model call, no key, no --out: applies the v9 lexical checks to a Markdown canvas
+ *          npx tsx scripts/p1658-rules-ab-eval.ts --check-md FILE   (no model call, no key, no --out: applies the v9 lexical checks and the revision-4 measure to a Markdown canvas
  *            file of the Copy-prompt form; prints per-canvas tables, every violation, the offer heads and empty boxes; exit 1 when any violation, else 0)
  *          npx tsx scripts/p1658-rules-ab-eval.ts --self-test   (the counters' own positive and negative controls; exit 1 on any failure)
  *   Labels and pack ids are lower-case letters, digits and dashes, and every file they name must resolve inside --out (refused, exit 2).
  *   --material  comma-separated files; the pack id is the file basename without .md.
- *   --arm       label only (old|new|rev2|v9); the rules come from --shared.
+ *   --arm       label only (old|new|rev2|v9|v10); the rules come from --shared.
  *   --name      the output label (default: the arm), so a rerun of an arm never overwrites an earlier run's files.
  *   --shared    a copy of supabase/functions/_shared to load the engine (and so the prompt and box rules) from; default is the working tree.
  *   --repeat    runs per pack (default 2).
@@ -28,7 +28,8 @@
  * The key is read from EVAL_GEMINI_KEY and never printed. TEST only: refused when the environment names the prod project or the key is one a
  * prod env file holds (p1536-eval-guard.ts). The judge (canvas-eval-rules.ts) is loaded from --shared, so each arm is judged by its own rules.
  * The v9 checks (v9Violations, below) are lexical heuristics, run on every run's kept points by --compare and in each run's summary JSON; a human reads every hit.
- * The material is private: --out must resolve under a .private/ directory (refused, exit 2, otherwise). Also refused (exit 2): --arm not old|new|rev2|v9,
+ * Revision 4 adds the per-point measure (v10Violations, v10BoxMeasure: words per point, chained points, Solution's first point), reported the same way and part of --check-md's gate.
+ * The material is private: --out must resolve under a .private/ directory (refused, exit 2, otherwise). Also refused (exit 2): --arm not old|new|rev2|v9|v10,
  * --arm old without a --shared that differs from the working tree's, --repeat not an integer >= 1, any flag with a missing or --flag value.
  */
 /* eslint-disable @typescript-eslint/no-non-null-assertion -- a dev-only eval script; the engine modules are loaded by path, so their types are not known here */
@@ -37,6 +38,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { envFileValues, refuseNonTest } from './p1536-eval-guard.ts';
 import { CANVAS_BOXES } from '../src/lib/canvas-boxes.ts';
 
@@ -51,7 +53,7 @@ interface RunRow {
   /** Every model point the engine did not keep, with why. */
   drops?: Drop[];
   /** Which wording produced the run: --shared's git short sha (+dirty) and a hash of the loaded BOX_DEFINITIONS. */
-  git?: string; boxDefinitionsSha256?: string;
+  git?: string; boxDefinitionsSha256?: string; rulesSha256?: string;
 }
 
 function arg(name: string, fallback?: string): string | undefined {
@@ -183,7 +185,7 @@ export function v9Violations(points: ReadonlyArray<{ box: string; text: string }
       const first = head.split(',')[0]!.trim();
       if (head.split(/\s+/).filter(Boolean).length < 3 || (head.includes(',') && first.split(/\s+/).length === 1)) add(p, 'offer-head', head);
     }
-    // not Customer Segments: "what they buy or use today" is a segment qualifier, and it may carry a price ("who pay an accountant 15,000 baht a month")
+    // not Customer Segments: v9 counted "what they buy or use today" as a segment qualifier that may carry a price; revision 4 moved it to Problem, but the v9 arm is measured by its own rules
     if ((p.box === 'canvas:solution' || p.box === 'canvas:channels') && MONEY_RE.test(p.text)) add(p, 'money-elsewhere', MONEY_RE.exec(p.text)![0]);
     const pron = pronounsIn(p.text);
     if (pron.length) add(p, 'pronoun', pron.join(', '));
@@ -197,6 +199,99 @@ export function v9Violations(points: ReadonlyArray<{ box: string; text: string }
   // one violation per point past the third, so the text names what to cut
   points.filter((p) => p.box === 'canvas:world-needs').slice(3).forEach((p, i, rest) => add(p, 'falsified-count', `${rest.length + 3} points in the box`));
   return { violations, offerHeads };
+}
+
+// ── Revision 4 / v10 measure (pure, lexical HEURISTICS like the v9 checks: a human reads every hit) ──
+
+/** A point is one sentence of at most this many words (P1658 revision 4; equals MAX_POINT_WORDS in canvas-box-definitions.ts, pinned by --self-test). */
+export const V10_MAX_WORDS = 20;
+export const V10_RULES = ['point-words', 'chained', 'solution-kind', 'falsified-change', 'solution-offer'] as const;
+/** A contrast, as the spec measures it: ", not <Y>" or "ahead of <Y>". Revision 4 allows one per point. */
+const CONTRAST_RE = /,\s*not\b|\bahead of\b/gi; // the spec's measure: ", not <Y>" or "ahead of <Y>"
+/** A clause marker (the spec's list). Revision 4 allows one per point, so "X over Y, even when <cost>" and "Pays: owners who …" stay legal. */
+const CLAUSE_RE = /\b(?:who|whose|which|where|while|but|if|unless|even when)\b/gi;
+/** A falsified hypothesis that goes on to state the change it made: ", so …", "; therefore …", "and so …", or "so it / so the business / so now" with no comma.
+ *  Also "it now sells", "and now sells", "led it to". "so few / so many / so much / so little / so far / so that" is evidence or degree,
+ *  and "so it could / would / can" is the expectation's purpose: neither is a change, and neither fires. */
+const FALSIFIED_CHANGE_RE = /(?:[;,]\s*(?:and\s+)?(?:so|therefore|thus|hence)\b(?!\s+(?:few|many|much|little|far|that|(?:it|the business)\s+(?:could|would|can|might|may)\b))|\b(?:and\s+)?therefore\b|\bso (?:it|the business|now)\b(?!\s+(?:could|would|can|might|may)\b)|\b(?:it|the business|and)\s+now\s+[a-z]+s\b|\bled (?:it|the business) to\b)/i;
+
+/** What the rules say is bought, never the kind: ROUTING_RULE's "package, sessions" and the Solution definition's "(package, workshop)", plus "bundle".
+ *  A hyphenated compound ("package-tracking software", "bundle-size analyzer") is a product, not a deliverable, and does not fire. */
+const DELIVERABLE_RE = /(?<![\w-])(?:packages?|bundles?|workshops?|sessions?)(?![\w-])/i;
+/** A sentence break inside a point: ". " / "! " / "? " followed by a capital, a digit, a currency sign or an opening quote. */
+const SENTENCE_BREAK_RE = /[.!?]["”')\]]*\s+(?=["“A-Z0-9€$£])/g; // a sentence may open with a number or a currency ("… an app. 0 of 8 …")
+
+export interface PointShape { words: number; semicolons: number; thens: number; contrasts: number; clauses: string[]; sentences: number }
+
+export function pointShape(text: string): PointShape {
+  const t = text.trim();
+  return {
+    words: t.split(/\s+/).filter(Boolean).length,
+    semicolons: (t.match(/;/g) ?? []).length,
+    thens: (t.match(/\bthen\b/gi) ?? []).length,
+    contrasts: (t.match(CONTRAST_RE) ?? []).length,
+    clauses: (t.match(CLAUSE_RE) ?? []).map((m) => m.toLowerCase()),
+    sentences: 1 + (t.match(SENTENCE_BREAK_RE) ?? []).length,
+  };
+}
+
+/** Why a point is chained (empty when it is not): a ";", a "then", a second contrast, a second clause marker, a second sentence. */
+export function chainedReasons(s: PointShape): string[] {
+  const r: string[] = [];
+  if (s.semicolons) r.push(`${s.semicolons} ";"`);
+  if (s.thens) r.push(`${s.thens} "then"`);
+  if (s.contrasts > 1) r.push(`${s.contrasts} contrasts`);
+  if (s.clauses.length > 1) r.push(`${s.clauses.length} clause markers (${s.clauses.join(', ')})`);
+  if (s.sentences > 1) r.push(`${s.sentences} sentences`);
+  return r;
+}
+
+/** Every revision-4 violation: a point over V10_MAX_WORDS, a chained point, and a Solution whose first point does not name the product's kind ("The product is …"). */
+export function v10Violations(points: ReadonlyArray<{ box: string; text: string }>): Violation[] {
+  const violations: Violation[] = [];
+  for (const p of points) {
+    const s = pointShape(p.text);
+    if (s.words > V10_MAX_WORDS) violations.push({ box: p.box, text: p.text, rule: 'point-words', detail: `${s.words} words` });
+    const why = chainedReasons(s);
+    if (why.length) violations.push({ box: p.box, text: p.text, rule: 'chained', detail: why.join(', ') });
+  }
+  // revision 4: a falsified hypothesis states the expectation and its contrary evidence only; the change it made is left out (v9's "so it <change>")
+  for (const p of points) if (p.box === 'canvas:world-needs' && FALSIFIED_CHANGE_RE.test(p.text)) violations.push({ box: p.box, text: p.text, rule: 'falsified-change', detail: 'states the change it made' });
+  const firstSolution = points.find((p) => p.box === 'canvas:solution');
+  if (firstSolution && !/^\s*The product is\b/i.test(firstSolution.text)) violations.push({ box: firstSolution.box, text: firstSolution.text, rule: 'solution-kind', detail: 'first Solution point does not open "The product is"' });
+  // revision 4 review: the kind is what sort of product it is, never what is bought. Fires when Solution's first point names a package or bundle,
+  // or repeats an Offers & Pricing point (most of that point's content words reappear in it). A package ruled out in its ", not" contrast does not count.
+  if (firstSolution) {
+    const offer = points.filter((p) => p.box === 'canvas:revenue').map((p) => ({ p, share: offerShare(p.text, firstSolution.text) })).find((x) => x.share >= 0.6);
+    const bought = firstSolution.text.split(/,\s*not\b/i)[0]!.match(DELIVERABLE_RE);
+    if (bought) violations.push({ box: firstSolution.box, text: firstSolution.text, rule: 'solution-offer', detail: `the kind names what is bought ("${bought[0]}")` });
+    else if (offer) violations.push({ box: firstSolution.box, text: firstSolution.text, rule: 'solution-offer', detail: `repeats the offer "${offer.p.text}" (${Math.round(offer.share * 100)}% of its content words)` });
+  }
+  return violations;
+}
+
+const OFFER_STOP = new Set(['with', 'from', 'that', 'this', 'their', 'they', 'them', 'each', 'once', 'month', 'monthly', 'free', 'followed', 'plus', 'product', 'team', 'teams',
+  // price and period filler in any domain: a currency or a billing period is no part of what is sold
+  'baht', 'euro', 'dollar', 'pound', 'rupee', 'year', 'yearly', 'week', 'weekly', 'quarter', 'quarterly', 'annual', 'seat']);
+/** Share of an Offers point's content words (4+ letters, no price or unit filler) that reappear in the Solution point; 0 when the offer has under 3. */
+export function offerShare(offer: string, solution: string): number {
+  const words = (t: string) => new Set((t.toLowerCase().match(/[a-zà-ÿ][a-zà-ÿ-]{3,}/g) ?? []).map((w) => w.replace(/s$/, '')).filter((w) => !OFFER_STOP.has(w)));
+  const o = words(offer); const sol = words(solution);
+  if (o.size < 3) return 0; // a one- or two-word offer names the service itself ("Bookkeeping service: …"), which the kind may name
+  return [...o].filter((w) => sol.has(w)).length / o.size;
+}
+
+/** Per box: points, mean and max words, points over the cap, chained points. */
+export function v10BoxMeasure(points: ReadonlyArray<{ box: string; text: string }>, box: string): { points: number; meanWords: number; maxWords: number; over: number; chained: number } {
+  const shapes = points.filter((p) => p.box === box).map((p) => pointShape(p.text));
+  const words = shapes.map((s) => s.words);
+  return {
+    points: shapes.length,
+    meanWords: words.length ? Math.round((words.reduce((a, b) => a + b, 0) / words.length) * 10) / 10 : 0,
+    maxWords: words.length ? Math.max(...words) : 0,
+    over: words.filter((w) => w > V10_MAX_WORDS).length,
+    chained: shapes.filter((s) => chainedReasons(s).length > 0).length,
+  };
 }
 
 /** The boxes holding no point, in canvas order. */
@@ -310,12 +405,16 @@ export function checkCanvasMd(md: string): { report: string; total: number } {
   let total = 0;
   sections.forEach((s, i) => {
     const { violations, offerHeads } = v9Violations(s.points);
+    violations.push(...v10Violations(s.points)); // revision 4: the per-point measure is part of the gate
     for (const h of s.unknownHeadings) violations.push({ box: h, text: h, rule: 'unknown-heading' });
     // round 4: an unplaced line may hold a violation nobody scored, so each one fails the gate until a human reads it (it is still listed below)
     for (const l of s.unplaced) violations.push({ box: '(unplaced)', text: l.trim(), rule: 'unplaced' });
     total += violations.length;
-    out.push(`## Canvas ${i + 1} of ${sections.length}: ${s.group ?? '(no "This canvas is about" line)'}`, '', '| Box | Points | Violations |', '|---|---|---|');
-    for (const b of CANVAS_BOXES) out.push(`| ${b.title} | ${s.points.filter((p) => p.box === b.tag).length} | ${violations.filter((v) => v.box === b.tag).length} |`);
+    out.push(`## Canvas ${i + 1} of ${sections.length}: ${s.group ?? '(no "This canvas is about" line)'}`, '', `| Box | Points | Mean words | Max words | Over ${V10_MAX_WORDS} words | Chained | Violations |`, '|---|---|---|---|---|---|---|');
+    for (const b of CANVAS_BOXES) {
+      const m = v10BoxMeasure(s.points, b.tag);
+      out.push(`| ${b.title} | ${m.points} | ${m.meanWords} | ${m.maxWords} | ${m.over} | ${m.chained} | ${violations.filter((v) => v.box === b.tag).length} |`);
+    }
     out.push('', 'Violations:');
     if (!violations.length) out.push('(none)');
     for (const v of violations) out.push(`- [${v.rule}] ${titleOf(v.box)}: ${v.text}${v.detail ? ` (${v.detail})` : ''}`);
@@ -368,14 +467,17 @@ function lstatExists(path: string): boolean {
 }
 
 /** The git commit and the wording a run used: the short sha of --shared's checkout (with "+dirty" when it has uncommitted changes) and a hash of the loaded BOX_DEFINITIONS. */
-export function runIdentity(shared: string, boxDefinitions: unknown): { git: string; boxDefinitionsSha256: string } {
+export function runIdentity(shared: string, boxDefinitions: unknown): { git: string; boxDefinitionsSha256: string; rulesSha256: string } {
   let git = 'not a git checkout';
   try {
     const sha = execFileSync('git', ['-C', shared, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     const dirty = execFileSync('git', ['-C', shared, 'status', '--porcelain', '--', '.'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     git = `${sha}${dirty ? '+dirty' : ''}`;
   } catch { /* the old rules live in an extracted copy, outside any repository */ }
-  return { git, boxDefinitionsSha256: createHash('sha256').update(JSON.stringify(boxDefinitions)).digest('hex').slice(0, 16) };
+  // every rule text the drafter reads (ROUTING_RULE, LEAD_POINT_RULE, DRAFT_RULES...), so two arms that differ only outside BOX_DEFINITIONS are told apart
+  const rules = createHash('sha256');
+  for (const f of ['canvas-box-definitions.ts', 'canvas-prompt.ts']) { try { rules.update(readFileSync(join(shared, f), 'utf8')); } catch { rules.update(`(no ${f})`); } }
+  return { git, boxDefinitionsSha256: createHash('sha256').update(JSON.stringify(boxDefinitions)).digest('hex').slice(0, 16), rulesSha256: rules.digest('hex').slice(0, 16) };
 }
 
 /** The counters' own controls, run by --self-test: each must hold or the script exits non-zero. */
@@ -462,18 +564,18 @@ export function selfTest(): string[] {
   check(emptyBoxes(CANVAS_BOXES.map((b) => ({ box: b.tag }))).length === 0, 'emptyBoxes of nine filled boxes is not empty');
   // --check-md parsing: sections, Source lines, "Not known yet.", an unknown heading, a continued point
   const md = ['This canvas is about group one.', '', '## Customer Segments', '', '- Pays: the owner.', '  Source: docs/a.md; planned, untested', '', '## Problem', 'Not known yet.', '',
-    '## Made up box', '- Lead: ignored', '', 'This canvas is about group two.', '', '## Solution', '- The business logs the receipt', '  that night.', '  Source: x', ''].join('\n');
+    '## Made up box', '- Lead: ignored', '', 'This canvas is about group two.', '', '## Solution', '- The product is bookkeeping software', '  for café owners.', '  Source: x', ''].join('\n'); // revision 4: a Solution step would now fire solution-kind
   const parsed = parseCanvasMd(md);
   check(parsed.length === 2 && parsed[0]!.group === 'group one' && parsed[1]!.group === 'group two', 'parseCanvasMd did not split two canvas sections');
   check(parsed[0]!.points.length === 1 && parsed[0]!.points[0]!.text === 'Pays: the owner.', 'parseCanvasMd read a Source line or "Not known yet." as a point');
   check(parsed[0]!.unknownHeadings.join() === 'Made up box', 'parseCanvasMd did not record the unknown heading');
-  check(parsed[1]!.points[0]?.text === 'The business logs the receipt that night.', 'parseCanvasMd did not join a continued point');
+  check(parsed[1]!.points[0]?.text === 'The product is bookkeeping software for café owners.', 'parseCanvasMd did not join a continued point');
   const checked = checkCanvasMd(md);
   check(checked.total === 1 && /unknown-heading/.test(checked.report) && /violations: 1$/.test(checked.report), 'checkCanvasMd did not report exactly the unknown heading');
   check(checkCanvasMd(['## Customer Segments', '- Lead: x'].join('\n')).total === 1, 'checkCanvasMd missed a label in a file with no "This canvas is about" line');
   // the forms owners' AIs write (/finish review of v9): paragraph points, "* " bullets, a fence, bold "Source:", a curly apostrophe, CRLF
-  const loose = ['```markdown', '**This canvas is about group three.**', '', '## Solution', '', 'The owner sends a photo, then the business logs it.', '**Source:** docs/a.md, planned', '',
-    'The business does not file unseen returns.', 'Source: docs/b.md', '', '## Hypotheses I’ve falsified', '* The business expected yearly pay; owners asked for monthly.', '---', '```'].join('\r\n');
+  const loose = ['```markdown', '**This canvas is about group three.**', '', '## Solution', '', 'The product is bookkeeping software for café owners.', '**Source:** docs/a.md, planned', '',
+    'The business does not file unseen returns.', 'Source: docs/b.md', '', '## Hypotheses I’ve falsified', '* The business expected yearly pay, but owners asked for monthly.', '---', '```'].join('\r\n');
   const lp = parseCanvasMd(loose);
   check(lp.length === 1 && lp[0]!.group === 'group three', 'parseCanvasMd missed a bold "This canvas is about" line');
   check(lp[0]!.points.filter((p) => p.box === 'canvas:solution').length === 2, 'parseCanvasMd missed paragraph-form points (the v9 self-run form)');
@@ -552,7 +654,7 @@ export function selfTest(): string[] {
   check(forms('## Solution\nA step.\nSource: docs/a.md,\nQ3 chats\n\nNext step here.').map((p) => p.text).join('|') === 'A step.|Next step here.', 'parseCanvasMd read a capitalised Source wrap as a point');
   check(runCheckMd('').exit === 2 && runCheckMd('## Solution\nNot known yet.').exit === 2, 'runCheckMd let an empty or all-empty file through');
   check(runCheckMd('This canvas is about a.\n## Solution\n- A step.\nThis canvas is about b.\n## Solution\nNot known yet.').exit === 2, 'runCheckMd scored a file whose second canvas read 0 points');
-  check(runCheckMd('## Solution\n- Lead: a step.').exit === 1 && runCheckMd('## Solution\n- A step, then another.').exit === 0, 'runCheckMd gave the wrong exit for a violation or a clean canvas');
+  check(runCheckMd('## Solution\n- Lead: a step.').exit === 1 && runCheckMd('## Solution\n- The product is bookkeeping software for cafés.').exit === 0, 'runCheckMd gave the wrong exit for a violation or a clean canvas');
   // round 4 (Opus M1): condition words in Offers, priced or not; the reviewer's known-good offers stay quiet
   for (const t of ['A paid two-week trial with the team, scoped before it starts.', 'A two-week trial with the team, on conditions set before the first session.',
     'Practice community membership: 295 EUR per month, 3 to 10 people, weekly, open-ended.', 'Monthly books: 900 EUR once, paid upfront if the budget holder signs.',
@@ -572,10 +674,73 @@ export function selfTest(): string[] {
   quiet('canvas:solution', 'An owner sends receipts, then 500 ringgit paid.', 'status');
   // round 4 (GLM #4): a lowercase line after a finished point is the point wrapped; (Gemini #2) an unplaced line fails the gate
   check(forms('## Solution\n- The business logs the books.\nand files the return.').map((p) => p.text).join('|') === 'The business logs the books. and files the return.', 'parseCanvasMd split a lowercase hard wrap into a fragment point');
-  check(runCheckMd('## Solution\n- A step, then another.\n  Source: x\nwrapped source tail\n').exit === 1, 'runCheckMd passed a file with an unplaced line');
+  // the point is clean under every rule, so exit 1 can only come from the unplaced line (a "then" point would fail on its own since revision 4)
+  check(runCheckMd('## Solution\n- The product is bookkeeping software for cafés.\n  Source: x\n').exit === 0, 'runCheckMd refused a clean Solution point (the unplaced-line control below would be blind)');
+  check(runCheckMd('## Solution\n- The product is bookkeeping software for cafés.\n  Source: x\nwrapped source tail\n').exit === 1, 'runCheckMd passed a file with an unplaced line');
   check(!runCheckMd('').out.startsWith('refused:'), 'runCheckMd pre-prefixed "refused:", which main() adds again');
   // GLM round 4 #1 claimed a canvas with one empty box is refused: a section with points and one "Not known yet." box scores normally
-  check(runCheckMd('## Solution\n- A step, then another.\n## Problem\nNot known yet.').exit === 0, 'runCheckMd refused a partial canvas (one empty box)');
+  check(runCheckMd('## Solution\n- The product is bookkeeping software for cafés.\n## Problem\nNot known yet.').exit === 0, 'runCheckMd refused a partial canvas (one empty box)');
+  // the harness cap is the module's cap: read from the working tree's source, since the engine itself is loaded from --shared at run time
+  const moduleCap = /export const MAX_POINT_WORDS = (\d+);/.exec(readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../supabase/functions/_shared/canvas-box-definitions.ts'), 'utf8'))?.[1];
+  check(Number(moduleCap) === V10_MAX_WORDS, `V10_MAX_WORDS (${V10_MAX_WORDS}) differs from MAX_POINT_WORDS in canvas-box-definitions.ts (${moduleCap ?? 'not found'})`);
+  // revision 4 measure: positives are the founder's own v9 failures (founder-v10.md), negatives are short one-idea points of every allowed form
+  const v10Rules = (box: string, text: string) => v10Violations([{ box, text }]).map((v) => v.rule);
+  const segFail = 'Change leads at organizations of about 100 to 1,000 people whose teams\' throughput outgrew their coordination process and who have bought process, not a norm, are the customers, not community organizers.';
+  check(v10Rules('canvas:segments', segFail).includes('point-words') && v10Rules('canvas:segments', segFail).includes('chained'), 'v10 missed the founder\'s long Segments point (words and chained)');
+  const journey = 'A champion supplies a topic, then colleagues join one personally prepared online session, then one pair talks with roles while the others take positions.';
+  check(v10Rules('canvas:solution', journey).includes('chained') && v10Rules('canvas:solution', journey).includes('solution-kind'), 'v10 missed the founder\'s Solution journey (then, and no "The product is")');
+  check(v10Rules('canvas:problem', 'The biggest problem for café owners is late filings, not bookkeeping; they want calm, but receipts pile up.').includes('chained'), 'v10 missed a ";"-chained Problem lead');
+  check(v10Rules('canvas:revenue', 'The books are done. The return is filed.').includes('chained'), 'v10 missed a two-sentence point');
+  // the module's own Not-this example for a falsified hypothesis fires (v9 allowed the change, revision 4 leaves it out); its revision-4 good form does not
+  check(v10Rules('canvas:world-needs', 'The business expected yearly payment, but owners wanted monthly, so it now bills monthly.').includes('falsified-change'), 'v10 missed a falsified hypothesis that states its change');
+  check(!v10Rules('canvas:world-needs', 'The business expected cafés to buy an app, but none did.').includes('falsified-change'), 'v10 fired falsified-change on a hypothesis with no change');
+  // a contrast is ", not" or "ahead of" (the spec's measure): two of them chain, "instead of" is not counted
+  check(v10Rules('canvas:segments', 'The first customers are cafés, ahead of bakeries, not chains.').includes('chained'), 'v10 missed two contrasts');
+  check(!v10Rules('canvas:solution', 'The product is a bookkeeping service instead of an app, not an accounting firm.').includes('chained'), 'v10 counted "instead of" as a contrast');
+  check(pointShape('one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty').words === V10_MAX_WORDS
+    && !v10Rules('canvas:problem', 'one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty.').includes('point-words'), 'v10 counted a 20-word point as over the cap');
+  check(v10Rules('canvas:problem', 'one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twentyone.').includes('point-words'), 'v10 missed a 21-word point');
+  for (const [box, t] of [
+    ['canvas:solution', 'The product is online bookkeeping software for café owners, not an accounting firm.'],
+    ['canvas:segments', 'Pays: owners of 1-3 independent cafés who do their own books.'],
+    ['canvas:problem', 'The biggest problem for café owners is late tax filings, ahead of messy receipts.'],
+    ['canvas:love', 'Filing on time over filing perfectly, even when a late receipt means a correction.'],
+    ['canvas:revenue', 'Monthly books and tax filing cost 2,500 baht per café per month.'],
+    ['canvas:metrics', 'The next milestone is 10 paying cafés by March 2027.'],
+  ] as const) check(v10Rules(box, t).length === 0, `v10 wrongly fired on a clean point: ${t} (${v10Rules(box, t).join(', ')})`);
+  // a decimal or "e.g." is no sentence break; only the FIRST Solution point is checked for the kind
+  check(pointShape('Books cost 2.500 baht, e.g. for one café.').sentences === 1, 'v10 read a decimal or "e.g." as a sentence break');
+  check(v10Violations([{ box: 'canvas:solution', text: 'The product is bookkeeping software for cafés.' }, { box: 'canvas:solution', text: 'Owners file on time.' }]).length === 0, 'v10 solution-kind fired on a later Solution point');
+  // solution-offer: fires on a package kind and on a kind that repeats the offer; silent on the module's own good pair (kind vs priced offer)
+  const sOffer = (sol: string, off: string) => v10Violations([{ box: 'canvas:solution', text: sol }, { box: 'canvas:revenue', text: off }]).some((v) => v.rule === 'solution-offer');
+  check(sOffer('The product is a package of chat software, meeting transcripts and founder support for team leads.', 'A two-session sales mastermind: free.'), 'v10 missed a Solution kind that names a package');
+  check(sOffer('The product is an on-site workshop and online coaching for teams in organisations.', 'An on-site workshop followed by online coaching.'), 'v10 missed a Solution kind that repeats the offer');
+  check(!sOffer('The product is a chat-based bookkeeping service for independent cafés, not an app owners run themselves.', 'Monthly books and tax filing: 2,500 baht per shop per month.'), 'v10 fired solution-offer on the good kind/offer pair');
+  check(!sOffer('The product is chat software and transcripts for team leads, not facilitated training or mediation.', 'Team package of Clarity Chat, meeting transcripts and founder support.'), 'v10 fired solution-offer on a kind that names only the software');
+  // round-2 review: a package ruled out in the contrast is no package kind; a two-word offer repeated as the kind still fires
+  check(!sOffer('The product is a bookkeeping service for cafés, not a package of monthly books.', 'Monthly books and tax filing: 2,500 baht per shop per month.'), 'v10 fired solution-offer on a package that the contrast rules out');
+  // round-2 Opus M4: a kind that names the service a short offer sells follows the rules (the routing rule's own example); hyphenated products are no package
+  check(!sOffer('The product is an online coaching program for founders.', 'Online coaching: 500 EUR monthly.'), 'v10 fired solution-offer on a kind naming the service of a two-word offer');
+  check(!sOffer('The product is a bookkeeping service for cafés.', 'Bookkeeping service: 2,500 baht per month.'), 'v10 fired solution-offer on the routing rule\'s own example kind');
+  for (const k of ['The product is package-tracking software for courier firms.', 'The product is a bundle-size analyzer for web developers.'])
+    check(!sOffer(k, 'Pro plan: 40 EUR per seat per month.'), `v10 fired solution-offer on a hyphenated product: ${k}`);
+  // round-2 Opus H1: the kind names what the rules say is bought, with or without an Offers point
+  for (const k of ['The product is a workshop on one real case for teams in organisations.', 'The product is two facilitated online sessions and a chat for team leads.', 'The product is coaching packages for first-time founders.'])
+    check(v10Violations([{ box: 'canvas:solution', text: k }]).some((v) => v.rule === 'solution-offer'), `v10 missed a kind that names what is bought: ${k}`);
+  // round-2 review: falsified-change catches the change without a comma or with "therefore", and leaves degree words alone
+  for (const t of ['The business expected yearly pay but owners wanted monthly so it now bills monthly.', 'The business expected yearly pay, and therefore switched to monthly.', 'The business expected an app; so the business became a service.'])
+    check(v10Rules('canvas:world-needs', t).includes('falsified-change'), `v10 missed a falsified change: ${t}`);
+  check(!v10Rules('canvas:world-needs', 'The business expected most cafés to pay yearly; so few did.').includes('falsified-change'), 'v10 fired falsified-change on "so few" evidence');
+  check(!v10Rules('canvas:world-needs', 'The business expected 20 cafés to sign up, but so far 2 have.').includes('falsified-change'), 'v10 fired falsified-change on "so far" evidence');
+  // round-2 Opus L7: more change forms fire; a purpose clause does not
+  for (const t of ['The business expected chains to buy, but none did, and it now sells to cafés.', 'The business expected chains to buy, which led it to sell to cafés.', 'The business expected café chains to buy and now sells to independent cafés.'])
+    check(v10Rules('canvas:world-needs', t).includes('falsified-change'), `v10 missed a falsified change: ${t}`);
+  check(!v10Rules('canvas:world-needs', 'The business expected owners to pay yearly so it could plan cash, but none did.').includes('falsified-change'), 'v10 fired falsified-change on a purpose clause');
+  // round-2 review: a second sentence that opens with a number is still a second sentence
+  check(v10Rules('canvas:world-needs', 'The business expected cafés to run an app. 0 of 8 trial cafés used it.').includes('chained'), 'v10 missed a second sentence that opens with a digit');
+  check(!v10Rules('canvas:revenue', 'Monthly books and tax filing: 2,500 baht per shop per month.').includes('chained'), 'v10 counted a price with a thousands separator as a sentence break');
+  check(runCheckMd(`## Customer Segments\n- ${segFail}`).exit === 1, 'runCheckMd passed the founder\'s long Segments point');
+  check(v10BoxMeasure([{ box: 'canvas:segments', text: segFail }, { box: 'canvas:segments', text: 'Pays: café owners.' }], 'canvas:segments').over === 1, 'v10BoxMeasure miscounted points over the cap');
   // ids: a bad --name and a bad pack id are refused, a good one passes
   for (const bad of ['../x', 'a/b', 'A', '', 'Rev2c', 'rev 2']) check(throws(() => validId(bad, '--name')), `unsafe label accepted: ${JSON.stringify(bad)}`);
   check(validId('rev2c', '--name') === 'rev2c', 'a safe label was refused');
@@ -715,7 +880,7 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
   const [A, B] = labels;
   const data: Record<string, Record<string, RunRow[]>> = Object.fromEntries(packs.map((p) => [p, { [A]: rowsOf(p, A), [B]: rowsOf(p, B) }]));
   const runsLine = labels.map((l) => `${l}: ${packs.map((p) => `${data[p]![l]!.length} in ${p}`).join(', ')}`).join('; ');
-  const wording = labels.map((l) => `${l}: ${[...new Set(packs.flatMap((p) => data[p]![l]!.map((r) => (r.boxDefinitionsSha256 ? `git ${r.git}, box definitions ${r.boxDefinitionsSha256}` : 'not recorded (older run)'))))].join(' / ')}`).join('; ');
+  const wording = labels.map((l) => `${l}: ${[...new Set(packs.flatMap((p) => data[p]![l]!.map((r) => (r.boxDefinitionsSha256 ? `git ${r.git}, box definitions ${r.boxDefinitionsSha256}${r.rulesSha256 ? `, rule files ${r.rulesSha256}` : ''}` : 'not recorded (older run)'))))].join(' / ')}`).join('; ');
   const o: string[] = [`# P1658 ${A} vs ${B}: counts from the .jsonl files`, '',
     `Computed by \`scripts/p1658-rules-ab-eval.ts --compare ${A},${B}\` from \`<pack>-${A}.jsonl\` and \`<pack>-${B}.jsonl\`. Runs per side: ${runsLine}. Wording: ${wording}. No model judge.`, '',
     `- Lead point (headline, strict): the FIRST point of a ranked box (${RANKED.map(titleOf).join(', ')}) holding a choice word (best, biggest, first, chosen, next) AND an alternative (ahead of, ", not", instead of, rather than) in the same point. "(loose)" marks a first point that has only one of the two (the secondary, lexical count); "before" counts as neither.`,
@@ -723,8 +888,9 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
     '- Reason in a point: " because ", ", which ", " so they ", " so that ", " since ", " so the ".',
     '- Dropped: the engine\'s count; every point the model wrote and the engine did not keep is named with the engine\'s reason (only for runs made by a script version that keeps the model actions; earlier files carry none).',
     `- v9 checks (lexical heuristics, a human reads every hit; computed here from the kept points, whatever the run's arm): ${V9_RULES.join(', ')}.`, ''];
-  const totals: Record<string, { leads: number; strict: number; pron: number; reasons: number; kept: number; dropped: number; named: number; runs: number; v9: number }> = {};
-  for (const l of labels) totals[l] = { leads: 0, strict: 0, pron: 0, reasons: 0, kept: 0, dropped: 0, named: 0, runs: 0, v9: 0 };
+  o.splice(o.length - 1, 0, `- Revision-4 measure (lexical, a human reads every hit): words per point (cap ${V10_MAX_WORDS}); chained = a ";", a "then", a second contrast (", not" or "ahead of"), a second clause marker (who, whose, which, where, while, but, if, unless, even when) or a second sentence; solution-kind = the first Solution point does not open "The product is"; solution-offer = that point names a package or bundle, or repeats 60%+ of an Offers & Pricing point's content words. Rules: ${V10_RULES.join(', ')}.`);
+  const totals: Record<string, { leads: number; strict: number; pron: number; reasons: number; kept: number; dropped: number; named: number; runs: number; v9: number; words: number; over: number; chained: number; v10: number }> = {};
+  for (const l of labels) totals[l] = { leads: 0, strict: 0, pron: 0, reasons: 0, kept: 0, dropped: 0, named: 0, runs: 0, v9: 0, words: 0, over: 0, chained: 0, v10: 0 };
   for (const p of packs) {
     const R = data[p]!;
     const cols = labels.flatMap((l) => R[l]!.map((r) => `${l} r${r.run}`));
@@ -758,6 +924,25 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
       for (const v of x.violations) o.push(`- [${v.rule}] ${titleOf(v.box)}: ${v.text}${v.detail ? ` (${v.detail})` : ''}`);
       o.push('');
     }
+    // revision 4: the per-point measure, per box (cell: points / mean words / max words / over the cap / chained)
+    o.push(`### Revision-4 measure per box (cell: points / mean words / max words / over ${V10_MAX_WORDS} / chained)`, '', `| Box | ${cols.join(' | ')} |`, `|---|${cols.map(() => '---').join('|')}|`);
+    for (const b of CANVAS_BOXES) o.push(`| ${b.title} | ${labels.flatMap((l) => R[l]!.map((r) => { const m = v10BoxMeasure(r.points, b.tag); return m.points ? `${m.points} / ${m.meanWords} / ${m.maxWords} / ${m.over} / ${m.chained}` : '-'; })).join(' | ')} |`);
+    o.push(`| **Words, all points (mean)** | ${per((r, l) => { const w = r.points.map((x) => pointShape(x.text).words); totals[l]!.words += w.reduce((a, c) => a + c, 0); return w.length ? Math.round((w.reduce((a, c) => a + c, 0) / w.length) * 10) / 10 : 0; })} |`);
+    o.push(`| **Over ${V10_MAX_WORDS} words** | ${per((r, l) => { const n = r.points.filter((x) => pointShape(x.text).words > V10_MAX_WORDS).length; totals[l]!.over += n; return n; })} |`);
+    o.push(`| **Chained** | ${per((r, l) => { const n = r.points.filter((x) => chainedReasons(pointShape(x.text)).length > 0).length; totals[l]!.chained += n; return n; })} |`, '');
+    const v10 = labels.flatMap((l) => R[l]!.map((r) => ({ l, r, violations: v10Violations(r.points) })));
+    o.push('### Revision-4 violations per rule', '', `| Rule | ${cols.join(' | ')} |`, `|---|${cols.map(() => '---').join('|')}|`);
+    for (const rule of V10_RULES) o.push(`| ${rule} | ${v10.map((x) => String(x.violations.filter((v) => v.rule === rule).length)).join(' | ')} |`);
+    o.push(`| **Total** | ${v10.map((x) => { totals[x.l]!.v10 += x.violations.length; return String(x.violations.length); }).join(' | ')} |`);
+    // not violations, but a run that drops Solution scores clean on every solution-* rule above: read these rows with them
+    o.push(`| *Solution empty (not counted above)* | ${v10.map((x) => (x.r.points.some((p) => p.box === 'canvas:solution') ? '0' : '1')).join(' | ')} |`);
+    o.push(`| *Offers & Pricing empty (not counted above)* | ${v10.map((x) => (x.r.points.some((p) => p.box === 'canvas:revenue') ? '0' : '1')).join(' | ')} |`, '');
+    for (const x of v10) {
+      if (!x.violations.length) continue;
+      o.push(`Revision-4 violations, ${x.l} r${x.r.run}:`);
+      for (const v of x.violations) o.push(`- [${v.rule}] ${titleOf(v.box)}: ${v.text}${v.detail ? ` (${v.detail})` : ''}`);
+      o.push('');
+    }
     for (const l of labels) {
       for (const r of R[l]!) {
         const pron = r.points.filter((x) => pronounsIn(x.text).length);
@@ -773,7 +958,10 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
   const t = (k: keyof (typeof totals)[string]) => `${totals[A]![k]} | ${totals[B]![k]}`;
   o.push(`| Runs | ${t('runs')} |`, `| **Lead points (strict: a choice word AND an alternative; of ${RANKED.length} ranked boxes x runs)** | ${t('strict')} |`,
     `| Lead points, loose (secondary lexical count) | ${t('leads')} |`, `| Pronouns (I, we, my, our, us, me...) | ${t('pron')} |`,
-    `| Reasons inside points | ${t('reasons')} |`, `| Kept points | ${t('kept')} |`, `| Dropped (engine count) | ${t('dropped')} |`, `| Drops named with a reason | ${t('named')} |`, `| v9 violations (all rules) | ${t('v9')} |`, '');
+    `| Reasons inside points | ${t('reasons')} |`, `| Kept points | ${t('kept')} |`, `| Dropped (engine count) | ${t('dropped')} |`, `| Drops named with a reason | ${t('named')} |`, `| v9 violations (all rules) | ${t('v9')} |`,
+    `| Mean words per point | ${[A, B].map((l) => (totals[l]!.kept ? Math.round((totals[l]!.words / totals[l]!.kept) * 10) / 10 : 0)).join(' | ')} |`,
+    `| Points over ${V10_MAX_WORDS} words | ${t('over')} |`, `| Chained points | ${t('chained')} |`, `| Revision-4 violations (all rules) | ${t('v10')} |`,
+    `| Kept points, ${B} as % of ${A} | | ${totals[A]!.kept ? Math.round((totals[B]!.kept / totals[A]!.kept) * 100) : 0}% |`, '');
   return o.join('\n');
 }
 
@@ -834,7 +1022,7 @@ async function main(): Promise<void> {
   const sharedArg = arg('shared');
   const shared = resolve(sharedArg ?? 'supabase/functions/_shared');
   const repeat = Number(arg('repeat', '2'));
-  if (arm !== 'old' && arm !== 'new' && arm !== 'rev2' && arm !== 'v9') refuse('--arm must be old, new, rev2 or v9');
+  if (arm !== 'old' && arm !== 'new' && arm !== 'rev2' && arm !== 'v9' && arm !== 'v10') refuse('--arm must be old, new, rev2, v9 or v10');
   if (arm === 'old' && (!sharedArg || shared === workingShared)) refuse('--arm old needs --shared pointing at a copy of the old _shared, not the working tree');
   if (!Number.isInteger(repeat) || repeat < 1) refuse('--repeat must be an integer >= 1');
   if (files.length === 0) { console.error('need --material'); process.exit(1); }
@@ -845,6 +1033,8 @@ async function main(): Promise<void> {
     load('canvas-run'), load('canvas-model'), load('canvas-eval-rules'), load('canvas-parse'), load('canvas-source'), load('canvas-support'), load('canvas-box-definitions'),
   ]);
   const mods: Mods = { parse, source, support };
+  // every arm is measured by the current revision's cap; an arm whose own rules state a different cap would be judged by the wrong one
+  if (defs.MAX_POINT_WORDS !== undefined && defs.MAX_POINT_WORDS !== V10_MAX_WORDS) refuse(`--shared states MAX_POINT_WORDS ${defs.MAX_POINT_WORDS}, but the measure is ${V10_MAX_WORDS}`);
   const tags = (defs.BOX_DEFINITIONS as Array<{ tag: string }>).map((b) => b.tag);
   const refusal = refuseNonTest({ key, env: process.env, prodValues: prodEnvValues() });
   if (refusal) { console.error(refusal); process.exit(2); }
@@ -900,7 +1090,8 @@ async function main(): Promise<void> {
       const leads = RANKED.filter((b) => strictLeadOf(points, b)).length;
       const pron = points.reduce((s, p) => s + pronounsIn(p.text).length, 0);
       const v9 = v9Violations(points).violations;
-      summary[pack]!.push({ run: n, state: row.state, code: row.code, pointsPerBox: perBox, pointsKept: points.length, dropped: row.dropped, dropsNamed: drops.length, leads, pronouns: pron, violationsByRule: viol, v9ByRule: v9Counts(v9), v9Total: v9.length, usd: row.usd });
+      const v10 = v10Violations(points);
+      summary[pack]!.push({ run: n, state: row.state, code: row.code, pointsPerBox: perBox, pointsKept: points.length, dropped: row.dropped, dropsNamed: drops.length, leads, pronouns: pron, violationsByRule: viol, v9ByRule: v9Counts(v9), v9Total: v9.length, v10ByRule: v9Counts(v10), v10Total: v10.length, usd: row.usd });
       console.error(`${pack}#${n} ${row.state}${row.code ? `:${row.code}` : ''} points=${points.length} raw=${rawActs.length} drops=${drops.length} leads=${leads} pron=${pron} viol=${row.violations.length} v9=${v9.length} usd=${row.usd}`);
     }
     orRefuse('output file', () => writeFileSync(fileInside(outDir, pack, `${pack}-${name}.md`), render(pack, `${arm}, ${name}`, rows)));
