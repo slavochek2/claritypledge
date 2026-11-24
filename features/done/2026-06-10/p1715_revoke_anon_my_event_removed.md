@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 disclosure: public
 rank: 1
@@ -14,6 +14,7 @@ root_cause: >-
   P1700 (20261117171000_p1700_removal_notice.sql:85) granted EXECUTE on my_event_removed(uuid) to anon as well as
   authenticated, although no signed-out caller exists. The body returns false when auth.uid() is NULL, so nothing
   leaked, but the unjustified grant keeps function-grant-drift-check red (anon-unlisted) every day since 2026-11-18.
+completed_at: 2026-11-24
 ---
 
 # P1715: my_event_removed is callable only by signed-in users
