@@ -65,6 +65,30 @@ here by name ("Carried to P1711 by name" in the P1688 spec): Decision Criteria 4
 and the founder's choice for an unplug during a call with capture running. Decision Criteria 3 and
 the two-networks check run on P1688.
 
+## Resolved Decisions
+
+**Founder answers, 2026-11-24** (asked after P1688's two-network check passed):
+
+- **Video is in the first release** with sound ("Sound and video"). This replaces item 1 of the
+  release order above (sound only first). Video was proven on a real phone over mobile data in
+  P1688 run 34. The live site's camera rule and any media rule for remote video move into the
+  first release (Solution 7).
+- **Consent: reuse the existing transcribe banner and its consent as they are** (founder, verbatim:
+  *"if we just reuse the transcribe banner, it already does everything. And then later we can see
+  how we integrate. I mean, we already thought about this."*). No new consent design for calls in
+  the first release.
+- **Money: free plan with hard limits.** Calls hold at most 8 people and end after 60 minutes,
+  enforced by the server; when the month's free allowance runs out, calls stop until the next
+  month. No paid plan.
+- **Wording: the agent drafts every call label and message and the privacy policy line naming the
+  call provider, in the site's current style; the founder approves them together on one page
+  before anything goes live.**
+
+**Founder direction, 2026-11-24, verbatim:** *"can you just continue until everyhting doen? why i
+am int he loop? ... it would be good if i am not in the loop"*. The remaining `[FOUNDER DECISION]`
+items below are therefore settled by the implementing agent with a recorded recommendation, which
+the founder may overturn at the wording review; the agent does not stop for them.
+
 ## Solution
 
 Start from the P1688 spec's "Carried to step two" section and its "Proof results so far" (both on
