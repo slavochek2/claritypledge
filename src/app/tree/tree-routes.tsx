@@ -33,6 +33,7 @@ const P1336OnboardingPrototype = lazy(() => import("@/app/pages/prototypes/p1336
 const ComparePositionsPrototype = lazy(() => import("@/app/pages/prototypes/p1337-compare-positions-prototype").then(m => ({ default: m.ComparePositionsPrototype })));
 const HostControlsPrototype = lazy(() => import("@/app/pages/prototypes/p1337-host-controls-prototype").then(m => ({ default: m.HostControlsPrototype })));
 const ProfileCompareEntryPrototype = lazy(() => import("@/app/pages/prototypes/p1337-profile-compare-entry-prototype").then(m => ({ default: m.ProfileCompareEntryPrototype })));
+const SoloClarify = lazy(() => import("@/app/tree/solo-clarify/SoloClarify").then(m => ({ default: m.SoloClarify })));
 const EventTranscriptionPrototype = lazy(() => import("@/app/prototypes/event-transcription/EventTranscriptionPrototype").then(m => ({ default: m.EventTranscriptionPrototype })));
 const LoadingDemoPage = lazy(() => import("@/app/pages/loading-demo-page").then(m => ({ default: m.LoadingDemoPage })));
 const UspContrastDemo = lazy(() => import("@/app/pages/usp-contrast-demo").then(m => ({ default: m.UspContrastDemo })));
@@ -131,6 +132,7 @@ function prototypeRoutes(LazyRoute: LazyRouteComponent) {
       {import.meta.env.DEV && <Route path="/tree/new-live" element={<LazyRoute><NewLivePrototype /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/links-menu" element={<LazyRoute><LinksMenuPrototype /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/admin-users" element={<LazyRoute><AdminUsersPrototype /></LazyRoute>} />}
+      {import.meta.env.DEV && <Route path="/tree/solo-clarify" element={<LazyRoute><SoloClarify /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/event-transcription" element={<LazyRoute><EventTranscriptionPrototype /></LazyRoute>} />}
     </>
   );
