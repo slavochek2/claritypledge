@@ -20,7 +20,11 @@ refused (exit 4). Every claim re-provisions from scratch: old volumes go, the da
 fresh from the main lane with Postgres's low-level backup API (owners, ACLs, default privileges, RLS
 and security-definer functions come across byte for byte), keys are generated fresh.
 
-Exit codes: 0 ok, 1 error, 3 outbound check failed (lane stays quarantined), 4 refused (stale
+Parity (P1724): a lane's sign-in and mail must match the main lane's, checked at provisioning, lift,
+deploy (before quarantining a ready lane), boot, `check`, and on demand with `parity --lane L`
+(read-only, no generation; `--config-only` skips the containers and auth's own answer).
+
+Exit codes: 0 ok, 1 error, 3 outbound or parity check failed (lane stays quarantined), 4 refused (stale
 generation / lane not held), 5 admission wait timed out (admit.py).
 Never prints a secret except `keys`, whose stdout the Mac writes straight into a mode-600 file.
 """
@@ -306,7 +310,9 @@ def relay_matching():
     for line in (MAIN_DIR / 'docker-compose.override.yml').read_text().splitlines():
         if line.strip().startswith('MP_SMTP_RELAY_MATCHING:'):
             return line.split(':', 1)[1].strip()
-    raise SystemExit('lanectl: main lane has no MP_SMTP_RELAY_MATCHING; refusing to relay everything')
+    # RuntimeError, not SystemExit: provisioning's handler catches Exception, and a SystemExit slipped past it
+    # and left the lane stuck in `provisioning` instead of `failed` (P1724).
+    raise RuntimeError('main lane has no MP_SMTP_RELAY_MATCHING; refusing to relay everything')
 
 
 def lane_yml(lane, host, ts_ip):
@@ -410,6 +416,10 @@ def write_lane_env(lane, host):
     now = int(time.time())
     jwt_secret = secrets.token_hex(32)
     o = f'https://{host}:{c["https_port"]}'
+    # API URL: main's own value on the lane's origin (main's carries the /auth/v1 path, so the JWT issuer
+    # matches main's form; lanes before P1724 got the bare origin).
+    main_api = parse_env('\n'.join(m)).get('API_EXTERNAL_URL', '')
+    api_url = main_api.replace(MAIN_ORIGIN, o) if main_api.startswith(MAIN_ORIGIN) else o
     redirects = parse_env('\n'.join(m)).get('ADDITIONAL_REDIRECT_URLS', '').strip('"')
     redirects = ','.join(u for u in redirects.split(',') if u and '136-85-1-126' not in u) + f',{o}/**'
     repl = {
@@ -421,7 +431,7 @@ def write_lane_env(lane, host):
         'REALTIME_DB_ENC_KEY': secrets.token_hex(8), 'VAULT_ENC_KEY': secrets.token_hex(16),
         'PG_META_CRYPTO_KEY': secrets.token_hex(16), 'S3_PROTOCOL_ACCESS_KEY_ID': secrets.token_hex(16),
         'S3_PROTOCOL_ACCESS_KEY_SECRET': secrets.token_hex(32), 'MINIO_ROOT_PASSWORD': secrets.token_hex(16),
-        'SUPABASE_PUBLIC_URL': o, 'API_EXTERNAL_URL': o, 'SITE_URL': o, 'ADDITIONAL_REDIRECT_URLS': f'"{redirects}"',
+        'SUPABASE_PUBLIC_URL': o, 'API_EXTERNAL_URL': api_url, 'SITE_URL': o, 'ADDITIONAL_REDIRECT_URLS': f'"{redirects}"',
         'KONG_HTTP_PORT': str(c['kong_port']), 'KONG_HTTPS_PORT': str(c['kong_port'] + 100),
         'SMTP_HOST': 'mail', 'SMTP_PORT': '2500', 'PROXY_DOMAIN': host,  # Google sign-in: lanes reuse main's TEST OAuth client (not prod's)
         'OPENAI_API_KEY': '',
@@ -468,6 +478,330 @@ def write_functions_env(lane):
                                'recipients); a lane never holds a domain that can mail anyone')
         keep += [f'{k}={v}' for k, v in me.items() if k.startswith('MAILGUN_')]
     write_600(ldir(lane) / 'functions.env', '\n'.join(keep) + '\n')
+
+
+# --- parity with the main lane (P1724) -------------------------------------------------------------
+#
+# A lane's sign-in and mail must behave like the main lane's. lane_yml and write_lane_env build a lane by
+# hand, so anything the main lane gains later was silently missing (2026-11-24: Google sign-in, the
+# founder-only relay and the production e-mail designs, all three at once). parity_report compares the
+# two stacks as docker renders and runs them, and fails on every difference no rule below accepts.
+# It only reads: it renders, inspects, and makes one GET per stack.
+
+PARITY_SERVICES = ('auth', 'mail')
+# Lane structure, not settings. networks and extra_hosts are checked by the derived rules in _structure.
+PARITY_SKIP_FIELDS = {'container_name', 'ports', 'logging', 'restart', 'depends_on', 'networks', 'extra_hosts'}
+# The intended overrides: (service, env name) -> the value the lane MUST hold. Every other name must equal
+# main's. A value carrying the main origin and no rule here gets 'rebase' automatically.
+#   rebase       main's value with the main origin replaced by the lane origin
+#   rebase-set   a comma list, compared as a set (empty entries dropped) after the same replacement
+#   lane-env:K   the lane's own .env K, which must be non-empty and differ from main's .env K
+#   in-url:K     main's value with main's .env K replaced by the lane's (a password inside a URL); the rest
+#                of the URL must match exactly, and the lane's K must be non-empty and differ from main's
+#   value:V      exactly V
+PARITY_RULES = {
+    ('auth', 'API_EXTERNAL_URL'): 'rebase',
+    ('auth', 'GOTRUE_JWT_ISSUER'): 'rebase',
+    ('auth', 'GOTRUE_SITE_URL'): 'rebase',
+    ('auth', 'GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI'): 'rebase',
+    ('auth', 'GOTRUE_URI_ALLOW_LIST'): 'rebase-set',
+    ('auth', 'GOTRUE_JWT_SECRET'): 'lane-env:JWT_SECRET',
+    ('auth', 'GOTRUE_DB_DATABASE_URL'): 'in-url:POSTGRES_PASSWORD',
+    ('auth', 'GOTRUE_SMTP_HOST'): 'value:mail',          # the lane's own mail service; main names its container
+    ('mail', 'MP_MAX_MESSAGES'): 'value:2000',           # disk cap on a short-lived copy (main keeps 5000)
+}
+# Lanes provisioned before P1724 got the bare origin as the API URL (and so the JWT issuer). Rewriting a live
+# lane's .env is forbidden, and both forms build the same sign-in links. Keyed by generation, so the
+# exception ends the moment the lane is reprovisioned.
+PARITY_GRANDFATHERED = {
+    ('lane1', 6): {('auth', 'API_EXTERNAL_URL'): 'bare-origin', ('auth', 'GOTRUE_JWT_ISSUER'): 'bare-origin'},
+}
+# Values a lane shares with main on purpose: main's TEST Google sign-in client (af3868662). Any other
+# secret-looking value equal to main's fails: parity alone would pass it, and the outbound check does not
+# look at auth or mail.
+SHARED_WITH_MAIN = {('auth', 'GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID'), ('auth', 'GOTRUE_EXTERNAL_GOOGLE_SECRET')}
+SECRET_NAME = re.compile(r'SECRET|PASSW|PASS$|TOKEN|_KEY|KEY_|CREDENTIAL|PRIVATE', re.I)
+
+# What main's compose files contribute beyond the upstream file lanes use, classified at field level
+# (service.environment.NAME, list entries by target, other fields by name). auth and mail are covered by the
+# comparison itself; a function env name by the FN_ENV_* sets plus FN_ENV_NOT_IN_LANES. Any other
+# contributed path must be listed here, so a new main-lane setting forces a decision about lanes.
+OVERRIDE_CLASSIFIED = {
+    'functions.env_file': "main's function env file; lanes get their own (write_functions_env, deny by default)",
+    'functions.environment.SUPABASE_URL': 'lane own: the lane origin (lane_yml; outbound check)',
+    'kong.ports[8000]': 'lane own: the lane gateway port (lane_yml)',
+    'kong.ports[8443]': 'lane own: lanes publish only the plain gateway port to loopback',
+    'supavisor.ports[5432]': 'the pooler is not part of a lane',
+    'supavisor.ports[6543]': 'the pooler is not part of a lane',
+    # main's Caddy is the only Caddy: it also serves every lane's site (caddy_route_add), so lanes have none.
+    'caddy.container_name': "main's Caddy, which serves the lane sites too",
+    'caddy.image': "main's Caddy, which serves the lane sites too",
+    'caddy.network_mode': "main's Caddy, which serves the lane sites too",
+    'caddy.restart': "main's Caddy, which serves the lane sites too",
+    'caddy.depends_on': "main's Caddy, which serves the lane sites too",
+    'caddy.volumes[/config]': "main's Caddy state",
+    'caddy.volumes[/data]': "main's Caddy state (certificates)",
+    'caddy.volumes[/etc/caddy/Caddyfile]': "main's Caddyfile, which imports the lane sites lanectl writes",
+    'caddy.volumes[/srv/cp-email-templates]': 'the e-mail designs; each lane route serves this same directory '
+                                              '(caddy_route_add). Checking the route itself is deferred (P1724)',
+    'volumes.caddy_config': "main's Caddy state",
+    'volumes.caddy_data': "main's Caddy state (certificates)",
+}
+# Function env names the main lane holds and a lane deliberately does not (P1672 deny by default):
+# credentials for resources a lane would share with main, and features stage 1 leaves out. Lanes get
+# their own MAILGUN_* from mail.env.
+FN_ENV_NOT_IN_LANES = {
+    'CALL_CRON_SECRET', 'CALL_ENV', 'CHAT_VOICE_CRON_SECRET', 'GCP_ENQUEUER_SA_KEY', 'GCS_CHAT_VOICE_BUCKET',
+    'GCS_CHAT_VOICE_SERVICE_ACCOUNT_KEY', 'GCS_UPLOAD_SECRET', 'GEMINI_CHAT_VOICE_API_KEY', 'LIVEKIT_API_KEY',
+    'LIVEKIT_API_SECRET', 'LIVEKIT_URL', 'MAILGUN_API_KEY', 'MAILGUN_DOMAIN', 'MAILGUN_REGION',
+    'TRANSCRIBE_ROOM_BATCH_URL', 'TRANSCRIBE_ROOM_INVOKER_SA', 'TRANSCRIBE_ROOM_QUEUE',
+}
+# A clean environment for rendering, so the caller's shell can never interpolate into either stack.
+RENDER_ENV = {'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin', 'HOME': '/root'}
+
+
+def shown(v):
+    """A value as it may appear in a report: only public shapes are printed, anything else by length."""
+    if v is None:
+        return '<absent>'
+    if v == '':
+        return '<empty>'
+    if re.fullmatch(r'true|false|[0-9]{1,6}', v, re.I) or re.fullmatch(r'https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/*-]*)?', v):
+        return repr(v)
+    return f'<{len(v)} chars>'
+
+
+def looks_secret(name, value):
+    if not value:
+        return False
+    if SECRET_NAME.search(name):
+        return True
+    # A token-shaped value under an innocent name: long, no spaces, not a URL or path, letters and digits.
+    return (len(value) >= 20 and not re.search(r'\s', value) and not re.match(r'[a-z]+://|/', value)
+            and re.search(r'[A-Za-z]', value) is not None and re.search(r'[0-9]', value) is not None)
+
+
+def _render(args):
+    p = run(['docker', 'compose', *args, 'config', '--format', 'json'], check=False, env=RENDER_ENV, timeout=120)
+    if p.returncode != 0:   # docker's error text is not printed: it can quote values from .env
+        raise CheckFailed(f'docker compose could not render ({" ".join(a for a in args if a.startswith("/"))[:200]}; exit {p.returncode})')
+    return json.loads(p.stdout)
+
+
+def render_main(files=None):
+    files = files or [f for f in main_env().get('COMPOSE_FILE', 'docker-compose.yml').split(':') if f]
+    args = ['--project-directory', str(MAIN_DIR), '--env-file', str(MAIN_DIR / '.env')]
+    for f in files:
+        args += ['-f', str(MAIN_DIR / f)]
+    return _render(args)
+
+
+def render_lane(lane):
+    d = ldir(lane)
+    return _render(['-p', f'cp-{lane}', '--project-directory', str(d), '-f', str(MAIN_DIR / 'docker-compose.yml'),
+                    '-f', str(d / 'lane.yml'), '--env-file', str(d / '.env')])
+
+
+def _env_diff(svc, k, mv, lv, ctx):
+    """None when the lane value is the one the rules require, else a report line (no secret printed)."""
+    o, gen_rules = ctx['origin'], ctx['grandfathered']
+    rule = PARITY_RULES.get((svc, k))
+    if rule is None and isinstance(mv, str) and MAIN_ORIGIN in mv:
+        rule = 'rebase'
+    secret = SECRET_NAME.search(k) is not None
+    detail = lambda exp: '' if secret else f': lane {shown(lv)}, required {shown(exp)}'
+    if rule == 'rebase-set':
+        want = {u.replace(MAIN_ORIGIN, o) for u in (mv or '').split(',') if u}
+        have = {u for u in (lv or '').split(',') if u}
+        if mv is None or lv is None or want != have:
+            return (f'{svc}: {k} differs from main rebased onto the lane origin '
+                    f'(missing {sorted(shown(u) for u in want - have)}, extra {sorted(shown(u) for u in have - want)})')
+        exp = lv
+    elif rule and rule.startswith('lane-env:'):
+        name = rule.split(':', 1)[1]
+        le, me = ctx['lane_env'].get(name, ''), ctx['main_env'].get(name, '')
+        if not le or le == me:
+            return f'{svc}: {k}: the lane .env {name} is empty or equal to main\'s; a lane needs its own'
+        exp = le
+    elif rule and rule.startswith('in-url:'):
+        name = rule.split(':', 1)[1]
+        le, me = ctx['lane_env'].get(name, ''), ctx['main_env'].get(name, '')
+        if not le or le == me:
+            return f'{svc}: {k}: the lane .env {name} is empty or equal to main\'s; a lane needs its own'
+        if not mv or mv.count(me) != 1:
+            return f'{svc}: {k}: main\'s value does not hold its {name} exactly once; cannot derive the lane value'
+        exp = mv.replace(me, le)
+    elif rule and rule.startswith('value:'):
+        exp = rule.split(':', 1)[1]
+    elif rule == 'rebase':
+        exp = mv.replace(MAIN_ORIGIN, o) if isinstance(mv, str) else mv
+    else:
+        exp = mv
+    ok = lv == exp or (gen_rules.get((svc, k)) == 'bare-origin' and lv == o)
+    if not ok:
+        what = 'missing on the lane' if lv is None else 'missing on main' if mv is None else 'differs from main'
+        return f'{svc}: {k} {what}{detail(exp)}'
+    if isinstance(lv, str) and (MAIN_ORIGIN in lv or '136-85-1-126' in lv or PUBLIC_IP in lv):
+        return f'{svc}: {k} names the main lane\'s origin'
+    if rule is None and lv == mv and (svc, k) not in SHARED_WITH_MAIN and looks_secret(k, lv):
+        return f'{svc}: {k} holds the same secret-looking value as main; a lane shares only {sorted(n for _, n in SHARED_WITH_MAIN)}'
+    return None
+
+
+def _structure(svc, ms, ls, main_r, lane_r, ctx):
+    """Derived rules for the skipped structural fields (today's fixes were partly structural)."""
+    fails = []
+    internal = lambda r, n: bool(((r.get('networks') or {}).get(n) or {}).get('internal'))
+    if any(not internal(main_r, n) for n in (ms.get('networks') or {})) and \
+            all(internal(lane_r, n) for n in (ls.get('networks') or {})):
+        fails.append(f'{svc}: main\'s {svc} can reach the internet, the lane\'s is only on internal networks '
+                     f'(join the lane edge network)')
+    host = re.sub(r'^https://([^:/]+).*$', r'\1', ctx['origin'])
+    if any(isinstance(v, str) and f'://{host}' in v for v in (ls.get('environment') or {}).values()):
+        hosts = [h.replace(':', '=', 1) if '=' not in h else h for h in (ls.get('extra_hosts') or [])]
+        if f'{host}={ctx["ts_ip"]}' not in hosts:
+            fails.append(f'{svc}: names the lane host in its settings but has no host entry for it '
+                         f'({host} to the VM tailnet address); it cannot fetch its own URLs')
+    return fails
+
+
+def compare_service(svc, ms, ls, main_r, lane_r, ctx):
+    fails = []
+    for f in sorted((set(ms) | set(ls)) - PARITY_SKIP_FIELDS - {'environment'}):
+        if ms.get(f) != ls.get(f):
+            fails.append(f'{svc}: {f} differs from main')
+    me, le = ms.get('environment') or {}, ls.get('environment') or {}
+    for k in sorted(set(me) | set(le)):
+        d = _env_diff(svc, k, me.get(k), le.get(k), ctx)
+        if d:
+            fails.append(d)
+    return fails + _structure(svc, ms, ls, main_r, lane_r, ctx)
+
+
+def _flatten(name, svc):
+    out = {}
+    for f, v in (svc or {}).items():
+        if f == 'environment' and isinstance(v, dict):
+            for k, ev in v.items():
+                out[f'{name}.environment.{k}'] = ev
+        elif isinstance(v, list) and v and all(isinstance(x, dict) and 'target' in x for x in v):
+            for x in v:
+                out[f'{name}.{f}[{x["target"]}]'] = x
+        else:
+            out[f'{name}.{f}'] = v
+    return out
+
+
+def override_contributions(base, full):
+    """Every path main's own compose files change or add beyond the upstream file, at field level."""
+    paths = []
+    bs, fs = base.get('services') or {}, full.get('services') or {}
+    for s in sorted(set(bs) | set(fs)):
+        b, f = _flatten(s, bs.get(s)), _flatten(s, fs.get(s))
+        paths += [p for p in sorted(set(b) | set(f)) if b.get(p) != f.get(p)]
+    for k in sorted((set(base) | set(full)) - {'services', 'name'}):
+        bk, fk = base.get(k) or {}, full.get(k) or {}
+        if isinstance(bk, dict) and isinstance(fk, dict):
+            paths += [f'{k}.{x}' for x in sorted(set(bk) | set(fk)) if bk.get(x) != fk.get(x)]
+        elif bk != fk:
+            paths.append(k)
+    return paths
+
+
+def classify(path):
+    """Why a main-override path is fine for lanes, or None (the tripwire)."""
+    svc = re.split(r'[.\[]', path, 1)[0]
+    if svc in PARITY_SERVICES:
+        return 'compared by parity'
+    m = re.fullmatch(r'functions\.environment\.([A-Za-z0-9_]+)', path)
+    if m and m.group(1) in FN_ENV_ALLOW | FN_ENV_REGENERATE | FN_ENV_LANE_OWN | FN_ENV_NOT_IN_LANES:
+        return 'function env (P1672 deny by default)'
+    return OVERRIDE_CLASSIFIED.get(path)
+
+
+def container_drift(svc_render, require_running):
+    """A container against the config it was rendered from: image and env. Env the image itself bakes in
+    is not a difference. Report lines never print a secret."""
+    name = svc_render.get('container_name')
+    p = run(['docker', 'inspect', name], check=False)
+    if p.returncode != 0:
+        return [f'{name}: container does not exist']
+    c = json.loads(p.stdout)[0]
+    fails = []
+    if require_running and not c.get('State', {}).get('Running'):
+        fails.append(f'{name}: container is not running')
+    if c['Config'].get('Image') != svc_render.get('image'):
+        fails.append(f'{name}: runs image {c["Config"].get("Image")!r}, its config says {svc_render.get("image")!r}')
+    cenv = dict(e.split('=', 1) for e in c['Config'].get('Env') or [] if '=' in e)
+    ip = run(['docker', 'image', 'inspect', c['Config'].get('Image', ''), '-f', '{{json .Config.Env}}'], check=False)
+    baked = dict(e.split('=', 1) for e in (json.loads(ip.stdout) or [] if ip.returncode == 0 else []) if '=' in e)
+    want = {k: v for k, v in (svc_render.get('environment') or {}).items() if v is not None}
+    for k in sorted(set(want) | set(cenv)):
+        if k in want and cenv.get(k) != want[k]:
+            fails.append(f'{name}: runs with {k} ' + ('missing' if k not in cenv else 'different from its config file') +
+                         ('' if SECRET_NAME.search(k) else f' ({shown(cenv.get(k))}, config {shown(want[k])})'))
+        elif k not in want and baked.get(k) != cenv[k]:
+            fails.append(f'{name}: runs with {k}, which its config file does not set')
+    return fails
+
+
+def auth_settings(port, anon):
+    p = run(['curl', '-s', '-f', '-m', '10', '-K', '-', f'http://127.0.0.1:{port}/auth/v1/settings'],
+            input=f'header = "apikey: {anon}"\n', check=False)
+    try:
+        return json.loads(p.stdout) if p.returncode == 0 else None
+    except ValueError:
+        return None
+
+
+def parity_report(lane, running=True, settings=True):
+    """(failures, warnings) for the lane against the main lane. running: also its containers. settings: also
+    auth's own /auth/v1/settings through each gateway. Renders and reads only."""
+    fails, warns = [], []
+    try:
+        main_r, main_base, lane_r = render_main(), render_main(['docker-compose.yml']), render_lane(lane)
+    except CheckFailed as e:
+        return [f'render: {e}'], warns
+    ctx = {'origin': origin(lane), 'ts_ip': lane_ts_ip(lane), 'lane_env': lane_env(lane), 'main_env': main_env(),
+           'grandfathered': PARITY_GRANDFATHERED.get((lane, load(lane).get('generation')), {})}
+    for s in PARITY_SERVICES:
+        ms, ls = (main_r.get('services') or {}).get(s), (lane_r.get('services') or {}).get(s)
+        if ms is None or ls is None:
+            fails.append(f'{s}: service missing on {"main" if ms is None else "the lane"}')
+            continue
+        fails += compare_service(s, ms, ls, main_r, lane_r, ctx)
+    for p in override_contributions(main_base, main_r):
+        if not classify(p):
+            fails.append(f'tripwire: the main lane sets {p}, which lanectl has not classified. Decide whether lanes '
+                         f'need it, then add a rule or a classification (OVERRIDE_CLASSIFIED, FN_ENV_*)')
+    if running:
+        for s in PARITY_SERVICES:
+            if s in (lane_r.get('services') or {}):
+                fails += container_drift(lane_r['services'][s], require_running=True)
+            if s in (main_r.get('services') or {}):   # main-lane upkeep: reported, never a lane failure
+                warns += [f'main lane: {w}' for w in container_drift(main_r['services'][s], require_running=True)]
+    if settings:
+        me, le = ctx['main_env'], ctx['lane_env']
+        lane_s = auth_settings(LANES[lane]['kong_port'], le.get('ANON_KEY', ''))
+        main_s = auth_settings(me.get('KONG_HTTP_PORT', '8000'), me.get('ANON_KEY', ''))
+        if lane_s is None:
+            fails.append('auth settings: the lane auth server did not answer /auth/v1/settings through its gateway')
+        elif main_s is None:
+            warns.append('auth settings: the main lane did not answer /auth/v1/settings; not compared')
+        elif lane_s != main_s:
+            keys = sorted(k for k in set(lane_s) | set(main_s) if lane_s.get(k) != main_s.get(k))
+            ext = sorted(k for k in set(lane_s.get('external') or {}) | set(main_s.get('external') or {})
+                         if (lane_s.get('external') or {}).get(k) != (main_s.get('external') or {}).get(k))
+            fails.append(f'auth settings: the lane auth server answers differently from main ({", ".join(keys)}'
+                         f'{"; sign-in providers " + ", ".join(ext) if ext else ""})')
+    return fails, warns
+
+
+def report_parity(lane, fails, warns):
+    for w in warns:
+        say(f'PARITY WARNING: {w}')
+    for f in fails:
+        print(f'PARITY FAILED: {f}', flush=True)
 
 
 # --- database copy ---------------------------------------------------------------------------------
@@ -1008,11 +1342,14 @@ def lift(lane):
 def _lift(lane):
     st = load(lane)
     fails = outbound_check(lane)
-    if fails:
+    pfails, pwarns = parity_report(lane)   # P1724: sign-in and mail must match the main lane's
+    report_parity(lane, pfails, pwarns)
+    if fails or pfails:
         for f in fails:
             say(f'CHECK FAILED: {f}')
-        event(lane, f'gen {st["generation"]}: lift refused ({len(fails)} failure(s))')
-        raise CheckFailed(f'{lane} is quarantined: {len(fails)} outbound check failure(s)')
+        event(lane, f'gen {st["generation"]}: lift refused ({len(fails)} outbound, {len(pfails)} parity failure(s))')
+        raise CheckFailed(f'{lane} is quarantined: {len(fails)} outbound check failure(s), '
+                          f'{len(pfails)} difference(s) from the main lane')
     try:
         compose(lane, 'up', '-d', 'functions', timeout=300)
         wait_healthy(lane, ['functions'])
@@ -1050,6 +1387,13 @@ def deploy(lane, tarball):
     quarantine first and is lifted again only through the outbound check (spec invariant)."""
     was_ready = not load(lane).get('quarantined')
     if was_ready:
+        # P1724: a ready lane that would fail the lift's parity check is refused here, while it still
+        # serves, instead of being quarantined by a lift that cannot pass.
+        pfails, pwarns = parity_report(lane)
+        report_parity(lane, pfails, pwarns)
+        if pfails:
+            raise CheckFailed(f'deploy refused: {lane} differs from the main lane in {len(pfails)} place(s) and could '
+                              f'not be lifted again; it keeps serving the code it has')
         quarantine(lane)
     vol = ldir(lane) / 'volumes/functions'
     vol.mkdir(parents=True, exist_ok=True)
@@ -1142,6 +1486,11 @@ def provision(lane, gen):
     (d / 'lane.yml').write_text(lane_yml(lane, host, ts_ip))
     (d / 'ts_ip').write_text(ts_ip + '\n')
     compose(lane, 'config', '--quiet')
+    # P1724: the written config must match the main lane's sign-in and mail before anything runs or copies.
+    pfails, pwarns = parity_report(lane, running=False, settings=False)
+    report_parity(lane, pfails, pwarns)
+    if pfails:
+        raise RuntimeError(f'{lane}: the generated config differs from the main lane in {len(pfails)} place(s)')
     fw_apply(lane)
     say(f'{lane}: copying the main-lane database (online backup)')
     copy_main_db(lane)
@@ -1155,6 +1504,10 @@ def provision(lane, gen):
     compose(lane, 'up', '-d', *[s for s in SERVICES_UP if s != 'db'], timeout=600)
     compose(lane, 'create', 'functions', timeout=300)
     wait_healthy(lane, [s for s in SERVICES_UP if s != 'db'])
+    pfails, pwarns = parity_report(lane)   # P1724: now the running containers and auth's own answer
+    report_parity(lane, pfails, pwarns)
+    if pfails:
+        raise RuntimeError(f'{lane}: the running lane differs from the main lane in {len(pfails)} place(s)')
     event(lane, f'gen {gen}: provisioned (quarantined)')
     say(f'{lane}: provisioned and quarantined. Next: deploy, migrate, lift.')
 
@@ -1376,11 +1729,28 @@ def main(argv):
             with Lock(lane, shared=True):
                 held(lane, gen)
                 fails = outbound_check(lane)
+                pfails, pwarns = parity_report(lane)
             for f in fails:
                 print(f'CHECK FAILED: {f}')
-            if fails:
+            report_parity(lane, pfails, pwarns)
+            if fails or pfails:
                 return 3
             print('outbound check: pass')
+            print('parity with the main lane: pass')
+        elif cmd == 'parity':
+            # Read-only and generation-free: anyone may ask whether a lane still matches the main lane.
+            if lane not in LANES:
+                raise Refused(f'unknown lane {lane!r}')
+            with Lock(lane, shared=True):
+                st = load(lane)
+                if st.get('state') in ('free', 'draining'):
+                    raise Refused(f'{lane} is {st.get("state")}; there is nothing to compare')
+                pfails, pwarns = parity_report(lane, running='--config-only' not in args,
+                                               settings='--config-only' not in args)
+            report_parity(lane, pfails, pwarns)
+            if pfails:
+                return 3
+            print(f'{lane}: parity with the main lane: pass')
         elif cmd == 'deploy':
             tb = opt(args, '--tarball')
             if not tb or not re.fullmatch(r'/tmp/cp-functions-[0-9]+-[0-9]+\.tgz', tb):
@@ -1455,6 +1825,13 @@ def main(argv):
                         if cmd == 'boot':
                             compose(l, 'up', '-d', *[s for s in SERVICES_UP], timeout=600)
                             if not st.get('quarantined'):
+                                # P1724: a serving lane must still match the main lane, which may have changed
+                                # while the VM was down. Auth's own answer is left to the next lift: it may
+                                # not be up yet.
+                                pfails, pwarns = parity_report(l, settings=False)
+                                report_parity(l, pfails, pwarns)
+                                if pfails:
+                                    raise RuntimeError(f'{len(pfails)} difference(s) from the main lane')
                                 compose(l, 'up', '-d', 'functions', timeout=300)
                             else:   # quarantined: whatever started it, functions stay down and cron stays off
                                 compose(l, 'stop', 'functions', check=False)

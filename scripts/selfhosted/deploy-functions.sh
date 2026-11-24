@@ -449,6 +449,10 @@ if [ "$IS_LANE" = 1 ]; then
   full_flag=""; [ "${#FUNCTION_NAMES[@]}" -gt 0 ] || full_flag=" --full"
   lane_rc=0
   vm_ssh "sudo $CP_TEST_LANECTL deploy $LANE_ARGS --tarball $(printf '%q' "$REMOTE_TGZ")$full_flag; rc=\$?; rm -f $(printf '%q' "$REMOTE_TGZ"); exit \$rc" || lane_rc=$?
+  # exit 3 = a check failed, at one of two points: the parity preflight on a ready lane (P1724: "deploy
+  # refused", nothing deployed, the lane keeps serving) or the lift after the deploy (files on the lane,
+  # lane quarantined). lanectl's own lines above say which.
+  [ "$lane_rc" -ne 3 ] || die "lanectl deploy on $CP_TEST_LANE stopped on a failed check (exit 3): see the CHECK FAILED and PARITY FAILED lines above. On 'deploy refused' nothing was deployed and the lane still serves; otherwise the lane is quarantined."
   [ "$lane_rc" -eq 0 ] || die "lanectl deploy failed on $CP_TEST_LANE (exit $lane_rc). The files may be on the lane; the deploy is not verified."
   echo "Deployed to lane $CP_TEST_LANE generation $CP_TEST_GEN ($EXPECTED_URL). Self-hosted lane only: main lane, hosted project and deploy manifest untouched."
   exit 0

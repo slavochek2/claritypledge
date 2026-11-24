@@ -1,0 +1,391 @@
+#!/usr/bin/env python3
+"""scripts/test-p1724-lane-parity.py: hermetic canary for the lane parity check (P1724).
+
+No VM, no docker, no network: lanectl is imported by path with its state under a temp dir
+(CP_LANES_ROOT), and every docker- or system-facing function is replaced by a stub. Covers what the
+live lane2 proof cannot reach (scripts/selfhosted/lanes/vm/p1724_live_proof.py):
+  * the rules: accept good input, refuse each defect class, never print a secret;
+  * the tripwire on paths the main lane does not set today (a new child under a classified service);
+  * every entry point: provision stops before the firewall and the database copy and ends failed, lift
+    quarantines, a deploy to a ready lane is refused before quarantining, boot quarantines, check and
+    parity exit 3, and a missing relay list leaves provisioning failed rather than stuck.
+Each refusal has its control: the same input made good passes, so a refusal is not a fixture artifact.
+Exit 0 when every case passes.
+"""
+import contextlib
+import importlib.util
+import io
+import json
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+TMP = Path(tempfile.mkdtemp(prefix='p1724-canary-'))
+os.environ['CP_LANES_ROOT'] = str(TMP / 'lanes')
+SRC = Path(__file__).resolve().parent / 'selfhosted/lanes/vm/lanectl.py'
+spec = importlib.util.spec_from_file_location('lanectl_under_test', SRC)
+L = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(L)
+
+PASS = FAIL = 0
+
+
+def check(cond, name):
+    global PASS, FAIL
+    if cond:
+        PASS += 1
+        print(f'  PASS  {name}')
+    else:
+        FAIL += 1
+        print(f'  FAIL  {name}')
+
+
+@contextlib.contextmanager
+def patched(**kw):
+    old = {k: getattr(L, k) for k in kw}
+    for k, v in kw.items():
+        setattr(L, k, v)
+    try:
+        yield
+    finally:
+        for k, v in old.items():
+            setattr(L, k, v)
+
+
+def captured(fn, *a, **kw):
+    out, err = io.StringIO(), io.StringIO()
+    exc = None
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        try:
+            res = fn(*a, **kw)
+        except BaseException as e:   # noqa: BLE001  (the test inspects whatever escaped)
+            res, exc = None, e
+    return res, exc, out.getvalue() + err.getvalue()
+
+
+# ---- fixture values (synthetic; none is a real secret)
+MO = L.MAIN_ORIGIN
+LO = 'https://lanehost.example.ts.net:8443'
+TS_IP = '100.64.0.9'
+MAIN_JWT, LANE_JWT = 'main-jwt-secret-0123456789abcdefXYZ', 'lane-jwt-secret-9876543210fedcbaQRS'  # gitleaks:allow
+MAIN_PW, LANE_PW = 'mainPw0123456789abcdef', 'lanePw9876543210fedcba'
+GOOGLE_SECRET = 'GOC' + 'SPX-sharedGoogleSecret0123456789'  # vendor-shaped: built at run time, never a literal (P1726)
+OTHER_SECRET = 'smtpPass0123456789abcdefghij'
+SECRETS = [MAIN_JWT, LANE_JWT, MAIN_PW, LANE_PW, GOOGLE_SECRET, OTHER_SECRET]
+
+
+def main_auth():
+    return {
+        'API_EXTERNAL_URL': f'{MO}/auth/v1', 'GOTRUE_JWT_ISSUER': f'{MO}/auth/v1', 'GOTRUE_SITE_URL': MO,
+        'GOTRUE_EXTERNAL_GOOGLE_ENABLED': 'true', 'GOTRUE_EXTERNAL_GOOGLE_SECRET': GOOGLE_SECRET,
+        'GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID': '1234-abc.apps.' + 'googleusercontent.com',
+        'GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI': f'{MO}/auth/v1/callback',
+        'GOTRUE_URI_ALLOW_LIST': f'http://localhost:5001/**,,{MO}/**',
+        'GOTRUE_JWT_SECRET': MAIN_JWT,
+        'GOTRUE_DB_DATABASE_URL': f'postgres://supabase_auth_admin:{MAIN_PW}@db.example.com:5432/postgres',  # gitleaks:allow (synthetic fixture)
+        'GOTRUE_SMTP_HOST': 'supabase-mail', 'GOTRUE_SMTP_PASS': '',
+        'GOTRUE_MAILER_TEMPLATES_MAGIC_LINK': f'{MO}/_cp-email-templates/magic_link.html',
+    }
+
+
+def lane_auth():
+    return {
+        'API_EXTERNAL_URL': f'{LO}/auth/v1', 'GOTRUE_JWT_ISSUER': f'{LO}/auth/v1', 'GOTRUE_SITE_URL': LO,
+        'GOTRUE_EXTERNAL_GOOGLE_ENABLED': 'true', 'GOTRUE_EXTERNAL_GOOGLE_SECRET': GOOGLE_SECRET,
+        'GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID': '1234-abc.apps.' + 'googleusercontent.com',
+        'GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI': f'{LO}/auth/v1/callback',
+        'GOTRUE_URI_ALLOW_LIST': f'{LO}/**,http://localhost:5001/**',
+        'GOTRUE_JWT_SECRET': LANE_JWT,
+        'GOTRUE_DB_DATABASE_URL': f'postgres://supabase_auth_admin:{LANE_PW}@db.example.com:5432/postgres',  # gitleaks:allow (synthetic fixture)
+        'GOTRUE_SMTP_HOST': 'mail', 'GOTRUE_SMTP_PASS': '',
+        'GOTRUE_MAILER_TEMPLATES_MAGIC_LINK': f'{LO}/_cp-email-templates/magic_link.html',
+    }
+
+
+def ctx(grand=None):
+    return {'origin': LO, 'ts_ip': TS_IP, 'grandfathered': grand or {},
+            'lane_env': {'JWT_SECRET': LANE_JWT, 'POSTGRES_PASSWORD': LANE_PW},
+            'main_env': {'JWT_SECRET': MAIN_JWT, 'POSTGRES_PASSWORD': MAIN_PW}}
+
+
+NETS_MAIN = {'networks': {'default': {}}}
+NETS_LANE = {'networks': {'default': {'internal': True}, 'edge': {}}}
+
+
+def svc(env, nets=('default', 'edge'), hosts=('lanehost.example.ts.net:100.64.0.9',)):
+    return {'image': 'supabase/gotrue:v2', 'environment': env, 'networks': {n: {} for n in nets},
+            'extra_hosts': list(hosts)}
+
+
+def auth_fails(lane_env, main_env=None, c=None, **kw):
+    ms = {'image': 'supabase/gotrue:v2', 'environment': main_env or main_auth(), 'networks': {'default': {}}}
+    return L.compare_service('auth', ms, svc(lane_env, **kw), NETS_MAIN, NETS_LANE, c or ctx())
+
+
+def no_secret(lines):
+    text = '\n'.join(lines)
+    return not any(s in text for s in SECRETS)
+
+
+print('rules')
+f = auth_fails(lane_auth())
+check(f == [], f'control: a correct lane auth passes ({f})')
+
+for key, mutate, why in [
+    ('GOTRUE_EXTERNAL_GOOGLE_ENABLED', lambda e: e.pop('GOTRUE_EXTERNAL_GOOGLE_ENABLED'), 'missing on the lane'),
+    ('GOTRUE_EXTERNAL_GOOGLE_ENABLED', lambda e: e.update(GOTRUE_EXTERNAL_GOOGLE_ENABLED=''), 'blank is not an override'),
+    ('GOTRUE_MAILER_TEMPLATES_MAGIC_LINK', lambda e: e.update(GOTRUE_MAILER_TEMPLATES_MAGIC_LINK=f'{MO}/_cp-email-templates/magic_link.html'),
+     "a template URL left on main's origin"),
+    ('GOTRUE_EXTRA_NEW', lambda e: e.update(GOTRUE_EXTRA_NEW='1'), 'a key present on the lane only'),
+    ('GOTRUE_SMTP_HOST', lambda e: e.update(GOTRUE_SMTP_HOST='supabase-mail'), "main's mail container instead of the lane's"),
+    ('GOTRUE_URI_ALLOW_LIST', lambda e: e.update(GOTRUE_URI_ALLOW_LIST=f'{LO}/**'), 'an allow-list entry dropped'),
+    ('GOTRUE_SITE_URL', lambda e: e.update(GOTRUE_SITE_URL=LO + '/x'), 'a rebased URL that is not main rebased'),
+]:
+    e = lane_auth()
+    mutate(e)
+    f = auth_fails(e)
+    check(any(key in x for x in f), f'refused: {why} ({len(f)} line(s))')
+
+e = lane_auth()
+e['GOTRUE_JWT_SECRET'] = MAIN_JWT
+f = auth_fails(e)
+check(any('GOTRUE_JWT_SECRET' in x for x in f) and no_secret(f), 'refused: the lane signs with main\'s JWT secret (not printed)')
+c = ctx()
+c['lane_env']['JWT_SECRET'] = MAIN_JWT
+f = auth_fails(lane_auth() | {'GOTRUE_JWT_SECRET': MAIN_JWT}, c=c)
+check(any('empty or equal' in x for x in f), "refused: the lane .env JWT secret equals main's")
+c = ctx()
+c['lane_env']['POSTGRES_PASSWORD'] = ''
+f = auth_fails(lane_auth(), c=c)
+check(any('GOTRUE_DB_DATABASE_URL' in x for x in f), 'refused: an empty lane database password')
+e = lane_auth()
+e['GOTRUE_DB_DATABASE_URL'] = f'postgres://supabase_auth_admin:{LANE_PW}@otherdb.example.com:5432/postgres'  # gitleaks:allow (synthetic fixture)
+f = auth_fails(e)
+check(any('GOTRUE_DB_DATABASE_URL' in x for x in f) and no_secret(f), 'refused: a database URL that differs beyond the password')
+
+m_env, l_env = main_auth(), lane_auth()
+m_env['GOTRUE_SMTP_PASS'] = l_env['GOTRUE_SMTP_PASS'] = OTHER_SECRET
+f = auth_fails(l_env, m_env)
+check(any('GOTRUE_SMTP_PASS' in x and 'same secret-looking value' in x for x in f) and no_secret(f),
+      'refused: a secret shared with main that is not on the shared list (not printed)')
+m_env['GOTRUE_SMTP_PASS'] = l_env['GOTRUE_SMTP_PASS'] = ''
+check(auth_fails(l_env, m_env) == [], 'control: the Google client, which is on the shared list, passes')
+m_env['GOTRUE_SOME_ID'] = l_env['GOTRUE_SOME_ID'] = 'AbCdEf0123456789GhIjKl0123'
+f = auth_fails(l_env, m_env)
+check(any('GOTRUE_SOME_ID' in x for x in f), 'refused: a token-shaped value under an innocent name, shared with main')
+
+e = lane_auth()
+e['API_EXTERNAL_URL'] = e['GOTRUE_JWT_ISSUER'] = LO
+f = auth_fails(e)
+check(len([x for x in f if 'API_EXTERNAL_URL' in x or 'GOTRUE_JWT_ISSUER' in x]) == 2, 'refused: the bare origin as API URL on a new lane')
+g = {('auth', 'API_EXTERNAL_URL'): 'bare-origin', ('auth', 'GOTRUE_JWT_ISSUER'): 'bare-origin'}
+check(auth_fails(e, c=ctx(g)) == [], 'control: the bare origin is accepted for the grandfathered generation')
+check(L.PARITY_GRANDFATHERED == {('lane1', 6): g}, 'the bare-origin exception is scoped to lane1 generation 6 only')
+
+f = auth_fails(lane_auth(), nets=('default',))
+check(any('only on internal networks' in x for x in f), 'refused: auth only on the internal lane network')
+f = auth_fails(lane_auth(), hosts=())
+check(any('no host entry' in x for x in f), 'refused: no host entry for the lane host')
+check(auth_fails(lane_auth(), hosts=('lanehost.example.ts.net=100.64.0.9',)) == [], 'control: the host=ip form of a host entry passes')
+f = auth_fails(lane_auth(), hosts=('lanehost.example.ts.net:100.64.0.99',))
+check(any('no host entry' in x for x in f), 'refused: a host entry pointing at the wrong address')
+
+ms = {'image': 'axllent/mailpit:v1', 'environment': {'MP_MAX_MESSAGES': '5000', 'MP_SMTP_RELAY_MATCHING': 'a@x'}, 'networks': {'default': {}}}
+ls = {'image': 'axllent/mailpit:v1', 'environment': {'MP_MAX_MESSAGES': '2000', 'MP_SMTP_RELAY_MATCHING': 'a@x'}, 'networks': {'default': {}, 'edge': {}}}
+check(L.compare_service('mail', ms, ls, NETS_MAIN, NETS_LANE, ctx()) == [], 'control: mail with the 2000 cap passes')
+ls['environment']['MP_MAX_MESSAGES'] = '1999'
+check(L.compare_service('mail', ms, ls, NETS_MAIN, NETS_LANE, ctx()) != [], 'refused: any mail cap other than exactly 2000')
+ls['environment']['MP_MAX_MESSAGES'] = '2000'
+ls['image'] = 'axllent/mailpit:v2'
+check(any('image' in x for x in L.compare_service('mail', ms, ls, NETS_MAIN, NETS_LANE, ctx())), 'refused: a different image')
+
+m_env, l_env = main_auth(), lane_auth()
+m_env['GOTRUE_SMS_PIN_SECRET'], l_env['GOTRUE_SMS_PIN_SECRET'] = '424242', '515151'
+f = auth_fails(l_env, m_env)
+check(any('GOTRUE_SMS_PIN_SECRET' in x for x in f) and not any('424242' in x or '515151' in x for x in f),
+      'a secret-named value is never printed, even when it looks public (a numeric PIN)')
+check(L.shown('postgres://u:pw@db:5432/x') == '<25 chars>', 'a URL with credentials is never shown')
+check(L.shown(GOOGLE_SECRET).startswith('<'), 'a secret value is shown by length only')
+check(L.shown('true') == "'true'" and L.shown(f'{LO}/auth/v1') == repr(f'{LO}/auth/v1'), 'public shapes are shown')
+
+print('tripwire')
+base = {'services': {'caddy': {'image': 'caddy:2'}, 'functions': {'environment': {}}}}
+full = {'services': {'caddy': {'image': 'caddy:2', 'environment': {'NEW': 'x'}}, 'functions': {'environment': {'LIVEKIT_URL': 'u'}},
+                     'brandnew': {'image': 'x'}}, 'x-top': {'a': 1}}
+paths = L.override_contributions(base, full)
+unclassified = [p for p in paths if not L.classify(p)]
+check('caddy.environment.NEW' in unclassified, 'a new child under a classified service (caddy) is unclassified')
+check('brandnew.image' in unclassified, 'a new service is flattened and unclassified')
+check('x-top.a' in unclassified, 'a new top-level key is unclassified')
+check('functions.environment.LIVEKIT_URL' not in unclassified, 'control: a deny-by-default function env name is classified')
+check(L.classify('functions.environment.SOMETHING_NEW') is None, 'a new function env name is unclassified')
+check(L.classify('kong.ports[8443]') and L.classify('kong.ports[9999]') is None, 'ports are classified per target, not per field')
+
+print('render and settings')
+with patched(run=lambda *a, **k: type('P', (), {'returncode': 1, 'stdout': '', 'stderr': f'bad value {MAIN_PW}'})()):
+    _, exc, out = captured(L.render_main, ['docker-compose.yml'])
+check(isinstance(exc, L.CheckFailed) and MAIN_PW not in str(exc) and 'exit 1' in str(exc), 'a failed render reports the exit code, never docker\'s text')
+
+GOOD_R = {'services': {'auth': svc(lane_auth()) | {'container_name': 'cp-lane1-auth'},
+                       'mail': {'image': 'm', 'environment': {}, 'networks': {'default': {}, 'edge': {}}}},
+          'networks': NETS_LANE['networks']}
+MAIN_R = {'services': {'auth': {'image': 'supabase/gotrue:v2', 'environment': main_auth(), 'networks': {'default': {}},
+                                'container_name': 'supabase-auth'},
+                       'mail': {'image': 'm', 'environment': {}, 'networks': {'default': {}}}},
+          'networks': NETS_MAIN['networks']}
+
+
+def stub_report(lane_s, main_s, drift=()):
+    return dict(render_main=lambda files=None: MAIN_R if files is None else {'services': {}},
+                render_lane=lambda lane: GOOD_R, origin=lambda lane: LO, lane_ts_ip=lambda lane: TS_IP,
+                lane_env=lambda lane: {'JWT_SECRET': LANE_JWT, 'POSTGRES_PASSWORD': LANE_PW, 'ANON_KEY': 'a'},
+                main_env=lambda: {'JWT_SECRET': MAIN_JWT, 'POSTGRES_PASSWORD': MAIN_PW, 'ANON_KEY': 'b'},
+                load=lambda lane: {'lane': lane, 'state': 'ready', 'generation': 2},
+                container_drift=lambda s, require_running: list(drift),
+                auth_settings=lambda port, anon: lane_s if anon == 'a' else main_s,
+                override_contributions=lambda b, f: [])
+
+
+S = {'external': {'google': True, 'email': True}, 'mailer_autoconfirm': False}
+with patched(**stub_report(S, S)):
+    f, w = L.parity_report('lane1')
+check(f == [] and w == [], f'control: identical settings and clean containers pass ({f})')
+with patched(**stub_report({'external': {'google': False, 'email': True}, 'mailer_autoconfirm': False}, S)):
+    f, w = L.parity_report('lane1')
+check(any('sign-in providers google' in x for x in f), 'refused: the lane auth server answers with Google off')
+with patched(**stub_report(None, S)):
+    f, w = L.parity_report('lane1')
+check(any('did not answer' in x for x in f), 'refused: the lane auth server does not answer')
+with patched(**stub_report(S, None)):
+    f, w = L.parity_report('lane1')
+check(f == [] and any('main lane did not answer' in x for x in w), 'main not answering is a warning, not a lane failure')
+with patched(**stub_report(S, S) | {'override_contributions': lambda b, f: ['caddy.environment.NEW', 'caddy.image']}):
+    f, w = L.parity_report('lane1')
+check(any('tripwire' in x and 'caddy.environment.NEW' in x for x in f) and not any('caddy.image' in x for x in f),
+      'parity_report fails on an unclassified main-lane path, and only on that one')
+with patched(**stub_report(S, S, drift=['cp-lane1-auth: container is not running'])):
+    f, w = L.parity_report('lane1')
+check(any('not running' in x for x in f) and any(x.startswith('main lane:') for x in w), 'container drift: a lane failure, a main-lane warning')
+
+print('entry points')
+STATE = L.STATE
+STATE.mkdir(parents=True, exist_ok=True)
+calls = []
+
+
+def rec(name, ret=None):
+    def fn(*a, **k):
+        calls.append((name,) + tuple(str(x) for x in a))
+        return ret
+    return fn
+
+
+def set_state(**kw):
+    st = {'lane': 'lane1', 'state': 'ready', 'generation': 1, 'quarantined': False,
+          'lease_expires_at': int(time.time()) + 3600} | kw
+    L.save(st)
+
+
+DIFF = (['auth: GOTRUE_EXTERNAL_GOOGLE_ENABLED missing on the lane'], [])
+# Everything provision does after the gate, stubbed, so a regression that lets it past fails fast
+# (the test then sees fw_apply in the calls) instead of polling a stub for minutes.
+LATER_STEPS = dict(held=lambda lane, gen, states=(): L.load(lane), wait_healthy=rec('wait_healthy'),
+                   configure_lane_db=rec('configure_lane_db'), event=rec('event'))
+os_geteuid = os.geteuid
+os.geteuid = lambda: 0
+try:
+    # provision: stops after writing config, before the firewall and the database copy
+    set_state(state='provisioning', quarantined=True)
+    calls.clear()
+    lanes_dir = TMP / 'lanes'
+    with patched(ts_identity=lambda: ('lanehost.example.ts.net', TS_IP), teardown=rec('teardown'),
+                 MAIN_DIR=TMP / 'main', run=rec('run', type('P', (), {'stdout': str(TMP), 'returncode': 0})()),
+                 write_lane_env=rec('write_lane_env'), write_functions_env=rec('write_functions_env'),
+                 lane_yml=lambda *a: 'x', compose=rec('compose'), parity_report=lambda *a, **k: DIFF,
+                 fw_apply=rec('fw_apply'), copy_main_db=rec('copy_main_db'), **LATER_STEPS):
+        (TMP / 'main/volumes/api').mkdir(parents=True, exist_ok=True)
+        (TMP / 'main/volumes/db').mkdir(parents=True, exist_ok=True)
+        for fn in ('kong.yml', 'kong-entrypoint.sh'):
+            (TMP / 'main/volumes/api' / fn).write_text('x')
+        _, exc, out = captured(L.main, ['provision', '--lane', 'lane1', '--gen', '1'])
+    names = [c[0] for c in calls]
+    check(isinstance(exc, RuntimeError) and 'PARITY FAILED' in out, 'provision: a difference stops it, reported as PARITY FAILED')
+    check('fw_apply' not in names and 'copy_main_db' not in names, f'provision: never reaches the firewall or the database copy ({names})')
+    check(L.load('lane1')['state'] == 'failed', 'provision: the lane ends failed')
+
+    # provision: a main lane with no relay list leaves it failed, not stuck in provisioning
+    set_state(state='provisioning', quarantined=True)
+    (TMP / 'main/docker-compose.override.yml').write_text('services:\n  mail:\n    environment:\n      MP_MAX_MESSAGES: 5\n')
+    with patched(ts_identity=lambda: ('lanehost.example.ts.net', TS_IP), teardown=rec('teardown'),
+                 MAIN_DIR=TMP / 'main', run=rec('run', type('P', (), {'stdout': str(TMP), 'returncode': 0})()),
+                 write_lane_env=rec('write_lane_env'), write_functions_env=rec('write_functions_env'),
+                 compose=rec('compose'), fw_apply=rec('fw_apply'), copy_main_db=rec('copy_main_db'), **LATER_STEPS):
+        _, exc, out = captured(L.main, ['provision', '--lane', 'lane1', '--gen', '1'])
+    check(isinstance(exc, RuntimeError) and 'MP_SMTP_RELAY_MATCHING' in str(exc), 'provision: no relay list raises RuntimeError')
+    check(L.load('lane1')['state'] == 'failed', 'provision: no relay list leaves the lane failed')
+
+    # lift: a difference quarantines and functions never start
+    set_state(quarantined=True)
+    calls.clear()
+    with patched(outbound_check=lambda lane: [], parity_report=lambda *a, **k: DIFF, quarantine=rec('quarantine'),
+                 compose=rec('compose'), caddy_route_add=rec('caddy_route_add'), wait_healthy=rec('wait_healthy'),
+                 probe_functions=rec('probe'), lane_psql=lambda *a, **k: type('P', (), {'stdout': ''})()):
+        _, exc, out = captured(L.main, ['lift', '--lane', 'lane1', '--gen', '1'])
+    names = [c[0] for c in calls]
+    check(exc is None and 'quarantine' in names and 'compose' not in names and 'caddy_route_add' not in names,
+          f'lift: a difference quarantines, no functions, no route ({names})')
+    with patched(outbound_check=lambda lane: [], parity_report=lambda *a, **k: ([], []), quarantine=rec('quarantine'),
+                 compose=rec('compose'), wait_healthy=rec('wait_healthy'), probe_functions=rec('probe'),
+                 lane_psql=lambda *a, **k: type('P', (), {'stdout': ''})(), caddy_route_add=rec('caddy_route_add')):
+        (L.ldir('lane1')).mkdir(parents=True, exist_ok=True)
+        calls.clear()
+        _, exc, out = captured(L.main, ['lift', '--lane', 'lane1', '--gen', '1'])
+    check(exc is None and L.load('lane1')['state'] == 'ready' and 'caddy_route_add' in [c[0] for c in calls],
+          'control: lift with no difference makes the lane ready')
+
+    # deploy to a ready lane: refused before quarantine, the lane keeps serving
+    set_state(quarantined=False)
+    tb = Path('/tmp/cp-functions-1-2.tgz')
+    calls.clear()
+    with patched(parity_report=lambda *a, **k: DIFF, quarantine=rec('quarantine'), compose=rec('compose'),
+                 run=rec('run'), lift=rec('lift')):
+        rc, exc, out = captured(L.main, ['deploy', '--lane', 'lane1', '--gen', '1', '--tarball', str(tb)])
+    check(rc == 3 and 'quarantine' not in [c[0] for c in calls] and not L.load('lane1')['quarantined'],
+          f'deploy: refused with exit 3 before quarantine; the lane still serves (rc {rc})')
+
+    # boot: a serving lane that differs is quarantined and its functions are not started
+    set_state(quarantined=False)
+    calls.clear()
+    with patched(fw_apply=rec('fw_apply'), fw_ok=lambda lane: True, compose=rec('compose'),
+                 parity_report=lambda *a, **k: DIFF, quarantine=rec('quarantine')):
+        rc, exc, out = captured(L.main, ['boot'])
+    started_fn = [c for c in calls if c[0] == 'compose' and 'functions' in c and 'up' in c]
+    check(rc == 1 and 'quarantine' in [c[0] for c in calls] and not started_fn, f'boot: a difference quarantines, functions not started (rc {rc})')
+
+    # check and parity: exit 3 on a difference, 0 without
+    set_state(quarantined=False)
+    with patched(outbound_check=lambda lane: [], parity_report=lambda *a, **k: DIFF):
+        rc, exc, out = captured(L.main, ['check', '--lane', 'lane1', '--gen', '1'])
+    check(rc == 3 and 'PARITY FAILED' in out, f'check: exit 3 with PARITY FAILED (rc {rc})')
+    with patched(outbound_check=lambda lane: [], parity_report=lambda *a, **k: ([], [])):
+        rc, exc, out = captured(L.main, ['check', '--lane', 'lane1', '--gen', '1'])
+    check(rc == 0, f'control: check passes with no difference (rc {rc})')
+    with patched(parity_report=lambda *a, **k: DIFF):
+        rc, exc, out = captured(L.main, ['parity', '--lane', 'lane1'])
+    check(rc == 3, f'parity: exit 3 on a difference, no generation needed (rc {rc})')
+    seen = {}
+    with patched(parity_report=lambda lane, running=True, settings=True: seen.update(r=running, s=settings) or ([], [])):
+        rc, exc, out = captured(L.main, ['parity', '--lane', 'lane1', '--config-only'])
+    check(rc == 0 and seen == {'r': False, 's': False}, f'parity --config-only skips containers and settings (rc {rc})')
+    set_state(state='free')
+    rc, exc, out = captured(L.main, ['parity', '--lane', 'lane1'])[0:3]
+    check(rc == 4, f'parity: a free lane is refused (rc {rc})')
+finally:
+    os.geteuid = os_geteuid
+
+print(f'\n{PASS} passed, {FAIL} failed')
+import shutil  # noqa: E402
+shutil.rmtree(TMP, ignore_errors=True)
+sys.exit(1 if FAIL else 0)

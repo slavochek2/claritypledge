@@ -470,7 +470,8 @@ def cmd_claim(root, ttl):
             fail('the branch migrations failed on the lane (it stays quarantined)')
         rc, _ = run_lanectl(['lift', '--lane', lane, '--gen', str(gen)], capture=False)
         if rc != 0:
-            fail('the outbound check did not pass, so the lane stays quarantined')
+            fail('the outbound check or the parity check with the main lane (P1724) did not pass, so the lane '
+                 'stays quarantined; the CHECK FAILED and PARITY FAILED lines above name each problem')
     except Refused:
         if rec['state'] == 'active':   # a refusal from a helper (not from fail()) must not leave an active claim
             rec['state'] = 'failed'
