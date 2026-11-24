@@ -55,20 +55,25 @@ export function splitTags(text: string): { statement: string; tags: string[] } {
   return { statement: stripHashtags(text, tags), tags };
 }
 
-/** A tag no draft carries: put in a #word's place, it shows whether the shared rule reads a hashtag at that spot. */
-const PROBE = 'pprobe1722';
+/** A tag the text does not carry: put in a #word's place, it shows whether the shared rule reads a hashtag at that spot. */
+const probeFor = (text: string): string => {
+  let probe = 'pprobe';
+  while (text.toLowerCase().includes(probe)) probe += 'x';
+  return probe;
+};
 
 /**
  * Removing a tag takes its #word out of the text (the shared P1660 rule). Where that rule keeps the token yet still reads the
  * tag from it (`#ai-powered` gives `ai`), the token loses only its `#`, and only where the shared rule itself reads a hashtag
- * (tried by putting PROBE there), so links, link titles and its other masks are never touched and no wording goes.
+ * (tried by putting a probe tag there), so links, link titles and its other masks are never touched and no wording goes.
  */
 export function removeTag(text: string, tag: string): string {
   const out = stripHashtags(text, [tag]);
   if (!extractHashtags(out).includes(tag)) return out;
+  const probe = probeFor(out);
   return out.replace(/#([\p{L}\p{N}_-]+)/gu, (h: string, word: string, at: number) => {
     if (!extractHashtags(h).includes(tag)) return h;
-    const tried = `${out.slice(0, at)}#${PROBE}${out.slice(at + h.length)}`;
-    return extractHashtags(tried).includes(PROBE) ? word : h;
+    const tried = `${out.slice(0, at)}#${probe}${out.slice(at + h.length)}`;
+    return extractHashtags(tried).includes(probe) ? word : h;
   });
 }

@@ -71,7 +71,7 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
             {/* B drafts from your words only, so there is nothing of theirs to warn about, before creation or after */}
             <Confirm>Created. {draft.visibility === 'private' ? 'Only you can see it' : 'It is on your profile for anyone to see'}.</Confirm>
             <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => (variant === 'my-words' ? update({ visibility: 'public' }) : setWarn(true))} position={draft.position} onPosition={p => update({ position: p })} />
-            <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={() => fresh(variant, true)}>Start over</Button>
+            <Button type="button" variant="ghost" className="h-11 min-h-11 self-start" onClick={() => fresh(variant, true)}>Start over</Button>
           </MirrorTurn>
         )}
       </ChatFrame>

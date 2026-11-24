@@ -75,7 +75,7 @@ export function FromChatScreen({ rule }: { rule: ShareRule }) {
                 {outcome === 'kept' && ' Share it from here whenever you like.'}
               </Confirm>
               {outcome === 'kept' && <ChatPointCard statement={statement} tags={tags} visibility={draft.visibility} rule={rule} onMakePublic={() => setWarn(true)} position={draft.position} onPosition={p => update({ position: p })} />}
-              <Button type="button" variant="outline" className="h-11 min-h-11 self-start" onClick={() => startOver(true)}>Start over</Button>
+              <Button type="button" variant="ghost" className="h-11 min-h-11 self-start" onClick={() => startOver(true)}>Start over</Button>
             </MirrorTurn>
           )}
         </ChatFrame>

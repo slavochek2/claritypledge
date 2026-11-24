@@ -297,6 +297,7 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
   const [fallback] = useState(() => opener?.closest('[data-return-focus]')?.querySelector<HTMLElement>('[data-share]') ?? null);
   useEffect(() => () => {
     setTimeout(() => {
+      if (!focusLost()) return; // a person already put focus somewhere
       const target = opener?.isConnected ? opener : fallback?.isConnected ? fallback : null;
       const radio = target instanceof HTMLInputElement && target.type === 'radio' && !target.checked
         ? target.closest('[role="radiogroup"]')?.querySelector<HTMLElement>('input:checked') : null;
