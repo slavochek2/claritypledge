@@ -117,14 +117,19 @@ Context is not trustworthy, so v2 adds no context rules. Precision comes from:
   of it hold 40+ characters of key body. Body is counted two ways, and only text that reads as random base64
   (upper case, lower case and a digit) counts:
   - runs of 40+ base64 characters that are not inside an assignment value, which the assignment rules judge;
-  - blocks of two or more consecutive lines that are each nothing but 12 to 39 base64 characters, allowing
-    a line prefix (`+`, `-`, `> `, quotes) and treating escaped newlines as line breaks.
+  - blocks of two or more consecutive lines that each carry one run of 12 to 39 base64 characters,
+    treating escaped newlines as line breaks.
 
-  A folded line may also carry a `cat -n` number, a comment prefix (`#`, `//`, ` * `, `|`, `;`) or string
-  concatenation residue, and a line that holds only residue (`" +`, a lone quote) does not end a block.
+  A folded line is defined by shape, not by a list of prefixes. The line's last run that holds a letter or
+  digit is the body piece, and only residue may come before it: anything but letters and digits, so any
+  comment, quote, diff or concatenation mark. Before the residue there may be a line number as `cat -n`,
+  `grep -n`, `rg -n` (`path:N:`) or an editor (`N→`) prints it. A line of residue alone (`" +`, a lone
+  quote) does not end a block. Lines over 256 characters are not folded lines.
+
   A run inside an assignment value still counts when the whole value decodes to a private-key structure: a
-  DER SEQUENCE whose declared length covers the bytes exactly, or the OpenSSH key magic. On 200,000 random
-  base64 strings of 40 to 200 characters, 2 pass that test.
+  DER SEQUENCE whose declared length covers the bytes exactly, or the OpenSSH key magic. `\n` and `\r`
+  escapes are removed from the value first. On 200,000 random base64 strings of 40 to 200 characters, 2
+  pass that test.
 
   So a body before or after the marker, far from it, behind armor headers, folded at 12 columns or wider, or
   written whole as `secret = "<body>"` refuses, even when that value is a marked, committed fixture. A marker in code or prose passes, because an import list, a camelCase identifier or a long
@@ -226,16 +231,17 @@ refuses.
 | A short password as a `${NAME:-…}` default passes (too few characters for entropy) | MITIGATE | Same review. A literal default is judged with the whole value (§2); recall-harness row `short_default`. |
 | Attestation trusts a substring of a marked value, or an inherited `GIT_DIR` | MITIGATE | Same review. Whole-value match, `GIT_*` dropped, suite cases M8 and M9. A `git` placed first on `PATH` by the caller is ACCEPTED: whoever controls the caller's `PATH` controls the wrapper and `python3` too. |
 | Bytes 0x85 and 0xA0 inside UTF-8 letters read as whitespace in latin-1 and cut a value short | MITIGATE | Same review; present in v1 too. A value ends only at ASCII whitespace or a quote. Unicode spaces count only between keyword and value, matched as whole UTF-8 sequences. |
-| A crafted payload makes the scan slow, or many candidates time `git grep` out | MITIGATE | Same review: 6.95 s for a 2 MB pathological header payload in the first build. The cost is now bounded at headers × the 2,000-character window: 1.6 to 2.0 s for a 2 MB payload of back-to-back headers, measured 2026-11-25. git is asked once for marked lines, whatever the candidate count. |
+| A crafted payload makes the scan slow, or many candidates time `git grep` out | MITIGATE | Same review: 6.95 s for a 2 MB pathological header payload in the first build. The cost is now bounded at headers × the 2,000-character window: 1.5 to 2.4 s for a 2 MB payload of back-to-back headers, and under 0.8 s for 2 MB of 1,900-character punctuation lines, measured 2026-11-25 on the final build. Each line is classified once per payload, not once per overlapping window, and the folded-line parse is linear (a single-regex version backtracked quadratically). git is asked once for marked lines, whatever the candidate count. |
 | An unquoted public anon JWT is refused | MITIGATE | Second review (Sonnet): the unquoted value class stopped at the first dot. An unquoted value that starts `eyJ` is now taken whole; suite cases `anonu` and `anonu2`. |
 | A forged token carries the anon claim set with a duplicate key or a non-integer time | MITIGATE | Second review (Codex): duplicate keys refuse, and so does a non-integer `iat`/`exp`; suite cases `jwtdup` and `jwtexp`. A token with the exact claim set is either a project's anon key or unsigned (§2). |
 | A broken or missing `HEAD` commit is reported as a credential with the "mark the fixture" hint | MITIGATE | Second review (Gemini): a missing commit and a dangling ref refuse as `scan-error`, while an unborn repo attests nothing; suite cases M11 and M11b. |
-| 0x85 or 0x1c–0x1f inside a marked line split it, or a separator byte or Unicode space between keyword and value hides an assignment | MITIGATE | Second review (Opus and others): marked lines are split on `\n` only. Between keyword and value, 0x1c–0x1f and the UTF-8 encodings of the Unicode spaces (NBSP, NEL, U+2000–200A, U+3000 and so on) count as whitespace, as they did in v1; values stay ASCII-delimited. Suite case M12; recall rows `nbsp_sep`, `emsp_sep`, `nel_sep`, `ideo_sep` and `fs_sep`. |
+| 0x85 or 0x1c–0x1f inside a marked line split it, or a separator byte or Unicode space between keyword and value hides an assignment | MITIGATE | Second review (Opus and others): marked lines are split on `\n` only. Between keyword and value, whitespace is what v1 counted: v1 read the payload as latin-1 and matched Unicode `\s`, so ASCII whitespace, 0x1c–0x1f, and raw 0x85 and 0xA0 bytes. The UTF-8 encodings of the Unicode spaces (NBSP, NEL, U+2000–200A, U+3000) are added beyond v1, which never matched them. Values stay ASCII-delimited. Suite case M12; recall rows `raw_nel_sep`, `raw_nbsp_sep`, `raw_nbsp_key` (parity) and `nbsp_sep`, `emsp_sep`, `nel_sep`, `ideo_sep`, `fs_sep`. |
 | Benign git stderr (`hint:` lines) turns every attestation into `scan-error` | MITIGATE | Second review (GLM, Opus): `hint:` lines are ignored, and any other stderr still refuses. |
 | A value that a keyword delimits inside a longer marked value is attested | ACCEPT | Second review (Opus). This follows from extracting at every keyword position (§3), and the value is already committed on a marked line. |
 | A lowercase word as a literal default (`${X:-postgres}`) still refuses | ACCEPT | Same verdict as v1. The scan finds no instance in cp or `~/.agents`, and judging the default with the whole value is what keeps short real passwords refused. |
 | The repo's `fsmonitor` hook runs when the scan calls git | ACCEPT | Raised by Gemini in the second review and checked: `git grep` on a tree does not invoke fsmonitor (only `git status` did), and whoever controls the repo's config already controls its hooks. |
 | A one-line key body written as an assignment value is attested as a marked fixture and sent; a folded body behind comment prefixes, `cat -n` numbers or string concatenation passes | MITIGATE | Automated security review of `~/.agents` 7d0f57a. Both were reproduced and both were violations: the first broke the never-exemptable invariant, and v1 refused the second. Fixed by `key_der` and the wider line grammar (§2). Suite cases M14, the M14b control, `hash16`, `slash32`, `star32`, `catn16`, `jscat32` and `pycat32` cover them, plus six recall rows. |
+| A key body as one quoted value whose 64-column lines are joined by `\n` escapes is attested and sent; a folded body printed by `grep -n`, `rg -n` or an editor, or behind `%` comments, passes | MITIGATE | Automated security review of `~/.agents` 1ac8be1. All reproduced, and v1 refused all of them. Fixed by removing escapes before `key_der` and by defining a folded line by shape rather than by a prefix list (§2). Suite cases M15, the M15b control, `grepn16`, `rgn16`, `arrow16` and `pct16`, plus four recall rows. The 1ac8be1 scan fails 27 suite checks. |
 | A key whose body after `sk-` is lowercase letters and dashes only | ACCEPT | No issued key has that shape; it is the exact shape of the false positives. |
 | `Authorization: Bearer <value>` with no colon is not caught (v1 does not catch it either) | DEFER | A recall widening, not this spec's question; filed to the task inbox for a separate measurement. |
 
@@ -300,7 +306,7 @@ review sends per month (read from the `REFUSED:SECRET` headers in the delegation
         - committed-but-unmarked refuses;
         - staged-only refuses;
         - a marked private key refuses, and so does a marked key body written as an assignment value
-          (M14, with the M14b control);
+          (M14, with the M14b control), including one whose lines are joined by `\n` escapes (M15, M15b);
         - a marked vendor key and a marked service_role JWT refuse;
         - a slice of a marked value refuses;
         - an inherited `GIT_DIR` attests nothing;
@@ -308,26 +314,28 @@ review sends per month (read from the `REFUSED:SECRET` headers in the delegation
       - the public anon JWT passes, quoted and unquoted. An anon JWT with an extra claim, a duplicate key
         or a non-integer time refuses.
       - these refuse: a short `${NAME:-…}` default, and private keys folded at 12 columns, behind comment
-        prefixes, in `cat -n` output, or as string concatenation.
+        prefixes, in `cat -n`, `grep -n`, `rg -n` or editor-numbered output, or as string concatenation.
       - random mixed-case letters in `{}` and `<>` refuse.
       - a forced scan failure refuses with `rule=scan-error`.
       - the refusal output names rule and line and never contains the value.
       - the suite fails when pointed at the old wrapper (`DG_SCRIPT` control), and the marker and
         false-positive cases fail there.
 
-      Evidence 2026-11-25: 516 passed, 0 failed. The pre-P1726 wrapper (`220087a^`) gives 379 passed and
-      138 failed, including 24 marker or attestation cases and 20 pass-or-sent cases.
+      Evidence 2026-11-25 (final build, `~/.agents` e16d711): 549 passed, 0 failed. The pre-P1726 wrapper
+      (`220087a^`) gives 401 passed and 149 failed, including 27 marker or attestation checks and 41
+      pass-or-sent checks.
 - [x] Recall: the committed recall harness reports 0 regressions against v1 on five seeds, and reports
       regressions when pointed at the first, boundary-based design (the control).
-      Evidence: 2,520 cases per seed, 0 regressions on seeds 1, 2, 3, 7 and 42. The boundary design
-      (`3b43e1c`) gives 112. The scan before the separator fix gives 17, all on the separator rows, which
-      shows those rows can fail.
+      Evidence: 2,606 cases per seed, 0 regressions on seeds 1, 2, 3, 7 and 42. The boundary design
+      (`3b43e1c`) gives 118. The previous build (1ac8be1) regresses on the raw-separator rows and the
+      four new folded-body rows, which shows those rows can fail. The v1 oracle reads the same latin-1
+      view as the candidate, as v1 itself did.
 - [x] Precision: replaying all commit diffs since 2026-08-25 (all branches) in cp, `~/.agents` and the
       private repo, v2 refuses no commit that v1 passed, and refuses fewer than v1 in each repo. After
       the sweep, cp HEAD (tracked files, the closed-spec archive excluded), scanned both raw and as an
       added-lines diff, has no file that would refuse.
       Evidence: cp 50 → 36, `~/.agents` 14 → 8, private 10 → 7, and 0 commits refused by v2 that v1
-      passed. The two late fixes changed no verdict in the corpus (0 flips). cp HEAD: 6,589 files, 0
+      passed. The four late fixes (two review rounds, two security reviews) changed no verdict in the corpus (0 flips against each previous build). cp HEAD: 6,589 files, 0
       refusals, while a generated key outside the tree refuses. The branch's added lines: 0 refusals.
 - [x] `scripts/test-multi-harness-routing.sh` and `scripts/test-token-usage-refresh.py` still pass. The
       first now asserts `rule=aws-key-id` on a random key id generated at run time; the second is fed a
