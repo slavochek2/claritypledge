@@ -28,8 +28,8 @@ export function MoneySection({ money, setMoney, onSave, worth }: { money: Money;
 
       <h3 className="mt-6 font-medium">What a misunderstanding costs</h3>
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
-        <NumberField label="Damage when one gets through" value={money.damage} onChange={set("damage")} unit="€" />
-        <NumberField label="It gets through in one of every … meetings" value={money.oneIn} onChange={set("oneIn")} min={1} />
+        <NumberField label="Damage when a misunderstanding happens" value={money.damage} onChange={set("damage")} unit="€" />
+        <NumberField label="With no check, it happens in one of every … meetings" value={money.oneIn} onChange={set("oneIn")} min={1} />
       </div>
 
       <dl className="mt-6 grid gap-3 border-t border-border pt-5 sm:grid-cols-2">
@@ -41,7 +41,7 @@ export function MoneySection({ money, setMoney, onSave, worth }: { money: Money;
         <div>
           <dt className="text-sm text-muted-foreground">At risk, per year</dt>
           <dd className="text-2xl font-semibold tabular-nums">{eur(atRiskPerYear)}</dd>
-          <dd className="text-sm text-muted-foreground">{whole(money.perYear)} meetings, one in {whole(money.oneIn)} goes wrong</dd>
+          <dd className="text-sm text-muted-foreground">{whole(money.perYear)} meetings, a misunderstanding in one of every {whole(money.oneIn)}</dd>
         </div>
       </dl>
 
@@ -52,6 +52,11 @@ export function MoneySection({ money, setMoney, onSave, worth }: { money: Money;
             ? "The check costs more than the damage it could prevent. Skip it."
             : `The check costs ${eur(checkPerMeeting)} a meeting and one misunderstanding costs ${eur(money.damage)}. So the check pays for itself if it catches a single misunderstanding ${everyN === 1 ? "in every meeting like this" : `in ${whole(everyN)} meetings like this`}.`}
       </p>
+      {checkPerMeeting > 0 && everyN >= 1 && (
+        <p className="mt-2">
+          You estimated one in every {whole(money.oneIn)}, which is {money.oneIn <= everyN ? "more often than" : "less often than"} that break-even.
+        </p>
+      )}
       <p className="mt-2 text-sm text-muted-foreground">
         The check finds gaps in understanding. It does not make a decision right, and it will not catch every gap.
       </p>

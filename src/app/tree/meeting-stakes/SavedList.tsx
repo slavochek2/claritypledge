@@ -27,7 +27,7 @@ export function SavedList({ saved, onRemove }: { saved: Saved[]; onRemove: (id: 
       </ul>
       <dl className="mt-4 grid gap-3 border-t border-border pt-5 sm:grid-cols-3">
         <div>
-          <dt className="text-sm text-muted-foreground">Meetings worth a check</dt>
+          <dt className="text-sm text-muted-foreground">Meetings to check</dt>
           <dd className="text-2xl font-semibold tabular-nums">{worthRows.length} of {saved.length}</dd>
         </div>
         <div>

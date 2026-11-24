@@ -81,7 +81,7 @@ export type VerdictKind = "skip" | "settles" | "borderline" | "worth";
 export const VERDICT: Record<VerdictKind, { title: string; body: string }> = {
   skip: {
     title: "Skip the check",
-    body: "Nothing in this meeting depends on people understanding it the same way.",
+    body: "You said the result would not suffer if people read this meeting differently.",
   },
   settles: {
     title: "Skip the check: this one settles itself",
@@ -93,7 +93,7 @@ export const VERDICT: Record<VerdictKind, { title: string; body: string }> = {
   },
   worth: {
     title: "Worth a check",
-    body: "A misunderstanding here would not show itself in time to fix it cheaply.",
+    body: "At least one of your answers says a misunderstanding here would be costly and would not sort itself out. The bars below show which.",
   },
 };
 

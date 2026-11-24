@@ -89,7 +89,9 @@ export function MeetingStakes() {
         <section className={`${CARD} mt-6`} aria-labelledby="s2">
           <h2 id="s2" className="text-xl font-semibold">2. Rate your meeting</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            The answers start at what is usual for this kind of meeting. Change them to fit yours.
+            {meeting === "Another meeting"
+              ? "Nothing is filled in for this one. Answer each question for your meeting."
+              : "The answers start at what is usual for this kind of meeting. Change them to fit yours."}
           </p>
           <div className="mt-5 grid gap-6">
             {CONDITIONS.map((c) => (
@@ -104,10 +106,12 @@ export function MeetingStakes() {
         </section>
       )}
 
-      <section className="mt-6 rounded-xl border-2 border-blue-600 bg-blue-500/5 p-5 sm:p-6" aria-live="polite" aria-labelledby="verdict">
+      <section className="mt-6 rounded-xl border-2 border-blue-600 bg-blue-500/5 p-5 sm:p-6" aria-labelledby="verdict">
         <p className="text-sm text-muted-foreground">{meeting}</p>
-        <h2 id="verdict" className="mt-1 text-2xl font-semibold">{VERDICT[verdict].title}</h2>
-        <p className="mt-2">{VERDICT[verdict].body}</p>
+        <div aria-live="polite">
+          <h2 id="verdict" className="mt-1 text-2xl font-semibold">{VERDICT[verdict].title}</h2>
+          <p className="mt-2">{VERDICT[verdict].body}</p>
+        </div>
         {depends && <Profile ratings={ratings} />}
       </section>
 
