@@ -4280,9 +4280,10 @@ archive_finish() {
     # and the wrong reason sent the 2026-11-24 /day run looking for edits that did not exist.
     # Decided from teardown's own hold line, never a second classifier call: a hold whose
     # date passes, or whose pNNNN spec closes, between the two would otherwise fall through
-    # and relay the REASON under the wrong reason. Any line and any worktree name: a branch
-    # can sit in an agent-* worktree, and git may print a warning first.
-    if grep -qE '^archive-spec: worktree [^ ]+ KEPT: it is on hold' <<<"$_td"; then
+    # and relay the REASON under the wrong reason. Any line and any worktree name (spaces
+    # too): a branch can sit in an agent-* worktree, and git may print a warning first.
+    # Teardown's other lines are indented or start "worktree RETAINED", so none can match.
+    if grep -qE '^archive-spec: worktree .* KEPT: it is on hold' <<<"$_td"; then
       local _howner; _howner="$(awk 'index($0, "OWNER=") == 1 { print substr($0, 7); exit }' "$wt_path/.hold" 2>/dev/null || true)"
       _howner="$(printf '%s' "$_howner" | tr -c 'A-Za-z0-9._:-' '_')"
       die "archive-spec: $pn is safe off-machine, but its worktree is on hold (owner ${_howner:-unreadable}) — branch $(printf '%s' "$branch" | tr '<>|' ':::') kept"
@@ -7349,11 +7350,13 @@ tidy_cwd_inside() {
 }
 # 0 when a non-regenerable file inside the worktree was modified within <minutes>, or when the
 # tree cannot be fully read.
+# .lock*, .activity* and .hold* are bookkeeping about the slot, not work in it: a hold re-ask
+# rewrites .hold, and the hold's own state and hash decide what that file means (P1723).
 tidy_fresh_files() {
   local wt="$1" min="$2" out
   out="$(find "$wt" \( -name .git -o -name node_modules -o -name dist -o -name coverage -o -name test-results \
        -o -name playwright-report -o -name __pycache__ -o -name .pytest_cache -o -name .ruff_cache -o -name .mypy_cache \) -prune \
-       -o -type f ! -name '.lock*' ! -name '.activity*' -mmin "-$min" -print 2>/dev/null)" || return 0
+       -o -type f ! -name '.lock*' ! -name '.activity*' ! -name '.hold*' -mmin "-$min" -print 2>/dev/null)" || return 0
   [[ -n "$out" ]]
 }
 
@@ -8186,9 +8189,10 @@ p1723_gate() {  # verb slot expect
 
 # The liveness half of the gate again, run after the slow steps (revert index, proof, archive)
 # and just before the .hold changes: a session that resumed in the slot meanwhile keeps it.
-p1723_still_idle() {  # verb slot
+p1723_still_idle() {  # verb slot [temp file to remove on refusal]
   unset TIDY_CWD_SET
   if tidy_slot_live "$H_DIR" || ! tidy_idle_for "$H_DIR" "$TIDY_IDLE_MIN"; then
+    [[ -z "${3:-}" ]] || rm -f "$3"
     die "$1: $2 came into use while it was being checked; it stays (the copy is at $H_COPY)"
   fi
 }
@@ -8305,12 +8309,12 @@ cmd_hold_reask() {
     newowner=founder; owner_note="owner $(p1723_safe "$H_OWNER") became founder"
   fi
   p1723_archive_hold hold-reask "$slot" "re-ask at $until${newowner:+, owner $H_OWNER became founder}; the .hold was copied before it was rewritten"
-  p1723_still_idle hold-reask "$slot"   # before the temp file, which is itself a fresh write here
   tmp="$(mktemp "$H_DIR/.hold.XXXXXX" 2>/dev/null)" || die "hold-reask: cannot write in $H_DIR; the hold stays"
   if ! { awk -v nw="$newowner" '/^REASK_AT=/ { next } nw != "" && /^OWNER=/ && !done { print "OWNER=" nw; done = 1; next } { print }' "$H_FILE" \
          && printf 'REASK_AT=%s\n' "$until" && printf 'NOTE=%s %s\n' "$(p1723_iso "$now")" "$note"; } > "$tmp"; then
     rm -f "$tmp"; die "hold-reask: could not write the new hold; the hold stays"
   fi
+  p1723_still_idle hold-reask "$slot" "$tmp"   # after the slow steps; the temp file is not a fresh write
   if [[ "$(p1723_hash "$H_FILE" || true)" != "$expect" ]]; then
     rm -f "$tmp"; die "hold-reask: the hold on $slot changed while it was being archived; it stays (the earlier copy is at $H_COPY)"
   fi

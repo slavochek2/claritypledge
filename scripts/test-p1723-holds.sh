@@ -27,6 +27,8 @@
 #   Review round 3: a held archive in a worktree not named wN still reads 'on hold', with no
 #      REASON; HOLD_DUE_DAYS=08 and CP_NOW_EPOCH=0999999999 do not kill holds; a slot that comes
 #      into use after the gate but before the change keeps its hold (release and re-ask)
+#   Review round 4: a held worktree whose name has a space reads 'on hold' too; a re-ask does not
+#      make its own slot read active; re-ask re-checks liveness after its temp file is built
 #
 # Hermetic: builds its own fixture repo under mktemp, never touches the real repo's worktrees,
 # holds or .private. P1723_SCRIPTS_DIR points it at another copy of git-ops.sh and
@@ -148,6 +150,7 @@ S12="$(archive_fixture w12 p9012 stale)";   hold_file "$S12" founder "retained u
 S13="$(archive_fixture w13 p9013 good)";    hold_file "$S13" founder "retained until archive-spec runs after the push" "$((NOW - 2 * DAY))"
 # 6m. the same, in a worktree outside the wN slots (archive_finish finds worktrees by branch)
 S14="$(archive_fixture agent-a1b2 p9014 good)"; hold_file "$S14" founder "keep: secret WHYTEXT : /tmp/x" "$((NOW - 2 * DAY))"
+S15="$(archive_fixture "agent x9" p9015 good)"; hold_file "$S15" founder "keep: secret WHYTEXT : /tmp/y" "$((NOW - 2 * DAY))"
 commit_in "$S13" later.txt "p9013: a commit after the archive"
 # 3. due
 S20="$(slot w20 feature/due-seven)";      hold_file "$S20" founder "seven days exactly, founder decides" "$((NOW - 7 * DAY))"
@@ -190,7 +193,7 @@ S41="$(slot w41 feature/active-slot)"; hold_file "$S41" founder "a session worke
 S30="$(slot w30 feature/unreadable)"
 printf 'REASON=somebody wrote this by hand\nWRITTEN_AT=%s\n' "$((NOW - DAY))" > "$S30/.hold"
 
-for s in "$S1" "$S2" "$S3" "$S4" "$S10" "$S11" "$S12" "$S13" "$S20" "$S21" "$S22" "$S23" "$S24" "$S25" "$S27" "$S50" "$S31" "$S32" "$S60" "$S64" "$S65" "$S66" "$S14" "$S40" "$S30"; do age "$s" 13; done
+for s in "$S1" "$S2" "$S3" "$S4" "$S10" "$S11" "$S12" "$S13" "$S20" "$S21" "$S22" "$S23" "$S24" "$S25" "$S27" "$S50" "$S31" "$S32" "$S60" "$S64" "$S65" "$S66" "$S14" "$S15" "$S40" "$S30"; do age "$s" 13; done
 # S41 is deliberately not aged: its git dir and files were written moments ago.
 
 OUT="$(holds)"; rc=$?
@@ -373,10 +376,13 @@ o="$(go hold-reask w25 --expect "$(sha "$S25/.hold")" --until "$UNTIL" --note "k
 { [[ $rc -eq 0 && "$(grep '^OWNER=' "$S25/.hold")" == OWNER=p9999 ]] && grep -q 'owner p9999 kept' <<<"$o"; } \
   && pass "5p: a re-ask on a pNNNN hold keeps its owner" || fail "5p: rc $rc: $o / $(cat "$S25/.hold")"
 grep -q '[<>|]' <<<"$o" && fail "5q: re-ask status line has < > |" || pass "5q: re-ask status line has no < > |"
+r="$(row "$(holds)" w25)"
+[[ "$(col "$r" 10)" == idle ]] && pass "5s: a re-ask does not make its own slot read active (rewriting .hold is not work in the slot)" || fail "5s: w25 row after re-ask: $r"
 # A copy of git-ops.sh that marks the slot in use right after the archive step: the gate saw it
 # idle, the change must not happen. The copy sits beside the original (it sources lib/ from there).
 GOW="$R/scripts/git-ops-window.sh"
-awk '{ print } /^  p1723_archive_hold hold-(release|reask) / { print "  touch \"$H_DIR/.activity\"  # test: the slot comes into use" }' "$GO" > "$GOW"
+# release: right after the archive step; re-ask: after its temp file exists, the later window
+awk '{ print } /^  p1723_archive_hold hold-release / || /^  tmp="\$\(mktemp "\$H_DIR\/\.hold\./ { print "  touch \"$H_DIR/.activity\"  # test: the slot comes into use" }' "$GO" > "$GOW"
 chmod +x "$GOW"
 [[ "$(grep -c 'test: the slot comes into use' "$GOW")" == 2 ]] && pass "4p control: the in-use step was injected into release and re-ask" || fail "4p control: injection count $(grep -c 'test: the slot comes into use' "$GOW")"
 cp "$S66/.hold" "$SCRATCH/w66.before"
@@ -399,10 +405,13 @@ l10="$(printf '%s\n' "$o" | grep '^archive-spec: p9010 not finished')"
 [[ "$l10" != *"uncommitted changes"* ]] && pass "6b: the p9010 line no longer blames uncommitted changes" || fail "6b: $l10"
 [[ "$l10" != *"git-ops: "* ]] && pass "6c: 'git-ops: ' prefixes are dropped from the joined reason" || fail "6c: $l10"
 [[ "$(printf '%s\n' "$o" | grep '^archive-spec: p9011 not finished')" == *"no backup proof"* ]] && pass "6d: an archive waiting for its proof says so on its own line" || fail "6d: $o"
-[[ "$(printf '%s\n' "$o" | tail -n 1)" == "archive-spec: 0 of 5 pending archive(s) finished" ]] && pass "6e: the count line stays last" || fail "6e: last line: $(printf '%s\n' "$o" | tail -n 1)"
+[[ "$(printf '%s\n' "$o" | tail -n 1)" == "archive-spec: 0 of 6 pending archive(s) finished" ]] && pass "6e: the count line stays last" || fail "6e: last line: $(printf '%s\n' "$o" | tail -n 1)"
 l14="$(printf '%s\n' "$o" | grep '^archive-spec: p9014 not finished')"
 { [[ "$l14" == *"is on hold (owner founder)"* && "$l14" != *"uncommitted changes"* ]]; } \
   && pass "6m: a held worktree not named wN also reads 'on hold', not uncommitted changes" || fail "6m: $l14"
+l15="$(printf '%s\n' "$o" | grep '^archive-spec: p9015 not finished')"
+{ [[ "$l15" == *"is on hold (owner founder)"* && "$l15" != *"uncommitted changes"* ]]; } \
+  && pass "6n: a held worktree whose name has a space also reads 'on hold'" || fail "6n: $l15"
 grep -q '[<>|]' <<<"$o" && fail "6f: finish-pending output has < > |" || pass "6f: finish-pending output has no < > |"
 G rev-parse --verify -q feature/p9010-x >/dev/null && [[ -f "$S10/.hold" ]] && pass "6g: branch and hold kept" || fail "6g: branch or hold gone"
 grep -q 'WHYTEXT\|retained until\|yourself\|hold --clear' <<<"$o" && fail "6l: finish-pending relayed the hold's REASON or a manual-removal line: $o" \
@@ -416,7 +425,7 @@ o="$(go hold-release w10 --expect "$H10" --proof archived)"; rc=$?
 o="$(go archive-spec --finish-pending)"; rc=$?
 { ! G rev-parse --verify -q feature/p9010-x >/dev/null && [[ ! -d "$S10" ]]; } \
   && pass "6j: the next --finish-pending finishes p9010 (branch deleted, worktree removed)" || fail "6j: output: $o"
-[[ "$(printf '%s\n' "$o" | tail -n 1)" == "archive-spec: 1 of 5 pending archive(s) finished" ]] && pass "6k: count line reports 1 of 5" || fail "6k: $o"
+[[ "$(printf '%s\n' "$o" | tail -n 1)" == "archive-spec: 1 of 6 pending archive(s) finished" ]] && pass "6k: count line reports 1 of 6" || fail "6k: $o"
 
 echo "--- 9. nothing held ---"
 rm -f "$WT"/w*/.hold
