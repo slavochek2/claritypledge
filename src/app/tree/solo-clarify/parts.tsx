@@ -4,7 +4,7 @@
  * visibility icons, the position buttons and the Mirror's face are the product's own; the chat around them is a
  * render-only stand-in (no network, no auth). Toasts are not mounted on /tree, so what a tap would do is said inline.
  */
-import { useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react';
+import { useContext, useEffect, useId, useRef, useState, type ReactNode, type Ref } from 'react';
 import { Check, Globe, Lock, Pencil, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,6 +20,7 @@ import { removeTag, type FakeMessage, type Visibility } from './model';
 import { allTags, type DraftState } from './draft';
 import { TagChips, TagInput } from './tags';
 import { focusLost } from './focus';
+import { MenuRoot } from './menu-root';
 import type { Position } from '@/app/components/shared/prototype-types';
 
 const NO_COUNTS: SevenPointCounts = {
@@ -146,6 +147,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions, focus 
   /** What the arrival announces, when the draft's origin sits outside the card. */
   focusLabel?: string;
 }) {
+  const menuRoot = useContext(MenuRoot);
   const [editing, setEditing] = useState(false);
   const [before, setBefore] = useState(draft.text);
   const editBtn = useRef<HTMLButtonElement>(null);
@@ -206,7 +208,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions, focus 
         }
       >
         <div className="min-w-0 pt-2">
-          <PositionButtons userPosition={draft.position} counts={NO_COUNTS} compact narrow onPositionClick={p => update({ position: p })} onClear={() => update({ position: null })} />
+          <PositionButtons userPosition={draft.position} counts={NO_COUNTS} compact narrow portalContainer={menuRoot} onPositionClick={p => update({ position: p })} onClear={() => update({ position: null })} />
         </div>
       </PointCardShell>
       {editing ? null : statement.trim()
@@ -227,6 +229,7 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic,
   /** The owner's position, carried over from the draft (the card can change it, as the product's cards do). */
   position?: Position; onPosition?: (p: Position) => void;
 }) {
+  const menuRoot = useContext(MenuRoot);
   const [said, setSaid] = useState<ReactNode>(null);
   const shareBtn = useRef<HTMLButtonElement>(null);
   const was = useRef(visibility);
@@ -273,7 +276,7 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic,
         {tags.length > 0 ? <div className="pt-2"><TagPills tags={tags} context="live" /></div> : null}
         {onPosition && (
           <div className="min-w-0 pt-2">
-            <PositionButtons userPosition={position ?? null} counts={NO_COUNTS} compact narrow onPositionClick={onPosition} onClear={() => onPosition(null)} />
+            <PositionButtons userPosition={position ?? null} counts={NO_COUNTS} compact narrow portalContainer={menuRoot} onPositionClick={onPosition} onClear={() => onPosition(null)} />
           </div>
         )}
       </PointCardShell>
@@ -298,7 +301,8 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
   const [fallback] = useState(() => opener?.closest('[data-return-focus]')?.querySelector<HTMLElement>('[data-share]') ?? null);
   useEffect(() => () => {
     setTimeout(() => {
-      if (!focusLost()) return; // a person already put focus somewhere
+      // A person already put focus somewhere (Radix may hand it back to the opener first: that is not a person's choice).
+      if (!focusLost() && document.activeElement !== opener) return;
       const target = opener?.isConnected ? opener : fallback?.isConnected ? fallback : null;
       const radio = target instanceof HTMLInputElement && target.type === 'radio' && !target.checked
         ? target.closest('[role="radiogroup"]')?.querySelector<HTMLElement>('input:checked') : null;

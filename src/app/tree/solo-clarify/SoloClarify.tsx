@@ -4,6 +4,7 @@
  * Four screens: Clarify in the Mirror chat, Clarify started from another chat, points as a chat shows them, and one microphone
  * with two people. `?screen=` selects a screen so each can be linked; the share rule applies to every screen. Render-only.
  */
+import { useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FromChatScreen } from './FromChatScreen';
@@ -11,6 +12,18 @@ import { InChatScreen } from './InChatScreen';
 import { MirrorScreen } from './MirrorScreen';
 import { OneMicScreen } from './OneMicScreen';
 import { VariantSwitch, type ShareRule } from './parts';
+import { MenuRoot } from './menu-root';
+
+/** Screens stay mounted so a draft survives a tab change; a menu a screen leaves open portals inside its panel and hides with it. */
+function Panel({ id, children }: { id: string; children: ReactNode }) {
+  const [root, setRoot] = useState<HTMLDivElement | null>(null);
+  return (
+    <TabsContent value={id} forceMount className="mt-6 data-[state=inactive]:hidden">
+      <MenuRoot.Provider value={root}>{children}</MenuRoot.Provider>
+      <div ref={setRoot} />
+    </TabsContent>
+  );
+}
 
 const SCREENS = [
   { id: 'mirror', label: '1. Alone with the Mirror' },
@@ -52,10 +65,10 @@ export function SoloClarify() {
           <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
             {SCREENS.map(s => <TabsTrigger key={s.id} value={s.id} className="min-h-[44px]">{s.label}</TabsTrigger>)}
           </TabsList>
-          <TabsContent value="mirror" forceMount className="mt-6 data-[state=inactive]:hidden"><MirrorScreen rule={rule} /></TabsContent>
-          <TabsContent value="from-chat" forceMount className="mt-6 data-[state=inactive]:hidden"><FromChatScreen rule={rule} /></TabsContent>
-          <TabsContent value="in-chat" forceMount className="mt-6 data-[state=inactive]:hidden"><InChatScreen rule={rule} /></TabsContent>
-          <TabsContent value="one-mic" forceMount className="mt-6 data-[state=inactive]:hidden"><OneMicScreen rule={rule} /></TabsContent>
+          <Panel id="mirror"><MirrorScreen rule={rule} /></Panel>
+          <Panel id="from-chat"><FromChatScreen rule={rule} /></Panel>
+          <Panel id="in-chat"><InChatScreen rule={rule} /></Panel>
+          <Panel id="one-mic"><OneMicScreen rule={rule} /></Panel>
         </Tabs>
       </div>
     </div>

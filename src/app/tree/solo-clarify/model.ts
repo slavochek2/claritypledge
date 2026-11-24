@@ -63,33 +63,39 @@ const probeFor = (text: string): string => {
 };
 
 /**
- * Removing a tag edits only the #tokens the shared P1660 extractor reads as that tag; the rest of the draft stays as typed
+ * Removing a tag edits only the hashtags the shared P1660 extractor reads as that tag; the rest of the draft stays as typed
  * (stripHashtags is a display formatter: it also drops system tags and tidies whitespace, so it never writes back here).
- * A #token ends where P1660 ends one. It counts only where the extractor reads a hashtag at that spot (tried by putting a
- * probe tag there), so links, link titles and its other masks are never touched. A token that is the tag goes, with one
- * space beside it; a longer token the tag is read from (`#ai-powered` gives `ai`) only loses its `#`, so no wording goes.
+ * The extractor reads `#` plus a run of word characters, so that run is the tag here too. It counts only where the
+ * extractor reads a hashtag at that spot (tried by putting a probe tag there), so links, link titles and its other masks
+ * are never touched. A tag that ends its word goes, with one space or a list comma beside it (`"#ai"` gives `""`); a tag
+ * the word runs on from (`#ai-powered`, `#c++`) only loses its `#`, so no wording goes.
  */
 export function removeTag(text: string, tag: string): string {
   const probe = probeFor(text);
   const edits: { at: number; end: number; put: string }[] = [];
-  for (const m of text.matchAll(/#[^\s,;!?)]+?(?=\s|[,;!?)]|[.:](?!\w)|$)/gu)) {
-    const token = m[0];
+  for (const m of text.matchAll(/#(\w+)/g)) {
     const at = m.index ?? 0;
-    if (!extractHashtags(token).includes(tag)) continue;
-    if (!extractHashtags(`${text.slice(0, at)}#${probe}${text.slice(at + token.length)}`).includes(probe)) continue;
-    edits.push({ at, end: at + token.length, put: token.slice(1).toLowerCase() === tag ? '' : token.slice(1) });
+    const end = at + m[0].length;
+    if ((m[1] ?? '').toLowerCase() !== tag) continue;
+    if (!extractHashtags(`${text.slice(0, at)}#${probe}${text.slice(end)}`).includes(probe)) continue;
+    const wordRunsOn = /^[-'\u2019+\p{L}\p{M}\p{N}]/u.test(text.slice(end));
+    edits.push({ at, end, put: wordRunsOn ? (m[1] ?? '') : '' });
   }
   let out = text;
   for (const { at, end, put } of edits.reverse()) {
-    let from = at;
-    let to = end;
-    if (put === '') {
-      const before = out[from - 1];
-      const after = out[to];
-      if ((after === ' ' || after === '\t') && (from === 0 || /\s/.test(before ?? ''))) to += 1;
-      else if ((before === ' ' || before === '\t') && (after === undefined || after === '\n' || /[.,;:!?)]/.test(after))) from -= 1;
-    }
+    const [from, to] = put === '' ? withSpacing(out, at, end) : [at, end];
     out = out.slice(0, from) + put + out.slice(to);
   }
   return out;
+}
+
+/** The span a deleted tag takes with it: one space beside it, or a list comma after it at the start of a line or phrase. */
+function withSpacing(text: string, from: number, to: number): [number, number] {
+  const before = text[from - 1];
+  const after = text[to];
+  const lineStart = from === 0 || /\s/.test(before ?? '');
+  if (lineStart && (after === ',' || after === ';') && text[to + 1] === ' ') return [from, to + 2];
+  if ((after === ' ' || after === '\t') && lineStart) return [from, to + 1];
+  if ((before === ' ' || before === '\t') && (after === undefined || after === '\n' || /[.,;:!?)]/.test(after))) return [from - 1, to];
+  return [from, to];
 }
