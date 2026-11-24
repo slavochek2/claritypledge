@@ -14,6 +14,7 @@
  */
 import type { MutableRefObject } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useConnectivity } from '@/app/contexts/offline-status-context';
 import type { EventWithHost } from '@/app/types';
 import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
 import { hiddenRoomSteps } from '../rounds/hidden-room-steps';
@@ -39,7 +40,9 @@ export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone, leav
   // Review round 8: only the two reads the Learn tick needs, not the preparation page's plan (use-learned.ts).
   const learnState = useLearned(learnLabel && event ? event : null, viewerId ?? undefined);
   const withCanvas = !!event && !!recipe.mastermind && eventCanvasTiming(event) === 'at_event';
-  const [canvasShared] = useMyCanvasShared(event?.id, withCanvas, null);
+  // Review round 12 (Codex): no Canvas read while known offline; coming back online re-renders and asks it then.
+  const { offline } = useConnectivity();
+  const [canvasShared] = useMyCanvasShared(event?.id, withCanvas && !offline, null);
   const toMeet = (search: string) => {
     if (leaving.current) return;
     leaving.current = true;

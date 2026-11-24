@@ -91,14 +91,25 @@ async function shots(page: Page, name: string, labels: number, widths: readonly 
         if (!text) return [];
         const range = document.createRange();
         range.selectNodeContents(text);
-        return [{ label: text.textContent ?? '', rect: range.getBoundingClientRect() }];
+        return [{ label: text.textContent ?? '', rect: range.getBoundingClientRect(), text }];
       });
       const out: string[] = [];
       if (glyphs.length !== expected) out.push(`${glyphs.length} step labels, expected ${expected}`);
       const hidden = [...bar.querySelectorAll('[data-testid$="-text"]')].filter((el) => !el.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
       if (hidden.length) out.push(`${hidden.length} step labels not shown`);
-      glyphs.forEach(({ label, rect }, k) => {
+      glyphs.forEach(({ label, rect, text }, k) => {
         if (rect.left < edge.left - 1 || rect.right > edge.right + 1) out.push(`${label} past the bar (${rect.left.toFixed(1)}-${rect.right.toFixed(1)} in ${edge.left.toFixed(1)}-${edge.right.toFixed(1)})`);
+        // Review round 12 (Codex): a Range reports the glyphs before any clipping, so a label cut off by a clipping
+        // ancestor (overflow other than visible) fails here too.
+        for (let el = text.parentElement; el && el !== document.body; el = el.parentElement) {
+          const css = getComputedStyle(el);
+          if (css.overflowX === 'visible' && css.overflowY === 'visible') continue;
+          const box = el.getBoundingClientRect();
+          if (rect.left < box.left - 1 || rect.right > box.right + 1 || rect.top < box.top - 1 || rect.bottom > box.bottom + 1) {
+            out.push(`${label} clipped by ${el.tagName.toLowerCase()}${el.dataset.testid ? `[${el.dataset.testid}]` : ''}`);
+            break;
+          }
+        }
         const next = glyphs[k + 1];
         if (next && next.rect.left - rect.right < 2) out.push(`${label} touches ${next.label} (${(next.rect.left - rect.right).toFixed(1)}px)`);
       });

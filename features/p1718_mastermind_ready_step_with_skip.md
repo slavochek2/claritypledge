@@ -407,14 +407,16 @@ review round 7 counted every read the screen makes, review round 8 re-derived th
 - the room row 1, and up to 3 on a first entry with no room row yet (the status read, the profile-name read if the name
   has not loaded, and the join; a direct `/ready` link before the room was opened; review round 10, Codex);
 - the seat read (R8) 1: one query, `isSeatedInRunningRound` (review round 7; it was 1 to 3 through
-  `getEventRoundsState`);
+  `getEventRoundsState`). After 4 s Ready shows and the same read keeps going: a seat it finds later still forwards
+  (review round 12, Codex), so no second read;
 - the readiness marks 1 (`getRoomReadinessDistribution`, the RPC Clarity Night's `/ready` already made);
-- the Canvas-shared read 1 when the Canvas is made at the event (`getMyEventCanvas`);
+- the Canvas-shared read 1 when the Canvas is made at the event (`getMyEventCanvas`); not made while offline (review
+  round 12, Codex);
 - the step bar's Learn tick 2 when the event offers preparation and the bar has a Learn entry (the mastermind; Clarity
   Night's bar has none): the preparation and the parts, both started together and nothing after them (`useLearned`,
   review round 8); none when this device alone shows the learning done, and read once more after reconnecting only
-  when a failed read left the answer unknown (an offline failure never reached the server, so the visit still makes 2;
-  review round 11). Until round 8 the bar used `usePrepState`, which also read two points feeds (each a feed, a
+  when a failed read left the answer unknown, at most once a visit (an offline failure never reached the server, so
+  the visit still makes 2; a read the server keeps failing costs 2 more once, so up to 4; review rounds 11 and 12). Until round 8 the bar used `usePrepState`, which also read two points feeds (each a feed, a
   position count and a viewer-position read), the social proof and the registration role, and wrote parts done
   signed out: 10 to 16 requests a visit, some started by a response after the tab was hidden (Codex round 8). Parts
   done signed out still count toward the tick; `/meet` moves them to the account, as before;
@@ -438,11 +440,11 @@ answer be saved again. Row sizes (UNVERIFIED, read from the selected columns, no
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | worst: 2 visits x (3 room row + 1 seat + 1 marks + 1 canvas + 2 learn + 4 save) = 24; typical (one visit, answered): 6 + 2 = 8 | 16 people x 24 = 384 at most, all in the arrival window | users 10 x (2 create + 1 release) = 30; events 3 x (1 create + 2 updates + 1 delete) = 12; registrations 9; sessions 10; seat fixtures 2 x 4 (member read, round insert, seat insert, round delete) = 8; readiness row checks 6; cleanup deletes 5; app traffic about 25 route loads (10 room entries, 5 direct visits, about 10 in-app moves) x 10 = 250 (UNVERIFIED): 30 + 12 + 9 + 10 + 8 + 6 + 5 + 250 = 330 |
-| Egress (bytes) | worst: 2 visits x (2 KB canvas + 11 x 1 KB) = about 26 KB; with no Canvas at the event about 22 KB | 16 x 26 KB = about 420 KB | 330 requests x about 2 KB = about 660 KB (the mastermind's optional preparation still makes its 2 Learn reads per `/ready` load; they are inside the 10 a route load) |
-| Log lines | 0: a failed read or save shows Ready or lets the person in and logs nothing (no console call in `EventRoomReady.tsx`, `ReadyStepBar.tsx`, `use-learned.ts` or `use-seated-at-running-round.ts`) | 0 | 0 expected |
+| Requests | worst: 2 visits x (3 room row + 1 seat + 1 marks + 1 canvas + 4 learn + 4 save) = 28; typical (one visit, answered): 6 + 2 = 8 | 16 people x 28 = 448 at most, all in the arrival window | users 10 x (2 create + 1 release) = 30; events 3 x (1 create + 2 updates + 1 delete) = 12; registrations 9; sessions 10; seat fixtures 2 x 4 (member read, round insert, seat insert, round delete) = 8; readiness row checks 6; cleanup deletes 5; app traffic about 25 route loads (10 room entries, 5 direct visits, about 10 in-app moves) x 10 = 250 (UNVERIFIED): 30 + 12 + 9 + 10 + 8 + 6 + 5 + 250 = 330 |
+| Egress (bytes) | worst: 2 visits x (2 KB canvas + 13 x 1 KB) = about 30 KB; with no Canvas at the event about 26 KB | 16 x 30 KB = about 480 KB | 330 requests x about 2 KB = about 660 KB (the mastermind's optional preparation still makes its 2 Learn reads per `/ready` load; they are inside the 10 a route load) |
+| Log lines | a failed read or save shows Ready or lets the person in, with no console call in `EventRoomReady.tsx`, `ReadyStepBar.tsx`, `use-learned.ts` or `use-seated-at-running-round.ts`. The Canvas read's shared service (`getMyEventCanvas`, as on `/meet`) logs through `throwDbError`: a network failure only as a Sentry breadcrumb, a real database error as 1 Sentry event (review round 12, Codex). Worst: 1 per visit = 2; while offline the read is not made | 16 x 2 = 32 at most, only when the Canvas table fails | 0 expected (the Canvas fixture answers) |
 
-Against main: the mastermind had no `/ready`, so its visit is new traffic (6 to 24 requests per attendee per
+Against main: the mastermind had no `/ready`, so its visit is new traffic (6 to 28 requests per attendee per
 evening). Clarity Night already made the room-row read, the marks and, on every Continue, the save and re-read; it
 now adds the seat read (1) and drops the save and re-read on Skip or an untouched Continue (0 instead of 2).
 Clarity Night's `/ready` also mounts the preparation banner when its event offers preparation (`PrepRoomBanner` through
@@ -454,9 +456,9 @@ The e2e runs against the self-hosted TEST server only (`assertSelfHostedTest`), 
 (as P1529's seed room); it is run at ship, by hand, never on a schedule.
 
 1. **Fits the plan limit today?** Supabase Free plan row: egress 5 GB a month. Monthly = (evenings a month) x
-   16 x 26 KB; at 4 evenings a month that is about 1.7 MB, which fits. Requests are not a billed unit on the row.
+   16 x 30 KB; at 4 evenings a month that is about 1.9 MB, which fits. Requests are not a billed unit on the row.
    Fits.
-2. **Fits at 10x?** 160 people x 26 KB x 4 evenings = about 17 MB a month: fits.
+2. **Fits at 10x?** 160 people x 30 KB x 4 evenings = about 19 MB a month: fits.
 3. Neither answer is no, so no upgrade is named.
 
 ## Acceptance Criteria

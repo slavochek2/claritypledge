@@ -12,7 +12,7 @@
  * Learning done on this device needs no read. Otherwise both reads start together, once, on a visible tab
  * (`whenVisible`), and the tick shows as soon as either proves the learning; the answer belongs to the inputs it was
  * read for. A failed read (offline among them) leaves the answer unknown (`error`, no tick) unless what did answer
- * proves it, and an unknown answer is read again when the connection comes back.
+ * proves it, and an unknown answer is read again, once a visit, when the connection comes back.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useConnectivity } from '@/app/contexts/offline-status-context';
@@ -37,10 +37,17 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
   // Review round 11 (Gemini): an answer left unknown by a failed read (offline) is read again once the connection is back.
   const { reconnectTick } = useConnectivity();
   const last = useRef(answer);
+  const rereads = useRef(0);
   last.current = answer;
   useEffect(() => {
     if (!key || !eventId || !viewerId) return;
     if (last.current?.key === key && !last.current.error) return; // answered for these inputs: nothing to re-read
+    // Review round 12 (Codex), metered rule 4: one re-read a visit at most, so a read that keeps failing is not repeated
+    // on every reconnect.
+    if (last.current?.key === key) {
+      if (rereads.current >= 1) return;
+      rereads.current += 1;
+    }
     let cancelled = false;
     const publish = (next: { error: boolean; learned: boolean }) => { if (!cancelled) setAnswer({ key, ...next }); };
     // Review round 11 (Codex): learning done on this device needs no read at all.

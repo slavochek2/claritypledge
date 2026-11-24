@@ -49,9 +49,9 @@ vi.mock('@/app/contexts/room-capture-context', () => ({
   useRoomCapture: () => ({ isCapturingForEvent: () => room.capturing }),
 }));
 // The mastermind's step bar reads the learning and the canvas; neither is the subject here.
-const prep = vi.hoisted(() => ({ state: { loading: false, error: false, learned: false } }));
+const prep = vi.hoisted(() => ({ state: { loading: false, error: false, learned: false }, asked: [] as unknown[] }));
 vi.mock('@/app/prototypes/events/prep/use-learned', () => ({
-  useLearned: () => prep.state,
+  useLearned: (ev: unknown) => { prep.asked.push(ev); return prep.state; },
 }));
 const canvas = vi.hoisted(() => ({ shared: false, asked: [] as boolean[] }));
 vi.mock('@/app/prototypes/events/rounds/canvas-setup', async (importOriginal) => ({
@@ -183,6 +183,7 @@ beforeEach(() => {
   canvas.shared = false;
   canvas.asked.length = 0;
   prep.state = { loading: false, error: false, learned: false };
+  prep.asked.length = 0;
   setRoom(night);
 });
 afterEach(() => vi.restoreAllMocks());
@@ -631,6 +632,26 @@ describe('a stalled connection never strands the person', () => {
     expect(screen.getByTestId('room-ready')).toBeInTheDocument();
     expect(redirects).toEqual([]);
   });
+
+  // Review round 12 (Codex): a seat found after the budget still forwards; a late "not seated" leaves Ready as it is.
+  it.each([[true], [false]])('a rounds read answering after ROUNDS_READ_MS, seated %s', async (seated) => {
+    vi.useFakeTimers();
+    let answer: (v: unknown) => void = () => undefined;
+    rounds.read = () => new Promise((r) => { answer = r; });
+    setRoom(mastermind);
+    mountReadyNoWait('mm');
+    await act(async () => { await vi.advanceTimersByTimeAsync(ROUNDS_READ_MS + 10); });
+    expect(screen.getByTestId('room-ready')).toBeInTheDocument();
+    await act(async () => {
+      answer({ rounds: [{ id: 'r1', endedAt: null }], seatsByRound: new Map([['r1', [{ id: seated ? 'member-a' : 'someone-else' }]]]) });
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    if (seated) expect(redirects.at(-1)).toMatchObject({ to: '/events/mm/meet', replace: true });
+    else {
+      expect(redirects).toEqual([]);
+      expect(screen.getByTestId('room-ready')).toBeInTheDocument();
+    }
+  });
 });
 
 describe('storage blocked', () => {
@@ -718,6 +739,7 @@ describe("/ready's step bar", () => {
     const bar = await screen.findByTestId('room-steps');
     expect(bar).toHaveTextContent('Ready');
     expect(bar).toHaveTextContent('Learn and prepare');
+    expect(prep.asked.at(-1)).toMatchObject({ id: mastermind.id });
     // R5 (founder 2026-11-24): the mastermind's last step is "Review" on /ready as on /meet.
     expect(screen.getByTestId('room-step-close')).toHaveTextContent(/^Review$/);
     expect(bar).not.toHaveTextContent('Feedback');
@@ -741,6 +763,15 @@ describe("/ready's step bar", () => {
     await mountReady('mm');
     await screen.findByTestId('room-steps');
     expect(screen.queryByTestId('room-step-canvas')).toBeNull();
+    expect(canvas.asked).not.toContain(true);
+  });
+
+  // Review round 12 (Codex): no Canvas read while known offline.
+  it('the mastermind with the Canvas made at the event, offline: the shared read is not asked', async () => {
+    net.offline = true;
+    setRoom({ ...mastermind, canvasTiming: 'at_event' } as TestEvent, { ...selfA });
+    mountReadyNoWait('mm');
+    await screen.findByTestId('room-steps');
     expect(canvas.asked).not.toContain(true);
   });
 
@@ -777,6 +808,9 @@ describe("/ready's step bar", () => {
     const bar = await screen.findByTestId('room-steps');
     expect(bar).toHaveTextContent('Compare');
     expect(bar).not.toHaveTextContent('Learn and prepare');
+    // Review round 12 (Gemini): Clarity Night's bar has no Learn entry, so its Learn reads are never asked.
+    expect(prep.asked.length).toBeGreaterThan(0);
+    expect(prep.asked.every((ev) => ev === null)).toBe(true);
   });
 });
 

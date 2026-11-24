@@ -142,6 +142,20 @@ describe('useLearned', () => {
     expect(reads.prep).toHaveBeenCalledTimes(2);
   });
 
+  // Review round 12 (Codex), metered rule 4: a read that keeps failing is read again once a visit, not on every reconnect.
+  it('a read that keeps failing is re-read once, however often the connection comes back', async () => {
+    reads.prep.mockRejectedValue(new Error('denied'));
+    const { result, rerender } = renderHook(() => useLearned(event, 'profile-1'));
+    await waitFor(() => expect(result.current.error).toBe(true));
+    for (const tick of [1, 2, 3]) {
+      net.tick = tick;
+      rerender();
+      await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    }
+    expect(reads.prep).toHaveBeenCalledTimes(2);
+    expect(reads.parts).toHaveBeenCalledTimes(2);
+  });
+
   it('not asked with no preparation offered, no viewer, or no event: no read, not loading', () => {
     reads.offers = false;
     expect(renderHook(() => useLearned(event, 'profile-1')).result.current).toEqual({ loading: false, error: false, learned: false });
