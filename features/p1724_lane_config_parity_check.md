@@ -203,6 +203,14 @@ nothing of lane2's project is left.
 - `host_entries` does not normalise the bracketed IPv6 form. It fails closed, and no lane uses IPv6 host entries.
 - When the main lane does not answer `/auth/v1/settings`, the result is a warning, not a failure. The lane1 evidence above shows 0 warnings.
 - Second review round (2026-11-24, Opus N1): the tripwire first dropped any main path whose value renders as null. A per-name network or `caddy.command` was invisible to it. Paths are now compared by membership, and networks are keyed per name. The live lane1 run then surfaced `caddy.command` and `caddy.entrypoint`, now classified.
+- Third review round (2026-11-25, Codex, 2 HIGH and 4 MEDIUM, all fixed):
+  - Boot compares the rendered config before any lane container starts. On a difference it removes the client route first, so a stale lane never serves through a route left over from before the reboot.
+  - The live proof treats an unreadable docker inventory as an error, never as empty.
+  - Fields and env names that render as null are compared by membership, in both the service comparison and the top-level tripwire.
+  - `compose` runs with the same clean environment the check renders with.
+  - A comparison that cannot run (a timeout, a missing file, Tailscale down) is a parity failure at every caller, never an exception.
+  - The canary blocks every Tailscale call that has no stub.
+  - Residual: if Caddy is not up at boot, the route file is still removed, so Caddy never loads it again, but the reload itself is only logged.
 - The live proof exercises the running comparison through `container_drift` on created, never-started containers. Its path through `parity_report(running=True)` is covered offline and by the read-only lane1 run.
 
 **Non-Goals**
@@ -217,7 +225,7 @@ nothing of lane2's project is left.
       lane2's config with a candidate `lanectl` that has exactly one defect reverted, and the check fails
       naming the right fields. There are five replays: Google sign-in off, no template URLs, no relay,
       auth and mail off the internet-facing network, no template host entry.
-      Evidence (2026-11-24, `p1724_live_proof.py`, candidate sha256 `1395ad68044a3f3e`, 25 of 25 held): all five
+      Evidence (2026-11-24, `p1724_live_proof.py`, candidate sha256 `1f1251d2a730313b`, 25 of 25 held): all five
       replays fail and name the defect. The method replays each defect by removing exactly its lines from the
       generated `lane.yml` (each removal is asserted non-empty), which yields the file the pre-fix `lanectl`
       wrote for that field.
@@ -242,15 +250,17 @@ nothing of lane2's project is left.
       settings oracle, tripwire) runs on lane1 read-only from a temporary path and passes before
       installing. lane1's `.env` and `lane.yml` hashes and its containers' IDs and start times are the
       same before and after.
-      Evidence: candidate `1395ad68044a3f3e` on lane1 under its shared lock: "outbound failures 0 parity
+      Evidence: candidate `1f1251d2a730313b` on lane1 under its shared lock: "outbound failures 0 parity
       failures 0 warnings 0" (0 warnings, so main answered the settings oracle), fingerprint unchanged. The
       live proof's nine lane1 keys were also unchanged.
 - [x] **Each entry point does what it claims (offline, stubbed).** Provisioning on a difference never
       reaches the firewall or database copy and ends `failed`. Lift on a difference quarantines. Deploy to
       a ready lane on a difference is refused before quarantine. Boot on a difference quarantines. `check`
       exits 3. The rules accept the known-good inputs, refuse each defect and never print a secret.
-      Evidence: `python3 scripts/test-p1724-lane-parity.py` gives 88 passed, 0 failed. Mutation run: 14 of 14
+      Evidence: `python3 scripts/test-p1724-lane-parity.py` gives 102 passed, 0 failed. Mutation run: 14 of 14
       wiring and rule mutations turn it red; the review-round tests fail on the pre-review `lanectl`.
+      The third round's 11 new tests fail on the round-2 `lanectl` (91 passed, 11 failed). Removing the
+      lift test's origin stub makes it fail on this machine too.
 - [x] `relay_matching` failing leaves provisioning `failed`, not stuck in `provisioning` (it raised
       `SystemExit`, which the provision handler does not catch).
       Evidence: offline tests "provision: no relay list raises RuntimeError" and "provision: no relay list leaves

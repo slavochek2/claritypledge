@@ -58,10 +58,16 @@ def project_residue(lane):
     for kind, cmd in (('container', ['docker', 'ps', '-a', '-q', '--filter', lab]),
                       ('network', ['docker', 'network', 'ls', '-q', '--filter', lab]),
                       ('volume', ['docker', 'volume', 'ls', '-q', '--filter', lab])):
-        out += [f'{kind} {x}' for x in sh(*cmd).stdout.split()]
+        p = sh(*cmd)
+        if p.returncode != 0:   # an unreadable inventory is never an empty one (Codex 2)
+            raise RuntimeError(f'docker {kind} list failed (exit {p.returncode}); cannot tell what cp-{lane} holds')
+        out += [f'{kind} {x}' for x in p.stdout.split()]
     for svc in ('db', 'auth', 'rest', 'realtime', 'storage', 'meta', 'kong', 'mail', 'functions'):
-        if sh('docker', 'inspect', f'cp-{lane}-{svc}').returncode == 0:
+        p = sh('docker', 'inspect', f'cp-{lane}-{svc}')
+        if p.returncode == 0:
             out.append(f'container cp-{lane}-{svc}')
+        elif 'no such object' not in (p.stderr or '').lower():
+            raise RuntimeError(f'docker inspect cp-{lane}-{svc} failed (exit {p.returncode}) for a reason other than absence')
     return out
 
 

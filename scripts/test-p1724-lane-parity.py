@@ -29,6 +29,13 @@ spec = importlib.util.spec_from_file_location('lanectl_under_test', SRC)
 L = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(L)
 
+
+def _no_tailscale():   # hermetic everywhere: an unstubbed Tailscale call fails here, not only off this machine
+    raise RuntimeError('canary: Tailscale reached without a stub')
+
+
+L.ts_identity = _no_tailscale
+
 PASS = FAIL = 0
 
 
@@ -303,6 +310,16 @@ paths = L.override_contributions({'services': {}}, {'services': {'mail': {'netwo
 check('mail.networks[relaynet]' in paths and not L.classify('mail.networks[relaynet]') and L.classify('mail.networks[default]'),
       'networks are keyed per name: a network main adds to mail later is unclassified')
 
+print('null-valued entries (Codex 3)')
+ms = {'image': 'i', 'command': None, 'environment': {'GOTRUE_X': None}}
+check(any('command' in x for x in L.compare_service('mail', ms, {'image': 'i', 'environment': {'GOTRUE_X': None}}, {}, {}, ctx())),
+      'a field main sets to null and the lane omits is a difference')
+check(any('GOTRUE_X' in x and 'main' in x for x in L.compare_service('mail', ms, {'image': 'i', 'command': None}, {}, {}, ctx())),
+      'an env name main sets with no value and the lane omits is a difference')
+check(L.compare_service('mail', ms, dict(ms), {}, {}, ctx()) == [], 'control: the same null entries on both sides pass')
+paths = L.override_contributions({'services': {}, 'volumes': {}}, {'services': {}, 'volumes': {'newvol': None}})
+check('volumes.newvol' in paths, 'a top-level map entry main adds as null is a contribution')
+
 print('render and settings')
 with patched(run=lambda *a, **k: type('P', (), {'returncode': 1, 'stdout': '', 'stderr': f'bad value {MAIN_PW}'})()):
     _, exc, out = captured(L.render_main, ['docker-compose.yml'])
@@ -332,6 +349,30 @@ S = {'external': {'google': True, 'email': True}, 'mailer_autoconfirm': False}
 with patched(**stub_report(S, S)):
     f, w = L.parity_report('lane1')
 check(f == [] and w == [], f'control: identical settings and clean containers pass ({f})')
+import subprocess  # noqa: E402
+for boom, name in ((subprocess.TimeoutExpired(['docker', 'compose', 'config'], 120), 'a render timeout'),
+                   (RuntimeError('canary: Tailscale reached'), 'an origin lookup failure')):
+    def raiser(*a, _e=boom, **k):
+        raise _e
+    with patched(**stub_report(S, S) | {'render_lane': raiser}):
+        _, exc, _o = captured(L.parity_report, 'lane1')
+        res = L.parity_report('lane1') if exc is None else None
+    check(exc is None and res and res[0] and 'could not run' in res[0][0],
+          f'{name} is a parity failure, never an exception (Codex 5): {res}')
+seen_env = {}
+with patched(run=lambda cmd, **k: seen_env.update(k) or type('P', (), {'returncode': 0, 'stdout': '', 'stderr': ''})()):
+    L.compose('lane1', 'up', '-d', 'auth')
+check(seen_env.get('env') == L.RENDER_ENV, 'compose runs with the environment parity renders with (Codex 4)')
+PROOF = Path(__file__).resolve().parent / 'selfhosted/lanes/vm/p1724_live_proof.py'
+pspec = importlib.util.spec_from_file_location('p1724_live_proof', PROOF)
+P = importlib.util.module_from_spec(pspec)
+pspec.loader.exec_module(P)
+P.sh = lambda *cmd: type('P', (), {'returncode': 1, 'stdout': '', 'stderr': 'Cannot connect to the Docker daemon'})()
+_, exc, _o = captured(P.project_residue, 'lane2')
+check(isinstance(exc, RuntimeError), 'live proof: an unreadable docker inventory raises, never reads as empty (Codex 2)')
+P.sh = lambda *cmd: type('P', (), {'returncode': 1 if cmd[1] == 'inspect' else 0, 'stdout': '',
+                                    'stderr': 'Error: No such object: x'})()
+check(P.project_residue('lane2') == [], 'control: absent containers on a reachable daemon read as empty')
 print('origin source')
 seen_o = {}
 with patched(**stub_report(S0 := {'external': {}}, S0) | {'origin': lambda lane: 'https://live.example:8443',
@@ -432,7 +473,8 @@ try:
           f'lift: a difference quarantines, no functions, no route ({names})')
     with patched(outbound_check=lambda lane: [], parity_report=lambda *a, **k: ([], []), quarantine=rec('quarantine'),
                  compose=rec('compose'), wait_healthy=rec('wait_healthy'), probe_functions=rec('probe'),
-                 lane_psql=lambda *a, **k: type('P', (), {'stdout': ''})(), caddy_route_add=rec('caddy_route_add')):
+                 lane_psql=lambda *a, **k: type('P', (), {'stdout': ''})(), caddy_route_add=rec('caddy_route_add'),
+                 origin=lambda lane: LO):   # hermetic: the success line names the origin (Codex 6)
         (L.ldir('lane1')).mkdir(parents=True, exist_ok=True)
         calls.clear()
         _, exc, out = captured(L.main, ['lift', '--lane', 'lane1', '--gen', '1'])
@@ -452,15 +494,40 @@ try:
     # boot: a serving lane that differs is quarantined and its functions are not started
     set_state(quarantined=False)
     calls.clear()
+    # (running comparison only: the pre-start render comparison passes, the containers then differ)
+    def boot_report(*a, **k):
+        calls.append(('parity_report', k.get('boot'), k.get('running', True)))
+        return DIFF if k.get('running', True) else ([], [])
     with patched(fw_apply=rec('fw_apply'), fw_ok=lambda lane: True, compose=rec('compose'), wait_healthy=rec('wait_healthy'),
-                 parity_report=lambda *a, **k: calls.append(('parity_report', k.get('boot'))) or DIFF, quarantine=rec('quarantine')):
+                 parity_report=boot_report, quarantine=rec('quarantine'), caddy_route_remove=rec('caddy_route_remove')):
         rc, exc, out = captured(L.main, ['boot'])
     started_fn = [c for c in calls if c[0] == 'compose' and 'functions' in c and 'up' in c]
     check(rc == 1 and 'quarantine' in [c[0] for c in calls] and not started_fn, f'boot: a difference quarantines, functions not started (rc {rc})')
     names = [c[0] for c in calls]
-    check('wait_healthy' in names and names.index('wait_healthy') < names.index('parity_report'),
+    running_at = [i for i, c in enumerate(calls) if c[0] == 'parity_report' and c[2]]
+    check('wait_healthy' in names and running_at and names.index('wait_healthy') < running_at[0],
           'boot: waits for auth and mail before the running comparison')
-    check(('parity_report', True) in calls, 'boot: the comparison takes the origin recorded in the lane .env (boot=True)')
+    check(calls[names.index('parity_report')][2] is False and names.index('parity_report') < names.index('compose'),
+          'boot: the rendered config is compared before any lane container starts (Codex 1)')
+    check('caddy_route_remove' not in names, 'control: a lane whose config matches keeps its route through the start')
+    # pre-start: the rendered config already differs, so the route goes before the lane starts
+    set_state(quarantined=False)
+    calls.clear()
+    with patched(fw_apply=rec('fw_apply'), fw_ok=lambda lane: True, compose=rec('compose'), wait_healthy=rec('wait_healthy'),
+                 parity_report=lambda *a, **k: calls.append(('parity_report', k.get('boot'), k.get('running', True))) or DIFF,
+                 quarantine=rec('quarantine'), caddy_route_remove=rec('caddy_route_remove')):
+        rc, exc, out = captured(L.main, ['boot'])
+    names = [c[0] for c in calls]
+    up_at = next((i for i, c in enumerate(calls) if c[0] == 'compose' and 'up' in c), None)
+    check(rc == 1 and 'caddy_route_remove' in names and up_at is not None and names.index('caddy_route_remove') < up_at,
+          f'boot: a pre-start difference removes the route before the lane starts (rc {rc}, {names})')
+    check(('wait_healthy', 'lane1', "['db']") in calls and 'quarantine' in names and names.index('wait_healthy') < names.index('quarantine'),
+          'boot: the database is up before quarantine, so it can record and stop cron')
+    check(not [c for c in calls if c[0] == 'compose' and 'functions' in c and 'up' in c]
+          and [c for c in calls if c[0] == 'parity_report' and c[2]] == [],
+          'boot: a pre-start difference starts no functions and skips the running comparison')
+    check({c[1] for c in calls if c[0] == 'parity_report'} == {True},
+          'boot: both comparisons take the origin recorded in the lane .env (boot=True)')
     check('boot failed' in out and 'firewall restore failed' not in out, 'boot: a parity refusal is not logged as a firewall failure')
 
     def slow(lane, services, timeout=240):

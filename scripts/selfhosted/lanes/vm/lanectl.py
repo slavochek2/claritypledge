@@ -309,7 +309,7 @@ def compose(lane, *args, timeout=600, check=True):
     d = ldir(lane)
     return run(['docker', 'compose', '-p', f'cp-{lane}', '--project-directory', str(d),
                 '-f', str(MAIN_DIR / 'docker-compose.yml'), '-f', str(d / 'lane.yml'), '--env-file', str(d / '.env'), *args],
-               timeout=timeout, check=check)
+               timeout=timeout, check=check, env=RENDER_ENV)   # the env parity rendered with (P1724 Codex 4)
 
 
 def relay_matching():
@@ -700,10 +700,14 @@ def _structure(svc, ms, ls, main_r, lane_r, ctx):
 def compare_service(svc, ms, ls, main_r, lane_r, ctx):
     fails = []
     for f in sorted((set(ms) | set(ls)) - PARITY_SKIP_FIELDS - {'environment'}):
-        if ms.get(f) != ls.get(f):
+        # Membership as well as value: a field present as null on one side only is a difference (Codex 3).
+        if (f in ms) != (f in ls) or ms.get(f) != ls.get(f):
             fails.append(f'{svc}: {f} differs from main')
     me, le = ms.get('environment') or {}, ls.get('environment') or {}
     for k in sorted(set(me) | set(le)):
+        if (k in me) != (k in le) and (me.get(k) if k in me else le.get(k)) is None:
+            fails.append(f'{svc}: {k} is set with no value on {"main" if k in me else "the lane"} only')
+            continue
         d = _env_diff(svc, k, me.get(k), le.get(k), ctx)
         if d:
             fails.append(d)
@@ -741,8 +745,8 @@ def override_contributions(base, full):
     for k in sorted((set(base) | set(full)) - {'services', 'name'}):
         bk, fk = base.get(k) or {}, full.get(k) or {}
         if isinstance(bk, dict) and isinstance(fk, dict):
-            paths += [f'{k}.{x}' for x in sorted(set(bk) | set(fk)) if bk.get(x) != fk.get(x)]
-        elif bk != fk:
+            paths += [f'{k}.{x}' for x in sorted(set(bk) | set(fk)) if (x in bk) != (x in fk) or bk.get(x) != fk.get(x)]
+        elif (k in base) != (k in full) or bk != fk:
             paths.append(k)
     return paths
 
@@ -819,7 +823,16 @@ def parity_report(lane, running=True, settings=True, boot=False):
     """(failures, warnings) for the lane against the main lane. running: also its containers. settings: also
     auth's own /auth/v1/settings through each gateway. boot: take the lane origin from its own .env, since
     tailscaled may not be up yet; everywhere else it comes from Tailscale, so a lane whose URLs name a stale
-    host fails here, not first at the lift's outbound check (review round 2, Opus N3). Renders and reads only."""
+    host fails here, not first at the lift's outbound check (review round 2, Opus N3). Renders and reads only.
+    A comparison that cannot run (a docker timeout, a missing file, Tailscale down) is a failure, never an
+    exception, so every caller refuses the same way (Codex 5)."""
+    try:
+        return _parity_report(lane, running, settings, boot)
+    except Exception as e:
+        return [f'the comparison could not run ({why_failed(e)})'], []
+
+
+def _parity_report(lane, running, settings, boot):
     fails, warns = [], []
     try:
         main_r, main_base, lane_r = render_main(), render_main(['docker-compose.yml']), render_lane(lane)
@@ -1910,7 +1923,23 @@ def main(argv):
                         if cmd == 'boot' and not fw_ok(l):
                             raise RuntimeError('firewall rules do not verify after restore')   # -> quarantined below
                         if cmd == 'boot':
+                            pre = []
+                            if not st.get('quarantined'):
+                                # P1724 (Codex 1): compare the rendered config BEFORE anything starts. The client
+                                # route survives a reboot, so a lane started first would serve sign-in with a stale
+                                # config until the running comparison below. On a difference the route goes first,
+                                # then the lane starts with its database up, so quarantine can record and stop cron.
+                                pre, pre_w = parity_report(l, running=False, settings=False, boot=True)
+                                if pre:
+                                    report_parity(l, pre, pre_w)
+                                    try:   # the file goes before the reload, so Caddy never loads it again
+                                        caddy_route_remove(l)
+                                    except Exception as e:
+                                        say(f'{l}: route file removed, Caddy did not reload ({why_failed(e)})')
                             compose(l, 'up', '-d', *[s for s in SERVICES_UP], timeout=600)
+                            if pre:
+                                wait_healthy(l, ['db'])
+                                raise RuntimeError(f'{len(pre)} difference(s) from the main lane before start')
                             if not st.get('quarantined'):
                                 # P1724: a serving lane must still match the main lane, which may have changed
                                 # while the VM was down. Auth's own answer is left to the next lift: it may
