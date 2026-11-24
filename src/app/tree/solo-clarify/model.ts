@@ -89,14 +89,15 @@ export function removeTag(text: string, tag: string): string {
   return out;
 }
 
-/** The span a deleted tag takes with it: one space beside it, or a list comma after it at the start of a line or phrase. */
+/** The span a deleted tag takes with it: one space beside it, or a list comma after it at the start of a line, phrase or bracket. */
 function withSpacing(text: string, from: number, to: number): [number, number] {
   const before = text[from - 1];
   const after = text[to];
-  const lineStart = from === 0 || /\s/.test(before ?? '');
+  const lineStart = from === 0 || /[\s([{"'\u201c\u2018]/.test(before ?? '');
+  const spaceBefore = before === ' ' || before === '\t';
   const list = /^[,;](?:[ \t]|(?=\n|$))/.exec(text.slice(to));
-  if (lineStart && list) return [list[0].length === 1 && from > 0 && before !== '\n' ? from - 1 : from, to + list[0].length];
+  if (lineStart && list) return [list[0].length === 1 && spaceBefore ? from - 1 : from, to + list[0].length];
   if ((after === ' ' || after === '\t') && lineStart) return [from, to + 1];
-  if ((before === ' ' || before === '\t') && (after === undefined || after === '\n' || /[.,;:!?)]/.test(after))) return [from - 1, to];
+  if (spaceBefore && (after === undefined || after === '\n' || /[.,;:!?)]/.test(after))) return [from - 1, to];
   return [from, to];
 }

@@ -297,7 +297,7 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
   const [tries, setTries] = useState(0);
   // The screens unmount this dialog rather than closing it, so Radix never hands focus back: return it to what opened it.
   // A Make public link goes away once the point is public, so its card's Share is the fallback.
-  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null));
   const [fallback] = useState(() => opener?.closest('[data-return-focus]')?.querySelector<HTMLElement>('[data-share]') ?? null);
   useEffect(() => () => {
     setTimeout(() => {
