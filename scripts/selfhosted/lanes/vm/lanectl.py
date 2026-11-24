@@ -258,6 +258,13 @@ def origin(lane):
     return f'https://{host}:{LANES[lane]["https_port"]}'
 
 
+def lane_origin(lane):
+    """The origin the lane was provisioned with, from its own .env: no Tailscale call, so the boot-time
+    parity check does not depend on tailscaled being up yet. Asks Tailscale only when the record is missing."""
+    o = lane_env(lane).get('SITE_URL', '')
+    return o if re.fullmatch(rf'https://[A-Za-z0-9.-]+:{LANES[lane]["https_port"]}', o) else origin(lane)
+
+
 def b64url(b):
     return base64.urlsafe_b64encode(b).rstrip(b'=').decode()
 
@@ -544,6 +551,12 @@ OVERRIDE_CLASSIFIED = {
     'caddy.volumes[/etc/caddy/Caddyfile]': "main's Caddyfile, which imports the lane sites lanectl writes",
     'caddy.volumes[/srv/cp-email-templates]': 'the e-mail designs; each lane route serves this same directory '
                                               '(caddy_route_add). Checking the route itself is deferred (P1724)',
+    # The mail service comes wholly from main's override; its env, image and volumes are compared by parity.
+    # These four are fields parity skips, classified one by one (review, Opus M2):
+    'mail.container_name': 'lane own: cp-<lane>-mail (lane_yml)',
+    'mail.networks': "derived rule: main's mail reaches the internet, so the lane's must sit on its edge network (_structure)",
+    'mail.ports[8025]': "lane own: the lane's mail UI on the tailnet address and its own port (lane_yml)",
+    'mail.restart': 'lane own: lanes are started by lanectl boot once their firewall verifies, not by a docker restart policy',
     'volumes.caddy_config': "main's Caddy state",
     'volumes.caddy_data': "main's Caddy state (certificates)",
 }
@@ -566,7 +579,15 @@ def shown(v):
         return '<absent>'
     if v == '':
         return '<empty>'
-    if re.fullmatch(r'true|false|[0-9]{1,6}', v, re.I) or re.fullmatch(r'https?://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/*-]*)?', v):
+    if re.fullmatch(r'true|false|[0-9]{1,6}', v, re.I):
+        return repr(v)
+    m = re.fullmatch(r'(https?://[A-Za-z0-9.-]+(?::[0-9]+)?)(/[A-Za-z0-9._/*-]*)?', v)
+    if m:
+        # A capability URL carries its token in the path (a webhook, say): a path segment that is long and
+        # mixes letters and digits is never printed, only its length.
+        path = m.group(2) or ''
+        if any(len(s) >= 16 and re.search(r'[A-Za-z]', s) and re.search(r'[0-9]', s) for s in path.split('/')):
+            return repr(m.group(1)) + f' with a <{len(path)}-char path>'
         return repr(v)
     return f'<{len(v)} chars>'
 
@@ -610,6 +631,8 @@ def _env_diff(svc, k, mv, lv, ctx):
         rule = 'rebase'
     secret = SECRET_NAME.search(k) is not None
     detail = lambda exp: '' if secret else f': lane {shown(lv)}, required {shown(exp)}'
+    if mv is None and lv is not None:   # a rule (value:, lane-env:) must not make a lane-only key pass
+        return f'{svc}: {k} missing on main'
     if rule == 'rebase-set':
         want = {u.replace(MAIN_ORIGIN, o) for u in (mv or '').split(',') if u}
         have = {u for u in (lv or '').split(',') if u}
@@ -648,6 +671,14 @@ def _env_diff(svc, k, mv, lv, ctx):
     return None
 
 
+def host_entries(eh):
+    """extra_hosts as a set of "host=ip". Compose renders it as a list ("host:ip" or "host=ip") or, in some
+    versions, a map of host to an address or a list of addresses; docker stores "host:ip"."""
+    if isinstance(eh, dict):
+        return {f'{h}={a}' for h, v in eh.items() for a in (v if isinstance(v, list) else [v])}
+    return {h.replace(':', '=', 1) if '=' not in h else h for h in (eh or [])}
+
+
 def _structure(svc, ms, ls, main_r, lane_r, ctx):
     """Derived rules for the skipped structural fields (today's fixes were partly structural)."""
     fails = []
@@ -658,8 +689,7 @@ def _structure(svc, ms, ls, main_r, lane_r, ctx):
                      f'(join the lane edge network)')
     host = re.sub(r'^https://([^:/]+).*$', r'\1', ctx['origin'])
     if any(isinstance(v, str) and f'://{host}' in v for v in (ls.get('environment') or {}).values()):
-        hosts = [h.replace(':', '=', 1) if '=' not in h else h for h in (ls.get('extra_hosts') or [])]
-        if f'{host}={ctx["ts_ip"]}' not in hosts:
+        if f'{host}={ctx["ts_ip"]}' not in host_entries(ls.get('extra_hosts')):
             fails.append(f'{svc}: names the lane host in its settings but has no host entry for it '
                          f'({host} to the VM tailnet address); it cannot fetch its own URLs')
     return fails
@@ -712,29 +742,50 @@ def classify(path):
     """Why a main-override path is fine for lanes, or None (the tripwire)."""
     svc = re.split(r'[.\[]', path, 1)[0]
     if svc in PARITY_SERVICES:
-        return 'compared by parity'
+        # Fields compare_service skips are NOT compared, so main's additions there must be classified one by
+        # one (the derived rules in _structure cover only the lane's own host entry and edge reachability).
+        field = re.split(r'[.\[]', path[len(svc) + 1:], 1)[0]
+        return OVERRIDE_CLASSIFIED.get(path) if field in PARITY_SKIP_FIELDS else 'compared by parity'
     m = re.fullmatch(r'functions\.environment\.([A-Za-z0-9_]+)', path)
     if m and m.group(1) in FN_ENV_ALLOW | FN_ENV_REGENERATE | FN_ENV_LANE_OWN | FN_ENV_NOT_IN_LANES:
         return 'function env (P1672 deny by default)'
     return OVERRIDE_CLASSIFIED.get(path)
 
 
-def container_drift(svc_render, require_running):
-    """A container against the config it was rendered from: image and env. Env the image itself bakes in
-    is not a difference. Report lines never print a secret."""
+def container_drift(svc_render, require_running, render=None):
+    """A container against the config it was rendered from: image, env and, given the whole render, its
+    networks and host entries (a hand-fixed lane.yml whose container was never recreated still runs the old
+    ones). Env the image itself bakes in is not a difference. Report lines never print a secret."""
     name = svc_render.get('container_name')
+    if not name:
+        return ['a compared service has no container_name in its config; its container cannot be checked']
     p = run(['docker', 'inspect', name], check=False)
     if p.returncode != 0:
-        return [f'{name}: container does not exist']
+        missing = 'no such' in (p.stderr or '').lower()
+        return [f'{name}: container does not exist' if missing else
+                f'{name}: docker inspect failed (exit {p.returncode}); the container could not be checked']
     c = json.loads(p.stdout)[0]
     fails = []
     if require_running and not c.get('State', {}).get('Running'):
         fails.append(f'{name}: container is not running')
     if c['Config'].get('Image') != svc_render.get('image'):
         fails.append(f'{name}: runs image {c["Config"].get("Image")!r}, its config says {svc_render.get("image")!r}')
+    if render is not None:
+        nets = render.get('networks') or {}
+        want_n = {(nets.get(n) or {}).get('name', n) for n in (svc_render.get('networks') or {})}
+        have_n = set((c.get('NetworkSettings') or {}).get('Networks') or {})
+        if want_n != have_n:
+            fails.append(f'{name}: attached to networks {sorted(have_n)}, its config says {sorted(want_n)}')
+        if host_entries(svc_render.get('extra_hosts')) != host_entries((c.get('HostConfig') or {}).get('ExtraHosts')):
+            fails.append(f'{name}: its host entries differ from its config file')
     cenv = dict(e.split('=', 1) for e in c['Config'].get('Env') or [] if '=' in e)
-    ip = run(['docker', 'image', 'inspect', c['Config'].get('Image', ''), '-f', '{{json .Config.Env}}'], check=False)
-    baked = dict(e.split('=', 1) for e in (json.loads(ip.stdout) or [] if ip.returncode == 0 else []) if '=' in e)
+    # The env baked into the image the container actually runs (by id): a re-pulled tag may differ.
+    ip = run(['docker', 'image', 'inspect', c.get('Image') or c['Config'].get('Image', ''), '-f', '{{json .Config.Env}}'],
+             check=False)
+    if ip.returncode != 0:
+        # Without the image's own env, every variable it bakes in would read as a stray one: say why instead.
+        return fails + [f'{name}: its image could not be inspected (exit {ip.returncode}); its env was not compared']
+    baked = dict(e.split('=', 1) for e in (json.loads(ip.stdout) or []) if '=' in e)
     want = {k: v for k, v in (svc_render.get('environment') or {}).items() if v is not None}
     for k in sorted(set(want) | set(cenv)):
         if k in want and cenv.get(k) != want[k]:
@@ -762,7 +813,7 @@ def parity_report(lane, running=True, settings=True):
         main_r, main_base, lane_r = render_main(), render_main(['docker-compose.yml']), render_lane(lane)
     except CheckFailed as e:
         return [f'render: {e}'], warns
-    ctx = {'origin': origin(lane), 'ts_ip': lane_ts_ip(lane), 'lane_env': lane_env(lane), 'main_env': main_env(),
+    ctx = {'origin': lane_origin(lane), 'ts_ip': lane_ts_ip(lane), 'lane_env': lane_env(lane), 'main_env': main_env(),
            'grandfathered': PARITY_GRANDFATHERED.get((lane, load(lane).get('generation')), {})}
     for s in PARITY_SERVICES:
         ms, ls = (main_r.get('services') or {}).get(s), (lane_r.get('services') or {}).get(s)
@@ -777,9 +828,10 @@ def parity_report(lane, running=True, settings=True):
     if running:
         for s in PARITY_SERVICES:
             if s in (lane_r.get('services') or {}):
-                fails += container_drift(lane_r['services'][s], require_running=True)
+                fails += container_drift(lane_r['services'][s], require_running=True, render=lane_r)
             if s in (main_r.get('services') or {}):   # main-lane upkeep: reported, never a lane failure
-                warns += [f'main lane: {w}' for w in container_drift(main_r['services'][s], require_running=True)]
+                warns += [f'main lane: {w}' for w in container_drift(main_r['services'][s], require_running=True,
+                                                                     render=main_r)]
     if settings:
         me, le = ctx['main_env'], ctx['lane_env']
         lane_s = auth_settings(LANES[lane]['kong_port'], le.get('ANON_KEY', ''))
@@ -1389,7 +1441,11 @@ def deploy(lane, tarball):
     if was_ready:
         # P1724: a ready lane that would fail the lift's parity check is refused here, while it still
         # serves, instead of being quarantined by a lift that cannot pass.
-        pfails, pwarns = parity_report(lane)
+        try:
+            pfails, pwarns = parity_report(lane)
+        except Exception as e:   # the check could not run: refuse the same way, the lane keeps serving
+            raise CheckFailed(f'deploy refused: the parity check with the main lane could not run '
+                              f'({type(e).__name__}); {lane} keeps serving the code it has') from None
         report_parity(lane, pfails, pwarns)
         if pfails:
             raise CheckFailed(f'deploy refused: {lane} differs from the main lane in {len(pfails)} place(s) and could '
@@ -1745,6 +1801,8 @@ def main(argv):
                 st = load(lane)
                 if st.get('state') in ('free', 'draining'):
                     raise Refused(f'{lane} is {st.get("state")}; there is nothing to compare')
+                if not all((ldir(lane) / f).exists() for f in ('.env', 'lane.yml', 'ts_ip')):
+                    raise Refused(f'{lane} is {st.get("state")} and its config is not written yet; nothing to compare')
                 pfails, pwarns = parity_report(lane, running='--config-only' not in args,
                                                settings='--config-only' not in args)
             report_parity(lane, pfails, pwarns)
@@ -1827,7 +1885,13 @@ def main(argv):
                             if not st.get('quarantined'):
                                 # P1724: a serving lane must still match the main lane, which may have changed
                                 # while the VM was down. Auth's own answer is left to the next lift: it may
-                                # not be up yet.
+                                # not be up yet. Give auth and mail time to come up first (auth restarts until
+                                # the database answers), so a slow boot is not read as a stopped container; if
+                                # they never come up, the running comparison below says so.
+                                try:
+                                    wait_healthy(l, ['auth', 'mail'])
+                                except RuntimeError:
+                                    pass
                                 pfails, pwarns = parity_report(l, settings=False)
                                 report_parity(l, pfails, pwarns)
                                 if pfails:
@@ -1839,7 +1903,7 @@ def main(argv):
                                 cron_off(l, record=False)
                 except Exception as e:
                     bad += 1
-                    say(f'{l}: firewall restore failed ({e}); quarantining it')
+                    say(f'{l}: {cmd} failed ({e}); quarantining it')
                     try:
                         with Lock(l):
                             quarantine(l)

@@ -14,6 +14,7 @@ What it does, and what it never does:
     on the defect it replays; the unmodified file must pass.
   * Running comparison: containers CREATED (never started) from a defective lane.yml, then the good file
     written back. The rendered check passes, the container check fails; recreated from the good file, it passes.
+    Twice: once for env (Google off), once for structure (off the edge network, no host entry).
   * Tripwire: removing one real classification entry must fail, naming the path.
   * Always tears down: compose down, containers by name, networks, the lane directory. Never touches
     Caddy, the firewall or any other lane. Verifies lane2 is left as it was found.
@@ -191,17 +192,34 @@ def run_proof(m):
     yml.write_text(good)
     rfails, _ = m.parity_report(LANE, running=False, settings=False)
     ok(not rfails, f'with the good file back, the rendered check passes ({len(rfails)} failure(s))')
-    lane_r = m.render_lane(LANE)['services']
-    drift = m.container_drift(lane_r['auth'], require_running=False)
+    full = m.render_lane(LANE)
+    lane_r = full['services']
+    drift = m.container_drift(lane_r['auth'], require_running=False, render=full)
     for f in drift:
         print(f'   {f}')
     ok(any('GOTRUE_EXTERNAL_GOOGLE' in f for f in drift),
        f'the container check fails on the auth container built from the defective file ({len(drift)} line(s))')
     m.compose(LANE, 'up', '--no-start', '--no-deps', '--force-recreate', 'auth', 'mail', timeout=300)
-    drift = [f for s in ('auth', 'mail') for f in m.container_drift(lane_r[s], require_running=False)]
+    drift = [f for s in ('auth', 'mail') for f in m.container_drift(lane_r[s], require_running=False, render=full)]
     for f in drift:
         print(f'   {f}')
     ok(not drift, f'recreated from the good file, the container check passes ({len(drift)} line(s))')
+
+    # Structural drift at the container: lane.yml hand-fixed, container never recreated (review, Opus M3).
+    # Created off the edge network and without the host entry, then the good file written back.
+    yml.write_text(DEFECTS[4][1](DEFECTS[3][1](good)))
+    m.compose(LANE, 'up', '--no-start', '--no-deps', '--force-recreate', 'auth', 'mail', timeout=300)
+    yml.write_text(good)
+    drift = [f for s in ('auth', 'mail') for f in m.container_drift(lane_r[s], require_running=False, render=full)]
+    for f in drift:
+        print(f'   {f}')
+    ok(any('auth' in f and 'attached to networks' in f for f in drift) and
+       any('mail' in f and 'attached to networks' in f for f in drift) and
+       any('auth' in f and 'host entries differ' in f for f in drift),
+       f'the container check fails on containers still off the edge network and without the host entry ({len(drift)} line(s))')
+    m.compose(LANE, 'up', '--no-start', '--no-deps', '--force-recreate', 'auth', 'mail', timeout=300)
+    drift = [f for s in ('auth', 'mail') for f in m.container_drift(lane_r[s], require_running=False, render=full)]
+    ok(not drift, f'recreated again from the good file, the container check passes ({len(drift)} line(s))')
     running = [sh('docker', 'inspect', '-f', '{{.State.Running}}', m.cname(LANE, s)).stdout.strip() for s in ('auth', 'mail')]
     ok(running == ['false', 'false'], f'lane2 containers still never started ({running})')
 

@@ -186,12 +186,19 @@ nothing of lane2's project is left.
 | Risk | Label | Note |
 |---|---|---|
 | lane1 fails the new check, so P1658's next deploy, migration or lift is refused | MITIGATE | The candidate's full lift-time check runs on lane1 read-only from a temporary path and must pass before `vm-install`. A deploy is refused before it quarantines. |
-| A later main-lane change (new auth setting, new function env key) refuses lane lifts | ACCEPT | That is the gate working: it names the path to classify. Recovery is a one-line classification plus `vm-install` and `lift`, with no data lost. |
+| A later main-lane change (new auth setting, new function env key) refuses lane lifts | ACCEPT | That is the gate working: it names the path to classify. Recovery depends on the kind of change. **A tripwire hit** (a new main path) is a one-line classification plus `vm-install` and `lift`, with no data lost. **A changed auth or mail value on main** (a new setting, or a value that changed) cannot be healed in place, because no command rewrites a live lane's `.env` or `lane.yml` (Non-Goals). The lane is refused at deploy and lift, and quarantined at boot. The options are a lane-specific exception of the `PARITY_GRANDFATHERED` kind (a founder decision) or a reprovision, which loses the lane's data. **A new image tag in the shared compose file** fails the container check until auth and mail are recreated; `lanectl boot` (`compose up -d`) does that without touching the lane's files. Corrected after review (Opus M4): this row first claimed every case was a one-line fix. |
 | An override rule accepts too much and passes a real drift | MITIGATE | Each rule states the exact required lane value. Each of today's defects, replayed alone, must fail. |
 | The end-to-end claim flow (claim, deploy, migrate, lift) is not run with the gate before it goes live | ACCEPT | It needs a claimable lane: lane1 is occupied and lane2 is not enabled (P1679). The lift wiring is tested offline with stubs, and the checks themselves run on real lane1 and lane2. P1679's stage-2 claim is the first live run. |
 | Settings match but the feature still fails (a template URL the lane's Caddy does not serve, kong routes, relay file contents) | DEFER | Parity covers the auth and mail config docker renders and runs. It does not cover files copied at provisioning (`kong.yml`, database init scripts) or the Caddy route. An end-to-end sign-in probe is separate work. |
 | Parity on services other than auth and mail (rest, storage, realtime, functions values) | DEFER | Not in the founder's scope. The tripwire still catches every new main override path for them. |
 | `write_lane_env` blanks keys auth does not read today (asymmetric JWT keys and similar). If a Supabase upgrade passes one to auth, every lane fails | ACCEPT | Lanes would need their own asymmetric keys. That is a real decision, and failing loudly is correct. |
+
+**Known limitations (review, 2026-11-24; each fails closed, none is a shape the repo produces today)**
+- `write_lane_env` reads main's `API_EXTERNAL_URL` from main's `.env`, while the check compares against main's render. If main ever sets it in the override instead, every new lane fails its provisioning check, loudly. Measured today: the known-good lane2 config passes.
+- `GOTRUE_URI_ALLOW_LIST` is rebased only where an entry starts with main's exact origin. An entry for main in another form (http, another port) would fail every lane until a rule is added.
+- "Can reach the internet" means at least one non-internal network. A lane service attached to some other non-internal network passes that rule. This is not a regression: the outbound check never looked at auth or mail networks.
+- A rule key absent from both renders reports nothing. auth cannot run without the keys those rules name.
+- The live proof exercises the running comparison through `container_drift` on created, never-started containers. Its path through `parity_report(running=True)` is covered offline and by the read-only lane1 run.
 
 **Non-Goals**
 - Do NOT reprovision lane1, rewrite any live lane's `.env` or `lane.yml`, or recreate its containers.
@@ -201,30 +208,48 @@ nothing of lane2's project is left.
 
 ## Done-When
 
-- [ ] **Each of today's defects is refused on its own (real lane2, real main config).** The harness writes
+- [x] **Each of today's defects is refused on its own (real lane2, real main config).** The harness writes
       lane2's config with a candidate `lanectl` that has exactly one defect reverted, and the check fails
       naming the right fields. There are five replays: Google sign-in off, no template URLs, no relay,
       auth and mail off the internet-facing network, no template host entry.
-- [ ] **A correct lane passes (known-good control).** The unmodified candidate writes lane2's config and
+      Evidence (2026-11-24, `p1724_live_proof.py`, candidate sha256 `9f8a9c3d132058ec`, 25 of 25 held): all five
+      replays fail and name the defect. The method replays each defect by removing exactly its lines from the
+      generated `lane.yml` (each removal is asserted non-empty), which yields the file the pre-fix `lanectl`
+      wrote for that field.
+- [x] **A correct lane passes (known-good control).** The unmodified candidate writes lane2's config and
       the check reports no difference.
-- [ ] **The running comparison fires on its own.** lane2's auth and mail are created (never started) from
+      Evidence: same run, "known-good lane2 config passes the rendered check (0 failure(s))", over 41 auth and
+      mail env entries.
+- [x] **The running comparison fires on its own.** lane2's auth and mail are created (never started) from
       a defective `lane.yml`, then the correct `lane.yml` is written back. The rendered comparison passes,
       and the running comparison fails naming the stale keys. Recreated from the correct file, it passes.
-- [ ] **The tripwire fires.** With one entry removed from the real classification, the check fails naming
+      Evidence: same run. The env case (Google off) fails with 4 lines; the structural case added in review
+      (off the edge network, no host entry) fails with 3; each passes after recreation. Containers never started.
+- [x] **The tripwire fires.** With one entry removed from the real classification, the check fails naming
       that path on real main config. An offline test shows a new key under an already-classified service
       fails.
-- [ ] **lane2 is left clean.** After the harness, lane2 is `free` and no container, network or volume of
+      Evidence: same run, `caddy.image` removed, 1 failure naming it. Offline: `caddy.environment.NEW`,
+      a new service, a new top-level key and main additions to skipped auth/mail fields are all unclassified.
+- [x] **lane2 is left clean.** After the harness, lane2 is `free` and no container, network or volume of
       its compose project and no lane2 directory remain, checked by command.
-- [ ] **lane1 passes and is untouched.** The candidate's full lift-time check (rendered, running,
+      Evidence: same run, "lane2 left clean: free, no directory, no containers, networks or volumes (0 left)".
+- [x] **lane1 passes and is untouched.** The candidate's full lift-time check (rendered, running,
       settings oracle, tripwire) runs on lane1 read-only from a temporary path and passes before
       installing. lane1's `.env` and `lane.yml` hashes and its containers' IDs and start times are the
       same before and after.
-- [ ] **Each entry point does what it claims (offline, stubbed).** Provisioning on a difference never
+      Evidence: candidate `9f8a9c3d132058ec` on lane1 under its shared lock: "outbound failures 0 parity
+      failures 0 warnings 0" (0 warnings, so main answered the settings oracle), fingerprint unchanged. The
+      live proof's nine lane1 keys were also unchanged.
+- [x] **Each entry point does what it claims (offline, stubbed).** Provisioning on a difference never
       reaches the firewall or database copy and ends `failed`. Lift on a difference quarantines. Deploy to
       a ready lane on a difference is refused before quarantine. Boot on a difference quarantines. `check`
       exits 3. The rules accept the known-good inputs, refuse each defect and never print a secret.
-- [ ] `relay_matching` failing leaves provisioning `failed`, not stuck in `provisioning` (it raised
+      Evidence: `python3 scripts/test-p1724-lane-parity.py` gives 79 passed, 0 failed. Mutation run: 14 of 14
+      wiring and rule mutations turn it red; the review-round tests fail on the pre-review `lanectl`.
+- [x] `relay_matching` failing leaves provisioning `failed`, not stuck in `provisioning` (it raised
       `SystemExit`, which the provision handler does not catch).
+      Evidence: offline tests "provision: no relay list raises RuntimeError" and "provision: no relay list leaves
+      the lane failed" pass.
 - [ ] The installed `lanectl` on the VM matches the committed file (hash), and `lanectl parity --lane lane1`
       passes with it installed.
 

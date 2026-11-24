@@ -209,8 +209,82 @@ check(any('GOTRUE_SMS_PIN_SECRET' in x for x in f) and not any('424242' in x or 
 check(L.shown('postgres://u:pw@db:5432/x') == '<25 chars>', 'a URL with credentials is never shown')
 check(L.shown(GOOGLE_SECRET).startswith('<'), 'a secret value is shown by length only')
 check(L.shown('true') == "'true'" and L.shown(f'{LO}/auth/v1') == repr(f'{LO}/auth/v1'), 'public shapes are shown')
+HOOK_TOKEN = 'abcdEFGH12345678xyzQRS'  # gitleaks:allow (synthetic fixture)
+hook = L.shown(f'https://hooks.example.com/services/T0AAAA/B0BBBB/{HOOK_TOKEN}')
+check(HOOK_TOKEN not in hook and 'hooks.example.com' in hook, f'a capability URL is shown without its token-bearing path ({hook})')
+check(L.shown(f'{LO}/_cp-email-templates/magic_link.html') == repr(f'{LO}/_cp-email-templates/magic_link.html'),
+      'control: a template URL with a plain path is shown in full')
+
+m_env, l_env = main_auth(), lane_auth()
+m_env.pop('GOTRUE_SMTP_HOST')
+f = auth_fails(l_env, m_env)
+check(any('GOTRUE_SMTP_HOST missing on main' in x for x in f), 'refused: a key with a value: rule present on the lane only')
+
+check(L.host_entries({'lanehost.example.ts.net': '100.64.0.9'}) == {'lanehost.example.ts.net=100.64.0.9'} and
+      L.host_entries({'h': ['1.2.3.4', '5.6.7.8']}) == {'h=1.2.3.4', 'h=5.6.7.8'} and
+      L.host_entries(['h:1.2.3.4', 'g=5.6.7.8']) == {'h=1.2.3.4', 'g=5.6.7.8'}, 'host entries: map, map of lists and list forms')
+ls = svc(lane_auth())
+ls['extra_hosts'] = {'lanehost.example.ts.net': '100.64.0.9'}
+ms = {'image': 'supabase/gotrue:v2', 'environment': main_auth(), 'networks': {'default': {}}}
+check(L.compare_service('auth', ms, ls, NETS_MAIN, NETS_LANE, ctx()) == [], 'control: the map form of a host entry passes')
+ls['extra_hosts'] = {'lanehost.example.ts.net': '100.64.0.99'}
+check(any('no host entry' in x for x in L.compare_service('auth', ms, ls, NETS_MAIN, NETS_LANE, ctx())),
+      'refused: the map form pointing at the wrong address')
+
+print('container check')
+CT_RENDER = {'services': {'auth': svc(lane_auth()) | {'container_name': 'cp-lane1-auth'}},
+             'networks': {'default': {'name': 'cp-lane1_default', 'internal': True}, 'edge': {'name': 'cp-lane1_edge'}}}
+
+
+def fake_docker(nets=('cp-lane1_default', 'cp-lane1_edge'), hosts=('lanehost.example.ts.net:100.64.0.9',), env=None,
+                inspect_rc=0, inspect_err='', image_rc=0):
+    cont = [{'Image': 'sha256:abc', 'State': {'Running': True}, 'NetworkSettings': {'Networks': {n: {} for n in nets}},
+             'HostConfig': {'ExtraHosts': list(hosts)},
+             'Config': {'Image': 'supabase/gotrue:v2', 'Env': [f'{k}={v}' for k, v in (env or lane_auth()).items()] + ['PATH=/bin']}}]
+    seen = []
+
+    def run(cmd, **kw):
+        seen.append(cmd)
+        if cmd[:2] == ['docker', 'inspect']:
+            return type('P', (), {'returncode': inspect_rc, 'stdout': json.dumps(cont), 'stderr': inspect_err})()
+        return type('P', (), {'returncode': image_rc, 'stdout': json.dumps(['PATH=/bin']), 'stderr': ''})()
+    run.seen = seen
+    return run
+
+
+A = CT_RENDER['services']['auth']
+with patched(run=fake_docker()):
+    check(L.container_drift(A, True, render=CT_RENDER) == [], 'control: a container matching its config passes')
+r = fake_docker(nets=('cp-lane1_default',))
+with patched(run=r):
+    f = L.container_drift(A, True, render=CT_RENDER)
+check(any('attached to networks' in x for x in f), 'refused: a container still off the edge network (lane.yml fixed, not recreated)')
+check(any(c[:3] == ['docker', 'image', 'inspect'] and c[3] == 'sha256:abc' for c in r.seen), 'baked env is read from the image the container runs (by id)')
+with patched(run=fake_docker(hosts=())):
+    f = L.container_drift(A, True, render=CT_RENDER)
+check(any('host entries differ' in x for x in f), 'refused: a container without the host entry its config has')
+with patched(run=fake_docker(inspect_rc=1, inspect_err='Error response from daemon: No such container: cp-lane1-auth')):
+    f = L.container_drift(A, True, render=CT_RENDER)
+check(f == ['cp-lane1-auth: container does not exist'], 'a missing container is named as missing')
+with patched(run=fake_docker(inspect_rc=1, inspect_err='Cannot connect to the Docker daemon')):
+    f = L.container_drift(A, True, render=CT_RENDER)
+check(any('could not be checked' in x for x in f), 'a docker error is not reported as a missing container')
+with patched(run=fake_docker(image_rc=1)):
+    f = L.container_drift(A, True, render=CT_RENDER)
+check(any('could not be inspected' in x for x in f) and not any('does not set' in x for x in f),
+      'an image that cannot be inspected is said so, not read as stray env')
+check(any('no container_name' in x for x in L.container_drift({'image': 'x'}, True)), 'a service without a container name is reported, not a crash')
+
+print('lane origin')
+with patched(lane_env=lambda lane: {'SITE_URL': LO}, origin=lambda lane: (_ for _ in ()).throw(RuntimeError('tailscale'))):
+    check(L.lane_origin('lane1') == LO, 'the origin comes from the lane .env, no Tailscale call')
+with patched(lane_env=lambda lane: {'SITE_URL': 'https://x:1'}, origin=lambda lane: LO):
+    check(L.lane_origin('lane1') == LO, 'a malformed recorded origin falls back to Tailscale')
 
 print('tripwire')
+check(L.classify('auth.environment.ANY') == 'compared by parity', 'auth env is compared by parity')
+check(L.classify('auth.extra_hosts') is None and L.classify('auth.networks') is None and L.classify('mail.ports[9999]') is None and L.classify('mail.ports[8025]'),
+      'main additions to fields parity skips (extra_hosts, networks, ports) are unclassified unless named one by one')
 base = {'services': {'caddy': {'image': 'caddy:2'}, 'functions': {'environment': {}}}}
 full = {'services': {'caddy': {'image': 'caddy:2', 'environment': {'NEW': 'x'}}, 'functions': {'environment': {'LIVEKIT_URL': 'u'}},
                      'brandnew': {'image': 'x'}}, 'x-top': {'a': 1}}
@@ -243,7 +317,7 @@ def stub_report(lane_s, main_s, drift=()):
                 lane_env=lambda lane: {'JWT_SECRET': LANE_JWT, 'POSTGRES_PASSWORD': LANE_PW, 'ANON_KEY': 'a'},
                 main_env=lambda: {'JWT_SECRET': MAIN_JWT, 'POSTGRES_PASSWORD': MAIN_PW, 'ANON_KEY': 'b'},
                 load=lambda lane: {'lane': lane, 'state': 'ready', 'generation': 2},
-                container_drift=lambda s, require_running: list(drift),
+                container_drift=lambda s, require_running, render=None: list(drift),
                 auth_settings=lambda port, anon: lane_s if anon == 'a' else main_s,
                 override_contributions=lambda b, f: [])
 
@@ -358,11 +432,34 @@ try:
     # boot: a serving lane that differs is quarantined and its functions are not started
     set_state(quarantined=False)
     calls.clear()
-    with patched(fw_apply=rec('fw_apply'), fw_ok=lambda lane: True, compose=rec('compose'),
-                 parity_report=lambda *a, **k: DIFF, quarantine=rec('quarantine')):
+    with patched(fw_apply=rec('fw_apply'), fw_ok=lambda lane: True, compose=rec('compose'), wait_healthy=rec('wait_healthy'),
+                 parity_report=lambda *a, **k: calls.append(('parity_report',)) or DIFF, quarantine=rec('quarantine')):
         rc, exc, out = captured(L.main, ['boot'])
     started_fn = [c for c in calls if c[0] == 'compose' and 'functions' in c and 'up' in c]
     check(rc == 1 and 'quarantine' in [c[0] for c in calls] and not started_fn, f'boot: a difference quarantines, functions not started (rc {rc})')
+    names = [c[0] for c in calls]
+    check('wait_healthy' in names and names.index('wait_healthy') < names.index('parity_report'),
+          'boot: waits for auth and mail before the running comparison')
+    check('boot failed' in out and 'firewall restore failed' not in out, 'boot: a parity refusal is not logged as a firewall failure')
+
+    def slow(lane, services, timeout=240):
+        raise RuntimeError('not healthy')
+    set_state(quarantined=False)
+    calls.clear()
+    with patched(fw_apply=rec('fw_apply'), fw_ok=lambda lane: True, compose=rec('compose'), wait_healthy=slow,
+                 parity_report=lambda *a, **k: ([], []), quarantine=rec('quarantine')):
+        rc, exc, out = captured(L.main, ['boot'])
+    started_fn = [c for c in calls if c[0] == 'compose' and 'functions' in c and 'up' in c]
+    check(rc in (0, None) and started_fn and 'quarantine' not in [c[0] for c in calls],
+          f'boot: a slow auth alone does not quarantine; the comparison decides (rc {rc})')
+
+    set_state(quarantined=False)
+    calls.clear()
+    with patched(parity_report=lambda *a, **k: (_ for _ in ()).throw(RuntimeError('tailscale down')), quarantine=rec('quarantine'),
+                 compose=rec('compose'), run=rec('run')):
+        rc, exc, out = captured(L.main, ['deploy', '--lane', 'lane1', '--gen', '1', '--tarball', str(tb)])
+    check(rc == 3 and 'quarantine' not in [c[0] for c in calls] and 'could not run' in out,
+          f'deploy: a parity check that cannot run refuses with exit 3, the lane still serves (rc {rc})')
 
     # check and parity: exit 3 on a difference, 0 without
     set_state(quarantined=False)
@@ -372,6 +469,10 @@ try:
     with patched(outbound_check=lambda lane: [], parity_report=lambda *a, **k: ([], [])):
         rc, exc, out = captured(L.main, ['check', '--lane', 'lane1', '--gen', '1'])
     check(rc == 0, f'control: check passes with no difference (rc {rc})')
+    L.ldir('lane1').mkdir(parents=True, exist_ok=True)
+    for fn in ('.env', 'lane.yml', 'ts_ip'):   # parity needs the lane's written config (contents unused: stubbed)
+        if not (L.ldir('lane1') / fn).exists():
+            (L.ldir('lane1') / fn).write_text('')
     with patched(parity_report=lambda *a, **k: DIFF):
         rc, exc, out = captured(L.main, ['parity', '--lane', 'lane1'])
     check(rc == 3, f'parity: exit 3 on a difference, no generation needed (rc {rc})')
@@ -382,6 +483,16 @@ try:
     set_state(state='free')
     rc, exc, out = captured(L.main, ['parity', '--lane', 'lane1'])[0:3]
     check(rc == 4, f'parity: a free lane is refused (rc {rc})')
+    set_state(state='failed')
+    keep = {f: (L.ldir('lane1') / f) for f in ('.env', 'lane.yml', 'ts_ip')}
+    moved = {f: p.rename(p.with_name(p.name + '.away')) for f, p in keep.items() if p.exists()}
+    try:
+        rc, exc, out = captured(L.main, ['parity', '--lane', 'lane1'])[0:3]
+    finally:
+        for f, p in keep.items():
+            if p.with_name(p.name + '.away').exists():
+                p.with_name(p.name + '.away').rename(p)
+    check(rc == 4 and 'not written yet' in out, f'parity: a failed lane with no config is refused, not a traceback (rc {rc})')
 finally:
     os.geteuid = os_geteuid
 

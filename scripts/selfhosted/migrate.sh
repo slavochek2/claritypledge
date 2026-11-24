@@ -168,12 +168,12 @@ remote_lanectl() {
     2> >(grep -v -i -E 'numpy|increasing_the_tcp|^WARNING:|^$' >&2)
 }
 
-# Lift the quarantine (outbound check). A failure keeps the lane quarantined and fails this script.
+# Lift the quarantine (outbound check, then parity with the main lane). A failure keeps the lane quarantined and fails this script.
 lift_lane() {
   if remote_lanectl lift; then
-    echo "Lane $CP_TEST_LANE lifted: outbound check passed."
+    echo "Lane $CP_TEST_LANE lifted: outbound and parity checks passed."
   else
-    echo "ERROR: the lane $CP_TEST_LANE outbound check did not pass (lift failed). The lane STAYS QUARANTINED: functions stopped, cron off, no route. Fix the cause, then re-run." >&2
+    echo "ERROR: the lane $CP_TEST_LANE outbound check or its parity check with the main lane (P1724) did not pass (lift failed); the CHECK FAILED and PARITY FAILED lines above name each problem. The lane STAYS QUARANTINED: functions stopped, cron off, no route. Fix the cause, then re-run." >&2
     exit 1
   fi
 }
