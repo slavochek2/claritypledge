@@ -77,9 +77,11 @@ async function shots(page: Page, name: string, widths: readonly number[] = [1280
     // that version of this check). Labels may use the 4px gap between cells (Clarity Night's live bar puts
     // "Feedback", 49px, in a 48px cell at 375), so the test is 2px clear of the next label and 1px of the bar's edges.
     const clashes = await page.evaluate(() => {
+      // Review round 10 (Codex): a bar that is missing or hidden fails, never passes with nothing to measure.
       const bar = document.querySelector('[data-testid="room-steps"] ol');
-      if (!bar) return [];
+      if (!bar) return ['no step bar'];
       const edge = bar.getBoundingClientRect();
+      if (edge.width === 0 || edge.height === 0) return ['step bar not shown'];
       const glyphs = [...bar.querySelectorAll('li')].flatMap((li) => {
         const text = li.querySelector('[data-testid$="-text"]');
         if (!text) return [];
@@ -88,6 +90,8 @@ async function shots(page: Page, name: string, widths: readonly number[] = [1280
         return [{ label: text.textContent ?? '', rect: range.getBoundingClientRect() }];
       });
       const out: string[] = [];
+      // Every screen measured here has the room's bar with at least five labels (Clarity Night five, the mastermind more).
+      if (glyphs.length < 5) out.push(`only ${glyphs.length} step labels`);
       glyphs.forEach(({ label, rect }, k) => {
         if (rect.left < edge.left - 1 || rect.right > edge.right + 1) out.push(`${label} past the bar (${rect.left.toFixed(1)}-${rect.right.toFixed(1)} in ${edge.left.toFixed(1)}-${edge.right.toFixed(1)})`);
         const next = glyphs[k + 1];

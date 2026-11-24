@@ -85,6 +85,20 @@ describe('useLearned', () => {
     expect(result.current).toEqual({ loading: false, error: false, learned: true });
   });
 
+  // Review round 10 (Codex): one failed read never hides what the other proves.
+  it.each([
+    ['the preparation read fails, the parts prove both done', 'prep', null, [row('cognitive_video'), row('cmp7')], true],
+    ['the parts read fails, the preparation is completed', 'parts', { completedAt: at }, [], true],
+    ['the parts read fails, the preparation is not completed', 'parts', null, [], false],
+  ] as const)('%s: learned %s', async (_name, failing, prep, parts, learned) => {
+    reads.prep.mockResolvedValue(prep);
+    reads.parts.mockResolvedValue(parts);
+    (failing === 'prep' ? reads.prep : reads.parts).mockRejectedValue(new Error('down'));
+    const { result } = renderHook(() => useLearned(event, 'profile-1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current).toEqual({ loading: false, error: !learned, learned });
+  });
+
   it('not asked with no preparation offered, no viewer, or no event: no read, not loading', () => {
     reads.offers = false;
     expect(renderHook(() => useLearned(event, 'profile-1')).result.current).toEqual({ loading: false, error: false, learned: false });

@@ -9,8 +9,8 @@
  * when the caller is not registered + signed in.
  *
  * Back button (2026-08-21 founder repro): goes to the event page — the step before
- * this one in the room's pipeline (event page → /room → /ready). Uses FocusHeader
- * per src.md's focus-page convention, not a hand-rolled Link.
+ * this one in the room's pipeline (event page → /room → /ready). P1718: the head is the room's own
+ * (RoomStickyHead, RoomHeadRow with its back control, and ReadyStepBar), as on /meet.
  *
  * Readiness distribution (2026-08-21): everyone else in THIS room, drawn as faint marks on
  * the caller's own track via SliderTrack's `others` — the general /ready's P1083 treatment,

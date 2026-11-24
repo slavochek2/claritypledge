@@ -35,21 +35,17 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
     if (!key || !eventId || !viewerId) return;
     let cancelled = false;
     const cancelWait = whenVisible(() => {
-      Promise.all([getMyPreparation(eventId, viewerId), getMyPrepParts(viewerId)])
-        .then(([prep, parts]) => {
-          // `isPartDone` reads the first row for a part, so a done row (account or local) goes first.
-          const rows = [...parts, ...localPartRows(readLocalParts())];
-          const done = rows.filter((row) => isPartDone([row], row.part));
-          const learned = hasLearned([...done, ...rows], prep?.completedAt);
-          if (!cancelled) setAnswer({ key, error: false, learned });
-        })
-        .catch(() => {
-          // Review round 9 (Gemini): offline, or a failed read, still shows the tick for learning done on this device;
-          // anything less is unknown (error), and the bar draws no tick.
-          const local = localPartRows(readLocalParts());
-          const learned = hasLearned(local, null);
-          if (!cancelled) setAnswer({ key, error: !learned, learned });
-        });
+      // Review round 10 (Codex): each read counts on its own, so one that fails never hides what the other proves.
+      void Promise.allSettled([getMyPreparation(eventId, viewerId), getMyPrepParts(viewerId)]).then(([prep, parts]) => {
+        // `isPartDone` reads the first row for a part, so a done row (account or local) goes first.
+        const rows = [...(parts.status === 'fulfilled' ? parts.value : []), ...localPartRows(readLocalParts())];
+        const done = rows.filter((row) => isPartDone([row], row.part));
+        const learned = hasLearned([...done, ...rows], prep.status === 'fulfilled' ? prep.value?.completedAt : null);
+        // Review round 9 (Gemini): offline, or a failed read, still shows the tick for learning proved by what did answer
+        // (this device's parts included); anything less is unknown (error), and the bar draws no tick.
+        const failed = prep.status === 'rejected' || parts.status === 'rejected';
+        if (!cancelled) setAnswer({ key, error: failed && !learned, learned });
+      });
     });
     return () => { cancelled = true; cancelWait(); };
     // eventId and viewerId are inside key.

@@ -46,6 +46,58 @@ async function mounted() {
   return hook;
 }
 
+// P1718 review round 10 (Codex, Gemini), metered rule 3: the room's first read, and its join fallback, wait for a visible tab.
+describe('the first read on mount', () => {
+  it('a room opened in a hidden tab makes no read until the tab is shown', async () => {
+    let state: DocumentVisibilityState = 'hidden';
+    const spy = vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => state);
+    try {
+      const hook = renderHook(() => useEventRoomSelf(event, true));
+      await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+      expect(svc.status).not.toHaveBeenCalled();
+      expect(hook.result.current.loading).toBe(true);
+      state = 'visible';
+      act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+      await waitFor(() => expect(hook.result.current.loading).toBe(false));
+      expect(svc.status).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('hidden after a first read that found no row: no join until the tab is shown; unmounted meanwhile: none at all', async () => {
+    let state: DocumentVisibilityState = 'visible';
+    const spy = vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => state);
+    try {
+      let answer!: (v: unknown) => void;
+      svc.status.mockImplementationOnce(() => new Promise((r) => { answer = r; }));
+      const hook = renderHook(() => useEventRoomSelf(event, true));
+      await waitFor(() => expect(svc.status).toHaveBeenCalledTimes(1));
+      state = 'hidden';
+      await act(async () => { answer(null); await new Promise((r) => setTimeout(r, 20)); });
+      expect(svc.join).not.toHaveBeenCalled();
+      state = 'visible';
+      act(() => { document.dispatchEvent(new Event('visibilitychange')); });
+      await waitFor(() => expect(hook.result.current.loading).toBe(false));
+      expect(svc.join).toHaveBeenCalledTimes(1);
+      hook.unmount();
+
+      svc.join.mockClear();
+      svc.status.mockImplementationOnce(() => new Promise((r) => { answer = r; }));
+      const again = renderHook(() => useEventRoomSelf({ id: 'ev-2', slug: 'walk-2' } as never, true));
+      await waitFor(() => expect(svc.status).toHaveBeenCalledTimes(2));
+      state = 'hidden';
+      await act(async () => { answer(null); await new Promise((r) => setTimeout(r, 20)); });
+      again.unmount();
+      state = 'visible';
+      await act(async () => { document.dispatchEvent(new Event('visibilitychange')); await new Promise((r) => setTimeout(r, 20)); });
+      expect(svc.join).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
 describe('the profile-name read before a join', () => {
   it('aborted while the name is being read: no join', async () => {
     const { result } = await mounted();

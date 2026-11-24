@@ -20,6 +20,7 @@ import { useAuth } from '@/auth';
 import { eventsService } from '@/app/data/events-service';
 import { getMyRoomStatus, joinEventRoom } from '@/app/data/event-room-service';
 import { untilVisible } from '@/app/data/event-list-reads';
+import { whenVisible } from '@/app/prototypes/events/when-visible';
 import type { EventRoomSelf, EventWithHost } from '@/app/types';
 import { readThrough, rememberOffline } from '@/lib/offline-read-cache';
 import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
@@ -273,11 +274,16 @@ export function useEventRoomSelf(event: EventWithHost | null, granted: boolean):
     startedKeyRef.current = event.id;
     let cancelled = false;
     if (!sameEvent) setLoading(true);
-    (async () => {
-      await load();
-      if (!cancelled) setLoading(false);
-    })();
-    return () => { cancelled = true; };
+    // P1718 review round 10 (Codex, Gemini), metered rule 3: a room opened in a background tab makes its first read when
+    // the tab is shown, and the join fallback waits for a visible tab and stops with this effect (the abort).
+    const stop = new AbortController();
+    const cancelWait = whenVisible(() => {
+      void (async () => {
+        await load(stop.signal);
+        if (!cancelled) setLoading(false);
+      })();
+    });
+    return () => { cancelled = true; stop.abort(); cancelWait(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load is derived from the same [event, granted] pair
   }, [event, granted]);
 

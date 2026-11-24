@@ -27,7 +27,8 @@ export const ROOM_STEPS: { key: RoomStep; label: string }[] = [
   { key: 'principle', label: 'Principle' },
   { key: 'table', label: 'Table' },
   { key: 'compare', label: 'Compare' },
-  // P1542 UAT / P1548 (founder): the step's name is "Feedback" for every event; the key stays 'close'.
+  // P1542 UAT / P1548 (founder): the default name is "Feedback"; the key stays 'close'. A series can rename it through its
+  // recipe's step labels (P1718: the Sales Mastermind's is "Review").
   { key: 'close', label: 'Feedback' },
 ];
 
