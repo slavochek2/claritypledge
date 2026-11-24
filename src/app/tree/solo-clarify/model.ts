@@ -94,7 +94,8 @@ function withSpacing(text: string, from: number, to: number): [number, number] {
   const before = text[from - 1];
   const after = text[to];
   const lineStart = from === 0 || /\s/.test(before ?? '');
-  if (lineStart && (after === ',' || after === ';') && text[to + 1] === ' ') return [from, to + 2];
+  const list = /^[,;](?:[ \t]|(?=\n|$))/.exec(text.slice(to));
+  if (lineStart && list) return [list[0].length === 1 && from > 0 && before !== '\n' ? from - 1 : from, to + list[0].length];
   if ((after === ' ' || after === '\t') && lineStart) return [from, to + 1];
   if ((before === ' ' || before === '\t') && (after === undefined || after === '\n' || /[.,;:!?)]/.test(after))) return [from - 1, to];
   return [from, to];
