@@ -415,6 +415,15 @@ check(any('did not answer' in x for x in f), 'refused: the lane auth server does
 with patched(**stub_report(S, None)):
     f, w = L.parity_report('lane1')
 check(f == [] and any('main lane did not answer' in x for x in w), 'main not answering is a warning, not a lane failure')
+def main_probe_raises(port, anon):
+    if anon == 'b':
+        raise subprocess.TimeoutExpired(['curl', '-s', 'settings'], 10)
+    return S
+with patched(**stub_report(S, S, drift=['auth: lane container drift']) | {'auth_settings': main_probe_raises}):
+    f, w = L.parity_report('lane1')
+check('auth: lane container drift' in f and not any('could not run' in x or 'answers differently' in x for x in f)
+      and any('main lane probe failed' in x for x in w),
+      f'a main settings probe that raises is a warning; the lane findings stand (Codex round 3, finding 4): {f} {w}')
 with patched(**stub_report(S, S) | {'override_contributions': lambda b, f: ['caddy.environment.NEW', 'caddy.image']}):
     f, w = L.parity_report('lane1')
 check(any('tripwire' in x and 'caddy.environment.NEW' in x for x in f) and not any('caddy.image' in x for x in f),
@@ -544,6 +553,9 @@ try:
           'boot: waits for auth and mail before the running comparison')
     check(calls[names.index('parity_report')][2] is False and names.index('parity_report') < names.index('compose'),
           'boot: the rendered config is compared before any lane container starts (Codex 1)')
+    gw_up = [c for c in calls if c[0] == 'compose' and 'up' in c and 'kong' in c]
+    check(not gw_up and ('compose', 'lane1', 'stop', 'kong') in calls,
+          f'boot: a running difference never starts the gateway, and stops one already up (Codex round 3, finding 1): {gw_up}')
     check('caddy_route_remove' not in names, 'control: a lane whose config matches keeps its route through the start')
     check([c[1] for c in calls if c[0] == 'parity_report'] == [True, True],
           'boot: both comparisons take the origin recorded in the lane .env (boot=True)')
@@ -566,6 +578,10 @@ try:
     ups = [c[1:] for c in calls if c[0] == 'compose' and 'up' in c]
     check(ups == [('lane1', 'up', '-d', 'db')],
           f'boot: a pre-start difference starts the database only, never the gateway or auth (Codex round 2, finding 1): {ups}')
+    stop_at = next((i for i, c in enumerate(calls) if c[0] == 'compose' and 'stop' in c), None)
+    check(stop_at is not None and {'kong', 'auth', 'functions'} <= set(calls[stop_at]) and 'db' not in calls[stop_at]
+          and stop_at < up_at,
+          'boot: a pre-start difference stops everything but the database first, for a lane already up (Codex round 3, finding 2)')
     # the route cannot be dropped (Caddy down): the gateway still never starts, and quarantine runs under the lock
     def route_fails(lane):
         calls.append(('caddy_route_remove',))
@@ -598,6 +614,9 @@ try:
     started_fn = [c for c in calls if c[0] == 'compose' and 'functions' in c and 'up' in c]
     check(rc in (0, None) and started_fn and 'quarantine' not in [c[0] for c in calls],
           f'boot: a slow auth alone does not quarantine; the comparison decides (rc {rc})')
+    ups = [c[4:] for c in calls if c[0] == 'compose' and 'up' in c]
+    check(len(ups) == 3 and 'kong' not in ups[0] and 'auth' in ups[0] and ups[1] == ('kong',) and ups[2] == ('functions',),
+          f'control: a lane that matches starts its gateway after the comparison, then functions: {ups}')
 
     set_state(quarantined=False)
     calls.clear()

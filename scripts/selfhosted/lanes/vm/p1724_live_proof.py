@@ -102,10 +102,20 @@ def drop_lines(pattern):
     return fn
 
 
+def google_disabled(b):
+    """The lane as it was before af3868662: Google present but switched off, its client fields blank. A replay
+    that deleted the keys would also fail on key presence alone, so it could not show the value is compared."""
+    out = re.sub(r'^(      GOTRUE_EXTERNAL_GOOGLE_ENABLED: ).*$', r'\1"false"', b, flags=re.M)
+    out = re.sub(r'^(      GOTRUE_EXTERNAL_GOOGLE_(?!ENABLED)[A-Z_]+: ).*$', r'\1""', out, flags=re.M)
+    assert re.search(r'^      GOTRUE_EXTERNAL_GOOGLE_ENABLED: "false"$', out, flags=re.M) and out != b, \
+        'defect replay changed nothing (Google)'
+    return out
+
+
 DEFECTS = [
     # (name, mutation of the generated lane.yml, a fragment the report must contain)
     ('Google sign-in off (before af3868662)',
-     lambda t: in_block(t, 'auth', drop_lines(r'^      GOTRUE_EXTERNAL_GOOGLE_[A-Z_]+: .*\n')),
+     lambda t: in_block(t, 'auth', google_disabled),
      'GOTRUE_EXTERNAL_GOOGLE_ENABLED'),
     ('no production e-mail designs',
      lambda t: in_block(t, 'auth', drop_lines(r'^      GOTRUE_MAILER_TEMPLATES_[A-Z_]+: .*\n')),
@@ -138,15 +148,26 @@ def main(cand_path):
             return 1
         try:
             run_proof(m)
-        finally:
-            m.compose(LANE, 'down', '-v', '--remove-orphans', timeout=300, check=False) \
-                if (m.ldir(LANE) / 'lane.yml').exists() and (m.ldir(LANE) / '.env').exists() else None
-            for svc in ('auth', 'mail'):
-                sh('docker', 'rm', '-f', m.cname(LANE, svc))
-            for net in ('default', 'edge'):
-                sh('docker', 'network', 'rm', f'cp-{LANE}_{net}')
-            shutil.rmtree(m.ldir(LANE), ignore_errors=True)
-        left = project_residue(LANE)
+        except Exception as e:   # reported as a failed expectation; cleanup and both checks below still run
+            ok(False, f'the proof ran to completion ({type(e).__name__}: {m.why_failed(e)})')
+        # Each cleanup step runs whatever the one before it did (Codex round 5, finding 5).
+        steps = []
+        if (m.ldir(LANE) / 'lane.yml').exists() and (m.ldir(LANE) / '.env').exists():
+            steps.append(('compose down', lambda: m.compose(LANE, 'down', '-v', '--remove-orphans', timeout=300, check=False)))
+        steps += [(f'remove {svc}', lambda svc=svc: sh('docker', 'rm', '-f', m.cname(LANE, svc))) for svc in ('auth', 'mail')]
+        steps += [(f'remove network {net}', lambda net=net: sh('docker', 'network', 'rm', f'cp-{LANE}_{net}'))
+                  for net in ('default', 'edge')]
+        steps.append(('remove the lane directory', lambda: shutil.rmtree(m.ldir(LANE), ignore_errors=True)))
+        for what, step in steps:
+            try:
+                step()
+            except Exception as e:
+                print(f'   cleanup: {what} failed ({type(e).__name__}: {m.why_failed(e)})')
+        try:
+            left = project_residue(LANE)
+        except Exception as e:
+            ok(False, f'the docker inventory after cleanup could be read ({type(e).__name__}: {m.why_failed(e)})')
+            left = ['unreadable']
         ok(not left and not m.ldir(LANE).exists() and m.load(LANE).get('state') == 'free',
            f'{LANE} left clean: free, no directory, no containers, networks or volumes ({len(left)} left)')
     l1_after = lane1_fingerprint(m)

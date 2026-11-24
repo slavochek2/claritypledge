@@ -873,11 +873,17 @@ def _parity_report(lane, running, settings, boot):
     if settings:
         me, le = ctx['main_env'], ctx['lane_env']
         lane_s = auth_settings(LANES[lane]['kong_port'], le.get('ANON_KEY', ''))
-        main_s = auth_settings(me.get('KONG_HTTP_PORT', '8000'), me.get('ANON_KEY', ''))
+        try:   # main-lane upkeep, as for its containers above (Codex round 3, finding 4)
+            main_s = auth_settings(me.get('KONG_HTTP_PORT', '8000'), me.get('ANON_KEY', ''))
+        except Exception as e:
+            warns.append(f'auth settings: the main lane probe failed ({why_failed(e)}); not compared')
+            main_s = False
         if lane_s is None:
             fails.append('auth settings: the lane auth server did not answer /auth/v1/settings through its gateway')
         elif main_s is None:
             warns.append('auth settings: the main lane did not answer /auth/v1/settings; not compared')
+        elif main_s is False:   # the probe raised; warned above
+            pass
         elif lane_s != main_s:
             keys = sorted(k for k in set(lane_s) | set(main_s) if lane_s.get(k) != main_s.get(k))
             ext = sorted(k for k in set(lane_s.get('external') or {}) | set(main_s.get('external') or {})
@@ -1765,19 +1771,25 @@ def _boot_lane(l, cmd):
                 caddy_route_remove(l)
             except Exception as e:
                 say(f'{l}: Caddy did not drop the route ({why_failed(e)}); the gateway stays down, so it reaches nothing')
+            # Stopped, not merely left unstarted: `boot` is also run by hand on a lane that is already up
+            # (Codex round 3, finding 2). On a cold boot this is a no-op.
+            compose(l, 'stop', *[s for s in SERVICES_UP if s != 'db'], 'functions', check=False)
             compose(l, 'up', '-d', 'db', timeout=600)
             wait_healthy(l, ['db'])
             raise RuntimeError(f'{len(pre)} difference(s) from the main lane before start')
-    compose(l, 'up', '-d', *[s for s in SERVICES_UP], timeout=600)
     if st.get('quarantined'):   # whatever started it, functions stay down and cron stays off
+        compose(l, 'up', '-d', *[s for s in SERVICES_UP], timeout=600)
         compose(l, 'stop', 'functions', check=False)
         wait_healthy(l, ['db'])
         cron_off(l, record=False)
         return None
     # P1724: a serving lane must still match the main lane, which may have changed while the VM was down.
-    # Auth's own answer is left to the next lift: it may not be up yet. Give auth and mail time to come up
+    # The gateway, which the client route reaches, starts only after the running comparison passes
+    # (Codex round 3, finding 1); the comparison reads the auth and mail containers, never the gateway.
+    # Auth's own answer is left to the next lift: it needs the gateway. Give auth and mail time to come up
     # first (auth restarts until the database answers), so a slow boot is not read as a stopped container;
     # if they never come up, the running comparison below says so.
+    compose(l, 'up', '-d', *[s for s in SERVICES_UP if s != 'kong'], timeout=600)
     try:
         wait_healthy(l, ['auth', 'mail'])
     except RuntimeError:
@@ -1785,7 +1797,9 @@ def _boot_lane(l, cmd):
     pfails, pwarns = parity_report(l, settings=False, boot=True)
     report_parity(l, pfails, pwarns)
     if pfails:
+        compose(l, 'stop', 'kong', check=False)   # boot on a lane already up: its gateway goes down too
         raise RuntimeError(f'{len(pfails)} difference(s) from the main lane')
+    compose(l, 'up', '-d', 'kong', timeout=300)
     compose(l, 'up', '-d', 'functions', timeout=300)
     return None
 

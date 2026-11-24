@@ -186,7 +186,7 @@ nothing of lane2's project is left.
 | Risk | Label | Note |
 |---|---|---|
 | lane1 fails the new check, so P1658's next deploy, migration or lift is refused | MITIGATE | The candidate's full lift-time check runs on lane1 read-only from a temporary path and must pass before `vm-install`. A deploy is refused before it quarantines. |
-| A later main-lane change (new auth setting, new function env key) refuses lane lifts | ACCEPT | That is the gate working: it names the path to classify. Recovery depends on the kind of change. **A tripwire hit** (a new main path) is a one-line classification plus `vm-install` and `lift`, with no data lost. **A changed auth or mail value on main** (a new setting, or a value that changed) cannot be healed in place, because no command rewrites a live lane's `.env` or `lane.yml` (Non-Goals). The lane is refused at deploy and lift, and quarantined at boot. The options are a lane-specific exception of the `PARITY_GRANDFATHERED` kind (a founder decision) or a reprovision, which loses the lane's data. **A new image tag in the shared compose file** fails the container check until auth and mail are recreated; `lanectl boot` (`compose up -d`) does that without touching the lane's files. Corrected after review (Opus M4): this row first claimed every case was a one-line fix. |
+| A later main-lane change (new auth setting, new function env key) refuses lane lifts | ACCEPT | That is the gate working: it names the path to classify. Recovery depends on the kind of change. **A tripwire hit** (a new main path) is a one-line classification plus `vm-install` and `lift`, with no data lost. If boot refused the lane, only its database is up, and `lift` needs auth, mail and the gateway running, so the order is `vm-install`, `lanectl boot` (a quarantined lane starts its base services, functions stay down), then `lift` (Codex round 5, finding 3). **A changed auth or mail value on main** (a new setting, or a value that changed) cannot be healed in place, because no command rewrites a live lane's `.env` or `lane.yml` (Non-Goals). The lane is refused at deploy and lift, and quarantined at boot. The options are a lane-specific exception of the `PARITY_GRANDFATHERED` kind (a founder decision) or a reprovision, which loses the lane's data. **A new image tag in the shared compose file** fails the container check until auth and mail are recreated; `lanectl boot` (`compose up -d`) does that without touching the lane's files. Corrected after review (Opus M4): this row first claimed every case was a one-line fix. |
 | An override rule accepts too much and passes a real drift | MITIGATE | Each rule states the exact required lane value. Each of today's defects, replayed alone, must fail. |
 | The end-to-end claim flow (claim, deploy, migrate, lift) is not run with the gate before it goes live | ACCEPT | It needs a claimable lane: lane1 is occupied and lane2 is not enabled (P1679). The lift wiring is tested offline with stubs, and the checks themselves run on real lane1 and lane2. P1679's stage-2 claim is the first live run. |
 | Settings match but the feature still fails (a template URL the lane's Caddy does not serve, kong routes, relay file contents) | DEFER | Parity covers the auth and mail config docker renders and runs. It does not cover files copied at provisioning (`kong.yml`, database init scripts) or the Caddy route. An end-to-end sign-in probe is separate work. |
@@ -217,7 +217,14 @@ nothing of lane2's project is left.
   - Port bindings that share a container target are keyed by the whole binding, so a second one is unclassified.
   - A main container that cannot be inspected is a warning, and the lane's own findings stand.
   - The second provisioning gate (rendered passes, running fails) has an entry-point test. It guards existing code, so it passes on the old code too.
-- Accepted (Codex round 4, finding 2): on a failed boot preflight the lane database starts before quarantine turns cron off. Jobs that call functions have no gateway to reach, and a lane that was serving before the reboot ran the same jobs. If the database never becomes healthy, quarantine can fail before it records the flag (`quarantine` ordering, unchanged since P1672). The lane is then still `ready` with only its database up, and the next boot or `check` refuses it again.
+- Fifth review round (2026-11-25, Codex re-review of the fourth round's fixes: 6 of 6 verified fixed, 2 new HIGH and 4 MEDIUM). Fixed:
+  - Boot starts the gateway only after the running comparison of the auth and mail containers passes. The client route survives a reboot, so the gateway is what it would reach. A difference also stops a gateway already up.
+  - A pre-start difference first stops every service except the database, then starts the database. `lanectl boot` run by hand on a lane already up can no longer leave its gateway running behind a route Caddy failed to drop.
+  - A main settings probe that raises is a warning, like one that does not answer, and the lane's own findings stand.
+  - The live proof runs every cleanup step, the residue check and the lane1 fingerprint even when the proof itself fails, and reports that failure as an expectation.
+  - The Google replay now reproduces the historical lane: the key is present and set to `"false"`, and the client fields are blank. Deleting the keys would also fail on key presence alone.
+  - The recovery order after a boot refusal is written into the Risks row (finding 3).
+- Accepted (Codex round 4, finding 2, corrected in round 5): on a failed boot preflight the lane database starts before quarantine turns cron off. Jobs that call functions have no gateway to reach. Jobs local to the database (an expiry delete, for example) can run in that interval, which lasts from the database becoming healthy until quarantine. A lane that was serving before the reboot ran the same jobs on the same data, so this is no new exposure. If the database never becomes healthy, quarantine can fail before it records the flag (`quarantine` ordering, unchanged since P1672). The lane is then still `ready` with only its database up, and the next boot or `check` refuses it again.
 - The live proof exercises the running comparison through `container_drift` on created, never-started containers. Its path through `parity_report(running=True)` is covered offline and by the read-only lane1 run.
 
 **Non-Goals**
@@ -232,7 +239,7 @@ nothing of lane2's project is left.
       lane2's config with a candidate `lanectl` that has exactly one defect reverted, and the check fails
       naming the right fields. There are five replays: Google sign-in off, no template URLs, no relay,
       auth and mail off the internet-facing network, no template host entry.
-      Evidence (2026-11-24, `p1724_live_proof.py`, candidate sha256 `58e77857ec9a9b5f`, 25 of 25 held): all five
+      Evidence (2026-11-24, `p1724_live_proof.py`, candidate sha256 `b9816096666537b6`, 25 of 25 held): all five
       replays fail and name the defect. The method replays each defect by removing exactly its lines from the
       generated `lane.yml` (each removal is asserted non-empty), which yields the file the pre-fix `lanectl`
       wrote for that field.
@@ -257,18 +264,19 @@ nothing of lane2's project is left.
       settings oracle, tripwire) runs on lane1 read-only from a temporary path and passes before
       installing. lane1's `.env` and `lane.yml` hashes and its containers' IDs and start times are the
       same before and after.
-      Evidence: candidate `58e77857ec9a9b5f` on lane1 under its shared lock: "outbound failures 0 parity
+      Evidence: candidate `b9816096666537b6` on lane1 under its shared lock: "outbound failures 0 parity
       failures 0 warnings 0" (0 warnings, so main answered the settings oracle), fingerprint unchanged. The
       live proof's nine lane1 keys were also unchanged.
 - [x] **Each entry point does what it claims (offline, stubbed).** Provisioning on a difference never
       reaches the firewall or database copy and ends `failed`. Lift on a difference quarantines. Deploy to
       a ready lane on a difference is refused before quarantine. Boot on a difference quarantines. `check`
       exits 3. The rules accept the known-good inputs, refuse each defect and never print a secret.
-      Evidence: `python3 scripts/test-p1724-lane-parity.py` gives 111 passed, 0 failed. Mutation run: 14 of 14
+      Evidence: `python3 scripts/test-p1724-lane-parity.py` gives 115 passed, 0 failed. Mutation run: 14 of 14
       wiring and rule mutations turn it red; the review-round tests fail on the pre-review `lanectl`.
       The third round's 11 new tests fail on the round-2 `lanectl` (91 passed, 11 failed). Removing the
       lift test's origin stub makes it fail on this machine too. The fourth round's tests fail 5 times on the
       round-3 `lanectl`; its lock and second-provisioning-gate tests pass there too (see Known limitations).
+      The fifth round's four `lanectl` tests all fail on the round-4 `lanectl`.
 - [x] `relay_matching` failing leaves provisioning `failed`, not stuck in `provisioning` (it raised
       `SystemExit`, which the provision handler does not catch).
       Evidence: offline tests "provision: no relay list raises RuntimeError" and "provision: no relay list leaves
