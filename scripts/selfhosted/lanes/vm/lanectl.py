@@ -721,8 +721,14 @@ def _flatten(name, svc):
             for k, ev in v.items():
                 out[f'{name}.environment.{k}'] = ev
         elif isinstance(v, list) and v and all(isinstance(x, dict) and 'target' in x for x in v):
+            # Keyed by target. Bindings that share a target are keyed by their whole binding instead, so a second
+            # one can never overwrite the first and hide as an already-classified path (Codex round 2, finding 5).
+            targets = [x['target'] for x in v]
             for x in v:
-                out[f'{name}.{f}[{x["target"]}]'] = x
+                t = x['target']
+                key = t if targets.count(t) == 1 else \
+                    f'{t}@{x.get("host_ip", "")}:{x.get("published", "")}/{x.get("protocol", "tcp")}'
+                out[f'{name}.{f}[{key}]'] = x
         elif f == 'networks' and isinstance(v, (dict, list)):
             # Per network, like ports per target: a network main adds later is a new path, so a classification
             # of the networks main has today cannot let it through (review round 2, Opus N1).
@@ -743,10 +749,14 @@ def override_contributions(base, full):
         # present on one side only with a null value is still a contribution.
         paths += [p for p in sorted(set(b) | set(f)) if (p in b) != (p in f) or b[p] != f[p]]
     for k in sorted((set(base) | set(full)) - {'services', 'name'}):
+        if (k in base) != (k in full):   # before normalising: a key main adds as null is still an addition
+            v = full[k] if k in full else base[k]
+            paths += [f'{k}.{x}' for x in sorted(v)] if isinstance(v, dict) and v else [k]
+            continue
         bk, fk = base.get(k) or {}, full.get(k) or {}
         if isinstance(bk, dict) and isinstance(fk, dict):
             paths += [f'{k}.{x}' for x in sorted(set(bk) | set(fk)) if (x in bk) != (x in fk) or bk.get(x) != fk.get(x)]
-        elif (k in base) != (k in full) or bk != fk:
+        elif bk != fk:
             paths.append(k)
     return paths
 
@@ -855,8 +865,11 @@ def _parity_report(lane, running, settings, boot):
             if s in (lane_r.get('services') or {}):
                 fails += container_drift(lane_r['services'][s], require_running=True, render=lane_r)
             if s in (main_r.get('services') or {}):   # main-lane upkeep: reported, never a lane failure
-                warns += [f'main lane: {w}' for w in container_drift(main_r['services'][s], require_running=True,
-                                                                     render=main_r)]
+                try:   # even when the inspection itself fails (Codex round 2, finding 6)
+                    warns += [f'main lane: {w}' for w in container_drift(main_r['services'][s], require_running=True,
+                                                                         render=main_r)]
+                except Exception as e:
+                    warns.append(f'main lane: {s}: the container could not be inspected ({why_failed(e)})')
     if settings:
         me, le = ctx['main_env'], ctx['lane_env']
         lane_s = auth_settings(LANES[lane]['kong_port'], le.get('ANON_KEY', ''))
@@ -1729,6 +1742,54 @@ def opt(args, name, default=None, cast=str):
     return default
 
 
+def _boot_lane(l, cmd):
+    """One lane at firewall-restore or boot. The caller holds Lock(l) and quarantines on any exception."""
+    st = load(l)
+    if st['state'] in ('free', 'draining'):
+        return 'skip'
+    fw_apply(l)
+    if cmd != 'boot':
+        return None
+    if not fw_ok(l):
+        raise RuntimeError('firewall rules do not verify after restore')   # -> quarantined by the caller
+    if not st.get('quarantined'):
+        # P1724 (Codex 1): compare the rendered config BEFORE anything starts. The client route survives a
+        # reboot, so a lane started first would serve sign-in with a stale config until the running comparison
+        # below. On a difference the route goes and only the database starts (so quarantine can record and
+        # stop cron): the gateway and auth never start, so a route Caddy still holds in memory reaches nothing
+        # (Codex round 2, finding 1).
+        pre, pre_w = parity_report(l, running=False, settings=False, boot=True)
+        if pre:
+            report_parity(l, pre, pre_w)
+            try:   # the file goes before the reload, so Caddy never loads it again
+                caddy_route_remove(l)
+            except Exception as e:
+                say(f'{l}: Caddy did not drop the route ({why_failed(e)}); the gateway stays down, so it reaches nothing')
+            compose(l, 'up', '-d', 'db', timeout=600)
+            wait_healthy(l, ['db'])
+            raise RuntimeError(f'{len(pre)} difference(s) from the main lane before start')
+    compose(l, 'up', '-d', *[s for s in SERVICES_UP], timeout=600)
+    if st.get('quarantined'):   # whatever started it, functions stay down and cron stays off
+        compose(l, 'stop', 'functions', check=False)
+        wait_healthy(l, ['db'])
+        cron_off(l, record=False)
+        return None
+    # P1724: a serving lane must still match the main lane, which may have changed while the VM was down.
+    # Auth's own answer is left to the next lift: it may not be up yet. Give auth and mail time to come up
+    # first (auth restarts until the database answers), so a slow boot is not read as a stopped container;
+    # if they never come up, the running comparison below says so.
+    try:
+        wait_healthy(l, ['auth', 'mail'])
+    except RuntimeError:
+        pass
+    pfails, pwarns = parity_report(l, settings=False, boot=True)
+    report_parity(l, pfails, pwarns)
+    if pfails:
+        raise RuntimeError(f'{len(pfails)} difference(s) from the main lane')
+    compose(l, 'up', '-d', 'functions', timeout=300)
+    return None
+
+
 def main(argv):
     if not argv:
         print(__doc__)
@@ -1916,57 +1977,19 @@ def main(argv):
             for l in ENABLED_LANES:
                 try:
                     with Lock(l):
-                        st = load(l)
-                        if st['state'] in ('free', 'draining'):
-                            continue
-                        fw_apply(l)
-                        if cmd == 'boot' and not fw_ok(l):
-                            raise RuntimeError('firewall rules do not verify after restore')   # -> quarantined below
-                        if cmd == 'boot':
-                            pre = []
-                            if not st.get('quarantined'):
-                                # P1724 (Codex 1): compare the rendered config BEFORE anything starts. The client
-                                # route survives a reboot, so a lane started first would serve sign-in with a stale
-                                # config until the running comparison below. On a difference the route goes first,
-                                # then the lane starts with its database up, so quarantine can record and stop cron.
-                                pre, pre_w = parity_report(l, running=False, settings=False, boot=True)
-                                if pre:
-                                    report_parity(l, pre, pre_w)
-                                    try:   # the file goes before the reload, so Caddy never loads it again
-                                        caddy_route_remove(l)
-                                    except Exception as e:
-                                        say(f'{l}: route file removed, Caddy did not reload ({why_failed(e)})')
-                            compose(l, 'up', '-d', *[s for s in SERVICES_UP], timeout=600)
-                            if pre:
-                                wait_healthy(l, ['db'])
-                                raise RuntimeError(f'{len(pre)} difference(s) from the main lane before start')
-                            if not st.get('quarantined'):
-                                # P1724: a serving lane must still match the main lane, which may have changed
-                                # while the VM was down. Auth's own answer is left to the next lift: it may
-                                # not be up yet. Give auth and mail time to come up first (auth restarts until
-                                # the database answers), so a slow boot is not read as a stopped container; if
-                                # they never come up, the running comparison below says so.
-                                try:
-                                    wait_healthy(l, ['auth', 'mail'])
-                                except RuntimeError:
-                                    pass
-                                pfails, pwarns = parity_report(l, settings=False, boot=True)
-                                report_parity(l, pfails, pwarns)
-                                if pfails:
-                                    raise RuntimeError(f'{len(pfails)} difference(s) from the main lane')
-                                compose(l, 'up', '-d', 'functions', timeout=300)
-                            else:   # quarantined: whatever started it, functions stay down and cron stays off
-                                compose(l, 'stop', 'functions', check=False)
-                                wait_healthy(l, ['db'])
-                                cron_off(l, record=False)
-                except Exception as e:
+                        try:
+                            if _boot_lane(l, cmd) == 'skip':
+                                continue
+                        except Exception as e:
+                            bad += 1
+                            say(f'{l}: {cmd} failed ({e}); quarantining it')
+                            try:   # under the same lock acquisition as the refusal (Codex round 2, finding 3)
+                                quarantine(l)
+                            except Exception as e2:
+                                say(f'{l}: quarantine also failed ({e2})')
+                except Exception as e:   # the lane lock itself
                     bad += 1
-                    say(f'{l}: {cmd} failed ({e}); quarantining it')
-                    try:
-                        with Lock(l):
-                            quarantine(l)
-                    except Exception as e2:
-                        say(f'{l}: quarantine also failed ({e2})')
+                    say(f'{l}: {cmd} could not take the lane lock ({e})')
             return 1 if bad else 0
         elif cmd == 'install':
             install(opt(args, '--from', str(Path(__file__).resolve().parent)))

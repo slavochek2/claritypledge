@@ -319,6 +319,16 @@ check(any('GOTRUE_X' in x and 'main' in x for x in L.compare_service('mail', ms,
 check(L.compare_service('mail', ms, dict(ms), {}, {}, ctx()) == [], 'control: the same null entries on both sides pass')
 paths = L.override_contributions({'services': {}, 'volumes': {}}, {'services': {}, 'volumes': {'newvol': None}})
 check('volumes.newvol' in paths, 'a top-level map entry main adds as null is a contribution')
+check('volumes' in L.override_contributions({'services': {}}, {'services': {}, 'volumes': None}),
+      'a top-level key main adds as null is a contribution (Codex round 2, finding 4)')
+k8 = {'target': 8000, 'published': '8000', 'protocol': 'tcp'}
+paths = L.override_contributions({'services': {'kong': {'ports': [k8]}}},
+                                 {'services': {'kong': {'ports': [k8 | {'host_ip': '127.0.0.1', 'published': '18000'}, k8]}}})
+new_bindings = [p for p in paths if '@' in p]
+check(len(new_bindings) == 2 and not [p for p in new_bindings if L.classify(p)],
+      f'a second binding of an already-published target is an unclassified contribution (Codex round 2, finding 5): {paths}')
+check(L.override_contributions({'services': {'kong': {'ports': [k8]}}}, {'services': {'kong': {'ports': [k8]}}}) == [],
+      'control: an unchanged single binding contributes nothing')
 
 print('render and settings')
 with patched(run=lambda *a, **k: type('P', (), {'returncode': 1, 'stdout': '', 'stderr': f'bad value {MAIN_PW}'})()):
@@ -359,6 +369,15 @@ for boom, name in ((subprocess.TimeoutExpired(['docker', 'compose', 'config'], 1
         res = L.parity_report('lane1') if exc is None else None
     check(exc is None and res and res[0] and 'could not run' in res[0][0],
           f'{name} is a parity failure, never an exception (Codex 5): {res}')
+def drift_main_breaks(s, require_running, render=None):
+    if render is MAIN_R:
+        raise subprocess.TimeoutExpired(['docker', 'inspect', 'supabase-auth'], 30)
+    return ['auth: lane container drift']
+with patched(**stub_report(S, S) | {'container_drift': drift_main_breaks}):
+    f, w = L.parity_report('lane1')
+check(any('lane container drift' in x for x in f) and not any('could not run' in x for x in f)
+      and any('could not be inspected' in x for x in w),
+      f'a main container that cannot be inspected is a warning; the lane findings stand (Codex round 2, finding 6): {f} {w}')
 seen_env = {}
 with patched(run=lambda cmd, **k: seen_env.update(k) or type('P', (), {'returncode': 0, 'stdout': '', 'stderr': ''})()):
     L.compose('lane1', 'up', '-d', 'auth')
@@ -450,6 +469,22 @@ try:
     check('fw_apply' not in names and 'copy_main_db' not in names, f'provision: never reaches the firewall or the database copy ({names})')
     check(L.load('lane1')['state'] == 'failed', 'provision: the lane ends failed')
 
+    # provision, second gate: the written config matches, the running lane does not (Codex round 2, finding 7)
+    set_state(state='provisioning', quarantined=True)
+    calls.clear()
+    with patched(ts_identity=lambda: ('lanehost.example.ts.net', TS_IP), teardown=rec('teardown'),
+                 MAIN_DIR=TMP / 'main', run=rec('run', type('P', (), {'stdout': str(TMP), 'returncode': 0})()),
+                 write_lane_env=rec('write_lane_env'), write_functions_env=rec('write_functions_env'),
+                 lane_yml=lambda *a: 'x', compose=rec('compose'),
+                 parity_report=lambda *a, **k: DIFF if k.get('running', True) else ([], []),
+                 fw_apply=rec('fw_apply'), copy_main_db=rec('copy_main_db'), **LATER_STEPS):
+        _, exc, out = captured(L.main, ['provision', '--lane', 'lane1', '--gen', '1'])
+    names = [c[0] for c in calls]
+    check(isinstance(exc, RuntimeError) and 'running lane differs' in str(exc) and 'copy_main_db' in names,
+          f'provision: the running comparison stops it after the copy ({type(exc).__name__}: {exc})')
+    check(L.load('lane1')['state'] == 'failed' and not any(c[0] == 'event' and 'provisioned' in ' '.join(c) for c in calls),
+          'provision: a running difference ends failed, never reported provisioned')
+
     # provision: a main lane with no relay list leaves it failed, not stuck in provisioning
     set_state(state='provisioning', quarantined=True)
     (TMP / 'main/docker-compose.override.yml').write_text('services:\n  mail:\n    environment:\n      MP_MAX_MESSAGES: 5\n')
@@ -510,6 +545,8 @@ try:
     check(calls[names.index('parity_report')][2] is False and names.index('parity_report') < names.index('compose'),
           'boot: the rendered config is compared before any lane container starts (Codex 1)')
     check('caddy_route_remove' not in names, 'control: a lane whose config matches keeps its route through the start')
+    check([c[1] for c in calls if c[0] == 'parity_report'] == [True, True],
+          'boot: both comparisons take the origin recorded in the lane .env (boot=True)')
     # pre-start: the rendered config already differs, so the route goes before the lane starts
     set_state(quarantined=False)
     calls.clear()
@@ -526,8 +563,29 @@ try:
     check(not [c for c in calls if c[0] == 'compose' and 'functions' in c and 'up' in c]
           and [c for c in calls if c[0] == 'parity_report' and c[2]] == [],
           'boot: a pre-start difference starts no functions and skips the running comparison')
-    check({c[1] for c in calls if c[0] == 'parity_report'} == {True},
-          'boot: both comparisons take the origin recorded in the lane .env (boot=True)')
+    ups = [c[1:] for c in calls if c[0] == 'compose' and 'up' in c]
+    check(ups == [('lane1', 'up', '-d', 'db')],
+          f'boot: a pre-start difference starts the database only, never the gateway or auth (Codex round 2, finding 1): {ups}')
+    # the route cannot be dropped (Caddy down): the gateway still never starts, and quarantine runs under the lock
+    def route_fails(lane):
+        calls.append(('caddy_route_remove',))
+        raise RuntimeError('caddy is not running')
+    lock_seen = []
+    def quarantine_probe(lane):
+        try:
+            with L.Lock(lane, blocking=False):
+                lock_seen.append('free')
+        except L.LaneBusy:
+            lock_seen.append('held')
+    set_state(quarantined=False)
+    calls.clear()
+    with patched(fw_apply=rec('fw_apply'), fw_ok=lambda lane: True, compose=rec('compose'), wait_healthy=rec('wait_healthy'),
+                 parity_report=lambda *a, **k: DIFF, quarantine=quarantine_probe, caddy_route_remove=route_fails):
+        rc, exc, out = captured(L.main, ['boot'])
+    ups = [c[1:] for c in calls if c[0] == 'compose' and 'up' in c]
+    check(rc == 1 and ups == [('lane1', 'up', '-d', 'db')] and 'gateway stays down' in out,
+          f'boot: a route that cannot be dropped still leaves the gateway down (rc {rc}, {ups})')
+    check(lock_seen == ['held'], f'boot: quarantine runs while the boot still holds the lane lock (Codex round 2, finding 3): {lock_seen}')
     check('boot failed' in out and 'firewall restore failed' not in out, 'boot: a parity refusal is not logged as a firewall failure')
 
     def slow(lane, services, timeout=240):
