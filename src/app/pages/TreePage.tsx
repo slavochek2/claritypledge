@@ -10,6 +10,11 @@ const productionPages = [
 
 const devPages = [
   {
+    path: '/tree/meeting-stakes',
+    label: 'Meeting stakes calculator',
+    description: 'Pick a meeting, rate it on the five conditions, see if a check is worth it and what it must catch to pay for itself.'
+  },
+  {
     path: '/tree/landing-fable-change',
     label: 'Landing redesign: change managers',
     description: 'The /change-managers page in the redesigned look, with the labelled hero example.'

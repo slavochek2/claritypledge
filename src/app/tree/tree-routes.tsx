@@ -26,6 +26,7 @@ const LandingDo = lazy(() => import("@/app/tree/landing-lab/do/LandingDo").then(
 const LandingWild = lazy(() => import("@/app/tree/landing-lab/wild/LandingWild").then(m => ({ default: m.LandingWild })));
 const LandingFable = lazy(() => import("@/app/tree/landing-lab/fable/LandingFable").then(m => ({ default: m.LandingFable })));
 const LandingFableChange = lazy(() => import("@/app/tree/landing-lab/fable/LandingFableChange").then(m => ({ default: m.LandingFableChange })));
+const MeetingStakes = lazy(() => import("@/app/tree/meeting-stakes/MeetingStakes").then(m => ({ default: m.MeetingStakes })));
 const LandingFirst = lazy(() => import("@/app/tree/landing-lab/first/LandingFirst").then(m => ({ default: m.LandingFirst })));
 const PositionButtonsPrototype = lazy(() => import("@/app/pages/position-buttons-prototype").then(m => ({ default: m.PositionButtonsPrototype })));
 const P1336OnboardingPrototype = lazy(() => import("@/app/pages/prototypes/p1336-onboarding-prototype").then(m => ({ default: m.P1336OnboardingPrototype })));
@@ -105,6 +106,7 @@ function landingRoutes(LazyRoute: LazyRouteComponent) {
       {import.meta.env.DEV && <Route path="/tree/landing-fable" element={<ClarityLandingLayout surface="public"><LazyRoute><LandingFable /></LazyRoute></ClarityLandingLayout>} />}
       {import.meta.env.DEV && <Route path="/tree/landing-fable-change" element={<ClarityLandingLayout surface="public"><LazyRoute><LandingFableChange /></LazyRoute></ClarityLandingLayout>} />}
       {import.meta.env.DEV && <Route path="/tree/landing-wild" element={<LazyRoute><LandingWild /></LazyRoute>} />}
+      {import.meta.env.DEV && <Route path="/tree/meeting-stakes" element={<LazyRoute><MeetingStakes /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/landing-first" element={<LazyRoute><LandingFirst /></LazyRoute>} />}
       {import.meta.env.DEV && <Route path="/tree/old-landing" element={<ClarityLandingLayout surface="public"><LazyRoute><ClarityPledgeLanding /></LazyRoute></ClarityLandingLayout>} />}
       {import.meta.env.DEV && <Route path="/tree/404-drift" element={<ClarityLandingLayout surface="public"><LazyRoute><NotFoundDrift /></LazyRoute></ClarityLandingLayout>} />}
