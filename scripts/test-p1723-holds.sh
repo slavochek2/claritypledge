@@ -197,8 +197,8 @@ o="$(go hold-release w30 --expect "$(sha "$S30/.hold")" --proof answered)"; rc=$
 { [[ $rc -ne 0 ]] && same_bytes "$S30/.hold" "$SCRATCH/w30.before"; } && pass "7b: hold-release refuses an unreadable hold (exit $rc), bytes unchanged" || fail "7b: rc $rc: $o"
 
 echo "--- 8. the reason is never printed ---"
-printf '%s' "$OUT" | grep -q '[<>|]' && fail "8a: holds output contains a < > or | character" || pass "8a: holds output has no < > | (reason carried > | < )"
-printf '%s' "$OUT" | grep -q 'REASONTEXT\|ship it\|founder decides' && fail "8b: holds printed REASON text" || pass "8b: holds prints no REASON text"
+grep -q '[<>|]' <<<"$OUT" && fail "8a: holds output contains a < > or | character" || pass "8a: holds output has no < > | (reason carried > | < )"
+grep -q 'REASONTEXT\|ship it\|founder decides' <<<"$OUT" && fail "8b: holds printed REASON text" || pass "8b: holds prints no REASON text"
 n="$(printf '%s\n' "$OUT" | awk -F'\t' '$1 == "HOLD" && NF == 13' | wc -l | tr -d ' ')"
 [[ "$n" == 17 ]] && pass "8c: one 13-column HOLD line per held slot (17)" || fail "8c: $n well-formed HOLD lines, wanted 17: $OUT"
 
@@ -208,13 +208,13 @@ H1="$(col "$(row "$OUT" w1)" 8)"; cp "$S1/.hold" "$SCRATCH/w1.before"
 tip1="$(G rev-parse feature/p9001-x)"
 o="$(go hold-release w1 --expect "$(printf '%064d' 0)" --proof landed)"; rc=$?
 { [[ $rc -ne 0 ]] && same_bytes "$S1/.hold" "$SCRATCH/w1.before"; } && pass "4a: wrong --expect refused (exit $rc), hold bytes unchanged" || fail "4a: rc $rc: $o"
-printf '%s' "$o" | grep -q '[<>|]' && fail "4a': refusal line has < > |: $o" || pass "4a': refusal line has no < > |"
+grep -q '[<>|]' <<<"$o" && fail "4a': refusal line has < > |: $o" || pass "4a': refusal line has no < > |"
 cp "$S2/.hold" "$SCRATCH/w2.before"
 o="$(go hold-release w2 --expect "$(sha "$S2/.hold")" --proof landed)"; rc=$?
 { [[ $rc -ne 0 ]] && same_bytes "$S2/.hold" "$SCRATCH/w2.before"; } && pass "4b: --proof landed when the proof is none: refused (exit $rc), bytes unchanged" || fail "4b: rc $rc: $o"
 cp "$S40/.hold" "$SCRATCH/w40.before"
 o="$(go hold-release w40 --expect "$(sha "$S40/.hold")" --proof answered)"; rc=$?
-{ [[ $rc -ne 0 ]] && same_bytes "$S40/.hold" "$SCRATCH/w40.before" && printf '%s' "$o" | grep -q LIVE; } \
+{ [[ $rc -ne 0 ]] && same_bytes "$S40/.hold" "$SCRATCH/w40.before" && grep -q LIVE <<<"$o"; } \
   && pass "4c: LIVE slot refused (exit $rc), bytes unchanged" || fail "4c: rc $rc: $o"
 cp "$S41/.hold" "$SCRATCH/w41.before"
 o="$(go hold-release w41 --expect "$(sha "$S41/.hold")" --proof answered)"; rc=$?
@@ -236,8 +236,8 @@ last="$(tail -n 1 "$RLOG" 2>/dev/null)"
 [[ "$last" == *$'\t'hold-release$'\t'w1$'\t'feature/p9001-x$'\t'"$tip1"$'\t'"$COPY"$'\t'*"proof landed"* ]] \
   && pass "4h: the recovery log line names slot, branch, tip, archive copy and proof" || fail "4h: log line: $last"
 { [[ "$(G rev-parse feature/p9001-x)" == "$tip1" && -d "$S1" ]]; } && pass "4i: branch ref and worktree unchanged by the release" || fail "4i: branch or worktree changed"
-printf '%s' "$o" | grep -q "hold on w1 released (proof landed), copy kept at $COPY" && pass "4j: status line names the copy" || fail "4j: $o"
-printf '%s' "$o" | grep -q '[<>|]' && fail "4k: status line has < > |" || pass "4k: status line has no < > |"
+grep -q "hold on w1 released (proof landed), copy kept at $COPY" <<<"$o" && pass "4j: status line names the copy" || fail "4j: $o"
+grep -q '[<>|]' <<<"$o" && fail "4k: status line has < > |" || pass "4k: status line has no < > |"
 
 echo "--- 5. hold-reask ---"
 cp "$S20/.hold" "$SCRATCH/w20.before"; H20="$(sha "$S20/.hold")"; UNTIL="$(minute $((NOW + 14 * DAY)))"
@@ -278,7 +278,7 @@ l10="$(printf '%s\n' "$o" | grep '^archive-spec: p9010 not finished')"
 [[ "$l10" != *"git-ops: "* ]] && pass "6c: 'git-ops: ' prefixes are dropped from the joined reason" || fail "6c: $l10"
 [[ "$(printf '%s\n' "$o" | grep '^archive-spec: p9011 not finished')" == *"no backup proof"* ]] && pass "6d: an archive waiting for its proof says so on its own line" || fail "6d: $o"
 [[ "$(printf '%s\n' "$o" | tail -n 1)" == "archive-spec: 0 of 4 pending archive(s) finished" ]] && pass "6e: the count line stays last" || fail "6e: last line: $(printf '%s\n' "$o" | tail -n 1)"
-printf '%s' "$o" | grep -q '[<>|]' && fail "6f: finish-pending output has < > |" || pass "6f: finish-pending output has no < > |"
+grep -q '[<>|]' <<<"$o" && fail "6f: finish-pending output has < > |" || pass "6f: finish-pending output has no < > |"
 G rev-parse --verify -q feature/p9010-x >/dev/null && [[ -f "$S10/.hold" ]] && pass "6g: branch and hold kept" || fail "6g: branch or hold gone"
 o1="$(go archive-spec p9010 --finish)"; rc=$?
 { [[ $rc -ne 0 ]] && [[ "$(printf '%s\n' "$o1" | tail -n 1)" == *"worktree is on hold (owner founder)"* ]]; } \
