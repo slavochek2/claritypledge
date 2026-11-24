@@ -49,15 +49,26 @@ vi.mock('@/app/contexts/room-capture-context', () => ({
   useRoomCapture: () => ({ isCapturingForEvent: () => room.capturing }),
 }));
 // The mastermind's step bar reads the learning and the canvas; neither is the subject here.
-const prep = vi.hoisted(() => ({ state: { loading: false, error: false, learned: false }, asked: [] as unknown[] }));
-vi.mock('@/app/prototypes/events/prep/use-learned', () => ({
-  useLearned: (ev: unknown) => { prep.asked.push(ev); return prep.state; },
-}));
-const canvas = vi.hoisted(() => ({ shared: false, asked: [] as boolean[] }));
-vi.mock('@/app/prototypes/events/rounds/canvas-setup', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/app/prototypes/events/rounds/canvas-setup')>()),
-  useMyCanvasShared: (_eventId: string | undefined, enabled: boolean) => { canvas.asked.push(enabled); return [canvas.shared, vi.fn()]; },
-}));
+// Review round 14: each mock also counts its mounts (a remount is a fresh hook: its reads and counters start again).
+const prep = vi.hoisted(() => ({ state: { loading: false, error: false, learned: false }, asked: [] as unknown[], mounts: 0 }));
+vi.mock('@/app/prototypes/events/prep/use-learned', async () => {
+  const { useState } = await import('react');
+  return {
+    useLearned: (ev: unknown) => { useState(() => { prep.mounts += 1; return 0; }); prep.asked.push(ev); return prep.state; },
+  };
+});
+const canvas = vi.hoisted(() => ({ shared: false, asked: [] as boolean[], mounts: 0 }));
+vi.mock('@/app/prototypes/events/rounds/canvas-setup', async (importOriginal) => {
+  const { useState } = await import('react');
+  return {
+    ...(await importOriginal<typeof import('@/app/prototypes/events/rounds/canvas-setup')>()),
+    useMyCanvasShared: (_eventId: string | undefined, enabled: boolean) => {
+      useState(() => { canvas.mounts += 1; return 0; });
+      canvas.asked.push(enabled);
+      return [canvas.shared, vi.fn()];
+    },
+  };
+});
 
 const rounds = vi.hoisted(() => ({
   read: (() => Promise.resolve({ rounds: [], seatsByRound: new Map() })) as () => Promise<unknown>,
@@ -182,11 +193,27 @@ beforeEach(() => {
   rounds.read = () => Promise.resolve({ rounds: [], seatsByRound: new Map() });
   canvas.shared = false;
   canvas.asked.length = 0;
+  canvas.mounts = 0;
   prep.state = { loading: false, error: false, learned: false };
   prep.asked.length = 0;
+  prep.mounts = 0;
   setRoom(night);
 });
-afterEach(() => vi.restoreAllMocks());
+// Review round 14: a save that never answers leaves settleWithin's 5 s budget running past its test, and its catch then
+// remembers a skip in whatever test is running (seen under load: "expected true to be false" on readySkipped). Every
+// held save is ended with its test, so that skip is written before the next test clears storage, never during it.
+const stalledSaves: Array<(reason: unknown) => void> = [];
+function stalled(keep: (resolve: () => void) => void = () => {}): Promise<never> {
+  return new Promise<never>((resolve, reject) => {
+    keep(() => resolve(undefined as never));
+    stalledSaves.push(reject);
+  });
+}
+afterEach(async () => {
+  stalledSaves.splice(0).forEach((reject) => reject(new Error('test ended')));
+  await new Promise((r) => setTimeout(r, 0));
+  vi.restoreAllMocks();
+});
 
 describe('Skip and an untouched Continue store nothing', () => {
   it('Skip: no readiness saved, lands on /meet with the marks, remembered for this person and event', async () => {
@@ -235,7 +262,7 @@ describe('Continue saves only an answer', () => {
   });
 
   it('a double tap on Continue (save pending) saves once', async () => {
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled() as never);
     setRoom(mastermind);
     await mountReady('mm');
     moveSlider();
@@ -246,7 +273,7 @@ describe('Continue saves only an answer', () => {
   });
 
   it('Skip during a pending save does nothing more: one save, no skip remembered', async () => {
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled() as never);
     setRoom(mastermind);
     await mountReady('mm');
     moveSlider();
@@ -258,7 +285,7 @@ describe('Continue saves only an answer', () => {
   });
 
   it('while the save is in flight both buttons are busy (disabled), and Continue says so', async () => {
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled() as never);
     setRoom(mastermind);
     await mountReady('mm');
     moveSlider();
@@ -269,7 +296,7 @@ describe('Continue saves only an answer', () => {
   });
 
   it('a step-bar tap during a pending save does nothing: no skip over the answer, no navigation (review round 2)', async () => {
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled() as never);
     setRoom(mastermind);
     mountWithSearch('mm');
     await screen.findByTestId('room-ready');
@@ -284,7 +311,7 @@ describe('Continue saves only an answer', () => {
 
   it('Back during a pending save leaves for the event, and the save landing later does not pull them into the room (review round 3)', async () => {
     let finish: () => void = () => {};
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise<void>((r) => { finish = r; }) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled((r) => { finish = r; }) as never);
     setRoom(mastermind);
     render(
       <MemoryRouter initialEntries={[{ pathname: '/events/mm/ready', state: { fromEvent: true } }]}>
@@ -322,7 +349,7 @@ describe('Continue saves only an answer', () => {
     setRoom(mastermind);
 
     let finish: () => void = () => {};
-    vi.mocked(setRoomReadiness).mockReturnValueOnce(new Promise<void>((r) => { finish = r; }) as never);
+    vi.mocked(setRoomReadiness).mockReturnValueOnce(stalled((r) => { finish = r; }) as never);
     const first = mountWithEvent();
     await screen.findByTestId('room-ready');
     moveSlider();
@@ -346,7 +373,7 @@ describe('Continue saves only an answer', () => {
 
   it('a save that lands after the budget still clears the skip remembered at the timeout (review round 3)', async () => {
     let finish: () => void = () => {};
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise<void>((r) => { finish = r; }) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled((r) => { finish = r; }) as never);
     setRoom(mastermind);
     await mountReady('mm');
     vi.useFakeTimers();
@@ -361,7 +388,7 @@ describe('Continue saves only an answer', () => {
   });
 
   it('the slider does not move while the save is in flight, so the screen never shows an answer that was not sent (review round 4)', async () => {
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled() as never);
     setRoom(mastermind);
     await mountReady('mm');
     moveSlider();
@@ -375,7 +402,7 @@ describe('Continue saves only an answer', () => {
   });
 
   it('Skip says it is busy too while the save is in flight', async () => {
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled() as never);
     setRoom(mastermind);
     await mountReady('mm');
     moveSlider();
@@ -447,7 +474,7 @@ describe('a stalled connection never strands the person', () => {
   afterEach(() => vi.useRealTimers());
 
   it('a save that never answers lets them in after READY_SAVE_MS, remembered as a skip', async () => {
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise(() => {}) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled() as never);
     setRoom(mastermind);
     await mountReady('mm');
     vi.useFakeTimers();
@@ -461,7 +488,7 @@ describe('a stalled connection never strands the person', () => {
 
   it('a slow save that lands inside the budget, with a re-read that never answers, still lets them in at READY_SAVE_MS with no skip (review round 5)', async () => {
     let land: () => void = () => {};
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise((r) => { land = () => r({} as never); }) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled((r) => { land = r; }) as never);
     const refreshed = vi.fn(() => new Promise<void>(() => {}));
     room.refresh = refreshed;
     setRoom(mastermind);
@@ -555,7 +582,7 @@ describe('a stalled connection never strands the person', () => {
 
   it('a slow save inside the budget whose re-read fails lets them in at once, with no skip (review round 5)', async () => {
     let land: () => void = () => {};
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise((r) => { land = () => r({} as never); }) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled((r) => { land = r; }) as never);
     room.refresh = () => Promise.reject(new Error('re-read failed'));
     setRoom(mastermind);
     await mountReady('mm');
@@ -628,6 +655,55 @@ describe('a stalled connection never strands the person', () => {
     expect(canvas.asked.slice(canvas.asked.indexOf(true))).not.toContain(false);
   });
 
+  // Review round 14 (Codex, metered rule 4): on a reconnect the access check shows its loader over the screen, which
+  // unmounts the step bar. Its reads live in the screen, so they are neither started again nor given a fresh allowance.
+  it("the access check's loader on a reconnect does not start the step bar's Learn and Canvas reads again", async () => {
+    setRoom({ ...mastermind, canvasTiming: 'at_event' } as TestEvent);
+    const view = mountReadyNoWait('mm');
+    expect(await screen.findByTestId('room-ready')).toBeInTheDocument();
+    await waitFor(() => expect(canvas.asked).toContain(true));
+    const mounts = { learn: prep.mounts, canvas: canvas.mounts };
+    for (let i = 0; i < 2; i += 1) {
+      room.access = { ...room.access, loading: true };
+      view.rerender();
+      expect(screen.queryByTestId('room-ready')).toBeNull();
+      room.access = { ...room.access, loading: false };
+      view.rerender();
+      expect(await screen.findByTestId('room-ready')).toBeInTheDocument();
+    }
+    expect({ learn: prep.mounts, canvas: canvas.mounts }).toEqual(mounts);
+    expect(screen.getByTestId('room-step-learn')).toBeInTheDocument();
+  });
+
+  // Review round 14 (Gemini): Ready shown offline from the cached row; coming back online starts the seat read, which
+  // runs behind the question instead of putting the loader back over the slider.
+  it('opened offline, then online: the seat read runs behind Ready, which stays, and a seat it finds still forwards', async () => {
+    let answer: (v: unknown) => void = () => undefined;
+    const read = vi.fn(() => new Promise((r) => { answer = r; }));
+    rounds.read = read;
+    net.offline = true;
+    setRoom(mastermind);
+    const view = mountReadyNoWait('mm');
+    expect(await screen.findByTestId('room-ready')).toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
+    net.offline = false;
+    view.rerender();
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('room-ready')).toBeInTheDocument();
+    await act(async () => { answer({ rounds: [{ id: 'r1', endedAt: null }], seatsByRound: new Map([['r1', [{ id: 'member-a' }]]]) }); });
+    await waitFor(() => expect(redirects.at(-1)).toMatchObject({ to: '/events/mm/meet', replace: true }));
+  });
+
+  // Review round 14: the step bar's reads wait for the question; someone forwarded before it shows makes none.
+  it("a person seated in the running round is forwarded with none of the step bar's reads", async () => {
+    rounds.read = () => Promise.resolve({ rounds: [{ id: 'r1', endedAt: null }], seatsByRound: new Map([['r1', [{ id: 'member-a' }]]]) });
+    setRoom({ ...mastermind, canvasTiming: 'at_event' } as TestEvent);
+    mountReadyNoWait('mm');
+    await waitFor(() => expect(redirects.at(-1)).toMatchObject({ to: '/events/mm/meet', replace: true }));
+    expect(prep.asked.every((ev) => ev === null)).toBe(true);
+    expect(canvas.asked).not.toContain(true);
+  });
+
   it('a seat read still out when the browser goes offline and back is not restarted, and its seat still forwards', async () => {
     let answer: (v: unknown) => void = () => undefined;
     const read = vi.fn(() => new Promise((r) => { answer = r; }));
@@ -681,7 +757,7 @@ describe('a stalled connection never strands the person', () => {
     let answer: (v: unknown) => void = () => undefined;
     rounds.read = () => new Promise((r) => { answer = r; });
     let land: () => void = () => {};
-    vi.mocked(setRoomReadiness).mockReturnValue(new Promise((r) => { land = () => r({} as never); }) as never);
+    vi.mocked(setRoomReadiness).mockReturnValue(stalled((r) => { land = r; }) as never);
     setRoom(mastermind);
     mountReadyNoWait('mm');
     await act(async () => { await vi.advanceTimersByTimeAsync(ROUNDS_READ_MS + 10); });

@@ -48,7 +48,7 @@ import { whenVisible } from '../when-visible';
 import { useBackToEvent } from '../use-back-to-event';
 import { readRoomNav } from './use-room-back';
 import { RoomHeadCapture, RoomHeadRow, RoomStickyHead } from './RoomChrome';
-import { ReadyStepBar } from './ReadyStepBar';
+import { ReadyStepBar, useReadyStepBarReads } from './ReadyStepBar';
 import { forgetReadySkipped, rememberReadySkipped } from './ready-skip-memory';
 import { useSeatedAtRunningRound } from './use-seated-at-running-round';
 import { settleWithin } from './settle-within';
@@ -218,6 +218,13 @@ export function EventRoomReady() {
     });
   }, [event?.id, askDistribution]);
 
+  // Review round 14: whether the question has shown this visit (per event). Once it has, a seat read started later (by
+  // coming back online, Gemini) runs behind it rather than putting the loader back over a slider in use; and the step
+  // bar's reads are held here, enabled by it, so the access check's loader on a reconnect does not repeat them (Codex).
+  const [shownFor, setShownFor] = useState<string | null>(null);
+  const shown = !!event && shownFor === event.id;
+  const barReads = useReadyStepBarReads(event, self?.profileId, shown);
+
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;
   // P1369 Scope v2: the check-in shows its last-seen state with the strip; needs-connection only
@@ -237,7 +244,8 @@ export function EventRoomReady() {
       </>
     );
   }
-  if (self && askSeated && seated === null) return <ClarityPageLoader />;
+  if (self && askSeated && seated === null && !shown) return <ClarityPageLoader />;
+  if (event && !shown) setShownFor(event.id);
 
   return (
     <div
@@ -264,7 +272,7 @@ export function EventRoomReady() {
         <RoomHeadRow
           className="mx-auto w-full max-w-2xl pt-3 pb-2"
           onBack={backToEvent}
-          tabs={<ReadyStepBar event={event} slug={slug} fromEvent={fromEvent} viewerId={self?.profileId} readyDone={self?.readinessValue != null} leaving={leaving} />}
+          tabs={<ReadyStepBar event={event} slug={slug} fromEvent={fromEvent} viewerId={self?.profileId} readyDone={self?.readinessValue != null} leaving={leaving} reads={barReads} />}
         />
       </RoomStickyHead>
       {/* P1336: the preparation stays one tap away for someone who joined without it. P1718 review round 7: not where

@@ -11,8 +11,8 @@ const reads = vi.hoisted(() => ({
   local: {} as Record<string, { contentVersion: number; completedAt: string }>,
   offers: true,
 }));
-const net = vi.hoisted(() => ({ tick: 0 }));
-vi.mock('@/app/contexts/offline-status-context', () => ({ useConnectivity: () => ({ offline: false, reconnectTick: net.tick }) }));
+const net = vi.hoisted(() => ({ tick: 0, offline: false }));
+vi.mock('@/app/contexts/offline-status-context', () => ({ useConnectivity: () => ({ offline: net.offline, reconnectTick: net.tick }) }));
 vi.mock('@/app/data/event-prep-service', () => ({
   getMyPreparation: (...args: unknown[]) => reads.prep(...args),
   getMyPrepParts: (...args: unknown[]) => reads.parts(...args),
@@ -40,6 +40,7 @@ beforeEach(() => {
   reads.local = {};
   reads.offers = true;
   net.tick = 0;
+  net.offline = false;
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -205,6 +206,38 @@ describe('useLearned', () => {
     rerender({ viewer: 'profile-2' });
     await waitFor(() => expect(reads.prep).toHaveBeenCalledTimes(4));
     expect(reads.prep).toHaveBeenLastCalledWith('ev-1', 'profile-2');
+  });
+
+  // Review round 14 (Gemini): known offline, no read and no attempt spent; back online, the first read starts.
+  it('known offline: no read until the connection is back, then the first read', async () => {
+    net.offline = true;
+    reads.prep.mockResolvedValue({ completedAt: at });
+    const { result, rerender } = renderHook(() => useLearned(event, 'profile-1'));
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    expect(reads.prep).not.toHaveBeenCalled();
+    net.offline = false;
+    net.tick = 1;
+    rerender();
+    await waitFor(() => expect(result.current).toEqual({ loading: false, error: false, learned: true }));
+    expect(reads.prep).toHaveBeenCalledTimes(1);
+  });
+
+  // Review round 14 (Codex): a reconnect while the first read is out, then that read failing: the one re-read still runs.
+  it('a reconnect during the first read, which then fails: one re-read, and no more', async () => {
+    let fail: (e: unknown) => void = () => undefined;
+    reads.prep.mockReturnValueOnce(new Promise((_r, j) => { fail = j; }));
+    reads.prep.mockResolvedValue({ completedAt: at });
+    const { result, rerender } = renderHook(() => useLearned(event, 'profile-1'));
+    await waitFor(() => expect(reads.prep).toHaveBeenCalledTimes(1));
+    net.tick = 1;
+    rerender();
+    await act(async () => { fail(new Error('down')); });
+    await waitFor(() => expect(result.current).toEqual({ loading: false, error: false, learned: true }));
+    expect(reads.prep).toHaveBeenCalledTimes(2);
+    net.tick = 2;
+    rerender();
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+    expect(reads.prep).toHaveBeenCalledTimes(2);
   });
 
   it('not asked with no preparation offered, no viewer, or no event: no read, not loading', () => {

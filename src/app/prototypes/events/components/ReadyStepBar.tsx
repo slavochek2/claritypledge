@@ -23,29 +23,53 @@ import { feedbackOpenAnytime, recipeForEvent } from '../series-recipes';
 import { useLearned } from '../prep/use-learned';
 import { rememberReadySkipped } from './ready-skip-memory';
 
-export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone, leaving }: {
+/** What the bar's ticks need from the server: the learning and the Canvas. */
+export interface ReadyStepBarReads {
+  learned: boolean;
+  canvasShared: boolean | undefined;
+}
+
+/**
+ * The step bar's reads, held by the screen (EventRoomReady) rather than the bar. Review round 14 (Codex, metered rule 4):
+ * the screen keeps its state through the access check's loader on a reconnect, which unmounts the bar, so read here the
+ * Learn and Canvas reads are counted once a visit however often that loader shows. `enabled` is the screen's "the
+ * question has shown": none of these reads for the host, a seated person or a past evening, who never see it.
+ */
+export function useReadyStepBarReads(event: EventWithHost | null, viewerId: string | null | undefined, enabled: boolean): ReadyStepBarReads {
+  const recipe = recipeForEvent(event);
+  const learnLabel = recipe.room.steps?.learn;
+  // Review round 8: only the two reads the Learn tick needs, not the preparation page's plan (use-learned.ts).
+  const learnState = useLearned(enabled && learnLabel && event ? event : null, viewerId ?? undefined);
+  const withCanvas = !!event && !!recipe.mastermind && eventCanvasTiming(event) === 'at_event';
+  // Review round 12 (Codex): no Canvas read while known offline. Round 13 (Codex, metered rule 4): once asked online it
+  // stays asked, so going offline and back does not read it again. Round 14 (Gemini): asked per event.
+  const { offline } = useConnectivity();
+  const [canvasAskedFor, setCanvasAskedFor] = useState<string | null>(null);
+  if (enabled && withCanvas && !offline && event && canvasAskedFor !== event.id) setCanvasAskedFor(event.id);
+  const [canvasShared] = useMyCanvasShared(event?.id, withCanvas && !!event && canvasAskedFor === event.id, null);
+  return {
+    learned: !learnState.loading && !learnState.error && learnState.learned,
+    canvasShared: withCanvas ? canvasShared : undefined,
+  };
+}
+
+export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone, leaving, reads }: {
   event: EventWithHost | null;
   slug: string | undefined;
   fromEvent: boolean | undefined;
-  /** The caller's profile id (their room row's), for the learning's tick. */
+  /** The caller's profile id (their room row's), for the skip it remembers. */
   viewerId: string | null | undefined;
   /** P1718 R10: a stored readiness value — the same Ready tick /meet draws. */
   readyDone: boolean;
   /** EventRoomReady's one-tap guard (R3): set once the person is leaving by any control. */
   leaving: MutableRefObject<boolean>;
+  /** The ticks' reads, from `useReadyStepBarReads` in the screen. */
+  reads: ReadyStepBarReads;
 }) {
   const navigate = useNavigate();
   const recipe = recipeForEvent(event);
   const learnLabel = recipe.room.steps?.learn;
-  // Review round 8: only the two reads the Learn tick needs, not the preparation page's plan (use-learned.ts).
-  const learnState = useLearned(learnLabel && event ? event : null, viewerId ?? undefined);
   const withCanvas = !!event && !!recipe.mastermind && eventCanvasTiming(event) === 'at_event';
-  // Review round 12 (Codex): no Canvas read while known offline. Round 13 (Codex, metered rule 4): once asked online it
-  // stays asked, so going offline and back does not read it again.
-  const { offline } = useConnectivity();
-  const [canvasAsked, setCanvasAsked] = useState(false);
-  if (withCanvas && !offline && !canvasAsked) setCanvasAsked(true);
-  const [canvasShared] = useMyCanvasShared(event?.id, withCanvas && canvasAsked, null);
   const toMeet = (search: string) => {
     if (leaving.current) return;
     leaving.current = true;
@@ -67,11 +91,11 @@ export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone, leav
       closeOpen={feedbackOpenAnytime(event)}
       tableOpen={recipe.mastermind}
       withCanvas={withCanvas}
-      canvasDone={withCanvas ? canvasShared : undefined}
+      canvasDone={withCanvas ? reads.canvasShared : undefined}
       labels={recipe.room.steps ? { principle: recipe.room.steps.principle, close: recipe.room.steps.close } : undefined}
       learn={learnLabel && event
         ? {
-            done: !learnState.loading && !learnState.error && learnState.learned,
+            done: reads.learned,
             label: learnLabel,
             active: false,
             onOpen: () => toMeet('?view=learn'),

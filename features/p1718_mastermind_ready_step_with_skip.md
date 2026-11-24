@@ -307,7 +307,7 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 to 13; accepted, none strands anyone):**
+**Known limitations (code review rounds 2 to 14; accepted, none strands anyone):**
 - **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle,
   Canvas and Table cannot be tapped there for someone already past them (checked against `canOpenStep`, review
   round 5). Continue, Skip, Review and Learn still lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
@@ -318,6 +318,17 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   saving on its way to `/meet` (review rounds 12 and 13).
 - **A save that lands after the 5s budget** clears the skip remembered at the timeout, but `/meet` draws the Ready
   tick only from its next read of the room.
+- **A save answered within the budget, then the connection drops before the re-read** (review round 14, Codex): the
+  skip is cleared but the device's saved room copy still has no answer, so `/meet` shows no Ready tick and an offline
+  re-entry asks again (Skip or a second answer, both harmless). Writing the save's returned row into the room copy
+  needs the room's write ordering (decisions.md 2026-09-18), which is wider than this change.
+- **The access check's loader on a reconnect** (the shared `useEventRoomAccess`, unchanged here): when the room's
+  access came from the saved copy, coming back online shows the loader over Ready until the live check answers. The
+  slider keeps its value, and since round 14 the step bar's reads live in the screen, so this repeats none of them.
+- **Visual QA, round 14** (a separate reviewer, screenshots only): `/meet` carries the capture strip ("Start
+  transcribing") above the bar and `/ready` does not, so at 768 the bar sits lower on `/meet`. This is the room's existing
+  chrome, as on Clarity Night. Review reads dark beside greyed steps because it is tappable from `/ready` (R7), not
+  done. "Learn and prepare" wraps on phones as it already does on `/meet`.
 - **The Ready tab while seated at a running round** is still tappable in `/meet`; `/ready` then forwards back
   (R8), with a brief loader.
 - **A remembered skip can sit beside a stored answer** when a save landed but the re-read after it did not, and the
@@ -427,7 +438,8 @@ review round 7 counted every read the screen makes, review round 8 re-derived th
   when a failed read left the answer unknown, at most once a visit (an offline failure never reached the server, so
   the visit still makes 2; a read the server keeps failing costs 2 more once, so up to 4; review rounds 11 and 12).
   Round 13 (Codex): at most these two attempts for the same person and event in a visit, never one while another is
-  still out, and a reconnect never discards an answer already on its way. Until round 8 the bar used `usePrepState`, which also read two points feeds (each a feed, a
+  still out, and a reconnect never discards an answer already on its way. Round 14 (Codex): a reconnect that came
+  while the first was out is kept, so the re-read still runs if that one fails. Until round 8 the bar used `usePrepState`, which also read two points feeds (each a feed, a
   position count and a viewer-position read), the social proof and the registration role, and wrote parts done
   signed out: 10 to 16 requests a visit, some started by a response after the tab was hidden (Codex round 8). Parts
   done signed out still count toward the tick; `/meet` moves them to the account, as before;
@@ -444,8 +456,10 @@ None of these reads is made for the host (sent on to `/meet` first), on a past e
 known, and each starts only on a visible tab (rule 3, `whenVisible`; review rounds 6 to 10). Round 10 (Codex, Gemini)
 gated the room's shared mount read too (`useEventRoomSelf`): a room opened in a background tab makes its first read
 when it is shown, and its join fallback waits for a visible tab and stops when the screen goes. The room row, seat and
-marks reads are also not made while offline, nor the Canvas read (round 12); the step bar's Learn reads are (review
-round 8, Gemini), but an offline browser fails them before they reach the server, so they cost nothing. The mastermind no longer mounts the
+marks reads are also not made while offline, nor the Canvas read (round 12), nor the Learn reads (round 14, Gemini;
+until then an offline browser failed them before they reached the server, but each spent one of the two attempts). The
+step bar's reads are held by the screen and start once the question has shown (review round 14, Codex): the access
+check's loader on a reconnect unmounts the bar, and would otherwise start them again with a fresh allowance. The mastermind no longer mounts the
 preparation banner on `/ready` (its Learn entry is that tap), so its reads are not doubled.
 
 Inputs (a usage assumption, not a limit the code enforces): 16 people; at most 2 `/ready` visits each per evening

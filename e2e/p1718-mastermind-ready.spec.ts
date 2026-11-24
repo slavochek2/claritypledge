@@ -227,6 +227,10 @@ test('the mastermind host goes straight to the room, whose step bar has no Ready
   await expect(page.getByTestId('room-steps')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('room-step-principle')).toBeVisible();
   await expect(page.getByTestId('room-step-ready')).toHaveCount(0);
+  // Review round 14 (Gemini): the host's shorter bar at every width: Learn and prepare, Principle, Table, Review (no
+  // Ready, no Canvas at this event), the bar round 13's phoneTicks covers.
+  await expect(page.getByTestId('room-steps').getByRole('listitem')).toHaveText(['Learn and prepare', 'Principle', 'Table', 'Review']);
+  await shots(page, 'mastermind-host-meet', 4);
 });
 
 test('a mastermind host opening /ready directly is sent to the room (R9)', async ({ page }) => {
@@ -296,6 +300,12 @@ test('Canvas made at the event: /ready shows the Canvas step and still no Compar
   await page.getByTestId('room-ready-continue').click();
   await expect(page.getByTestId('room-meet')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ready, done' })).toBeVisible();
+  // Review round 14 (Codex): the tick itself, not the button's name (which says "done" whether the tick is drawn or
+  // not): hidden on a phone, drawn from 768px (R5, founder 2026-11-24).
+  await page.setViewportSize({ width: 767, height: 812 });
+  await expect(page.getByTestId('room-step-ready-check')).toBeHidden();
+  await page.setViewportSize({ width: 768, height: 812 });
+  await expect(page.getByTestId('room-step-ready-check')).toBeVisible();
   await shots(page, 'mastermind-canvas-meet-answered', 6, [1280, 768, 600, 430, 375, 360, 320]);
 });
 

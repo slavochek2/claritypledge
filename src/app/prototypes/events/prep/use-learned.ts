@@ -37,12 +37,14 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
   const key = eventId && viewerId && offersPreparation(event) ? `${eventId}:${viewerId}` : null;
   const [answer, setAnswer] = useState<{ key: string; error: boolean; learned: boolean } | null>(null);
   // Review round 11 (Gemini): an answer left unknown by a failed read (offline) is read again once the connection is back.
-  const { reconnectTick } = useConnectivity();
+  const { offline, reconnectTick } = useConnectivity();
+  // Review round 14 (Codex): a reconnect that came while the first attempt was out, kept for when it fails.
+  const [retry, setRetry] = useState(0);
   const last = useRef(answer);
   last.current = answer;
   const current = useRef(key);
   current.current = key;
-  const attempt = useRef<{ key: string | null; count: number; inFlight: boolean }>({ key: null, count: 0, inFlight: false });
+  const attempt = useRef<{ key: string | null; count: number; inFlight: boolean; missed: boolean }>({ key: null, count: 0, inFlight: false, missed: false });
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
@@ -59,14 +61,23 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
       publish({ error: false, learned: true });
       return;
     }
-    if (attempt.current.key !== key) attempt.current = { key, count: 0, inFlight: false };
+    // Review round 14 (Gemini): known offline, no attempt is spent on a read the browser would fail; coming back online
+    // starts it (this effect re-runs on `offline`).
+    if (offline) return;
+    if (attempt.current.key !== key) attempt.current = { key, count: 0, inFlight: false, missed: false };
     // Review rounds 12 and 13 (Codex), metered rule 4: the first read and one re-read after reconnecting, never two out.
-    if (attempt.current.inFlight || attempt.current.count >= 2) return;
+    // Round 14 (Codex): a reconnect while one is out is remembered, and taken up if that one leaves the answer unknown.
+    if (attempt.current.inFlight) {
+      attempt.current.missed = true;
+      return;
+    }
+    if (attempt.current.count >= 2) return;
     return whenVisible(() => {
       const mine = attempt.current;
       if (mine.key !== key || mine.inFlight || mine.count >= 2) return;
       mine.count += 1;
       mine.inFlight = true;
+      mine.missed = false;
       // Review rounds 10 and 11 (Codex): each read counts on its own, so one that fails or hangs never hides what the
       // other proves: a tick shows as soon as either read proves the learning.
       let prep: { completedAt?: string | null } | null | undefined; // undefined: not answered
@@ -81,7 +92,13 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
         if (settled === 2) mine.inFlight = false;
         // Review round 9 (Gemini): a failed read (offline among them) is unknown (error) unless what did answer proves it.
         if (learned) publish({ error: false, learned: true });
-        else if (settled === 2) publish({ error: failed, learned: false });
+        else if (settled === 2) {
+          publish({ error: failed, learned: false });
+          if (failed && mine.missed && mine.count < 2 && mounted.current && current.current === key) {
+            mine.missed = false;
+            setRetry((n) => n + 1);
+          }
+        }
       };
       const settle = <T,>(read: Promise<T>, keep: (value: T) => void) => read.then(keep, () => { failed = true; }).then(() => {
         settled += 1;
@@ -90,9 +107,9 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
       void settle(getMyPreparation(eventId, viewerId), (value) => { prep = value; });
       void settle(getMyPrepParts(viewerId), (value) => { parts = value; });
     });
-    // eventId and viewerId are inside key; reconnectTick re-runs only an unknown answer (see `last` above).
+    // eventId and viewerId are inside key; reconnectTick, offline and retry re-run only an unknown answer (see `last`).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key, reconnectTick]);
+  }, [key, reconnectTick, offline, retry]);
   // Not asked (no preparation offered, or no viewer): nothing to wait for and nothing learned to show.
   if (!key) return { loading: false, error: false, learned: false };
   if (answer?.key !== key) return { loading: true, error: false, learned: false };
