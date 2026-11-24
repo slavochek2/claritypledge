@@ -4278,10 +4278,11 @@ archive_finish() {
   if (( _tdrc != 0 )); then
     # P1723: say which of teardown's two reasons kept it. A hold is not uncommitted work,
     # and the wrong reason sent the 2026-11-24 /day run looking for edits that did not exist.
-    # Decided from teardown's own first line, never a second classifier call: a hold whose
+    # Decided from teardown's own hold line, never a second classifier call: a hold whose
     # date passes, or whose pNNNN spec closes, between the two would otherwise fall through
-    # and relay the REASON under the wrong reason.
-    if [[ "$_td" =~ ^archive-spec:\ worktree\ w[0-9]+\ KEPT:\ it\ is\ on\ hold ]]; then
+    # and relay the REASON under the wrong reason. Any line and any worktree name: a branch
+    # can sit in an agent-* worktree, and git may print a warning first.
+    if grep -qE '^archive-spec: worktree [^ ]+ KEPT: it is on hold' <<<"$_td"; then
       local _howner; _howner="$(awk 'index($0, "OWNER=") == 1 { print substr($0, 7); exit }' "$wt_path/.hold" 2>/dev/null || true)"
       _howner="$(printf '%s' "$_howner" | tr -c 'A-Za-z0-9._:-' '_')"
       die "archive-spec: $pn is safe off-machine, but its worktree is on hold (owner ${_howner:-unreadable}) — branch $(printf '%s' "$branch" | tr '<>|' ':::') kept"
@@ -4289,7 +4290,7 @@ archive_finish() {
     [[ -z "$_td" ]] || printf '%s\n' "$_td" | tr '<>|' ':::' >&2
     die "archive-spec: $pn is safe off-machine, but its worktree holds uncommitted changes — branch $(printf '%s' "$branch" | tr '<>|' ':::') kept"
   fi
-  [[ -z "$_td" ]] || printf '%s\n' "$_td" >&2
+  [[ -z "$_td" ]] || printf '%s\n' "$_td" | tr '<>|' ':::' >&2
   if ( cd "$REPO_ROOT" && git rev-parse --verify -q "$branch" >/dev/null ); then
     ( cd "$REPO_ROOT" && git branch -D "$branch" ) >/dev/null 2>&1 \
       || die "archive-spec: branch delete failed for $branch"
@@ -4311,7 +4312,7 @@ archive_finish_pending() {
     n=$((n + 1))
     if err="$( ( archive_finish "$pn" ) 2>&1 1>&3 )"; then
       ok=$((ok + 1))
-      [[ -z "$err" ]] || printf '%s\n' "$err" >&2
+      [[ -z "$err" ]] || printf '%s\n' "$err" | tr '<>|' ':::' >&2
     else
       why="$(printf '%s\n' "$err" | tr '<>|' ':::' | awk 'NF { sub(/^[ \t]+/, ""); sub(/^git-ops: /, ""); out = out (k++ ? "; " : "") $0 } END { print out }')"
       echo "archive-spec: $pn not finished — ${why:-it printed no reason}" >&2
@@ -7987,10 +7988,10 @@ cmd_park() {
 # column is pipeline-strandings.sh's hold_status, which reads the real clock for a date
 # owner's expiry.
 HOLD_DUE_DAYS="${HOLD_DUE_DAYS:-7}"
-[[ "$HOLD_DUE_DAYS" =~ ^[0-9]+$ ]] || HOLD_DUE_DAYS=7
+[[ "$HOLD_DUE_DAYS" =~ ^(0|[1-9][0-9]{0,4})$ ]] || HOLD_DUE_DAYS=7  # no leading zero: bash reads 08 as bad octal
 
 p1723_now() {
-  if [[ "${CP_NOW_EPOCH:-}" =~ ^[0-9]+$ ]]; then echo "$CP_NOW_EPOCH"; else date +%s; fi
+  if [[ "${CP_NOW_EPOCH:-}" =~ ^[1-9][0-9]{0,11}$ ]]; then echo "$CP_NOW_EPOCH"; else date +%s; fi
 }
 p1723_iso() {  # epoch: ISO-8601 UTC to the second
   date -u -r "$1" +%FT%TZ 2>/dev/null || date -u -d "@$1" +%FT%TZ 2>/dev/null
@@ -8091,6 +8092,8 @@ p1723_proof() {  # branch tip pN spec-state
     # cmd_claim does not refuse a closed P-number: an empty follow-up branch on p50 would read
     # landed off p50's old ship. Without a shipped-tips record naming this branch, it needs
     # at least one commit that is not on main by hash.
+    # "every commit..." is tidy_landed_evidence's classify text (no shipped record): on its own it
+    # also fits an empty branch. Test 1i fails if that text is ever reworded.
     if [[ -n "$ev" && "$ev" != every\ commit* ]]; then echo landed; return; fi
     if [[ -n "$ev" ]] && (( $(git -C "$REPO_ROOT" rev-list --count "main..$tip" 2>/dev/null || echo 0) > 0 )); then
       echo landed; return
@@ -8167,7 +8170,7 @@ p1723_gate() {  # verb slot expect
   [[ -f "$WORKTREES_DIR/$slot/.hold" ]] || die "$verb: $slot has no .hold; nothing to do"
   [[ "$expect" =~ ^[0-9a-f]{64}$ ]] || die "$verb: --expect must be the 64-character hash that holds printed for $slot"
   p1723_read_hold "$slot"
-  (( H_READABLE == 1 )) || die "$verb: the hold on $slot is unreadable (no OWNER, or WRITTEN_AT is not a number); it stays for the founder; nothing was changed"
+  (( H_READABLE == 1 )) || die "$verb: the hold on $slot is unreadable (no OWNER, or WRITTEN_AT is not a plain number, has a leading zero, or is more than a day ahead); it stays for the founder; nothing was changed"
   [[ -n "$H_HASH" ]] || die "$verb: could not hash $H_FILE; nothing was changed"
   [[ "$H_HASH" == "$expect" ]] || die "$verb: the hold on $slot changed since it was read (now ${H_HASH:0:12}, expected ${expect:0:12}); nothing was changed"
   st="$(p1723_state "$slot")"
@@ -8179,6 +8182,15 @@ p1723_gate() {  # verb slot expect
   tidy_idle_for "$H_DIR" "$TIDY_IDLE_MIN" \
     || die "$verb: $slot was written to or worked in within the last $((TIDY_IDLE_MIN / 60)) hours, or could not be read; nothing was changed"
   return 0
+}
+
+# The liveness half of the gate again, run after the slow steps (revert index, proof, archive)
+# and just before the .hold changes: a session that resumed in the slot meanwhile keeps it.
+p1723_still_idle() {  # verb slot
+  unset TIDY_CWD_SET
+  if tidy_slot_live "$H_DIR" || ! tidy_idle_for "$H_DIR" "$TIDY_IDLE_MIN"; then
+    die "$1: $2 came into use while it was being checked; it stays (the copy is at $H_COPY)"
+  fi
 }
 
 # Copy the hold, byte-compare it, and log the copy; sets H_COPY. Dies before any change to
@@ -8250,6 +8262,7 @@ cmd_hold_release() {
     [[ "$got" == "$proof" ]] || die "hold-release: proof $proof does not hold for $slot now (it reads $got); nothing was changed"
   fi
   p1723_archive_hold hold-release "$slot" "proof $proof; the .hold was copied before it was released"
+  p1723_still_idle hold-release "$slot"
   # Last compare-and-swap: a hold rewritten while the copy and log were made is not released.
   [[ "$(p1723_hash "$H_FILE" || true)" == "$expect" ]] \
     || die "hold-release: the hold on $slot changed while it was being archived; it stays (the earlier copy is at $H_COPY)"
@@ -8292,6 +8305,7 @@ cmd_hold_reask() {
     newowner=founder; owner_note="owner $(p1723_safe "$H_OWNER") became founder"
   fi
   p1723_archive_hold hold-reask "$slot" "re-ask at $until${newowner:+, owner $H_OWNER became founder}; the .hold was copied before it was rewritten"
+  p1723_still_idle hold-reask "$slot"   # before the temp file, which is itself a fresh write here
   tmp="$(mktemp "$H_DIR/.hold.XXXXXX" 2>/dev/null)" || die "hold-reask: cannot write in $H_DIR; the hold stays"
   if ! { awk -v nw="$newowner" '/^REASK_AT=/ { next } nw != "" && /^OWNER=/ && !done { print "OWNER=" nw; done = 1; next } { print }' "$H_FILE" \
          && printf 'REASK_AT=%s\n' "$until" && printf 'NOTE=%s %s\n' "$(p1723_iso "$now")" "$note"; } > "$tmp"; then
