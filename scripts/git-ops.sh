@@ -4278,13 +4278,16 @@ archive_finish() {
   if (( _tdrc != 0 )); then
     # P1723: say which of teardown's two reasons kept it. A hold is not uncommitted work,
     # and the wrong reason sent the 2026-11-24 /day run looking for edits that did not exist.
-    if tidy_hold_blocks "$wt_path"; then
+    # Decided from teardown's own first line, never a second classifier call: a hold whose
+    # date passes, or whose pNNNN spec closes, between the two would otherwise fall through
+    # and relay the REASON under the wrong reason.
+    if [[ "$_td" =~ ^archive-spec:\ worktree\ w[0-9]+\ KEPT:\ it\ is\ on\ hold ]]; then
       local _howner; _howner="$(awk 'index($0, "OWNER=") == 1 { print substr($0, 7); exit }' "$wt_path/.hold" 2>/dev/null || true)"
       _howner="$(printf '%s' "$_howner" | tr -c 'A-Za-z0-9._:-' '_')"
       die "archive-spec: $pn is safe off-machine, but its worktree is on hold (owner ${_howner:-unreadable}) — branch $(printf '%s' "$branch" | tr '<>|' ':::') kept"
     fi
-    [[ -z "$_td" ]] || printf '%s\n' "$_td" >&2
-    die "archive-spec: $pn is safe off-machine, but its worktree holds uncommitted changes — branch $branch kept"
+    [[ -z "$_td" ]] || printf '%s\n' "$_td" | tr '<>|' ':::' >&2
+    die "archive-spec: $pn is safe off-machine, but its worktree holds uncommitted changes — branch $(printf '%s' "$branch" | tr '<>|' ':::') kept"
   fi
   [[ -z "$_td" ]] || printf '%s\n' "$_td" >&2
   if ( cd "$REPO_ROOT" && git rev-parse --verify -q "$branch" >/dev/null ); then
@@ -8030,7 +8033,8 @@ p1723_read_hold() {
   H_OWNER="$(p1723_field "$H_FILE" OWNER)"
   H_AT="$(p1723_field "$H_FILE" WRITTEN_AT)"
   H_REASK="$(p1723_field "$H_FILE" REASK_AT)"
-  H_READABLE=1; [[ -n "$H_OWNER" && "$H_AT" =~ ^[0-9]+$ ]] || H_READABLE=0
+  # A leading zero is refused: bash arithmetic reads 0999 as bad octal and would kill the run.
+  H_READABLE=1; [[ -n "$H_OWNER" && "$H_AT" =~ ^[1-9][0-9]{0,11}$ ]] || H_READABLE=0
   # A WRITTEN_AT more than a day ahead would never come due; treat it as unreadable.
   if (( H_READABLE == 1 )) && (( H_AT > $(p1723_now) + 86400 )); then H_READABLE=0; fi
   H_HASH="$(p1723_hash "$H_FILE")" || H_HASH=""
@@ -8081,8 +8085,16 @@ p1723_proof() {  # branch tip pN spec-state
   local br="$1" tip="$2" pn="$3" spec="$4" mpath mrel mbr mtip
   [[ -n "$tip" ]] || { echo none; return; }
   [[ "$br" == HEAD ]] && br=""
-  if [[ "$spec" == closed && -n "$br" && -n "$(tidy_landed_evidence "$tip" "$br")" ]]; then
-    echo landed; return
+  if [[ "$spec" == closed && -n "$br" ]]; then
+    local ev; ev="$(tidy_landed_evidence "$tip" "$br")"
+    # The "already on main" reading holds for a branch with no commits of its own too, and
+    # cmd_claim does not refuse a closed P-number: an empty follow-up branch on p50 would read
+    # landed off p50's old ship. Without a shipped-tips record naming this branch, it needs
+    # at least one commit that is not on main by hash.
+    if [[ -n "$ev" && "$ev" != every\ commit* ]]; then echo landed; return; fi
+    if [[ -n "$ev" ]] && (( $(git -C "$REPO_ROOT" rev-list --count "main..$tip" 2>/dev/null || echo 0) > 0 )); then
+      echo landed; return
+    fi
   fi
   [[ "$pn" =~ ^p[0-9]+$ && -n "$br" ]] || { echo none; return; }
   mpath="$(archive_manifest_path "$pn")"
@@ -8136,7 +8148,7 @@ cmd_holds() {
     else proof="$(p1723_proof "$H_BRANCH" "$H_TIP" "$H_PN" "$spec")"; fi
     due="$(p1723_due "$state" "$H_OWNER" "$H_AT" "$H_REASK" "$now")"
     age="-"
-    if [[ "$H_AT" =~ ^[0-9]+$ ]]; then age=$(( (now - H_AT) / 86400 )); (( age >= 0 )) || age=0; fi
+    if (( H_READABLE == 1 )); then age=$(( (now - H_AT) / 86400 )); (( age >= 0 )) || age=0; fi
     printf 'HOLD\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$slot" "$(p1723_safe "$H_PN")" "$(p1723_safe "$H_BRANCH")" "$(p1723_safe "$H_OWNER")" "$age" \
       "$(p1723_safe "$H_REASK")" "${H_HASH:--}" "$state" "$live" "$spec" "$proof" "$due"
@@ -8187,14 +8199,17 @@ p1723_archive_hold() {  # verb slot detail
   else
     made=1
   fi
-  cmp -s "$H_FILE" "$H_COPY" || die "$verb: the archive copy $H_COPY differs from the hold; the hold stays"
+  if ! cmp -s "$H_FILE" "$H_COPY"; then
+    (( made == 0 )) || rm -f "$H_COPY" 2>/dev/null || true
+    die "$verb: the archive copy differs from the hold on $slot; the hold stays"
+  fi
   # The copy must be the hold that was checked, not one rewritten since: otherwise the log
   # would record an archive of bytes nobody approved, under the checked hash's name.
   if [[ "$(p1723_hash "$H_COPY" || true)" != "$H_HASH" ]]; then
     (( made == 0 )) || rm -f "$H_COPY" 2>/dev/null || true
     die "$verb: the hold on $slot changed since it was read; nothing was changed"
   fi
-  tidy_log_recovery "$verb" "$slot" "${H_BRANCH:--}" "${H_TIP:--}" "$H_COPY" "$detail" \
+  tidy_log_recovery "$verb" "$slot" "$(p1723_safe "$H_BRANCH")" "${H_TIP:--}" "$H_COPY" "$detail" \
     || die "$verb: the recovery log could not be written; the hold stays (a copy is at $H_COPY)"
   return 0
 }
@@ -8218,20 +8233,20 @@ cmd_hold_release() {
   esac
   export GIT_OPTIONAL_LOCKS=0
   p1723_gate hold-release "$slot" "$expect"
-  # answered: the founder said "put it away" on a /day card; there is no proof to recompute.
-  # A card exists only for a due hold, so an answer is accepted only for a due hold: any
-  # other hold ends by proof, or by its owner.
+  build_revert_index main
+  trap cleanup_revert_index EXIT
+  spec="$(p1723_spec_state "$H_PN")"
+  got="$(p1723_proof "$H_BRANCH" "$H_TIP" "$H_PN" "$spec")"
+  # answered: the founder said "put it away" on a /day card. /day writes that card only for a
+  # valid, due hold with no proof whose spec is not qa (a qa spec has its own card), so an
+  # answer is accepted for exactly those holds: any other hold ends by proof, or by its owner.
   if [[ "$proof" == answered ]]; then
     local st due
     st="$(p1723_state "$slot")"
     due="$(p1723_due "$st" "$H_OWNER" "$H_AT" "$H_REASK" "$(p1723_now)")"
-    [[ "$st" == valid && "$due" == yes ]] \
-      || die "hold-release: --proof answered is only for a due hold that /day asked about; $slot is $st, due $due; nothing was changed"
+    [[ "$st" == valid && "$due" == yes && "$got" == none && "$spec" != qa ]] \
+      || die "hold-release: --proof answered is only for a hold /day asked about (valid, due, no proof, spec not qa); $slot is $st, due $due, proof $got, spec $spec; nothing was changed"
   else
-    build_revert_index main
-    trap cleanup_revert_index EXIT
-    spec="$(p1723_spec_state "$H_PN")"
-    got="$(p1723_proof "$H_BRANCH" "$H_TIP" "$H_PN" "$spec")"
     [[ "$got" == "$proof" ]] || die "hold-release: proof $proof does not hold for $slot now (it reads $got); nothing was changed"
   fi
   p1723_archive_hold hold-release "$slot" "proof $proof; the .hold was copied before it was released"
