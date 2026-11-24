@@ -1,18 +1,18 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 94
 workstream: events
 created_date: '2026-11-04'
 tags: [events, sales-mastermind, slides]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
 exec_effort: medium
 driver: heuristic
 blocked_by: [p1529]
+completed_at: 2026-11-24
 ---
 
 # P1616: Slides for running the sales mastermind evening
