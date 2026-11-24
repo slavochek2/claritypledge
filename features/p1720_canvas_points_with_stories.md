@@ -41,7 +41,7 @@ Blast radius: medium-high. Every new canvas draft and round update changes: the 
 - **A drafted story is the owner's own.** It is never written in another person's name. In a round update, where other people's words count as material for points, a story is written only from the owner's own words. A partner's reason belongs to P1574's link, and a written story in a partner's name needs that partner's confirmation (decisions.md 2026-10-30 [product], item 3; 2026-10-12 [product], "did a person approve it as their own belief?").
 - **A draft story never reaches published readers before the owner publishes.** `get_canvas` returns the owner's stories on a version's points with no version condition. So a story linked from the draft to a point kept from a published version is read at once by that version's readers, and Discard does not take it back (P1536 security review, `src/app/components/canvas/canvas-page-data.ts`, `addStoryBlocked`). Drafted stories stay readable by the owner alone until the version that carries them is published.
 - **Any write to `stories` or `story_points` clears the list-return cache after the write** (decisions.md, P1364 entry: "Any new write to … `stories`, `story_points` … must clear the cache"; the `p1364-cache-invalidation-drift-guard` enforces it).
-- **The P1658 point rules hold.** A point still never says why. Moving reasoning into the story never moves it back into the point, and the v9 point checks must not get worse.
+- **The P1658 point rules hold.** A point still never says why. Moving reasoning into the story never moves it back into the point, and the P1658 point checks (revision 4, built in the same session) must not get worse.
 
 ## Solution
 
@@ -56,8 +56,8 @@ Blast radius: medium-high. Every new canvas draft and round update changes: the 
    - At most one drafted story per point. The owner can hold only one story per point (`story_points_author_point_unique`).
    - When the owner already has a story on that point, the draft writes none and keeps theirs. The draft's note says so once per run.
    - A story is written only when the owner's material holds the reasoning.
-   - Default: a point with no story stays bare and gets no extra question. `[FOUNDER DECISION: or should a bare point get a gap question asking "How did you come to this?"]`
-   - Default length cap: 600 characters per story (points: 300, `MAX_STATEMENT_CHARS`). `[FOUNDER DECISION: story length]`
+   - A point with no story stays bare and gets no extra question (founder, 2026-11-24: defaults accepted).
+   - Length cap: 600 characters per story (points: 300, `MAX_STATEMENT_CHARS`) (founder, 2026-11-24: defaults accepted).
 3. **Vetting.** The engine runs these checks on a story:
    - the quote check (two shared words, verbatim, from an owner item only)
    - the number rule (no number the owner did not give)
@@ -67,23 +67,23 @@ Blast radius: medium-high. Every new canvas draft and round update changes: the 
 4. **Draft scope and approval.** A story linked through `story_points` to a point kept from a published version is read at once by that version's readers, whatever its visibility. So:
    - Every drafted story is held in the draft's own state, never in `stories` or `story_points`, until publish.
    - The owner sees, edits and removes drafted stories from the draft state in the draft view.
-   - At publish, each drafted story becomes an ordinary owner story in the same table, visibility and link the owner's composer uses. That write clears the list-return cache (Invariant 4).
+   - At publish, each drafted story becomes an ordinary owner story in the same table and link the owner's composer uses. Its visibility is inherited from the point it is linked to (founder, 2026-11-24: "point stories are also private because they inherit privacy settings from the points they're linked to"). That write clears the list-return cache (Invariant 4).
    - Discard drops drafted stories with the draft, and nothing reaches the owner's story library.
-   - `[FOUNDER DECISION: is publishing the version the owner's approval of its drafted stories, as it is for its points, or does each drafted story need its own approve or edit first, as in P1632's review of drafted stories?]`
+   - **Decided (founder, 2026-11-24): publishing the version is the owner's approval of its drafted stories, as it is for its points.** "Clarity Canvas draft means … points and linked stories are drafts until the person publishes, then he publishes all of that … we are not approving points either." No per-story approve step.
+   - A review before publishing (the owner reads each point's wording, sets a position, and reads its story) is P1657's scope, extended to stories. The founder noted it matters more once stories are drafted; it is built after this spec, not inside it.
 5. **Display.**
    - The story shows under its point the way a story added by hand does today.
    - The owner can edit or remove a drafted story before publishing, as they can a point.
-   - `[FOUNDER DECISION: any new label or wording on screen for a drafted story; none is assumed here.]`
+   - No new label or wording on screen for a drafted story (founder, 2026-11-24: defaults accepted).
 6. **The Copy prompt.**
    - The owner's own-AI Copy prompt is at 1099 of its 1100 words (P1658), and the upload parser does not read stories.
-   - `[FOUNDER DECISION: add stories to the Copy prompt, which would need its own word cuts and an upload format such as a "Story:" line under a point, or keep stories to in-app drafting first.]`
-   - The default here is in-app drafting only.
+   - Stories stay in in-app drafting first; the Copy prompt and its upload parser do not carry stories in this spec (founder, 2026-11-24: defaults accepted).
 7. **Measure** with the P1658 harness (`scripts/p1658-rules-ab-eval.ts`) on the same four packs, 3 runs each:
    - points with a story and points left bare
    - each story's quote checked
    - stories that only recount (no "because", "so", "to" or "when" reasoning: a lexical flag for a human to read)
    - stories in anyone else's name (must be 0)
-   - the v9 point violations, which must not rise above the P1658 final run
+   - the P1658 revision-4 point violations, which must not rise above the same session's points-only run (stories off)
    - output tokens per run, against `MAX_OUT_TOKENS` (thinking included)
 
 ## Risks / Non-Goals
@@ -96,14 +96,15 @@ Blast radius: medium-high. Every new canvas draft and round update changes: the 
 | Stories push a run's output past `MAX_OUT_TOKENS` (16,000, and thinking counts toward it). Judging the why behind each point also adds thinking, so the run fails | MITIGATE | The 600-character cap; the A/B records output and thinking tokens per run, and the build stops if any run comes within 20% of the limit |
 | Drafted model text lands in the owner's story library before they approve it | MITIGATE | Solution 4: drafted stories live in the draft state until publish |
 | Stories in first person sit beside third-person points and confuse a reader | ACCEPT | The point model's own split: a point is a claim anyone can test, a story is one person's why |
-| The Copy prompt cannot carry stories within 1100 words | DEFER | Founder decision 6 |
+| The Copy prompt cannot carry stories within 1100 words | DEFER | Stories stay in-app first (Solution 6); a later spec adds them to the Copy prompt |
+| A drafted story is published without the owner reading it | ACCEPT | Founder, 2026-11-24: publishing is approval, as for points. P1657 (review before publishing, extended to stories) follows this spec |
 
 **Non-Goals**
-- Do NOT change the P1658 point rules or the Copy prompt's point text.
+- Do NOT change the point rules or the Copy prompt's point text beyond P1658 revision 4, which is built in the same session (founder, 2026-11-24: "they're connected … do both").
 - Do NOT write a story in a partner's or any other person's name (P1574, P1458).
 - Do NOT show story-ness or point-ness scores (P1656).
 - Do NOT rewrite published canvases. Stories arrive at a canvas's next version.
-- Do NOT add a story review screen separate from the canvas draft. Story review stays where points are reviewed, unless the founder decision in Solution 4 asks for per-story approval.
+- Do NOT add a story review screen or per-story approval. Review before publishing is P1657's.
 
 ## Cost Budget
 
@@ -118,7 +119,7 @@ The canvas draft calls the Gemini API (`DRAFT_MODEL` = the mirror model, registr
 
 1. **Fits the plan limit today?** Gemini has a price and no cap. Monthly cost = runs per month x (C + $0.0078) typical, a rise of $0.0078 per run over the drafting cost already running in production. It fits if today's drafting spend plus runs per month x $0.0078 fits the spend the founder has accepted. The registry row reads per-key spend through `/slava:util:ai-keys`, and the reviewer checks it there. The measured figures stay in `.private/` (P1526).
 2. **Fits at 10x?** 10 x runs per month x (C + $0.0078) typical, doubled after 2026-12-31: today's drafting verdict at 10x, plus 10 x runs per month x $0.0078.
-3. **If not:** no upgrade path changes the per-token price. The lever is the story length cap (600 characters, `[FOUNDER DECISION: story length]`) or writing stories only on the five ranked boxes' points.
+3. **If not:** no upgrade path changes the per-token price. The lever is the story length cap (600 characters) or writing stories only on the five ranked boxes' points.
 
 ## Acceptance Criteria
 
@@ -134,10 +135,10 @@ The canvas draft calls the Gemini API (`DRAFT_MODEL` = the mirror model, registr
   - at least one kept story in every run of the claritypledge-stories pack, whose material holds stories
   - every kept story's quote verbatim from an owner item
   - 0 stories in another person's name
-  - a v9 point-violation rate no higher than the P1658 final run's 2 in 123 kept points (1.6%)
+  - a P1658 revision-4 point-violation rate no higher than the same session's points-only run (stories off); for reference, v9's final run was 2 in 123 kept points (1.6%)
   - no run's output plus thinking above 80% of `MAX_OUT_TOKENS`
 - [ ] A round-update test, with a transcript holding another person's reasons, keeps 0 stories whose quote comes from that person's words.
-- [ ] The founder marks each drafted story on his own canvas "this is how I came to this point" or not, from a list where each story stands next to its point. The share marked "is" reaches the bar he sets. `[FOUNDER DECISION: the bar; 80% is the default here]`
+- [ ] The founder marks each drafted story on his own canvas "this is how I came to this point" or not, from a list where each story stands next to its point. At least 80% are marked "is" (founder, 2026-11-24: defaults accepted).
 - [ ] A test reads `get_canvas` as a second user before and after publish: the drafted story is absent before and present after, including on a point kept from the published version.
 - [ ] Discarding a draft leaves no drafted story in the owner's story library, verified by a query.
 - [ ] The founder decisions above are recorded in `docs/decisions.md` before `/dev` starts.

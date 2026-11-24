@@ -61,6 +61,10 @@ A **Review before publishing** step, proposed:
 6. `[FOUNDER DECISION: is the position at publish recorded with the version (a snapshot), or is it only the owner's current position, which they can later change or remove?]`
 7. Canvases already published without positions: the next publish asks for them; nothing is backfilled.
 
+### Extension: drafted stories (2026-11-24)
+
+P1720 drafts a story under each point that has one in the owner's material, and publishing the canvas publishes those stories with their points (founder, 2026-11-24: publishing is approval, no per-story step). The founder's ask: before publishing, the owner can set a position on each point, review the point's wording, and read its linked story, in one pass. This spec's review flow covers the story under each point too. It is built after P1720 and P1658 revision 4.
+
 ## Risks / Non-Goals
 
 | Risk | Label | Note |
