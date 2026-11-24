@@ -174,7 +174,10 @@ export function EventRoomReady() {
   const mastermindHost = isMastermindHost(event, self?.profileId);
   // P1718 R8: Ready never stands at a running table. The rounds read starts with the room row's (not after it), and is
   // asked only when this screen could show.
-  const seated = useSeatedAtRunningRound(event?.id, self?.id, granted && !isFrozen && hasReadiness && !mastermindHost);
+  // Review round 5: not asked while offline (Ready shows from the cached row at once), nor where Ready redirects anyway.
+  // Nor once the room row has come back empty: no member, no seat to find.
+  const askSeated = granted && !offline && !isFrozen && hasReadiness && !mastermindHost && (selfLoading || !!self);
+  const seated = useSeatedAtRunningRound(event?.id, self?.id, askSeated);
 
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;
@@ -194,7 +197,7 @@ export function EventRoomReady() {
       </>
     );
   }
-  if (self && seated === null) return <ClarityPageLoader />;
+  if (self && askSeated && seated === null) return <ClarityPageLoader />;
 
   return (
     <div

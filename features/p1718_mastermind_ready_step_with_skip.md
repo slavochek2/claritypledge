@@ -298,10 +298,10 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 to 4; accepted, none strands anyone):**
-- **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle
-  and Canvas cannot be tapped there for someone already past them. Continue, Skip, Table, Review and Learn still
-  lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
+**Known limitations (code review rounds 2 to 5; accepted, none strands anyone):**
+- **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle,
+  Canvas and Table cannot be tapped there for someone already past them (checked against `canOpenStep`, review
+  round 5). Continue, Skip, Review and Learn still lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
   moment is not one of them.
 - **A round that starts while someone sits on `/ready` does not forward them.** The seated check runs once, on
   arrival (R8). Their Continue or Skip takes them to `/meet`, which shows the running round.

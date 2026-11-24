@@ -27,6 +27,11 @@ vi.mock('@/app/prototypes/events/components/EventRoomAccess', () => ({
   useEventRoomAccess: () => room.access,
   useEventRoomSelf: () => ({ self: room.self, loading: false, refresh: room.refresh }),
 }));
+const net = vi.hoisted(() => ({ offline: false }));
+vi.mock('@/app/contexts/offline-status-context', async (importActual) => ({
+  ...(await importActual<typeof import('@/app/contexts/offline-status-context')>()),
+  useConnectivity: () => ({ offline: net.offline, reconnectTick: 0 }),
+}));
 vi.mock('@/app/data/event-room-service', () => ({
   getRoomReadinessDistribution: vi.fn().mockResolvedValue([]),
   setRoomReadiness: vi.fn(),
@@ -55,12 +60,10 @@ vi.mock('@/app/prototypes/events/rounds/canvas-setup', async (importOriginal) =>
 const rounds = vi.hoisted(() => ({
   read: (() => Promise.resolve({ rounds: [], seatsByRound: new Map() })) as () => Promise<unknown>,
 }));
-vi.mock('@/app/data/event-rounds-service', () => ({
+// Review round 5: only the read is stubbed; currentRound is the real selection rule.
+vi.mock('@/app/data/event-rounds-service', async (importActual) => ({
+  ...(await importActual<typeof import('@/app/data/event-rounds-service')>()),
   getEventRoundsState: () => rounds.read(),
-  currentRound: (state: { rounds: { endedAt?: string | null }[] }) => {
-    const last = state.rounds[state.rounds.length - 1];
-    return last && !last.endedAt ? last : null;
-  },
 }));
 
 // The redirect's element, recorded instead of followed.
@@ -153,6 +156,7 @@ const moveSlider = () => fireEvent.keyDown(screen.getByRole('slider'), { key: 'A
 
 beforeEach(() => {
   redirects.length = 0;
+  net.offline = false;
   localStorage.clear();
   vi.mocked(setRoomReadiness).mockReset();
   room.refresh = () => Promise.resolve();
@@ -394,6 +398,52 @@ describe('a stalled connection never strands the person', () => {
     vi.useRealTimers();
     await expectOnMeet();
     expect(readySkipped('profile-a', 'ev-mm')).toBe(true);
+  });
+
+  it('a slow save that lands inside the budget, with a re-read that never answers, still lets them in at READY_SAVE_MS with no skip (review round 5)', async () => {
+    let land: () => void = () => {};
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise((r) => { land = () => r({} as never); }) as never);
+    const refreshed = vi.fn(() => new Promise<void>(() => {}));
+    room.refresh = refreshed;
+    setRoom(mastermind);
+    await mountReady('mm');
+    vi.useFakeTimers();
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(READY_SAVE_MS - 1000); });
+    expect(redirects).toEqual([]);
+    await act(async () => { land(); await vi.advanceTimersByTimeAsync(0); });
+    expect(refreshed).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1010); });
+    vi.useRealTimers();
+    await expectOnMeet();
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
+  });
+
+  it('a slow save inside the budget whose re-read fails lets them in at once, with no skip (review round 5)', async () => {
+    let land: () => void = () => {};
+    vi.mocked(setRoomReadiness).mockReturnValue(new Promise((r) => { land = () => r({} as never); }) as never);
+    room.refresh = () => Promise.reject(new Error('re-read failed'));
+    setRoom(mastermind);
+    await mountReady('mm');
+    vi.useFakeTimers();
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(READY_SAVE_MS - 1000); });
+    await act(async () => { land(); await vi.advanceTimersByTimeAsync(0); });
+    vi.useRealTimers();
+    await expectOnMeet();
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
+  });
+
+  it('offline with the room row cached: Ready shows at once, the rounds read is not asked (review round 5)', async () => {
+    const read = vi.fn(() => new Promise(() => {}));
+    rounds.read = read;
+    net.offline = true;
+    setRoom(mastermind, { ...selfA });
+    mountReadyNoWait('mm');
+    expect(screen.getByTestId('room-ready')).toBeInTheDocument();
+    expect(read).not.toHaveBeenCalled();
   });
 
   it('a rounds read that never answers shows Ready after ROUNDS_READ_MS', async () => {
