@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 drafted_by: opus
 exec_model: opus
@@ -307,7 +307,7 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 to 15; accepted, none strands anyone):**
+**Known limitations (code review rounds 2 to 16; accepted, none strands anyone):**
 - **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle,
   Canvas and Table cannot be tapped there for someone already past them (checked against `canOpenStep`, review
   round 5). Continue, Skip, Review and Learn still lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
@@ -336,6 +336,15 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   read's two attempts, and the reconnect still has the second; (d) the e2e label-collision check measures the text
   range, whose box includes the elements inside it (CSSOM `Range.getClientRects`), the tick icon among them;
   the 768px screenshots were also checked by eye.
+- **Review round 16, not taken up** (Gemini): (a) a viewer switched A, then B, then back to A on one mounted
+  screen reads A's seat and Canvas again; each switch is a sign-in, so the reads stay bounded by what people do;
+  (b) the e2e label check is horizontal only; the wrapped "Learn and prepare" against its underline was checked by eye
+  in the screenshots; (c) the preparation page passes `phoneTicks` though its room bar never draws for the mastermind,
+  kept so the bar matches `/meet` if the recipe gains learning words. Not reproduced: a key that goes null mid-read
+  resetting the Learn attempts (`use-learned.ts` returns before the reset, so an attempt still out stays counted).
+- **The slider gives no sign that it is locked while a save runs** (up to 5s; review round 16, Gemini). Drags
+  are ignored, but it still looks and focuses as usable. `SliderTrack` has no disabled state, and dimming it would
+  change both `/ready` screens: a founder decision.
 - **The Ready tab while seated at a running round** is still tappable in `/meet`; `/ready` then forwards back
   (R8), with a brief loader.
 - **A remembered skip can sit beside a stored answer** when a save landed but the re-read after it did not, and the
@@ -499,30 +508,30 @@ The e2e runs against the self-hosted TEST server only (`assertSelfHostedTest`), 
 
 ## Acceptance Criteria
 
-- [ ] A first-time mastermind attendee who taps "I'm here" (and has prepared, or joins without preparing)
-      lands on `/events/:slug/ready`, with Ready before Principle in the step bar.
-- [ ] Moving the slider and tapping Continue stores that value and lands in `/meet`. Re-entering the room
+- [x] A first-time mastermind attendee who taps "I'm here" (and has prepared, or joins without preparing)
+      lands on `/events/:slug/ready`, with Ready before Principle in the step bar. *Evidence: e2e `smoke: a first visit to the mastermind room lands on Ready`.*
+- [x] Moving the slider and tapping Continue stores that value and lands in `/meet`. Re-entering the room *Evidence: e2e `Continue without moving the slider…` (stores 4) and the gate unit tests.*
       goes straight to `/meet`.
-- [ ] Tapping Skip stores no readiness value (`readiness_value` stays null; check the row) and lands in
-      `/meet`. Re-entering the room on the same device goes straight to `/meet`.
-- [ ] Tapping Continue without moving the slider stores no value, on the mastermind and on Clarity Night.
-      This is the regression check for the fabricated 5.
-- [ ] With browser storage throwing, Skip still lands in `/meet`.
-- [ ] After skipping, tapping Ready in the step bar opens it, and answering stores the value.
-- [ ] The skip marker is per person: a second profile on the same browser is sent to Ready.
-- [ ] A touched Continue whose save fails lands in `/meet` and re-entry goes to `/meet`.
-- [ ] A person seated at a running round who opens `/ready` (by the gate or a tap) is forwarded to `/meet`.
-- [ ] The mastermind's `/ready` step bar shows Learn and prepare, Ready, Principle, Canvas (when made at the
-      event), Table and Review (founder 2026-11-24), and no Compare.
-- [ ] The mastermind's host entering the room goes to `/meet`, not `/ready`.
-- [ ] After a skip, `/meet`'s step bar shows no done tick on Ready.
-- [ ] Clarity Night: same order and copy as before, plus Skip.
-- [ ] Hike: still no Ready (`/ready` forwards to `/meet`).
-- [ ] Screenshots of `/ready` and `/meet` for the mastermind at 320px, 375px and desktop, with and without
-      the Canvas step: no overflow, clipping or overlapping labels (visual QA checklist, separate reviewer).
-- [ ] Clarity Night's `/ready` and `/meet` at 375px look as before apart from the Skip button (screenshot pair).
-- [ ] All existing P1529, P1307, P1562, P1542, P1433 and P1114 tests pass, with the changes listed in
-      Surfaces in Scope.
+- [x] Tapping Skip stores no readiness value (`readiness_value` stays null; check the row) and lands in
+      `/meet`. Re-entering the room on the same device goes straight to `/meet`. *Evidence: e2e `Skip stores nothing, opens the room, re-entry goes straight to the room…`.*
+- [x] Tapping Continue without moving the slider stores no value, on the mastermind and on Clarity Night.
+      This is the regression check for the fabricated 5. *Evidence: e2e `Continue without moving the slider stores nothing…` and `Clarity Night: … an untouched Continue stores nothing`.*
+- [x] With browser storage throwing, Skip still lands in `/meet`. *Evidence: unit `Skip still lands on /meet when localStorage.setItem throws`.*
+- [x] After skipping, tapping Ready in the step bar opens it, and answering stores the value. *Evidence: e2e Skip test (taps Ready from `/meet`, answers, stores 6).*
+- [x] The skip marker is per person: a second profile on the same browser is sent to Ready. *Evidence: unit `another person's skip on the same device does not apply: /ready`.*
+- [x] A touched Continue whose save fails lands in `/meet` and re-entry goes to `/meet`. *Evidence: unit `a save that rejects still lands on /meet and is remembered as a skip`.*
+- [x] A person seated at a running round who opens `/ready` (by the gate or a tap) is forwarded to `/meet`. *Evidence: e2e `a person seated in the round running now is forwarded…`; unit seat tests.*
+- [x] The mastermind's `/ready` step bar shows Learn and prepare, Ready, Principle, Canvas (when made at the
+      event), Table and Review (founder 2026-11-24), and no Compare. *Evidence: e2e smoke + `Canvas made at the event…`; host labels asserted.*
+- [x] The mastermind's host entering the room goes to `/meet`, not `/ready`. *Evidence: e2e `the mastermind host goes straight to the room…` and `…opening /ready directly is sent to the room (R9)`.*
+- [x] After a skip, `/meet`'s step bar shows no done tick on Ready. *Evidence: e2e Skip test (`Ready, done` count 0).*
+- [x] Clarity Night: same order and copy as before, plus Skip. *Evidence: e2e `Clarity Night: Ready keeps its order and gains Skip…`.*
+- [x] Hike: still no Ready (`/ready` forwards to `/meet`). *Evidence: unit `a hike goes to /meet`.*
+- [x] Screenshots of `/ready` and `/meet` for the mastermind at 320px, 375px and desktop, with and without
+      the Canvas step: no overflow, clipping or overlapping labels (visual QA checklist, separate reviewer). *Evidence: e2e `shots()` at 1280/768/430/375/360/320 with a label-collision check; separate visual QA reviewer round 14: 0 HIGH.*
+- [x] Clarity Night's `/ready` and `/meet` at 375px look as before apart from the Skip button (screenshot pair). *Evidence: before/after pair shot against main's dev server; visual QA compared.*
+- [x] All existing P1529, P1307, P1562, P1542, P1433 and P1114 tests pass, with the changes listed in
+      Surfaces in Scope. *Evidence: vitest 1542 passed / 1 skipped across p1718, p1596, p1529, p1433, p1307, p1562, p1542; e2e p1718 10/10. Excepted: P1529 WALK2 and four P1114 e2e failures reproduce on main (INBOX-392, INBOX-393).*
 
 ## Spec Review (2026-11-23)
 
