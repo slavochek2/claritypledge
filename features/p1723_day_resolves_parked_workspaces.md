@@ -143,7 +143,7 @@ Each fixture asserts the hold file's bytes, the branch ref, the worktree directo
 - [x] `hold-reask`: sets `REASK_AT` and appends the note while keeping owner and reason. Refused on the same controls
   Evidence: 5e-5h (REASK_AT set, note appended, owner and reason kept); refused: 5a, 5c, 5n, 5o, 5b; also 5r, 5s.
 - [x] `archive-spec --finish-pending` on a held archived slot: the final error line for that archive says "on hold" (today's `die` text says "uncommitted changes", and the control run against main's copy shows it). After `hold-release`, the next run finishes it
-  Evidence: 6a/6b/6h on this branch. Control against main's copy: 6a/6b/6c FAIL, main's line reads `archive-spec: p9010 is safe off-machine, but its worktree holds uncommitted changes — branch feature/p9010-x kept`. 6i then 6j finishes the archive. (QA found 6b/6c passing vacuously on an empty line against main; both now require the line to exist.)
+  Evidence: 6a/6b/6h on this branch. Control against main's copy: 6a/6b/6c/6f/6l FAIL, main's line reads `archive-spec: p9010 is safe off-machine, but its worktree holds uncommitted changes — branch feature/p9010-x kept`. 6i then 6j finishes the archive. (QA found 6b/6c, and Gemini then 6f, passing vacuously on an empty line against main; all three now require the line to exist, and p9010's REASON carries `< > |`.)
 - [x] `holds` on an unreadable hold (no OWNER) prints `unreadable`, proof `none`, due. `hold-release` refuses it
   Evidence: 7a, 7b; also 7c, 7d.
 - [x] Gate 7: with the hash compare removed, the wrong-`--expect` control fails (exit code pasted). With the closed-spec condition removed, the empty-branch control fails. With the due computation forced to `no`, the 7-day case fails (exit codes pasted)
