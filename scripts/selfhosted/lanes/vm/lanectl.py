@@ -8,7 +8,7 @@ all happen here, under one flock. Python 3 stdlib only.
 A lane is a trimmed second Supabase stack (compose project cp-<lane>) beside the main one:
 db auth rest realtime storage meta functions kong mail. studio, imgproxy and the pooler are left out.
   * db sits ONLY on the lane's internal network: pg_net and triggers can reach nothing outside the lane.
-  * kong and functions also sit on the lane's edge network (port publish, egress). A host firewall
+  * kong, functions, auth (Google sign-in) and mail also sit on the lane's edge network (port publish, egress). A host firewall
     stops the edge subnet reaching any host address except the lane's own origin, the main lane's
     public IP, other docker networks and other tailnet machines.
   * Clients reach the lane only over Tailscale: the main Caddy serves a site bound to the VM's
@@ -301,6 +301,14 @@ def compose(lane, *args, timeout=600, check=True):
                timeout=timeout, check=check)
 
 
+def relay_matching():
+    """The main lane's relay allowlist, read from its own compose file so no address lives in this repo."""
+    for line in (MAIN_DIR / 'docker-compose.override.yml').read_text().splitlines():
+        if line.strip().startswith('MP_SMTP_RELAY_MATCHING:'):
+            return line.split(':', 1)[1].strip()
+    raise SystemExit('lanectl: main lane has no MP_SMTP_RELAY_MATCHING; refusing to relay everything')
+
+
 def lane_yml(lane, host, ts_ip):
     c = LANES[lane]
     log = '\n'.join([
@@ -322,8 +330,14 @@ services:
 {svc('db', '''    volumes:
       - ./volumes/db-config:/etc/postgresql-custom
 ''')}
-{svc('auth', '''    environment:
-      GOTRUE_EXTERNAL_GOOGLE_ENABLED: "false"
+{svc('auth', f'''    environment:
+      GOTRUE_EXTERNAL_GOOGLE_ENABLED: "true"
+      GOTRUE_EXTERNAL_GOOGLE_CLIENT_ID: ${{GOOGLE_CLIENT_ID}}
+      GOTRUE_EXTERNAL_GOOGLE_SECRET: ${{GOOGLE_SECRET}}
+      GOTRUE_EXTERNAL_GOOGLE_REDIRECT_URI: https://{host}:{c['https_port']}/auth/v1/callback
+    networks:
+      default: {{}}
+      edge: {{}}
 ''')}
 {svc('rest')}
   realtime:
@@ -372,6 +386,11 @@ services:
       MP_SMTP_AUTH_ACCEPT_ANY: "1"
       MP_SMTP_AUTH_ALLOW_INSECURE: "1"
       MP_MAX_MESSAGES: "2000"
+      # Same relay as the main lane: only the founder's own addresses are forwarded, the rest stay here.
+      MP_SMTP_RELAY_CONFIG: /relay.yaml
+      MP_SMTP_RELAY_MATCHING: {relay_matching()}
+    volumes:
+      - {MAIN_DIR}/mailpit/relay.yaml:/relay.yaml:ro
     ports:
       - "{ts_ip}:{c['mail_ui_port']}:8025"
     networks:
@@ -400,7 +419,7 @@ def write_lane_env(lane, host):
         'S3_PROTOCOL_ACCESS_KEY_SECRET': secrets.token_hex(32), 'MINIO_ROOT_PASSWORD': secrets.token_hex(16),
         'SUPABASE_PUBLIC_URL': o, 'API_EXTERNAL_URL': o, 'SITE_URL': o, 'ADDITIONAL_REDIRECT_URLS': f'"{redirects}"',
         'KONG_HTTP_PORT': str(c['kong_port']), 'KONG_HTTPS_PORT': str(c['kong_port'] + 100),
-        'SMTP_HOST': 'mail', 'SMTP_PORT': '2500', 'PROXY_DOMAIN': host, 'GOOGLE_SECRET': '', 'GOOGLE_CLIENT_ID': '',
+        'SMTP_HOST': 'mail', 'SMTP_PORT': '2500', 'PROXY_DOMAIN': host,  # Google sign-in: lanes reuse main's TEST OAuth client (not prod's)
         'OPENAI_API_KEY': '',
     }
     out, seen = [], set()
