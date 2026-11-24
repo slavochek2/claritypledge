@@ -12,6 +12,7 @@ exec_model: opus
 exec_effort: high
 driver: heuristic
 completed_at: 2026-11-16
+superseded_by: p1718
 ---
 
 # P1529: The sales mastermind's own registration, event room and host flow
