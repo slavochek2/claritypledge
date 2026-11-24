@@ -6,6 +6,7 @@ import { useId, useState } from 'react';
 import { X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { cn, extractHashtags } from '@/lib/utils';
+import { focusLost } from './focus';
 
 /** As the product's tag pills (tag-pills.tsx MAX_TAG_LENGTH): long tags show cut, with the full tag on hover. */
 const MAX_TAG_LENGTH = 20;
@@ -17,7 +18,7 @@ export function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (t: st
     onRemove?.(t);
     // The clicked chip leaves with its button: focus the Remove now in its place (or the last), else the tag field.
     setTimeout(() => {
-      if (document.activeElement && document.activeElement !== document.body) return; // focus already went somewhere on purpose
+      if (!focusLost()) return; // focus already went somewhere on purpose
       const left = scope?.querySelectorAll<HTMLElement>('button[aria-label^="Remove tag"]');
       (left?.length ? left[Math.min(i, left.length - 1)] : scope?.querySelector<HTMLElement>('input[aria-label="Add a tag"]'))?.focus();
     }, 0);
@@ -25,7 +26,7 @@ export function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (t: st
   return (
     <ul className={cn('flex flex-wrap gap-x-1.5', onRemove ? 'gap-y-5' : 'gap-y-1.5')} aria-label="Tags">
       {tags.map((t, i) => (
-        <li key={t} title={t.length > MAX_TAG_LENGTH ? `#${t}` : undefined} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        <li key={t} title={t.length > MAX_TAG_LENGTH ? `#${t}` : undefined} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-foreground/60">
           #{t.length > MAX_TAG_LENGTH ? `${t.slice(0, MAX_TAG_LENGTH)}...` : t}
           {onRemove && (
             <button type="button" aria-label={`Remove tag ${t}`} className="-my-2.5 -mr-2 inline-flex h-10 w-10 items-center justify-center" onClick={e => remove(t, i, e.currentTarget)}>

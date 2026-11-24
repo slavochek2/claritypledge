@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { removeTag, type FakeMessage, type Visibility } from './model';
 import { allTags, type DraftState } from './draft';
 import { TagChips, TagInput } from './tags';
+import { focusLost } from './focus';
 import type { Position } from '@/app/components/shared/prototype-types';
 
 const NO_COUNTS: SevenPointCounts = {
@@ -51,9 +52,10 @@ export function Confirm({ focus = true, children }: { focus?: boolean; children:
 }
 
 /** The Clarify control as messages wear it: the Mirror's glyph and the word. */
-export function ClarifyChip({ onClick, label = 'Clarify', ref }: { onClick: () => void; label?: string; ref?: Ref<HTMLButtonElement> }) {
+/** `scope`: the accessible name, for when several Clarify buttons share one screen (whole chat, each message). */
+export function ClarifyChip({ onClick, label = 'Clarify', scope, ref }: { onClick: () => void; label?: string; scope?: string; ref?: Ref<HTMLButtonElement> }) {
   return (
-    <Button ref={ref} type="button" variant="outline" size="sm" className="h-10 min-h-10 gap-1.5" onClick={onClick}>
+    <Button ref={ref} type="button" variant="outline" size="sm" aria-label={scope} className="h-10 min-h-10 gap-1.5" onClick={onClick}>
       <MirrorGlyph className="h-4 w-4" />{label}
     </Button>
   );
@@ -84,7 +86,7 @@ export function Bubble({ msg, name, onClarify }: { msg: FakeMessage; name: strin
         {msg.transcribed && <span className="rounded-full bg-muted px-2 py-0.5">Transcribed</span>}
       </div>
       <p className={cn('break-words rounded-lg px-3 py-2 text-sm', mine ? 'bg-blue-50 text-foreground' : 'bg-muted text-foreground')}>{msg.text}</p>
-      {onClarify && <ClarifyChip onClick={() => onClarify(msg)} />}
+      {onClarify && <ClarifyChip onClick={() => onClarify(msg)} scope={`Clarify your message from ${msg.time}`} />}
     </div>
   );
 }
@@ -230,7 +232,7 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic,
   useEffect(() => {
     if (was.current === visibility) return;
     was.current = visibility;
-    if (!document.activeElement || document.activeElement === document.body) shareBtn.current?.focus();
+    if (focusLost()) shareBtn.current?.focus();
   }, [visibility]);
   const at = `${visibility}|${rule}`;
   const [seen, setSeen] = useState(at);
