@@ -133,7 +133,7 @@ Have you arrived? ──I'm here──▶ [preparation offer, only if not prepar
 
 ```
  ← Back to the event
- Learn and prepare · Ready · Principle · Canvas* · Table · Feedback      (mastermind)
+ Learn and prepare · Ready · Principle · Canvas* · Table · Review        (mastermind)
  Ready · Principle · Table · Compare · Feedback                          (Clarity Night, unchanged)
  ──────────────────────────────────────────────────────────────────
 
@@ -196,6 +196,9 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   Principle · Canvas · Table · Feedback. It must render without overflow or clipping at 320px, 375px and
   desktop, with and without the Canvas step. If "Learn and prepare" breaks the row at 375–430px, a shorter
   label is a `[FOUNDER DECISION: copy — shorter label for "Learn and prepare"]`. Do not pick one.
+  **Founder decision 2026-11-24: the mastermind's last step is "Review".** Measured by glyph at 11px, "Feedback"
+  ran about 5px past the bar's right edge at 375 and 320 with the Canvas step; "Review" ends 1.5px inside it.
+  "Learn and prepare" wraps onto lines of its own cell and needs no change. Clarity Night keeps "Feedback".
 - **R6. Clarity Night keeps its order and copy.** It also gets Skip and save-only-if-moved: **founder decision 2026-11-23, yes**. The fabricated 5 exists on Clarity Night too, and one
   shared screen with two behaviours is a second state to keep in step. This amends P1529's invariant
   "Clarity Night and Social Hike are unchanged ... their existing tests pass unchanged" for this one
@@ -335,7 +338,7 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 - [ ] A touched Continue whose save fails lands in `/meet` and re-entry goes to `/meet`.
 - [ ] A person seated at a running round who opens `/ready` (by the gate or a tap) is forwarded to `/meet`.
 - [ ] The mastermind's `/ready` step bar shows Learn and prepare, Ready, Principle, Canvas (when made at the
-      event), Table and Feedback, and no Compare.
+      event), Table and Review (founder 2026-11-24), and no Compare.
 - [ ] The mastermind's host entering the room goes to `/meet`, not `/ready`.
 - [ ] After a skip, `/meet`'s step bar shows no done tick on Ready.
 - [ ] Clarity Night: same order and copy as before, plus Skip.
