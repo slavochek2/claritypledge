@@ -84,9 +84,11 @@ Carried from rulings; a later spec may add, never remove without the founder.
 - Every credential refused today is still refused, in every context in the recall harness, with exactly
   these exceptions, none of which is a usable secret: the Supabase anon key (public by design; a token whose
   claims were edited to look like it is not a valid credential); a private-key header with no key body; a
-  value that is only a variable reference; a vendor prefix in the wrong case (real keys have one case); and a
-  value committed at HEAD on a line its author marked as a fixture.
-- A private key is never exemptable, by marker or otherwise.
+  value that is only a variable reference (which includes a single-case, letters-only string written as one,
+  since it cannot be told from a name); a vendor prefix in the wrong case (real keys have one case); and a
+  generic assignment value committed at HEAD on a line its author marked as a fixture.
+- An issued-credential shape (private key, vendor prefix, non-public JWT) is never exemptable, by marker or
+  otherwise.
 
 ## Solution
 
@@ -111,39 +113,98 @@ Context is not trustworthy, so v2 adds no context rules. Precision comes from:
   and so on). v1 matched case-insensitively, which is what made `akia…` inside base64 data look like a key id.
 - **`sk-` body:** the 16+ characters after `sk-` must contain a digit, an uppercase letter or `_`. Real keys
   always do; `ask-model-image-test` and `task-list-for-the-weekly-run` never do.
-- **Private keys:** the header refuses when a run of 40+ base64 characters containing upper case, lower case
-  and a digit appears within the next 1,000 characters, whatever lies between (line prefixes like `+`, `-`,
-  `> `, armor headers, escaped newlines). A header in code or prose with no key body passes.
-- **JWTs:** a token whose payload decodes to `iss` = `supabase` and `role` = `anon` passes. Any decode error, a
-  missing claim or any other issuer refuses.
+- **Private keys:** a `BEGIN` or `END … PRIVATE KEY` marker refuses when the 1,000 characters on either side
+  of it hold 40+ characters of key body. Body is counted two ways, and only text that reads as random base64
+  (upper case, lower case and a digit) counts:
+  - runs of 40+ base64 characters that are not inside an assignment value, which the assignment rules judge;
+  - blocks of two or more consecutive lines that are each nothing but 12 to 39 base64 characters, allowing
+    a line prefix (`+`, `-`, `> `, quotes) and treating escaped newlines as line breaks.
+
+  A folded line may also carry a `cat -n` number, a comment prefix (`#`, `//`, ` * `, `|`, `;`) or string
+  concatenation residue, and a line that holds only residue (`" +`, a lone quote) does not end a block.
+  A run inside an assignment value still counts when the whole value decodes to a private-key structure: a
+  DER SEQUENCE whose declared length covers the bytes exactly, or the OpenSSH key magic. On 200,000 random
+  base64 strings of 40 to 200 characters, 2 pass that test.
+
+  So a body before or after the marker, far from it, behind armor headers, folded at 12 columns or wider, or
+  written whole as `secret = "<body>"` refuses, even when that value is a marked, committed fixture. A marker in code or prose passes, because an import list, a camelCase identifier or a long
+  lowercase path is not a body. (The first round used runs of 12+ characters anywhere in the window. The
+  2026-11-25 review showed that this refused key-handling code with no key in it.)
+- **JWTs:** a token whose payload is exactly the anon key's claim set passes, quoted or unquoted, in prose or
+  as an assignment value. The claim set is `iss` = `supabase`, `role` = `anon`, a `ref` of 20 lower-case
+  letters, and optional integer `iat` and `exp`. Every one of these refuses: a decode error, a duplicate key,
+  any other claim (`sub`, `scope`, …), any other issuer, or a non-integer time.
+
+  This is a family of tokens, not one key, and that is consistent with the invariant. A token with this
+  claim set is either signed with a project's secret, which makes it that project's public anon key, or not
+  validly signed, which makes it no credential at all. The scan cannot check signatures, and does not need to.
 - **Assignments:** a value that is only a reference passes: `${NAME}`, `$UPPER_NAME`, `{NAME}`, `<name>`,
-  `env(NAME)`, and `${NAME:-default}` when the default is empty, another reference, or itself passes the same
-  value rules (so a real password as the default still refuses). A name is short words (at most 12 letters
-  each) joined by `_`, with at most two trailing digits; a random string inside `$`, `{}` or `<>` is not a name
-  and still refuses. There is no placeholder exemption: a `YOUR_API_KEY`-style value that trips the entropy
+  `env(NAME)`, and `${NAME:-default}` when the default is empty or another reference. A literal default is
+  judged as part of the whole value, as v1 judged it, so a short real password as the default still refuses. A name is how people write identifiers:
+  snake_case, SCREAMING_CASE or camelCase words of at most 12 letters, with at most two trailing digits
+  (`<phrase>` allows spaces and dashes between words of one case). Mixed case inside a word is not a name, so a
+  random mixed-case string inside `$`, `{}`, `<>` or `env()` is still judged as a value and refuses. A
+  single-case, letters-only string in that syntax passes: it is a name by every test available (Risks). There is no placeholder exemption: a `YOUR_API_KEY`-style value that trips the entropy
   rule is marked in source like any fixture.
 
 ### 3. Fixtures are declared in committed source, with the marker the repo already uses
 
 The marker `gitleaks:allow` is honoured by cp's pre-commit gitleaks check and its CI secret scan, and is already
-on 54 cp files. A matched value is exempt only when that **exact value appears in a file tracked at `HEAD` of
-the repository `ask-model` runs in, on a line that carries the marker**. The marker in the payload itself
+on 54 cp files. A matched value is exempt only when that **exact value appears, whole, in a file tracked at
+`HEAD` of the repository `ask-model` runs in, on a line that carries the marker**. Whole means the assignment
+rule itself, run over the marked line from every keyword position, extracts exactly that value there: an
+arbitrary slice of a longer marked value exempts nothing, and neither does a value on a marked line with no
+assignment keyword before it. One case follows from "every keyword position" and is accepted: a value that a
+keyword itself delimits inside a longer marked value (`…&password=<v>&…` in a marked URL) is attested,
+because that exact value is already committed on a line its author marked (2026-11-25 review). The marker in the payload itself
 counts for nothing: typing it into a prompt, a marker in an untrusted log, or a marker elsewhere on a long JSON
-line exempts nothing; only a reviewed, committed source line does. Values reach `git grep` through a 600 temp
-file, never argv. Private keys are never exemptable.
+line exempts nothing; only a reviewed, committed source line does. git is asked only for the marked lines at `HEAD`, so no
+candidate value leaves the scan process; every inherited `GIT_*` variable is dropped first, so `GIT_DIR` cannot
+point the lookup at another repository. git failures are classified:
+- no repository, or an unborn `HEAD` (a new repo with no commit), attests nothing, and the match refuses
+  under its own rule;
+- a `HEAD` that names a missing or broken commit, a lookup that fails after `HEAD` resolves, and any stderr
+  line other than git's `hint:` lines all refuse as `scan-error`.
 
-When a refusal fires, the message says: if that line is a synthetic fixture in source, mark the source line,
-commit, and re-run; otherwise do the work inline. A removed fixture line in a diff, absent from `HEAD`, still
+Marked lines are split on `\n` only, so a byte such as 0x85 inside a line cannot split a value.
+
+**Only generic assignment values are exemptable.** The trust anchor is whatever repository the caller runs in,
+and a caller can create one. That is tolerable for an `api_key = "…"` value, which is ambiguous by nature, but
+not for a shape that only issued credentials have: private keys, vendor prefixes and non-public JWTs refuse
+even when marked and committed. A test that needs one builds it at run time (as the `~/.agents` suites and
+`scripts/test-multi-harness-routing.sh` now do), so no such literal sits in committed source.
+
+When a refusal fires, the message depends on the rule. For an `assign-*` rule: if that line is a synthetic
+fixture in source, mark the source line, commit, and re-run; for any other rule: that shape is never exempt, so
+build the fixture at run time; in both cases, otherwise do the work inline. A removed fixture line in a diff, absent from `HEAD`, still
 refuses.
 
 ### 4. Mark today's fixtures
 
-- **cp:** add the marker to every remaining fixture line at HEAD (the census in the evidence file, about 60
-  files, mostly the e2e test-account password), starting with `e2e/integration/migration-template.spec.ts` so
-  new migration specs inherit it. Comment-only changes.
+- **cp:** mark the fixture lines that remain at HEAD. The 2026-11-24 census found 66 refusing files, but
+  attestation is by value across the whole repository, so one marked line per distinct fixture value clears
+  every file that repeats it. Most of the 66 carry the shared e2e test-account password, which was already
+  marked in other committed files. Shipped (verified by the HEAD scan in Done-When):
+  - 16 files changed;
+  - 12 gain a trailing marker comment and nothing else;
+  - 4 are rewritten so they hold no committed issued-credential literal, because such a literal can never be
+    exempted (§3), with the value preserved in three of them:
+    - `e2e/p719-reproduce.spec.ts` joins its non-anon JWT from parts;
+    - `scripts/audit-credential-drift.test.sh` writes its fixture with `echo` lines, producing a
+      byte-identical file;
+    - `scripts/test-multi-harness-routing.sh` builds a random key id at run time and asserts the refusal
+      names `rule=aws-key-id`;
+    - `scripts/test-token-usage-refresh.py` gains a case for the new refused-header format.
+  
+  `e2e/integration/migration-template.spec.ts` needed no change: its password value is attested by marked
+  lines elsewhere.
 - **`~/.agents`:** mark the fixture lines in `delegate-gemini.test.sh`, `ask-model-effort.test.sh` and
-  `ask-model-image.test.sh`. Refusal cases keep their payload values off marked committed lines, so they still
-  refuse.
+  `ask-model-image.test.sh`, and build vendor-shaped fixtures at run time. Refusal cases keep their payload
+  values off marked committed lines, so they still refuse.
+- **The transition costs one review round.** A diff that *removes* an issued-credential literal still
+  carries it on the removed line. This package's own cp diff does that (`e2e/p719-reproduce.spec.ts`), so
+  Gemini and GLM refused it, by design. Codex and Opus reviewed it. Once this lands, later diffs no longer
+  contain the literal.
 
 ### Not changed
 
@@ -153,9 +214,28 @@ refuses.
 
 | Risk | Label | Note |
 |---|---|---|
-| A real credential is committed on a marked line, then sent | ACCEPT | Takes a deliberate commit of a secret labelled as a fixture, which stays in history; in cp gitleaks already honours the marker, so the commit is headed for a public repo anyway. `~/.agents` and the private repo run no gitleaks, so there the commit is the only record. Not reachable by editing a payload. |
+| A real generic credential (an assignment value) is committed on a marked line, then sent | ACCEPT | Vendor-shaped keys and JWTs cannot be exempted this way (§3); what remains takes a deliberate commit of a secret labelled as a fixture, which stays in history; in cp gitleaks already honours the marker, so the commit is headed for a public repo anyway. `~/.agents` and the private repo run no gitleaks, so there the commit is the only record. Not reachable by editing a payload. |
 | An agent under pressure commits a real secret with the marker to get its review | MITIGATE | The refusal message says synthetic fixtures only; the commit is a reviewed diff that `/finish` reviewers see. |
 | A body rule drops a real key shape | MITIGATE | Recall harness (runtime-generated keys × leak contexts × wrappers: diff added/removed, quote, CRLF, ANSI, `\u000a`, URL userinfo, slash-joined, escaped JSONL), committed with the suite; v1 and v2 compared case by case, 0 regressions required. |
+| A caller creates a throwaway repo, commits a marked value there and runs `ask-model` from it | ACCEPT (assignment values only) | Found by the 2026-11-24 security review. Closed for issued-credential shapes by making them never exemptable (suite M6, M7). For a generic assignment value it stays open: the scan cannot tell a project repo from a throwaway one without a configured allowlist, and it takes a deliberate act no payload edit can perform. |
+| A random mixed-case string written inside `{}`, `<>` or `env()` passes as a reference | MITIGATE | Same review. Names must be snake, SCREAMING or camel case; on 15,000 random mixed-case letter-words in those wrappers, 0 pass. An entropy check on the inner name was measured and rejected: real names score 3.17–3.94 bits, overlapping random words. |
+| A single-case, letters-only secret written as `$NAME`, `{name}`, `<name>` or `env(NAME)` passes | ACCEPT | Found by the 2026-11-25 build review (Codex, Opus). Nothing in the string separates it from a name: a word-likeness test (a vowel per segment, no run of 4+ consonants) still let 14,155 of 20,000 random four-segment upper-case strings through, so it was not shipped. No issued credential has this shape (they carry mixed case, digits or a prefix); what remains is a human-chosen letters-only password typed in variable syntax. |
+| A private-key body folded under 40 columns, far from its header, or before it | MITIGATE | Same review. Both markers are checked and line blocks count as body (§2). Recall-harness rows cover bodies folded at 12, 16 and 32 columns, a JSON-escaped body folded at 32, a body folded with a diff-context space, a far body and a body before its header. |
+| Key-handling code near a header string is refused as if it held a key | MITIGATE | 2026-11-25 second review (Opus, Codex): the first body rule counted any 12+ character run, so import lists and identifiers added up to 40. Now only runs of 40+ characters outside assignment values, or blocks of pure base64 lines, count, and each must read as random. Opus's precision probes all pass, and suite case `pemcode` holds the line. |
+| A private-key body folded under 12 columns, grouped with spaces, truncated far from its header, or broken by a soft hyphen | ACCEPT | Same review. v1 refused all four; v2 passes them. Standard PEM output folds at 64 columns, and these shapes take deliberate mangling. A key mangled like that has to be reassembled before anyone can use it. |
+| A short password as a `${NAME:-…}` default passes (too few characters for entropy) | MITIGATE | Same review. A literal default is judged with the whole value (§2); recall-harness row `short_default`. |
+| Attestation trusts a substring of a marked value, or an inherited `GIT_DIR` | MITIGATE | Same review. Whole-value match, `GIT_*` dropped, suite cases M8 and M9. A `git` placed first on `PATH` by the caller is ACCEPTED: whoever controls the caller's `PATH` controls the wrapper and `python3` too. |
+| Bytes 0x85 and 0xA0 inside UTF-8 letters read as whitespace in latin-1 and cut a value short | MITIGATE | Same review; present in v1 too. A value ends only at ASCII whitespace or a quote. Unicode spaces count only between keyword and value, matched as whole UTF-8 sequences. |
+| A crafted payload makes the scan slow, or many candidates time `git grep` out | MITIGATE | Same review: 6.95 s for a 2 MB pathological header payload in the first build. The cost is now bounded at headers × the 2,000-character window: 1.6 to 2.0 s for a 2 MB payload of back-to-back headers, measured 2026-11-25. git is asked once for marked lines, whatever the candidate count. |
+| An unquoted public anon JWT is refused | MITIGATE | Second review (Sonnet): the unquoted value class stopped at the first dot. An unquoted value that starts `eyJ` is now taken whole; suite cases `anonu` and `anonu2`. |
+| A forged token carries the anon claim set with a duplicate key or a non-integer time | MITIGATE | Second review (Codex): duplicate keys refuse, and so does a non-integer `iat`/`exp`; suite cases `jwtdup` and `jwtexp`. A token with the exact claim set is either a project's anon key or unsigned (§2). |
+| A broken or missing `HEAD` commit is reported as a credential with the "mark the fixture" hint | MITIGATE | Second review (Gemini): a missing commit and a dangling ref refuse as `scan-error`, while an unborn repo attests nothing; suite cases M11 and M11b. |
+| 0x85 or 0x1c–0x1f inside a marked line split it, or a separator byte or Unicode space between keyword and value hides an assignment | MITIGATE | Second review (Opus and others): marked lines are split on `\n` only. Between keyword and value, 0x1c–0x1f and the UTF-8 encodings of the Unicode spaces (NBSP, NEL, U+2000–200A, U+3000 and so on) count as whitespace, as they did in v1; values stay ASCII-delimited. Suite case M12; recall rows `nbsp_sep`, `emsp_sep`, `nel_sep`, `ideo_sep` and `fs_sep`. |
+| Benign git stderr (`hint:` lines) turns every attestation into `scan-error` | MITIGATE | Second review (GLM, Opus): `hint:` lines are ignored, and any other stderr still refuses. |
+| A value that a keyword delimits inside a longer marked value is attested | ACCEPT | Second review (Opus). This follows from extracting at every keyword position (§3), and the value is already committed on a marked line. |
+| A lowercase word as a literal default (`${X:-postgres}`) still refuses | ACCEPT | Same verdict as v1. The scan finds no instance in cp or `~/.agents`, and judging the default with the whole value is what keeps short real passwords refused. |
+| The repo's `fsmonitor` hook runs when the scan calls git | ACCEPT | Raised by Gemini in the second review and checked: `git grep` on a tree does not invoke fsmonitor (only `git status` did), and whoever controls the repo's config already controls its hooks. |
+| A one-line key body written as an assignment value is attested as a marked fixture and sent; a folded body behind comment prefixes, `cat -n` numbers or string concatenation passes | MITIGATE | Automated security review of `~/.agents` 7d0f57a. Both were reproduced and both were violations: the first broke the never-exemptable invariant, and v1 refused the second. Fixed by `key_der` and the wider line grammar (§2). Suite cases M14, the M14b control, `hash16`, `slash32`, `star32`, `catn16`, `jscat32` and `pycat32` cover them, plus six recall rows. |
 | A key whose body after `sk-` is lowercase letters and dashes only | ACCEPT | No issued key has that shape; it is the exact shape of the false positives. |
 | `Authorization: Bearer <value>` with no colon is not caught (v1 does not catch it either) | DEFER | A recall widening, not this spec's question; filed to the task inbox for a separate measurement. |
 
@@ -166,23 +246,96 @@ refuses.
 - Do NOT change `/finish`, `review_receipt.py` or the spec-review roster.
 - Do NOT widen recall in this spec.
 
+## Cost Budget
+
+The scan itself is local. What this spec changes on a metered service is that review payloads the scan
+used to refuse are now sent to Gemini (`gemini-4-carbon`, the review model) and to OpenRouter (GLM-5.3),
+instead of falling back to Codex, which is not metered, or being reported missing. Registry rows: Gemini
+API (Carbon pricing read on 2026-11-25) and OpenRouter.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests | n/a: developer tooling, no product user | n/a: sends happen per review, not on a timer | 0. All three `~/.agents` suites replace the network with `ASK_MODEL_*_FAKE_RESPONSE` and synthetic keys; the recall harness and replay are local |
+| Egress (bytes) | n/a | n/a | 0 |
+| Log lines | n/a | n/a | One local delegation-log line per refused send (unchanged; local file, not metered) |
+| Service unit x registry price | n/a | n/a | 0 |
+
+Per restored review send, the arithmetic is:
+- **Input.** The median refused payload is 28,551 bytes (125 refusal headers in the delegation log), which
+  at 4 bytes per token is about 7,100 input tokens.
+- **Output.** A measured Gemini review reply is about 11,100 bytes, or about 2,800 tokens. Thinking tokens
+  are not reported at low effort, so the budget assumes 10,000 output tokens.
+- **Gemini, at the 2026-12-01 Carbon price:** 7,100 x $4.00/1M = $0.028, plus 10,000 x $20.00/1M = $0.20,
+  which is about $0.23.
+- **GLM, at the dearest zero-retention host:** 7,100 x $2.10/1M = $0.015, plus 10,000 x $6.60/1M = $0.066,
+  which is about $0.08.
+- **Per restored review: about $0.31.**
+- **The largest refused payload,** 2,389,834 bytes or about 600,000 tokens, costs at most
+  600,000 x $4.00/1M + $0.20 = $2.60 on Gemini, plus 600,000 x $2.10/1M + $0.07 = $1.33 on GLM.
+
+Monthly: restored sends per month x $0.31, where "restored sends per month" is at most the refused
+review sends per month (read from the `REFUSED:SECRET` headers in the delegation log).
+
+1. **Fits the plan limit today? Fits.** Neither row has a cap: Gemini paid tier is pay-per-token, and
+   OpenRouter is a prepaid balance that fails closed when empty (GLM is then reported missing). Restored
+   sends are at most the refused sends, 85 of about 3,500 third-party sends since 2026-09-01 (Problem §1),
+   or 2.4%. So the change adds at most 2.4% to the review spend the founder accepted on 2026-11-19
+   (decisions.md, "The Gemini code reviewer stays on Gemini 4 Carbon through its December price
+   doubling").
+2. **Fits at 10x? Fits.** Ten times the refusal rate adds at most 24% to that accepted spend, and the
+   prepaid OpenRouter balance still caps GLM.
+3. No upgrade needed. Rules 1 to 6: no bulk operation, no timer, no browser, no retry change (`ask-model`'s
+   bounded retries are untouched), no error-driven control flow against a vendor, and 0 vendor calls per
+   test run.
+
 ## Done-When
 
-- [ ] The wrapper suite (`~/.agents/bin/delegate-gemini.test.sh`) passes, including: every existing refusal case
-      still refuses (the bare-header private-key case becomes header-plus-body, plus a header-only case that
-      passes); one passing case per structural false-positive class above; the marker cases — committed marked
-      fixture passes, marker typed only in the payload refuses, committed-but-unmarked refuses, staged-only
-      refuses, marked private key refuses; a forced scan failure refuses with `rule=scan-error`; the refusal
-      output names rule and line and never contains the value; and the suite fails when the old wrapper is
-      pointed at it (`DG_SCRIPT` control), with at least the marker and false-positive cases failing there.
-- [ ] Recall: the committed recall harness reports 0 regressions against v1 on five seeds, and reports
+- [x] The wrapper suite (`~/.agents/bin/delegate-gemini.test.sh`) passes, including:
+      - every existing refusal case still refuses. The bare-header private-key case becomes header plus
+        body, plus a header-only case that passes.
+      - one passing case per structural false-positive class above.
+      - the marker cases:
+        - a committed marked fixture passes;
+        - a marker typed only in the payload refuses;
+        - committed-but-unmarked refuses;
+        - staged-only refuses;
+        - a marked private key refuses, and so does a marked key body written as an assignment value
+          (M14, with the M14b control);
+        - a marked vendor key and a marked service_role JWT refuse;
+        - a slice of a marked value refuses;
+        - an inherited `GIT_DIR` attests nothing;
+        - a missing `HEAD` commit or a git failure after `HEAD` refuses as `scan-error`.
+      - the public anon JWT passes, quoted and unquoted. An anon JWT with an extra claim, a duplicate key
+        or a non-integer time refuses.
+      - these refuse: a short `${NAME:-…}` default, and private keys folded at 12 columns, behind comment
+        prefixes, in `cat -n` output, or as string concatenation.
+      - random mixed-case letters in `{}` and `<>` refuse.
+      - a forced scan failure refuses with `rule=scan-error`.
+      - the refusal output names rule and line and never contains the value.
+      - the suite fails when pointed at the old wrapper (`DG_SCRIPT` control), and the marker and
+        false-positive cases fail there.
+
+      Evidence 2026-11-25: 516 passed, 0 failed. The pre-P1726 wrapper (`220087a^`) gives 379 passed and
+      138 failed, including 24 marker or attestation cases and 20 pass-or-sent cases.
+- [x] Recall: the committed recall harness reports 0 regressions against v1 on five seeds, and reports
       regressions when pointed at the first, boundary-based design (the control).
-- [ ] Precision: replaying all commit diffs from 2026-08-25 to 2026-11-24 in cp, `~/.agents` and the private
-      repo, v2 refuses no commit that v1 passed, and refuses fewer than v1 in each repo; after the sweep, cp
-      HEAD (tracked files, the closed-spec archive excluded), scanned both raw and as an added-lines diff, has
-      no file that would refuse.
-- [ ] `scripts/test-multi-harness-routing.sh`, `scripts/test-token-usage-refresh.py` (fed a new-format refused
-      header) and the `~/.agents` `ask-model-effort` and `ask-model-image` suites still pass.
+      Evidence: 2,520 cases per seed, 0 regressions on seeds 1, 2, 3, 7 and 42. The boundary design
+      (`3b43e1c`) gives 112. The scan before the separator fix gives 17, all on the separator rows, which
+      shows those rows can fail.
+- [x] Precision: replaying all commit diffs since 2026-08-25 (all branches) in cp, `~/.agents` and the
+      private repo, v2 refuses no commit that v1 passed, and refuses fewer than v1 in each repo. After
+      the sweep, cp HEAD (tracked files, the closed-spec archive excluded), scanned both raw and as an
+      added-lines diff, has no file that would refuse.
+      Evidence: cp 50 → 36, `~/.agents` 14 → 8, private 10 → 7, and 0 commits refused by v2 that v1
+      passed. The two late fixes changed no verdict in the corpus (0 flips). cp HEAD: 6,589 files, 0
+      refusals, while a generated key outside the tree refuses. The branch's added lines: 0 refusals.
+- [x] `scripts/test-multi-harness-routing.sh` and `scripts/test-token-usage-refresh.py` still pass. The
+      first now asserts `rule=aws-key-id` on a random key id generated at run time; the second is fed a
+      new-format refused header. So do the `~/.agents` suites: `ask-model-effort`, which includes the
+      OpenRouter path refusing a key and a forced scan failure without sending, and `ask-model-image`.
+      Evidence: routing 27/0, and the credential case exits 99 when the scan is forced to fail
+      (gate 7). Token-usage: all passed. The 15 real new-format refusal headers in the delegation log
+      parse as 0 calls, against 3 real sends parsed as 3. Effort 80/0, image 24/0.
 - [ ] This package's own `/finish` gets a valid Gemini run with no payload edit, although its tests carry
       secret-shaped fixtures (the falsifier recorded in decisions.md 2026-11-17).
 - [ ] decisions.md records the answer to the 2026-11-17 open question, naming it as an agent choice under the
@@ -208,7 +361,10 @@ refuses.
 
 ## Rollback Strategy
 
-Revert the single `~/.agents` commit; the v1 scan returns. The cp markers are comments and can stay.
+Revert the P1726 commits in `~/.agents` (`git log --grep P1726`), newest first; the v1 scan returns. In cp, the 12
+marker-only files can stay, and so can the three value-preserving rewrites. `scripts/test-multi-harness-routing.sh`
+must be reverted with the scan, because it asserts the `rule=` refusal output, which v1 does not print. The new
+case in `scripts/test-token-usage-refresh.py` only reads a header format, and it can stay.
 
 ## Related
 

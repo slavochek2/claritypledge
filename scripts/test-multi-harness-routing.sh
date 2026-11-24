@@ -204,7 +204,11 @@ run_tier_c() {
   # model is verified, and vendor failure shapes are non-zero, never a clean run.
   echo "=== Tier C - delegation wrapper outcomes ==="
   run_exit "public bounded corpus passes scan" 0 bash -c "printf '%s' 'Summarize the public README into five bullets.' | '$WRAPPER' --check"
-  run_exit "credential-shaped content refuses" 2 bash -c "printf '%s' 'Rotate AKIA01234567''89ABCDEF today.' | '$WRAPPER' --check"
+  # A random key built at run time (P868: a realistic positive, not a sequential value), and the
+  # refusal must name the rule: exit 2 alone would also be a scan that crashed (rule=scan-error).
+  local aws_key
+  aws_key="AKIA$(python3 -I -c 'import random,string; print("".join(random.SystemRandom().choice(string.ascii_uppercase+string.digits) for _ in range(16)))')"
+  run_exit "credential-shaped content refuses, naming the rule" 2 bash -c "out=\$(printf '%s' 'Rotate $aws_key today.' | '$WRAPPER' --check 2>&1); rc=\$?; case \"\$out\" in *rule=aws-key-id*) exit \$rc ;; *) exit 99 ;; esac"
   run_exit "path/PII mentions are not refused by the scan" 0 bash -c "printf '%s' 'Contact fixture@example.com about Projects/private/notes.txt' | '$WRAPPER' --check"
   run_exit "missing defaults file is exit 3 (setup failure), never a silent model fallback" 3 env HOME="$TMP_ROOT/empty-home" ASK_MODEL_DEFAULTS_FILE="$TMP_ROOT/absent.env" bash -c "printf '%s' 'Summarize a public README.' | '$WRAPPER'"
 

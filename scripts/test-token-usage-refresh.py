@@ -152,7 +152,7 @@ with tempfile.TemporaryDirectory() as h:
                gem(D2 + 'T11:00:00Z', end='REFUSED:SECRET rule=scan-error line=1')])
     g = tur.parse_gemini_calls(lg)
     check('gemini: a refused record in the new rule=/line= format is not a sent call', g == {D1: 1}, g)
-    check('gemini: a missing log is None, not an empty dict',tur.parse_gemini_calls(h + '/nope.log') is None, '')
+    check('gemini: a missing log is None, not an empty dict', tur.parse_gemini_calls(h + '/nope.log') is None, '')
     gb = tur.reduce_tokens(rows, T, {'2026-09-30': 1, '2026-10-13': 2, '2026-10-14': 1})
     gw = {w['p']: w for w in gb['weeks']}
     check('gemini: calls and days per week from the first entry on', gw['2026-09-28']['gemini_calls'] == 1 and gw['2026-10-12']['gemini_calls'] == 3 and gw['2026-10-12']['days']['gemini'] == 2, gw['2026-10-12'])
