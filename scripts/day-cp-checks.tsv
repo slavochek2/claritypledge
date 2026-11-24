@@ -53,4 +53,5 @@ cp.rls	cp.w3	Database access rules	Database	high		yes
 cp.grants	cp.w3	Database function permissions	Database	normal		yes
 cp.tablegrants	cp.w3	Database table and column permissions	Database	high		yes
 cp.floor	cp.w3	Database privilege floor	Database	high		yes
+cp.holds	cp.holds	Parked workspaces	Code	normal
 cp.video	cp.vsum	Story video summaries	Transcription & video	normal

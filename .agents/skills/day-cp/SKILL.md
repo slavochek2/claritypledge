@@ -221,7 +221,7 @@ done
 
 echo "=== PENDING PRIVATE ARCHIVES ==="
 # Finish embargo-spec archives whose off-machine backup is now proven (deletes the branch). Run from the MAIN checkout; never fails the day.
-./scripts/git-ops.sh archive-spec --finish-pending 2>&1 | tail -1 || true   # last line: "N of M pending archive(s) finished"
+./scripts/git-ops.sh archive-spec --finish-pending 2>&1 || true   # every unfinished archive names its reason; the last line counts "N of M"
 
 echo "=== STASH ==="
 git stash list 2>/dev/null || echo "none"
@@ -1648,6 +1648,87 @@ BODY
 The branch and stranded-spec rows are Wave 1's findings (the table under Wave 1: a spec in `qa`, one
 closed but not moved, an unfinished ship). P1468 dropped the `BRANCHES` block, which only fed the
 board's daily `branches` note. What is left here is the tidy pass and the stash check.
+
+**4a. Held workspaces (P1723):** a session that cannot close its worktree leaves a hold saying why
+and who unblocks it. Nothing else ever asks about a hold, so this step does. It releases the holds a
+command proves finished, and turns each hold a week old into one question for the founder.
+`holds` prints one `HOLD` line per held slot, tab-separated:
+`slot pn branch owner age_days reask_at hash state liveness spec proof due`.
+```bash
+"$DAY_STEP" run cp.holds <<'STEP'
+./scripts/git-ops.sh holds 2>&1
+STEP
+```
+Then, for each line, apply the first rule that matches, in this order:
+
+- **`liveness` is `live` or `active`:** leave it. A session is using the slot.
+- **`state` is `unreadable` (or `unknown`):** record a finding with **no options**: `hold-release` and
+  `hold-reask` both refuse such a hold, so neither answer could be applied:
+  ```bash
+  "$DAY_STEP" finding --check cp.holds --severity low --store private --fault-key hold:<slot> \
+    --title "A parked workspace has a hold nobody can read" <<'BODY'
+  slot <slot>: the .hold has no OWNER, a non-numeric or future WRITTEN_AT, or no classifier answer.
+  The founder fixes or deletes it by hand.
+  BODY
+  ```
+- **`proof` is `landed` or `archived`, and `liveness` is `idle`:** read the reason with
+  `sed -n 's/^REASON=//p' .claude/worktrees/<slot>/.hold` (and any `NOTE=` lines). If it names a
+  product question that is still open (adopt or discard a mockup, pick a variant, a decision only the
+  founder makes), file that question first, with the reason and the date to ask again (14 days from
+  today) in the body. Use `--store private` when `spec` is `archived`. If you cannot tell whether the question
+  is still open, treat it as open and file it. The body goes on stdin (a note with an empty body is
+  refused):
+  ```bash
+  ./scripts/inbox.sh add --store public --title "<the question>" --due week <<'BODY'
+  From the hold on <slot> (<branch>): <the REASON line>. Ask again on <today+14d>.
+  BODY
+  ```
+  Then release the hold:
+  `./scripts/git-ops.sh hold-release <slot> --expect <hash> --proof <proof>`. A refusal is not a
+  failure of the day: the slot changed since it was listed, so leave it.
+- **`due` is `yes`, `proof` is `none`, and `spec` is not `qa`:** record one question. A `qa` spec
+  already has its own `spec:qa` card. Read the reason first, so the card says what the hold is for:
+  ```bash
+  "$DAY_STEP" finding --check cp.holds --severity low --store private \
+    --fault-key hold:<pn, or the branch name as a slug when pn is -> \
+    --title "A parked workspace is waiting for a decision" \
+    --point-a "<what the hold says it is waiting for, in plain words>" \
+    --obstacle "<who or what the reason names as the blocker>" \
+    --point-b "The workspace is either kept on purpose with a new date, or put away" \
+    --option keep="Keep it open two more weeks" \
+    --option putaway="Put it away; the branch is kept" \
+    --why "<one line: why you recommend the option you do>" \
+    --recommend <keep or putaway> --fit <0-100> --risk "<main risk of that option>" --evidence verified <<'BODY'
+  slot <slot>, branch <branch>, held <age_days> days, owner <owner>. Hold hash <hash>.
+  Reason: <the REASON line>
+  keep runs: ./scripts/git-ops.sh hold-reask <slot> --expect <hash> --until <today+14d>T00:00Z --note "kept by the founder"
+  putaway runs: ./scripts/git-ops.sh hold-release <slot> --expect <hash> --proof answered
+  BODY
+  ```
+  Recommend `putaway` when the reason's work is done or abandoned and the branch holds everything
+  (put away keeps the branch; the next tidy parks a clean slot and asks a yes/no about any file that
+  exists nowhere else). Recommend `keep` when the reason names a decision still worth making. Never
+  run either command yourself here: the founder's answer does, with the hash in the card, so an
+  answer to a hold that changed since is refused rather than applied.
+- **Anything else** (a valid hold that is not due, or a `qa` spec): leave it.
+
+Then finish any private archive a release just unblocked, and record the check:
+```bash
+./scripts/git-ops.sh archive-spec --finish-pending 2>&1 || true
+```
+An `archive-spec: <pN> not finished` line whose reason mentions the nightly backup is waiting
+normally; leave it. One whose reason says the worktree is on hold belongs to a slot the list above
+already covered (in use, or asked about); leave it too. Any other reason (the branch moved, a manifest is malformed, a worktree still has
+changes) is a finding with no options:
+```bash
+"$DAY_STEP" finding --check cp.holds --severity low --store private --fault-key archive:<pN> \
+  --title "A private archive cannot finish" <<<"<pN>: <the reason line, as printed>"
+```
+```bash
+"$DAY_STEP" check cp.holds ok --detail "N listed: released <slot (proof)>...; asked <slot>...; K in use; notes <inbox ids>; archives N of M" --step cp.holds
+```
+Use `problem` instead of `ok` in the check exactly when this step recorded an unreadable-hold or
+`archive:` finding; a backup wait or an on-hold archive is not a problem. If `holds` printed `HOLDS none`, the detail says so.
 
 **4b. Tidy pass:** removes only worktrees and branches `git-ops tidy` can prove finished, and logs each
 removal for recovery. It never touches a live, held or unproven item. A non-zero exit is a failed step:
