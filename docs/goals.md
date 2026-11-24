@@ -6,19 +6,21 @@ Concrete next steps in priority order. **Active on top; dormant/superseded compr
 
 ## Next Steps
 
-### Current bet (as of 2026-11-10): read this first
+### Current bet (as of 2026-11-24): read this first
+
+- **Change-lead outreach (2026-11-24):** prepare the hidden events (one per group, preparation required) and the invitation list now. Path: warm conversation → invitation with the demo film → group session on our own call → one-on-one discovery → letter only if a gap remained → proposal for a paid, bounded trial. Sending waits for P1711 plus a Listening-Game-in-the-call build (not specced). `UNTESTED`; falsifier: of 10 invited, fewer than 3 join ([decisions.md](decisions.md) 2026-11-24 [product]).
 
 - **The bet:** sales mastermind session 1 tests whether the features work and how to shape them. It is **not** a willingness-to-pay test. `UNTESTED`. ([decisions.md](decisions.md) 2026-10-27 [product], 2026-10-29 [product])
-- **Next test:** session 1, which the founder stated on 2026-11-10 he intends to run on Monday 2026-11-16. It waits on [P1529](../features/p1529_canvas_event_host_coordination.md) (the mastermind's event room and host flow). Session 2 runs online two weeks later with the same group. Detail: item 3a.
+- **Next test:** session 1, now on Thursday 2026-11-26 (founder, 2026-11-23; was 2026-11-16). It waits on [P1529](../features/p1529_canvas_event_host_coordination.md) (the mastermind's event room and host flow). Session 2 runs online two weeks later with the same group. Detail: item 3a.
 - **Falsifier for "the features are ready to sell"** (2026-10-27): after session 1, attendees did not use the canvas, the mirror or the chat without the founder driving every step.
 - **After session 1:** the founder decides whether outreach starts.
 - **Parked, with the recorded reason:**
-  - Outreach to warm change leads: shelved until after session 1; nothing goes out before the mastermind, and the list and invitation are kept ready ([decisions.md](decisions.md) 2026-11-06 [product]).
+  - ~~Outreach to warm change leads: shelved until after session 1~~ *superseded 2026-11-24: preparation starts now, sending is gated by the call build, not the mastermind (first bullet above).*
   - Organisers as the first channel: withdrawn; the project has to earn and organisers cannot pay ([decisions.md](decisions.md) 2026-11-02 [product] "Organisers-first withdrawn").
   - Founder-run public Clarity Nights: paused; public events have not spread the practice ([decisions.md](decisions.md) 2026-10-07 [product]).
 - **Structural channel bet:** [lean-canvas.md](lean-canvas.md) §Channels & Flywheel. Older blocks that used to sit here are under "Dormant / Superseded" below.
 
-**Goal:** Run sales mastermind session 1 on 16 Nov and decide if the features are ready to sell. *(founder, 2026-11-10)*
+**Goal:** Run sales mastermind session 1 on 26 Nov and decide if the features are ready to sell. *(founder, 2026-11-10)*
 
 **[2026-11-10: "then reach out" is on hold. Outreach is shelved until after session 1, and the founder decides after it whether to start; decisions.md 2026-11-06 [product].]** **Goal (2026-10-27):** run sales mastermind session 1 and decide from it whether the features are ready to sell; then reach out with one specific, written package (Clarity Chat + transcripts of important conversations + founder support, monthly, agreed before the first session). `UNTESTED` — [decisions.md](decisions.md) 2026-10-27 [product]. *Was: 3–7 paid pilots by 2026-12-11.*
 
