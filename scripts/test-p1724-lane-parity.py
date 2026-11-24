@@ -274,6 +274,9 @@ with patched(run=fake_docker(image_rc=1)):
 check(any('could not be inspected' in x for x in f) and not any('does not set' in x for x in f),
       'an image that cannot be inspected is said so, not read as stray env')
 check(any('no container_name' in x for x in L.container_drift({'image': 'x'}, True)), 'a service without a container name is reported, not a crash')
+NONAME = {'name': 'cp-lane1', 'services': CT_RENDER['services'], 'networks': {'default': {'internal': True}, 'edge': {}}}
+with patched(run=fake_docker()):
+    check(L.container_drift(A, True, render=NONAME) == [], 'a render network without a name maps to <project>_<network>')
 
 print('lane origin')
 with patched(lane_env=lambda lane: {'SITE_URL': LO}, origin=lambda lane: (_ for _ in ()).throw(RuntimeError('tailscale'))):
@@ -296,6 +299,9 @@ check('x-top.a' in unclassified, 'a new top-level key is unclassified')
 check('functions.environment.LIVEKIT_URL' not in unclassified, 'control: a deny-by-default function env name is classified')
 check(L.classify('functions.environment.SOMETHING_NEW') is None, 'a new function env name is unclassified')
 check(L.classify('kong.ports[8443]') and L.classify('kong.ports[9999]') is None, 'ports are classified per target, not per field')
+paths = L.override_contributions({'services': {}}, {'services': {'mail': {'networks': {'default': None, 'relaynet': None}}}})
+check('mail.networks[relaynet]' in paths and not L.classify('mail.networks[relaynet]') and L.classify('mail.networks[default]'),
+      'networks are keyed per name: a network main adds to mail later is unclassified')
 
 print('render and settings')
 with patched(run=lambda *a, **k: type('P', (), {'returncode': 1, 'stdout': '', 'stderr': f'bad value {MAIN_PW}'})()):
@@ -326,6 +332,20 @@ S = {'external': {'google': True, 'email': True}, 'mailer_autoconfirm': False}
 with patched(**stub_report(S, S)):
     f, w = L.parity_report('lane1')
 check(f == [] and w == [], f'control: identical settings and clean containers pass ({f})')
+print('origin source')
+seen_o = {}
+with patched(**stub_report(S0 := {'external': {}}, S0) | {'origin': lambda lane: 'https://live.example:8443',
+             'lane_origin': lambda lane: 'https://recorded.example:8443',
+             'compare_service': lambda s, ms, ls, mr, lr, ctx: seen_o.setdefault('o', []).append(ctx['origin']) or []}):
+    L.parity_report('lane1', running=False, settings=False)
+    check(set(seen_o.pop('o')) == {'https://live.example:8443'}, 'outside boot the origin is the live Tailscale one')
+    L.parity_report('lane1', running=False, settings=False, boot=True)
+    check(set(seen_o.pop('o')) == {'https://recorded.example:8443'}, 'at boot the origin is the one recorded in the lane .env')
+check(L.why_failed(FileNotFoundError(2, 'x', '/opt/lane1/.env')) == 'missing file /opt/lane1/.env', 'a refusal names a missing file')
+check(L.why_failed(RuntimeError('command failed (1): docker compose -p cp-lane1 ... stderr tail TOKEN=abc')) ==
+      'RuntimeError: command failed (1): docker compose -p cp-lane1', "a refusal never carries docker's stderr tail")
+check(L.why_failed(ValueError('secret')) == 'ValueError', 'any other exception is named by type only')
+
 with patched(**stub_report({'external': {'google': False, 'email': True}, 'mailer_autoconfirm': False}, S)):
     f, w = L.parity_report('lane1')
 check(any('sign-in providers google' in x for x in f), 'refused: the lane auth server answers with Google off')
@@ -433,13 +453,14 @@ try:
     set_state(quarantined=False)
     calls.clear()
     with patched(fw_apply=rec('fw_apply'), fw_ok=lambda lane: True, compose=rec('compose'), wait_healthy=rec('wait_healthy'),
-                 parity_report=lambda *a, **k: calls.append(('parity_report',)) or DIFF, quarantine=rec('quarantine')):
+                 parity_report=lambda *a, **k: calls.append(('parity_report', k.get('boot'))) or DIFF, quarantine=rec('quarantine')):
         rc, exc, out = captured(L.main, ['boot'])
     started_fn = [c for c in calls if c[0] == 'compose' and 'functions' in c and 'up' in c]
     check(rc == 1 and 'quarantine' in [c[0] for c in calls] and not started_fn, f'boot: a difference quarantines, functions not started (rc {rc})')
     names = [c[0] for c in calls]
     check('wait_healthy' in names and names.index('wait_healthy') < names.index('parity_report'),
           'boot: waits for auth and mail before the running comparison')
+    check(('parity_report', True) in calls, 'boot: the comparison takes the origin recorded in the lane .env (boot=True)')
     check('boot failed' in out and 'firewall restore failed' not in out, 'boot: a parity refusal is not logged as a firewall failure')
 
     def slow(lane, services, timeout=240):
@@ -458,7 +479,7 @@ try:
     with patched(parity_report=lambda *a, **k: (_ for _ in ()).throw(RuntimeError('tailscale down')), quarantine=rec('quarantine'),
                  compose=rec('compose'), run=rec('run')):
         rc, exc, out = captured(L.main, ['deploy', '--lane', 'lane1', '--gen', '1', '--tarball', str(tb)])
-    check(rc == 3 and 'quarantine' not in [c[0] for c in calls] and 'could not run' in out,
+    check(rc == 3 and 'quarantine' not in [c[0] for c in calls] and 'could not run (RuntimeError: tailscale down)' in out,
           f'deploy: a parity check that cannot run refuses with exit 3, the lane still serves (rc {rc})')
 
     # check and parity: exit 3 on a difference, 0 without
@@ -493,6 +514,15 @@ try:
             if p.with_name(p.name + '.away').exists():
                 p.with_name(p.name + '.away').rename(p)
     check(rc == 4 and 'not written yet' in out, f'parity: a failed lane with no config is refused, not a traceback (rc {rc})')
+    set_state(state='ready')
+    tsf = L.ldir('lane1') / 'ts_ip'
+    tsf.rename(tsf.with_name('ts_ip.away'))
+    try:
+        with patched(parity_report=lambda *a, **k: ([], [])):
+            rc, exc, out = captured(L.main, ['parity', '--lane', 'lane1'])[0:3]
+    finally:
+        tsf.with_name('ts_ip.away').rename(tsf)
+    check(rc == 0, f'parity: a lane with no recorded ts_ip is still compared (lane_ts_ip falls back) (rc {rc})')
 finally:
     os.geteuid = os_geteuid
 

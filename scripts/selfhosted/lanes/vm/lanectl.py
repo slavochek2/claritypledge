@@ -541,7 +541,9 @@ OVERRIDE_CLASSIFIED = {
     'supavisor.ports[5432]': 'the pooler is not part of a lane',
     'supavisor.ports[6543]': 'the pooler is not part of a lane',
     # main's Caddy is the only Caddy: it also serves every lane's site (caddy_route_add), so lanes have none.
+    'caddy.command': "main's Caddy, which serves the lane sites too (rendered as null)",
     'caddy.container_name': "main's Caddy, which serves the lane sites too",
+    'caddy.entrypoint': "main's Caddy, which serves the lane sites too (rendered as null)",
     'caddy.image': "main's Caddy, which serves the lane sites too",
     'caddy.network_mode': "main's Caddy, which serves the lane sites too",
     'caddy.restart': "main's Caddy, which serves the lane sites too",
@@ -554,7 +556,7 @@ OVERRIDE_CLASSIFIED = {
     # The mail service comes wholly from main's override; its env, image and volumes are compared by parity.
     # These four are fields parity skips, classified one by one (review, Opus M2):
     'mail.container_name': 'lane own: cp-<lane>-mail (lane_yml)',
-    'mail.networks': "derived rule: main's mail reaches the internet, so the lane's must sit on its edge network (_structure)",
+    'mail.networks[default]': "derived rule: main's mail reaches the internet, so the lane's must sit on its edge network (_structure)",
     'mail.ports[8025]': "lane own: the lane's mail UI on the tailnet address and its own port (lane_yml)",
     'mail.restart': 'lane own: lanes are started by lanectl boot once their firewall verifies, not by a docker restart policy',
     'volumes.caddy_config': "main's Caddy state",
@@ -717,6 +719,11 @@ def _flatten(name, svc):
         elif isinstance(v, list) and v and all(isinstance(x, dict) and 'target' in x for x in v):
             for x in v:
                 out[f'{name}.{f}[{x["target"]}]'] = x
+        elif f == 'networks' and isinstance(v, (dict, list)):
+            # Per network, like ports per target: a network main adds later is a new path, so a classification
+            # of the networks main has today cannot let it through (review round 2, Opus N1).
+            for n in v:
+                out[f'{name}.networks[{n}]'] = v[n] if isinstance(v, dict) else None
         else:
             out[f'{name}.{f}'] = v
     return out
@@ -728,7 +735,9 @@ def override_contributions(base, full):
     bs, fs = base.get('services') or {}, full.get('services') or {}
     for s in sorted(set(bs) | set(fs)):
         b, f = _flatten(s, bs.get(s)), _flatten(s, fs.get(s))
-        paths += [p for p in sorted(set(b) | set(f)) if b.get(p) != f.get(p)]
+        # Membership, not just value: compose renders a network joined without options as null, so a path
+        # present on one side only with a null value is still a contribution.
+        paths += [p for p in sorted(set(b) | set(f)) if (p in b) != (p in f) or b[p] != f[p]]
     for k in sorted((set(base) | set(full)) - {'services', 'name'}):
         bk, fk = base.get(k) or {}, full.get(k) or {}
         if isinstance(bk, dict) and isinstance(fk, dict):
@@ -772,7 +781,8 @@ def container_drift(svc_render, require_running, render=None):
         fails.append(f'{name}: runs image {c["Config"].get("Image")!r}, its config says {svc_render.get("image")!r}')
     if render is not None:
         nets = render.get('networks') or {}
-        want_n = {(nets.get(n) or {}).get('name', n) for n in (svc_render.get('networks') or {})}
+        proj = render.get('name') or ''
+        want_n = {(nets.get(n) or {}).get('name') or f'{proj}_{n}' for n in (svc_render.get('networks') or {})}
         have_n = set((c.get('NetworkSettings') or {}).get('Networks') or {})
         if want_n != have_n:
             fails.append(f'{name}: attached to networks {sorted(have_n)}, its config says {sorted(want_n)}')
@@ -805,15 +815,17 @@ def auth_settings(port, anon):
         return None
 
 
-def parity_report(lane, running=True, settings=True):
+def parity_report(lane, running=True, settings=True, boot=False):
     """(failures, warnings) for the lane against the main lane. running: also its containers. settings: also
-    auth's own /auth/v1/settings through each gateway. Renders and reads only."""
+    auth's own /auth/v1/settings through each gateway. boot: take the lane origin from its own .env, since
+    tailscaled may not be up yet; everywhere else it comes from Tailscale, so a lane whose URLs name a stale
+    host fails here, not first at the lift's outbound check (review round 2, Opus N3). Renders and reads only."""
     fails, warns = [], []
     try:
         main_r, main_base, lane_r = render_main(), render_main(['docker-compose.yml']), render_lane(lane)
     except CheckFailed as e:
         return [f'render: {e}'], warns
-    ctx = {'origin': lane_origin(lane), 'ts_ip': lane_ts_ip(lane), 'lane_env': lane_env(lane), 'main_env': main_env(),
+    ctx = {'origin': lane_origin(lane) if boot else origin(lane), 'ts_ip': lane_ts_ip(lane), 'lane_env': lane_env(lane), 'main_env': main_env(),
            'grandfathered': PARITY_GRANDFATHERED.get((lane, load(lane).get('generation')), {})}
     for s in PARITY_SERVICES:
         ms, ls = (main_r.get('services') or {}).get(s), (lane_r.get('services') or {}).get(s)
@@ -847,6 +859,22 @@ def parity_report(lane, running=True, settings=True):
             fails.append(f'auth settings: the lane auth server answers differently from main ({", ".join(keys)}'
                          f'{"; sign-in providers " + ", ".join(ext) if ext else ""})')
     return fails, warns
+
+
+def why_failed(e):
+    """A cause line for an exception that never carries a value: file names, exit codes, timeouts and
+    lanectl's own messages only (review round 2, Opus N5)."""
+    if isinstance(e, FileNotFoundError):
+        return f'missing file {e.filename}'
+    if isinstance(e, subprocess.TimeoutExpired):
+        return f'{" ".join(map(str, e.cmd[:3]))} timed out after {e.timeout}s'
+    if isinstance(e, subprocess.CalledProcessError):
+        return f'{" ".join(map(str, e.cmd[:3]))} exited {e.returncode}'
+    if isinstance(e, json.JSONDecodeError):
+        return f'unreadable JSON at line {e.lineno}'
+    if type(e) is RuntimeError:   # lanectl's own messages; run()'s carries a docker stderr tail, cut at ' ... '
+        return f'RuntimeError: {str(e).split(" ... ", 1)[0]}'
+    return type(e).__name__
 
 
 def report_parity(lane, fails, warns):
@@ -1445,7 +1473,7 @@ def deploy(lane, tarball):
             pfails, pwarns = parity_report(lane)
         except Exception as e:   # the check could not run: refuse the same way, the lane keeps serving
             raise CheckFailed(f'deploy refused: the parity check with the main lane could not run '
-                              f'({type(e).__name__}); {lane} keeps serving the code it has') from None
+                              f'({why_failed(e)}); {lane} keeps serving the code it has') from None
         report_parity(lane, pfails, pwarns)
         if pfails:
             raise CheckFailed(f'deploy refused: {lane} differs from the main lane in {len(pfails)} place(s) and could '
@@ -1801,7 +1829,8 @@ def main(argv):
                 st = load(lane)
                 if st.get('state') in ('free', 'draining'):
                     raise Refused(f'{lane} is {st.get("state")}; there is nothing to compare')
-                if not all((ldir(lane) / f).exists() for f in ('.env', 'lane.yml', 'ts_ip')):
+                # ts_ip is not required: lane_ts_ip asks Tailscale when the recorded address is missing.
+                if not all((ldir(lane) / f).exists() for f in ('.env', 'lane.yml')):
                     raise Refused(f'{lane} is {st.get("state")} and its config is not written yet; nothing to compare')
                 pfails, pwarns = parity_report(lane, running='--config-only' not in args,
                                                settings='--config-only' not in args)
@@ -1892,7 +1921,7 @@ def main(argv):
                                     wait_healthy(l, ['auth', 'mail'])
                                 except RuntimeError:
                                     pass
-                                pfails, pwarns = parity_report(l, settings=False)
+                                pfails, pwarns = parity_report(l, settings=False, boot=True)
                                 report_parity(l, pfails, pwarns)
                                 if pfails:
                                     raise RuntimeError(f'{len(pfails)} difference(s) from the main lane')
