@@ -4269,6 +4269,13 @@ archive_finish() {
                 /^branch / { if ($2 == br) print path }
               ' | sed -n '1p' )" || wt_path=""
   if [[ -n "$wt_path" ]] && ! teardown_worktree_if_clean "$wt_path" "archive-spec"; then
+    # P1723: say which of teardown's two reasons kept it. A hold is not uncommitted work,
+    # and the wrong reason sent the 2026-11-24 /day run looking for edits that did not exist.
+    if tidy_hold_blocks "$wt_path"; then
+      local _howner; _howner="$(awk 'index($0, "OWNER=") == 1 { print substr($0, 7); exit }' "$wt_path/.hold" 2>/dev/null || true)"
+      _howner="$(printf '%s' "$_howner" | tr -c 'A-Za-z0-9._:-' '_')"
+      die "archive-spec: $pn is safe off-machine, but its worktree is on hold (owner ${_howner:-unreadable}) — branch $branch kept"
+    fi
     die "archive-spec: $pn is safe off-machine, but its worktree holds uncommitted changes — branch $branch kept"
   fi
   if ( cd "$REPO_ROOT" && git rev-parse --verify -q "$branch" >/dev/null ); then
@@ -4278,16 +4285,26 @@ archive_finish() {
   echo "archive-spec: $pn done — the only copy is .private/$mrel and its siblings, held off-machine by the nightly backup" >&2
 }
 
+# P1723: one plain line per archive that did not finish, carrying its own reason (the
+# error lines joined with '; ', 'git-ops: ' prefixes dropped). A finished archive's
+# output passes through unchanged; stdout goes straight through on fd 3. The count
+# line stays last, so a caller that reads only the last line still gets the total.
 archive_finish_pending() {
-  local m pn n=0 ok=0
+  local m pn n=0 ok=0 err why
   while IFS= read -r m; do
     [[ -z "$m" ]] && continue
     pn="$(basename "$m" .manifest)"
     local br; br="$(sed -n 's/^branch=//p' "$REPO_ROOT/$m")"
     ( cd "$REPO_ROOT" && git rev-parse --verify -q "$br" >/dev/null ) || continue
     n=$((n + 1))
-    if ( archive_finish "$pn" ); then ok=$((ok + 1)); fi
-  done < <( cd "$REPO_ROOT" && find .private/features/done -name 'p*.manifest' -type f 2>/dev/null | sort )
+    if err="$( ( archive_finish "$pn" ) 2>&1 1>&3 )"; then
+      ok=$((ok + 1))
+      [[ -z "$err" ]] || printf '%s\n' "$err" >&2
+    else
+      why="$(printf '%s\n' "$err" | tr '<>|' ':::' | awk 'NF { sub(/^[ \t]+/, ""); sub(/^git-ops: /, ""); out = out (k++ ? "; " : "") $0 } END { print out }')"
+      echo "archive-spec: $pn not finished — ${why:-it printed no reason}" >&2
+    fi
+  done < <( cd "$REPO_ROOT" && find .private/features/done -name 'p*.manifest' -type f 2>/dev/null | sort ) 3>&1
   echo "archive-spec: $ok of $n pending archive(s) finished" >&2
 }
 
@@ -6027,6 +6044,31 @@ SUBCOMMANDS (P787 extensions — T03/T04/T05)
                                founder said yes and the agent passes --confirm NAME.
                                Removal needs: tip landed (cp-shipped-tips record or the
                                gc oracle), idle git dir, no user changes, no valid .hold.
+
+  holds                        (P1723) Read-only. One tab-separated line per held slot:
+                               HOLD slot pn branch owner age_days reask_at hash state
+                               liveness spec proof due. proof: landed (tidy's landed
+                               evidence AND the spec closed on main), archived (archive
+                               manifest, branch tip and off-machine proof agree), or none.
+                               due: a founder or pNNNN hold past its REASK_AT, or 7 days
+                               old (HOLD_DUE_DAYS) when none is set; an unreadable hold is
+                               always due. Never prints the hold's reason. 'HOLDS none'
+                               when no slot is held. CP_NOW_EPOCH overrides the clock.
+
+  hold-release <slot> --expect <hash> --proof landed|archived|answered
+                               (P1723, run by /day only) End a hold another session wrote.
+                               Refused unless the hold's hash still equals --expect, the
+                               slot is not LIVE and has been idle for tidy's window, and
+                               the proof still holds (answered = the founder said put it
+                               away). The .hold is copied byte for byte into the git
+                               common dir's cp-hold-archive and logged in cp-recovery-log
+                               before it is removed. Release is not removal: tidy and
+                               archive-spec still decide the slot.
+
+  hold-reask <slot> --expect <hash> --until <YYYY-MM-DDTHH:MMZ> --note <text>
+                               (P1723, run by /day only) Keep a hold and ask again later:
+                               sets REASK_AT, appends a NOTE line, keeps OWNER, REASON and
+                               WRITTEN_AT. Same refusals and archive copy as hold-release.
 
   abandon <slot> [--nonce <v>] Remove slot's lockfile AND worktree (branch preserved).
                                Ownership check for LIVE locks (same as release: --nonce
@@ -7911,6 +7953,301 @@ cmd_park() {
   echo "  resume with: git worktree add .claude/worktrees/$slot $branch (or re-claim a free slot)" >&2
 }
 
+# ----------------------------------------------------------------------------
+# Subcommands: holds, hold-release, hold-reask (P1723)
+# ----------------------------------------------------------------------------
+#
+# /day keeps holds true without the founder: `holds` lists every held slot with a proof
+# field; /day releases the ones a command proves finished and re-asks the rest at a set
+# age. Only /day runs hold-release and hold-reask — tidy, ship, park and archive-spec
+# never end a hold (P1723 Invariants). The two writers take no nonce; they act only with
+# the authority tidy already has to remove a slot, re-read at execution time: the hold's
+# content hash still equals --expect (compare-and-swap), the slot is not LIVE by the lock
+# classifier, and nothing wrote to or worked in it within TIDY_IDLE_MIN. The hold text is
+# copied into the git common dir's cp-hold-archive and byte-compared, and a recovery-log
+# line names the copy, before the .hold is removed or rewritten. Any failure before that
+# point leaves the hold exactly as it was.
+#
+# Output contract: no line contains < > or | (shell-safety.md). `holds` never prints the
+# hold's free-text REASON; the /day agent reads the .hold itself.
+#
+# Every "now" here is CP_NOW_EPOCH when set (hermetic tests), else the clock. The state
+# column is pipeline-strandings.sh's hold_status, which reads the real clock for a date
+# owner's expiry.
+HOLD_DUE_DAYS="${HOLD_DUE_DAYS:-7}"
+[[ "$HOLD_DUE_DAYS" =~ ^[0-9]+$ ]] || HOLD_DUE_DAYS=7
+
+p1723_now() {
+  if [[ "${CP_NOW_EPOCH:-}" =~ ^[0-9]+$ ]]; then echo "$CP_NOW_EPOCH"; else date +%s; fi
+}
+p1723_iso() {  # epoch: ISO-8601 UTC to the second
+  date -u -r "$1" +%FT%TZ 2>/dev/null || date -u -d "@$1" +%FT%TZ 2>/dev/null
+}
+# YYYY-MM-DDTHH:MMZ to epoch; fails on any other shape or an impossible date. Seconds are
+# pinned to :00 because BSD date -j fills fields missing from the format from the current time.
+p1723_min_epoch() {
+  local s="$1" e
+  [[ "$s" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}Z$ ]] || return 1
+  e="$(TZ=UTC date -j -f '%Y-%m-%dT%H:%M:%SZ' "${s%Z}:00Z" +%s 2>/dev/null || date -u -d "${s%Z}:00Z" +%s 2>/dev/null)" || return 1
+  [[ "$e" =~ ^[0-9]+$ ]] || return 1
+  # Round-trip: BSD date normalises 2026-02-31 into March instead of refusing it.
+  [[ "$(date -u -r "$e" +%Y-%m-%dT%H:%MZ 2>/dev/null || date -u -d "@$e" +%Y-%m-%dT%H:%MZ 2>/dev/null)" == "$s" ]] || return 1
+  echo "$e"
+}
+p1723_field() {  # file key: the first KEY= value, or nothing
+  awk -v k="$2=" 'index($0, k) == 1 { print substr($0, length(k) + 1); exit }' "$1" 2>/dev/null || true
+}
+p1723_hash() {  # file: full sha256 of its bytes
+  local h
+  h="$( { shasum -a 256 "$1" 2>/dev/null || sha256sum "$1" 2>/dev/null; } | awk '{ print $1; exit }' )" || h=""
+  [[ "$h" =~ ^[0-9a-f]{64}$ ]] || return 1
+  echo "$h"
+}
+p1723_safe() {  # a value fit for a TSV column: no tab, newline or shell metacharacter; '-' when empty
+  local v; v="$(printf '%s' "$1" | tr -c 'A-Za-z0-9._:/@+-' '_')"
+  printf '%s' "${v:--}"
+}
+
+# Reads <slot>'s hold and worktree into H_*: H_DIR H_FILE H_BRANCH H_TIP H_PN H_OWNER H_AT
+# H_REASK H_HASH H_READABLE (0 when OWNER is empty or WRITTEN_AT is not an integer).
+p1723_read_hold() {
+  local slot="$1"
+  H_DIR="$WORKTREES_DIR/$slot"; H_FILE="$H_DIR/.hold"
+  H_BRANCH="$(git -C "$H_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null)" || H_BRANCH=""
+  H_TIP="$(git -C "$H_DIR" rev-parse -q --verify HEAD 2>/dev/null)" || H_TIP=""
+  H_PN=""; [[ "$H_BRANCH" =~ (p[0-9]+) ]] && H_PN="${BASH_REMATCH[1]}"
+  H_OWNER="$(p1723_field "$H_FILE" OWNER)"
+  H_AT="$(p1723_field "$H_FILE" WRITTEN_AT)"
+  H_REASK="$(p1723_field "$H_FILE" REASK_AT)"
+  H_READABLE=1; [[ -n "$H_OWNER" && "$H_AT" =~ ^[0-9]+$ ]] || H_READABLE=0
+  H_HASH="$(p1723_hash "$H_FILE")" || H_HASH=""
+  return 0
+}
+
+# none | valid | expired | stale from the classifier tidy and the Stop hook share;
+# unreadable for a hold the classifier cannot read; unknown when it gave no answer.
+p1723_state() {  # slot (after p1723_read_hold)
+  local line st
+  (( H_READABLE == 1 )) || { echo unreadable; return; }
+  line="$( cd "$REPO_ROOT" && bash scripts/pipeline-strandings.sh --slot "$1" 2>/dev/null )" || line=""
+  st="$(printf '%s\n' "$line" | awk -F'\t' '$1 == "SLOT" { print $6; exit }')"
+  case "$st" in none|valid|expired|stale) echo "$st" ;; *) echo unknown ;; esac
+}
+
+p1723_liveness() {  # worktree
+  if tidy_slot_live "$1"; then echo live
+  elif ! tidy_idle_for "$1" "$TIDY_IDLE_MIN"; then echo active
+  else echo idle
+  fi
+}
+
+# The spec of <pN> as committed on main (never the working tree, which a co-tenant can be
+# editing): closed | archived | qa | open | none.
+p1723_spec_state() {  # pN
+  local pn="$1" files open body st
+  [[ "$pn" =~ ^p[0-9]+$ ]] || { echo none; return; }
+  files="$(git -C "$REPO_ROOT" ls-tree -r --name-only main -- features/ 2>/dev/null)" || files=""
+  if awk -v p="${pn}_" 'index($0, "features/done/") == 1 { n = split($0, a, "/"); if (index(a[n], p) == 1 && a[n] ~ /\.md$/) { f = 1; exit } } END { exit !f }' <<<"$files"; then
+    echo closed; return
+  fi
+  if [[ -n "$(archive_manifest_path "$pn")" ]]; then echo archived; return; fi
+  open="$(awk -v p="features/${pn}_" 'index($0, p) == 1 && substr($0, length(p) + 1) !~ /\// && /\.md$/ { print; exit }' <<<"$files")"
+  [[ -n "$open" ]] || { echo none; return; }
+  body="$(git -C "$REPO_ROOT" show "main:$open" 2>/dev/null)" || body=""
+  st="$(awk 'NR == 1 { if ($0 != "---") exit; next } /^---[[:space:]]*$/ { exit } /^status:/ { sub(/^status:[[:space:]]*/, ""); sub(/[[:space:]]+$/, ""); gsub(/["\047]/, ""); print; exit }' <<<"$body")"
+  if [[ "$st" == qa ]]; then echo qa; else echo open; fi
+}
+
+# landed | archived | none. Needs build_revert_index (tidy_landed_evidence's oracle).
+#   landed:   tidy's landed evidence for the tip AND the spec closed on main. The closed spec
+#             rules out an empty branch (an ancestor of main reads as merged) and a ship that
+#             was reverted, because /ship closes the spec.
+#   archived: the archive manifest names this branch and this exact tip, and the nightly
+#             backup's proof covers it (archive_offsite_check).
+p1723_proof() {  # branch tip pN spec-state
+  local br="$1" tip="$2" pn="$3" spec="$4" mpath mrel mbr mtip
+  [[ -n "$tip" ]] || { echo none; return; }
+  [[ "$br" == HEAD ]] && br=""
+  if [[ "$spec" == closed && -n "$br" && -n "$(tidy_landed_evidence "$tip" "$br")" ]]; then
+    echo landed; return
+  fi
+  [[ "$pn" =~ ^p[0-9]+$ && -n "$br" ]] || { echo none; return; }
+  mpath="$(archive_manifest_path "$pn")"
+  if [[ -n "$mpath" ]]; then
+    mrel="${mpath#.private/}"
+    mbr="$(p1723_field "$REPO_ROOT/.private/$mrel" branch)"
+    mtip="$(p1723_field "$REPO_ROOT/.private/$mrel" branch_tip)"
+    if [[ "$mbr" == "$br" && "$mtip" == "$tip" ]] && archive_offsite_check "$mrel" 2>/dev/null; then
+      echo archived; return
+    fi
+  fi
+  echo none
+}
+
+# yes | no. Only founder and pNNNN holds come due: a date owner keeps P1519's meaning (it
+# expires on its date and tidy decides). A hold nobody can read is always due, so the
+# founder sees it; a REASK_AT that does not parse counts as passed, for the same reason.
+p1723_due() {  # state owner written-at reask-at now
+  local state="$1" owner="$2" at="$3" reask="$4" now="$5" re
+  case "$state" in
+    unreadable|unknown) echo yes; return ;;
+    valid) ;;
+    *) echo no; return ;;
+  esac
+  [[ "$owner" == founder || "$owner" =~ ^p[0-9]+$ ]] || { echo no; return; }
+  if [[ -n "$reask" ]]; then
+    re="$(p1723_min_epoch "$reask")" || { echo yes; return; }
+    if (( now >= re )); then echo yes; else echo no; fi
+    return
+  fi
+  if (( now - at >= HOLD_DUE_DAYS * 86400 )); then echo yes; else echo no; fi
+}
+
+cmd_holds() {
+  [[ $# -eq 0 ]] || { echo "usage: git-ops holds" >&2; exit 2; }
+  export GIT_OPTIONAL_LOCKS=0   # probes must not refresh the liveness they measure (see tidy)
+  local now f slot n=0 state live spec proof due age
+  now="$(p1723_now)"
+  build_revert_index main
+  trap cleanup_revert_index EXIT
+  unset TIDY_CWD_SET
+  for f in "$WORKTREES_DIR"/w*/.hold; do
+    [[ -f "$f" ]] || continue
+    slot="$(basename "$(dirname "$f")")"
+    [[ "$slot" =~ ^w[0-9]+$ ]] || continue
+    p1723_read_hold "$slot"
+    state="$(p1723_state "$slot")"
+    live="$(p1723_liveness "$H_DIR")"
+    spec="$(p1723_spec_state "$H_PN")"
+    if [[ "$state" == unreadable || "$state" == unknown ]]; then proof=none
+    else proof="$(p1723_proof "$H_BRANCH" "$H_TIP" "$H_PN" "$spec")"; fi
+    due="$(p1723_due "$state" "$H_OWNER" "$H_AT" "$H_REASK" "$now")"
+    age="-"
+    if [[ "$H_AT" =~ ^[0-9]+$ ]]; then age=$(( (now - H_AT) / 86400 )); (( age >= 0 )) || age=0; fi
+    printf 'HOLD\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "$slot" "$(p1723_safe "$H_PN")" "$(p1723_safe "$H_BRANCH")" "$(p1723_safe "$H_OWNER")" "$age" \
+      "$(p1723_safe "$H_REASK")" "${H_HASH:--}" "$state" "$live" "$spec" "$proof" "$due"
+    n=$((n + 1))
+  done
+  (( n > 0 )) || echo "HOLDS none"
+  return 0
+}
+
+# The execution-time checks both writers share. Dies (exit 1, nothing changed) unless the
+# hold is readable, its hash equals <expect>, the classifier answers, and the slot is
+# neither LIVE nor active. Leaves the slot's H_* set.
+p1723_gate() {  # verb slot expect
+  local verb="$1" slot="$2" expect="$3" st
+  [[ "$slot" =~ ^w[0-9]+$ ]] || die "$verb: the slot must be wN (got '$(p1723_safe "$slot")')"
+  [[ -f "$WORKTREES_DIR/$slot/.hold" ]] || die "$verb: $slot has no .hold; nothing to do"
+  [[ "$expect" =~ ^[0-9a-f]{64}$ ]] || die "$verb: --expect must be the 64-character hash that holds printed for $slot"
+  p1723_read_hold "$slot"
+  (( H_READABLE == 1 )) || die "$verb: the hold on $slot is unreadable (no OWNER, or WRITTEN_AT is not a number); it stays for the founder; nothing was changed"
+  [[ -n "$H_HASH" ]] || die "$verb: could not hash $H_FILE; nothing was changed"
+  [[ "$H_HASH" == "$expect" ]] || die "$verb: the hold on $slot changed since it was read (now ${H_HASH:0:12}, expected ${expect:0:12}); nothing was changed"
+  st="$(p1723_state "$slot")"
+  [[ "$st" != unknown ]] || die "$verb: the hold classifier gave no answer for $slot; nothing was changed"
+  if tidy_slot_live "$H_DIR"; then
+    die "$verb: $slot is LIVE by the slot liveness classifier; nothing was changed"
+  fi
+  unset TIDY_CWD_SET
+  tidy_idle_for "$H_DIR" "$TIDY_IDLE_MIN" \
+    || die "$verb: $slot was written to or worked in within the last $((TIDY_IDLE_MIN / 60)) hours, or could not be read; nothing was changed"
+  return 0
+}
+
+# Copy the hold, byte-compare it, and log the copy; sets H_COPY. Dies before any change to
+# the .hold when a step fails.
+p1723_archive_hold() {  # verb slot detail
+  local verb="$1" slot="$2" detail="$3" common adir
+  common="$(cp_common_dir)" || common=""
+  [[ -n "$common" && -d "$common" ]] || die "$verb: cannot find the git common dir; the hold stays"
+  adir="$common/cp-hold-archive"
+  mkdir -p "$adir" 2>/dev/null || die "$verb: cannot create the hold archive $adir; the hold stays"
+  H_COPY="$adir/${slot}-$(p1723_now)-${H_HASH:0:12}.hold"
+  if [[ -e "$H_COPY" ]]; then
+    cmp -s "$H_FILE" "$H_COPY" || die "$verb: $H_COPY already exists with other content; the hold stays"
+  elif ! cp "$H_FILE" "$H_COPY" 2>/dev/null; then
+    rm -f "$H_COPY" 2>/dev/null || true
+    die "$verb: could not copy the hold into $adir; the hold stays"
+  fi
+  cmp -s "$H_FILE" "$H_COPY" || die "$verb: the archive copy $H_COPY differs from the hold; the hold stays"
+  tidy_log_recovery "$verb" "$slot" "${H_BRANCH:--}" "${H_TIP:--}" "$H_COPY" "$detail" \
+    || die "$verb: the recovery log could not be written; the hold stays (a copy is at $H_COPY)"
+  return 0
+}
+
+# hold-release <slot> --expect <hash> --proof landed|archived|answered
+cmd_hold_release() {
+  local slot="" expect="" proof="" spec got
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --expect) [[ $# -ge 2 ]] || { echo "--expect requires a value" >&2; exit 2; }; expect="$2"; shift 2 ;;
+      --expect=*) expect="${1#--expect=}"; shift ;;
+      --proof) [[ $# -ge 2 ]] || { echo "--proof requires a value" >&2; exit 2; }; proof="$2"; shift 2 ;;
+      --proof=*) proof="${1#--proof=}"; shift ;;
+      -*) echo "unknown flag: $(p1723_safe "$1")" >&2; exit 2 ;;
+      *) [[ -z "$slot" ]] || { echo "usage: git-ops hold-release wN --expect HASH --proof landed or archived or answered" >&2; exit 2; }; slot="$1"; shift ;;
+    esac
+  done
+  case "$proof" in
+    landed|archived|answered) ;;
+    *) echo "usage: git-ops hold-release wN --expect HASH --proof landed or archived or answered" >&2; exit 2 ;;
+  esac
+  export GIT_OPTIONAL_LOCKS=0
+  p1723_gate hold-release "$slot" "$expect"
+  # answered: the founder said "put it away" on a /day card; there is no proof to recompute.
+  if [[ "$proof" != answered ]]; then
+    build_revert_index main
+    trap cleanup_revert_index EXIT
+    spec="$(p1723_spec_state "$H_PN")"
+    got="$(p1723_proof "$H_BRANCH" "$H_TIP" "$H_PN" "$spec")"
+    [[ "$got" == "$proof" ]] || die "hold-release: proof $proof does not hold for $slot now (it reads $got); nothing was changed"
+  fi
+  p1723_archive_hold hold-release "$slot" "proof $proof; the .hold was copied before it was released"
+  # Last compare-and-swap: a hold rewritten while the copy and log were made is not released.
+  [[ "$(p1723_hash "$H_FILE" || true)" == "$expect" ]] \
+    || die "hold-release: the hold on $slot changed while it was being archived; it stays (the earlier copy is at $H_COPY)"
+  rm -f "$H_FILE" || die "hold-release: could not remove $H_FILE"
+  [[ ! -e "$H_FILE" ]] || die "hold-release: $H_FILE is still there"
+  echo "git-ops: hold on $slot released (proof $proof), copy kept at $H_COPY" >&2
+}
+
+# hold-reask <slot> --expect <hash> --until <YYYY-MM-DDTHH:MMZ> --note "<text>"
+cmd_hold_reask() {
+  local slot="" expect="" until="" note="" have_note=0 now ue tmp
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --expect) [[ $# -ge 2 ]] || { echo "--expect requires a value" >&2; exit 2; }; expect="$2"; shift 2 ;;
+      --expect=*) expect="${1#--expect=}"; shift ;;
+      --until) [[ $# -ge 2 ]] || { echo "--until requires a value" >&2; exit 2; }; until="$2"; shift 2 ;;
+      --until=*) until="${1#--until=}"; shift ;;
+      --note) [[ $# -ge 2 ]] || { echo "--note requires a value" >&2; exit 2; }; note="$2"; have_note=1; shift 2 ;;
+      --note=*) note="${1#--note=}"; have_note=1; shift ;;
+      -*) echo "unknown flag: $(p1723_safe "$1")" >&2; exit 2 ;;
+      *) [[ -z "$slot" ]] || { echo "usage: git-ops hold-reask wN --expect HASH --until YYYY-MM-DDTHH:MMZ --note TEXT" >&2; exit 2; }; slot="$1"; shift ;;
+    esac
+  done
+  (( have_note == 1 )) || { echo "usage: git-ops hold-reask wN --expect HASH --until YYYY-MM-DDTHH:MMZ --note TEXT" >&2; exit 2; }
+  now="$(p1723_now)"
+  ue="$(p1723_min_epoch "$until")" || die "hold-reask: --until must be a UTC time YYYY-MM-DDTHH:MMZ (got '$(p1723_safe "$until")'); nothing was changed"
+  (( ue > now )) || die "hold-reask: --until $until is not in the future; nothing was changed"
+  [[ -n "${note//[[:space:]]/}" ]] || die "hold-reask: --note is empty; nothing was changed"
+  [[ "$note" != *$'\n'* && "$note" != *$'\r'* ]] || die "hold-reask: --note must be one line; nothing was changed"
+  export GIT_OPTIONAL_LOCKS=0
+  p1723_gate hold-reask "$slot" "$expect"
+  p1723_archive_hold hold-reask "$slot" "re-ask at $until; the .hold was copied before it was rewritten"
+  tmp="$(mktemp "$H_DIR/.hold.XXXXXX" 2>/dev/null)" || die "hold-reask: cannot write in $H_DIR; the hold stays"
+  if ! { awk '!/^REASK_AT=/' "$H_FILE" && printf 'REASK_AT=%s\n' "$until" && printf 'NOTE=%s %s\n' "$(p1723_iso "$now")" "$note"; } > "$tmp"; then
+    rm -f "$tmp"; die "hold-reask: could not write the new hold; the hold stays"
+  fi
+  if [[ "$(p1723_hash "$H_FILE" || true)" != "$expect" ]]; then
+    rm -f "$tmp"; die "hold-reask: the hold on $slot changed while it was being archived; it stays (the earlier copy is at $H_COPY)"
+  fi
+  mv -f "$tmp" "$H_FILE" || { rm -f "$tmp"; die "hold-reask: could not replace $H_FILE; the hold stays"; }
+  echo "git-ops: hold on $slot will be asked about again at $until (owner $(p1723_safe "$H_OWNER") kept), copy of the previous hold kept at $H_COPY" >&2
+}
+
 main() {
   if [[ $# -eq 0 ]]; then
     usage_exit
@@ -7928,6 +8265,9 @@ main() {
     activity)        cmd_activity "$@" ;;
     gc)              cmd_gc "$@" ;;
     tidy)            cmd_tidy "$@" ;;
+    holds)           cmd_holds "$@" ;;
+    hold-release)    cmd_hold_release "$@" ;;
+    hold-reask)      cmd_hold_reask "$@" ;;
     abandon)         cmd_abandon "$@" ;;
     reconcile)       cmd_reconcile "$@" ;;
     commit-to-main)  cmd_commit_to_main "$@" ;;
