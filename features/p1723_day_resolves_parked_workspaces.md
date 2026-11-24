@@ -1,13 +1,13 @@
 ---
-status: week
+status: in-progress
 type: task
 rank: 354
 workstream: infrastructure
 created_date: '2026-11-24'
 tags: [day, worktrees, holds, tidy]
 disclosure: public
-delivery_stage: create-spec
-pipeline_ran: [create-spec]
+delivery_stage: dev
+pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -63,6 +63,8 @@ Blast radius: medium. It adds two commands that end or rewrite another session's
    It also computes `due`. Holds owned by `founder` or `pNNNN` are due once their re-ask time has passed, or 7 days after `WRITTEN_AT` when none is set. Date-owned holds keep P1519's meaning: they expire on their date and are never listed as due.
 
 2. **`git-ops.sh hold-release <slot> --expect <hash> --proof landed|archived`** recomputes the proof, the liveness and the hash, copies and verifies the hold, logs it, then removes it. **`git-ops.sh hold-reask <slot> --expect <hash> --until <YYYY-MM-DDTHH:MMZ> --note "<text>"`** keeps the owner and reason, appends the note, and sets `REASK_AT`. Neither takes a nonce. They act only on a slot that is not LIVE and idle, the same authority `tidy` has to remove that slot. Both are refused on a LIVE or active slot, a changed hash, or a failed proof. This narrows P1705's "no command ends a hold except `hold --clear`" for these two commands only.
+
+   *Build note (/dev, 2026-11-24):* `hold-release` also takes `--proof answered`, used only for the founder's "put it away" answer (Solution 3). A due hold has no proof by definition, so the founder's answer is the authority. Every other check (hash, LIVE, idle, readable) still applies.
 
 3. **A new `/day` step before the tidy pass** (`day-cp.md` § 4, registered in `day-cp-steps.tsv` so `check-sync` covers it):
    - For each idle hold with a proof: the agent reads the reason. If it names an open product question, it files that question with `/note` (due in 14 days) **before** releasing. Then it runs `hold-release`.
