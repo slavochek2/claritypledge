@@ -11,6 +11,8 @@ const reads = vi.hoisted(() => ({
   local: {} as Record<string, { contentVersion: number; completedAt: string }>,
   offers: true,
 }));
+const net = vi.hoisted(() => ({ tick: 0 }));
+vi.mock('@/app/contexts/offline-status-context', () => ({ useConnectivity: () => ({ offline: false, reconnectTick: net.tick }) }));
 vi.mock('@/app/data/event-prep-service', () => ({
   getMyPreparation: (...args: unknown[]) => reads.prep(...args),
   getMyPrepParts: (...args: unknown[]) => reads.parts(...args),
@@ -37,6 +39,7 @@ beforeEach(() => {
   reads.parts.mockReset().mockResolvedValue([]);
   reads.local = {};
   reads.offers = true;
+  net.tick = 0;
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -97,6 +100,46 @@ describe('useLearned', () => {
     const { result } = renderHook(() => useLearned(event, 'profile-1'));
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current).toEqual({ loading: false, error: !learned, learned });
+  });
+
+  // Review round 11 (Codex): learning done on this device needs no read; a hanging read never hides what the other proves.
+  it('learning done on this device: ticked with no read', () => {
+    reads.local = {
+      cognitive_video: { contentVersion: PART_VERSIONS.cognitive_video, completedAt: at },
+      cmp7: { contentVersion: PART_VERSIONS.cmp7, completedAt: at },
+    };
+    const { result } = renderHook(() => useLearned(event, 'profile-1'));
+    expect(result.current).toEqual({ loading: false, error: false, learned: true });
+    expect(reads.prep).not.toHaveBeenCalled();
+    expect(reads.parts).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the parts read hangs, the preparation is completed', 'parts', { completedAt: at }, []],
+    ['the preparation read hangs, the parts prove both done', 'prep', null, [row('cognitive_video'), row('cmp7')]],
+  ] as const)('%s: ticked without waiting', async (_name, hanging, prep, parts) => {
+    reads.prep.mockResolvedValue(prep);
+    reads.parts.mockResolvedValue(parts);
+    (hanging === 'prep' ? reads.prep : reads.parts).mockReturnValue(new Promise(() => {}));
+    const { result } = renderHook(() => useLearned(event, 'profile-1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current).toEqual({ loading: false, error: false, learned: true });
+  });
+
+  // Review round 11 (Gemini): back online, an unknown answer is read again; a known one is not.
+  it('reconnecting re-reads an answer a failed read left unknown, and not one that answered', async () => {
+    reads.prep.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const { result, rerender } = renderHook(() => useLearned(event, 'profile-1'));
+    await waitFor(() => expect(result.current.error).toBe(true));
+    reads.prep.mockResolvedValue({ completedAt: at });
+    net.tick = 1;
+    rerender();
+    await waitFor(() => expect(result.current).toEqual({ loading: false, error: false, learned: true }));
+    expect(reads.prep).toHaveBeenCalledTimes(2);
+    net.tick = 2;
+    rerender();
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(reads.prep).toHaveBeenCalledTimes(2);
   });
 
   it('not asked with no preparation offered, no viewer, or no event: no read, not loading', () => {

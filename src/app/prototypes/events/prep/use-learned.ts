@@ -9,13 +9,16 @@
  * Parts done signed-out and not yet moved to the account count here as they do after `/meet` moves them
  * (`syncLocalPrepParts`), so the tick matches /meet's without this screen writing anything.
  *
- * Both reads start together, once, on a visible tab (`whenVisible`); the answer belongs to the inputs it was read
- * for. A failed read (offline among them) is `error`, and the bar then draws no tick, unless this device alone shows the
- * learning done.
+ * Learning done on this device needs no read. Otherwise both reads start together, once, on a visible tab
+ * (`whenVisible`), and the tick shows as soon as either proves the learning; the answer belongs to the inputs it was
+ * read for. A failed read (offline among them) leaves the answer unknown (`error`, no tick) unless what did answer
+ * proves it, and an unknown answer is read again when the connection comes back.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useConnectivity } from '@/app/contexts/offline-status-context';
 import { getMyPreparation, getMyPrepParts } from '@/app/data/event-prep-service';
 import type { EventWithHost } from '@/app/types';
+import type { PrepPartRow } from '@/app/data/event-prep-service';
 import { hasLearned, isPartDone } from './prep-plan';
 import { localPartRows, readLocalParts } from './prep-local-parts';
 import { offersPreparation } from '../series-recipes';
@@ -31,26 +34,47 @@ export function useLearned(event: EventWithHost | null, viewerId: string | undef
   const eventId = event?.id;
   const key = eventId && viewerId && offersPreparation(event) ? `${eventId}:${viewerId}` : null;
   const [answer, setAnswer] = useState<{ key: string; error: boolean; learned: boolean } | null>(null);
+  // Review round 11 (Gemini): an answer left unknown by a failed read (offline) is read again once the connection is back.
+  const { reconnectTick } = useConnectivity();
+  const last = useRef(answer);
+  last.current = answer;
   useEffect(() => {
     if (!key || !eventId || !viewerId) return;
+    if (last.current?.key === key && !last.current.error) return; // answered for these inputs: nothing to re-read
     let cancelled = false;
+    const publish = (next: { error: boolean; learned: boolean }) => { if (!cancelled) setAnswer({ key, ...next }); };
+    // Review round 11 (Codex): learning done on this device needs no read at all.
+    if (hasLearned(localPartRows(readLocalParts()), null)) {
+      publish({ error: false, learned: true });
+      return () => { cancelled = true; };
+    }
     const cancelWait = whenVisible(() => {
-      // Review round 10 (Codex): each read counts on its own, so one that fails never hides what the other proves.
-      void Promise.allSettled([getMyPreparation(eventId, viewerId), getMyPrepParts(viewerId)]).then(([prep, parts]) => {
+      // Review rounds 10 and 11 (Codex): each read counts on its own, so one that fails or hangs never hides what the
+      // other proves: a tick shows as soon as either read proves the learning.
+      let prep: { completedAt?: string | null } | null | undefined; // undefined: not answered
+      let parts: PrepPartRow[] | undefined;
+      let failed = false;
+      let settled = 0;
+      const decide = () => {
         // `isPartDone` reads the first row for a part, so a done row (account or local) goes first.
-        const rows = [...(parts.status === 'fulfilled' ? parts.value : []), ...localPartRows(readLocalParts())];
+        const rows = [...(parts ?? []), ...localPartRows(readLocalParts())];
         const done = rows.filter((row) => isPartDone([row], row.part));
-        const learned = hasLearned([...done, ...rows], prep.status === 'fulfilled' ? prep.value?.completedAt : null);
-        // Review round 9 (Gemini): offline, or a failed read, still shows the tick for learning proved by what did answer
-        // (this device's parts included); anything less is unknown (error), and the bar draws no tick.
-        const failed = prep.status === 'rejected' || parts.status === 'rejected';
-        if (!cancelled) setAnswer({ key, error: failed && !learned, learned });
+        const learned = hasLearned([...done, ...rows], prep?.completedAt ?? null);
+        // Review round 9 (Gemini): a failed read (offline among them) is unknown (error) unless what did answer proves it.
+        if (learned) publish({ error: false, learned: true });
+        else if (settled === 2) publish({ error: failed, learned: false });
+      };
+      const settle = <T,>(read: Promise<T>, keep: (value: T) => void) => read.then(keep, () => { failed = true; }).then(() => {
+        settled += 1;
+        decide();
       });
+      void settle(getMyPreparation(eventId, viewerId), (value) => { prep = value; });
+      void settle(getMyPrepParts(viewerId), (value) => { parts = value; });
     });
     return () => { cancelled = true; cancelWait(); };
-    // eventId and viewerId are inside key.
+    // eventId and viewerId are inside key; reconnectTick re-runs only an unknown answer (see `last` above).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
+  }, [key, reconnectTick]);
   // Not asked (no preparation offered, or no viewer): nothing to wait for and nothing learned to show.
   if (!key) return { loading: false, error: false, learned: false };
   if (answer?.key !== key) return { loading: true, error: false, learned: false };

@@ -2,8 +2,9 @@
  * @file p1718-mastermind-ready.spec.ts
  * @description P1718 — Ready comes back to the Sales Mastermind's room, with a Skip that records nothing. A real browser
  * on the self-hosted TEST server: the gate's routing (first visit, after a skip, the host), what Skip and Continue store
- * (read back with the service role), the room's step bar on /ready, and screenshots of /ready at 1280, 375 and 320 (with
- * and without the Canvas step, and Clarity Night at 375), each with window.innerWidth read back.
+ * (read back with the service role), the room's step bar on /ready, and screenshots of /ready and /meet at 1280, 768,
+ * 430, 375, 360 and 320 (with and without the Canvas step, and Clarity Night's), each with window.innerWidth read back
+ * and the step labels measured.
  *
  * Fixture: an event starting now with preparation off, so neither "Have you arrived?" nor the preparation offer stands
  * in front of the room (both are other features' gates, tested in their own files). Cleanup removes exactly what this
@@ -63,7 +64,8 @@ async function enterRoom(page: Page, p: Person, ev: TestEvent): Promise<void> {
 }
 
 // Review round 4 / visual QA: 768 (where the mastermind's ticks return), 430 and 360 (the face breakpoints) too.
-async function shots(page: Page, name: string, widths: readonly number[] = [1280, 768, 430, 375, 360, 320]): Promise<void> {
+// Review round 11 (Codex): `labels` is the exact count of the bar's step labels (its list; the Learn entry sits beside it), so a lost step fails too.
+async function shots(page: Page, name: string, labels: number, widths: readonly number[] = [1280, 768, 430, 375, 360, 320]): Promise<void> {
   for (const w of widths) {
     await page.setViewportSize({ width: w, height: w >= 1280 ? 900 : 812 });
     await page.waitForTimeout(400);
@@ -76,12 +78,14 @@ async function shots(page: Page, name: string, widths: readonly number[] = [1280
     // span is stretched to its cell, so its own box never spills (a known-bad control with a lengthened label passed
     // that version of this check). Labels may use the 4px gap between cells (Clarity Night's live bar puts
     // "Feedback", 49px, in a 48px cell at 375), so the test is 2px clear of the next label and 1px of the bar's edges.
-    const clashes = await page.evaluate(() => {
+    const clashes = await page.evaluate((expected) => {
       // Review round 10 (Codex): a bar that is missing or hidden fails, never passes with nothing to measure.
       const bar = document.querySelector('[data-testid="room-steps"] ol');
       if (!bar) return ['no step bar'];
       const edge = bar.getBoundingClientRect();
-      if (edge.width === 0 || edge.height === 0) return ['step bar not shown'];
+      if (edge.width === 0 || edge.height === 0 || !bar.checkVisibility({ visibilityProperty: true, opacityProperty: true })) {
+        return ['step bar not shown'];
+      }
       const glyphs = [...bar.querySelectorAll('li')].flatMap((li) => {
         const text = li.querySelector('[data-testid$="-text"]');
         if (!text) return [];
@@ -90,15 +94,16 @@ async function shots(page: Page, name: string, widths: readonly number[] = [1280
         return [{ label: text.textContent ?? '', rect: range.getBoundingClientRect() }];
       });
       const out: string[] = [];
-      // Every screen measured here has the room's bar with at least five labels (Clarity Night five, the mastermind more).
-      if (glyphs.length < 5) out.push(`only ${glyphs.length} step labels`);
+      if (glyphs.length !== expected) out.push(`${glyphs.length} step labels, expected ${expected}`);
+      const hidden = [...bar.querySelectorAll('[data-testid$="-text"]')].filter((el) => !el.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
+      if (hidden.length) out.push(`${hidden.length} step labels not shown`);
       glyphs.forEach(({ label, rect }, k) => {
         if (rect.left < edge.left - 1 || rect.right > edge.right + 1) out.push(`${label} past the bar (${rect.left.toFixed(1)}-${rect.right.toFixed(1)} in ${edge.left.toFixed(1)}-${edge.right.toFixed(1)})`);
         const next = glyphs[k + 1];
         if (next && next.rect.left - rect.right < 2) out.push(`${label} touches ${next.label} (${(next.rect.left - rect.right).toFixed(1)}px)`);
       });
       return out;
-    });
+    }, labels);
     expect.soft(clashes, `step labels collide or hang past the bar on ${name} at ${w}px`).toEqual([]);
     const file = `${SHOTS}/${name}-${w}.png`;
     await page.screenshot({ path: file, fullPage: true });
@@ -135,7 +140,7 @@ test('smoke: a first visit to the mastermind room lands on Ready, with the room\
   await expect(page.getByTestId('room-ready-skip')).toHaveText('Skip');
   // R7: the mastermind's bar, no statement Compare. R5 (founder 2026-11-24): its last step is "Review".
   await expect(page.getByTestId('room-steps').getByRole('listitem')).toHaveText(['Learn and prepare', 'Ready', 'Principle', 'Table', 'Review']);
-  await shots(page, 'mastermind-ready');
+  await shots(page, 'mastermind-ready', 5);
   expect(errors, errors.join('\n')).toEqual([]);
 });
 
@@ -149,7 +154,7 @@ test('Skip stores nothing, opens the room, re-entry goes straight to the room, a
   expect(await readiness(MM, b), 'a skip stores no readiness value').toBeNull();
   // R10: the Ready step is not shown as done after a skip.
   await expect(page.getByRole('button', { name: 'Ready, done' })).toHaveCount(0);
-  await shots(page, 'mastermind-meet-after-skip');
+  await shots(page, 'mastermind-meet-after-skip', 5);
   // R4: the next entry through /room goes to the room, not back to Ready.
   await page.goto(`/events/${MM.slug}/room`);
   await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/meet`));
@@ -274,13 +279,13 @@ test('Canvas made at the event: /ready shows the Canvas step and still no Compar
   await enterRoom(page, e, MMC);
   await expect(page).toHaveURL(new RegExp(`/events/${MMC.slug}/ready$`));
   await expect(page.getByTestId('room-steps').getByRole('listitem')).toHaveText(['Learn and prepare', 'Ready', 'Principle', 'Canvas', 'Table', 'Review']);
-  await shots(page, 'mastermind-canvas-ready');
+  await shots(page, 'mastermind-canvas-ready', 6);
   // Six steps with a tick (review round 2): an answered Ready carries its check on /meet, and the bar still fits.
   await page.getByRole('slider').press('ArrowRight');
   await page.getByTestId('room-ready-continue').click();
   await expect(page.getByTestId('room-meet')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ready, done' })).toBeVisible();
-  await shots(page, 'mastermind-canvas-meet-answered', [1280, 768, 600, 430, 375, 360, 320]);
+  await shots(page, 'mastermind-canvas-meet-answered', 6, [1280, 768, 600, 430, 375, 360, 320]);
 });
 
 test('Clarity Night: Ready keeps its order and gains Skip; an untouched Continue stores nothing', async ({ page }) => {
@@ -289,12 +294,12 @@ test('Clarity Night: Ready keeps its order and gains Skip; an untouched Continue
   await expect(page).toHaveURL(new RegExp(`/events/${CN.slug}/ready$`));
   await expect(page.getByRole('button', { name: /Compare/ })).toBeVisible();
   await expect(page.getByTestId('room-ready-skip')).toHaveText('Skip');
-  await shots(page, 'clarity-night-ready', [375, 1280, 430, 360, 320]);
+  await shots(page, 'clarity-night-ready', 5, [375, 1280, 430, 360, 320]);
   await page.getByTestId('room-ready-continue').click();
   await expect(page.getByTestId('room-meet')).toBeVisible();
   expect(await readiness(CN, f), 'an untouched Continue stores no value on Clarity Night either').toBeNull();
   // R10 on Clarity Night too (review round 4): no stored value, no done tick on Ready.
   await expect(page.getByRole('button', { name: 'Ready, done' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Ready/ })).toBeVisible();
-  await shots(page, 'clarity-night-meet', [375]);
+  await shots(page, 'clarity-night-meet', 5, [375]);
 });

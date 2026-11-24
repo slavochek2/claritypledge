@@ -304,7 +304,7 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
   (Non-Goal below).
 - **Non-Goal:** no host-side view of readiness, no skip count, no change to the distribution RPC.
 
-**Known limitations (code review rounds 2 to 10; accepted, none strands anyone):**
+**Known limitations (code review rounds 2 to 11; accepted, none strands anyone):**
 - **A look back at Ready from the room greys the steps after it.** `/ready`'s bar has `current="ready"`, so Principle,
   Canvas and Table cannot be tapped there for someone already past them (checked against `canOpenStep`, review
   round 5). Continue, Skip, Review and Learn still lead out. Clarity Night's `/ready` has always worked this way; R7 lists the props the bar shares, and the room's
@@ -343,6 +343,16 @@ the round; Ready is before the round, so they stay valid by their letter (see Ri
 - **A save that lands after the 5-second budget clears the remembered skip, while this device's offline copy of the
   room row still has no answer** (review round 10, Gemini). Re-entering offline before any online read then shows
   Ready once more; the next online read brings the stored answer and the gate passes it.
+- **The event and registration reads run on a tab opened in the background** (review round 11, Codex). They are
+  the room's shared access reads (`useEventRoomAccess`), unchanged, which every room route and the event page make on
+  mount; the mastermind's visit made them before this change too, so it adds no such request. Round 10 gated the room
+  row and its join, which this change's screens depend on; gating the access reads changes every event page and is
+  left to its own fix.
+- **A first join that never answers keeps the room's loader up** (review round 11, Codex). The name read before it is
+  bounded; the join is not, on every room route, as on main. Reloading retries it.
+- **A first-timer opening a past evening's room goes to `/ready` and is then sent on to `/meet`** (review round 11,
+  Gemini): two redirects instead of one, and `/ready`'s room-row read. The gate does not compute the evening's end;
+  Clarity Night has always behaved this way.
 - **`/meet`'s step bar still reads the whole preparation plan for its Learn tick** (`usePrepState`, `EventRoomMeet.tsx`),
   so a points feed answering after the tab is hidden can still start its follow-up reads there (Codex round 8). That
   is `/meet` as it is on main; `/ready` now uses the two-read `useLearned`. Moving `/meet` onto it is its own change.
@@ -402,7 +412,9 @@ review round 7 counted every read the screen makes, review round 8 re-derived th
 - the Canvas-shared read 1 when the Canvas is made at the event (`getMyEventCanvas`);
 - the step bar's Learn tick 2 when the event offers preparation and the bar has a Learn entry (the mastermind; Clarity
   Night's bar has none): the preparation and the parts, both started together and nothing after them (`useLearned`,
-  review round 8). Until round 8 the bar used `usePrepState`, which also read two points feeds (each a feed, a
+  review round 8); none when this device alone shows the learning done, and read once more after reconnecting only
+  when a failed read left the answer unknown (an offline failure never reached the server, so the visit still makes 2;
+  review round 11). Until round 8 the bar used `usePrepState`, which also read two points feeds (each a feed, a
   position count and a viewer-position read), the social proof and the registration role, and wrote parts done
   signed out: 10 to 16 requests a visit, some started by a response after the tab was hidden (Codex round 8). Parts
   done signed out still count toward the tick; `/meet` moves them to the account, as before;
@@ -433,6 +445,10 @@ answer be saved again. Row sizes (UNVERIFIED, read from the selected columns, no
 Against main: the mastermind had no `/ready`, so its visit is new traffic (6 to 24 requests per attendee per
 evening). Clarity Night already made the room-row read, the marks and, on every Continue, the save and re-read; it
 now adds the seat read (1) and drops the save and re-read on Skip or an untouched Continue (0 instead of 2).
+Clarity Night's `/ready` also mounts the preparation banner when its event offers preparation (`PrepRoomBanner` through
+`usePrepState`: at least the preparation and parts reads, a points feed and the social proof, 4 or more a visit;
+review round 11, Codex). This change leaves that banner as it is on main, so those reads are not part of the delta
+above; the e2e's Clarity Night event has preparation off, so the per-test-run count has none of them.
 
 The e2e runs against the self-hosted TEST server only (`assertSelfHostedTest`), which has no per-request billing
 (as P1529's seed room); it is run at ship, by hand, never on a schedule.
