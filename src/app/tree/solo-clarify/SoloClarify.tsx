@@ -52,10 +52,10 @@ export function SoloClarify() {
           <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
             {SCREENS.map(s => <TabsTrigger key={s.id} value={s.id} className="min-h-[44px]">{s.label}</TabsTrigger>)}
           </TabsList>
-          <TabsContent value="mirror" className="mt-6"><MirrorScreen rule={rule} /></TabsContent>
-          <TabsContent value="from-chat" className="mt-6"><FromChatScreen rule={rule} /></TabsContent>
-          <TabsContent value="in-chat" className="mt-6"><InChatScreen rule={rule} /></TabsContent>
-          <TabsContent value="one-mic" className="mt-6"><OneMicScreen rule={rule} /></TabsContent>
+          <TabsContent value="mirror" forceMount className="mt-6 data-[state=inactive]:hidden"><MirrorScreen rule={rule} /></TabsContent>
+          <TabsContent value="from-chat" forceMount className="mt-6 data-[state=inactive]:hidden"><FromChatScreen rule={rule} /></TabsContent>
+          <TabsContent value="in-chat" forceMount className="mt-6 data-[state=inactive]:hidden"><InChatScreen rule={rule} /></TabsContent>
+          <TabsContent value="one-mic" forceMount className="mt-6 data-[state=inactive]:hidden"><OneMicScreen rule={rule} /></TabsContent>
         </Tabs>
       </div>
     </div>

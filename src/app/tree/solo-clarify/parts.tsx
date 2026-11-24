@@ -11,7 +11,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PointCardShell } from '@/app/components/shared/presentational/point-card-shell';
 import { InlineVisibilityIcon, VisibilityBadge } from '@/app/components/shared/visibility-badge';
-import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
+// P1445's presentational control: the product wrapper injects the intensity tutorial (local storage) and analytics, and a prototype saves nothing.
+import { PositionButtons, type SevenPointCounts } from '@/app/components/shared/presentational/position-buttons';
 import { TagPills } from '@/app/components/shared/tag-pills';
 import { MirrorGlyph, MirrorMark } from '@/app/pages/chat/chat-kit';
 import { cn } from '@/lib/utils';
@@ -179,7 +180,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions, focus 
             />
             <div className="flex justify-end gap-2">
               <Button type="button" variant="ghost" className="h-11 min-h-11" onClick={cancelEdit}>Cancel</Button>
-              <Button type="button" variant="outline" className="h-11 min-h-11" onClick={endEdit}>Done</Button>
+              <Button type="button" className="h-11 min-h-11" onClick={endEdit}>Done</Button>
             </div>
           </div>
         ) : (
