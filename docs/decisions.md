@@ -8,6 +8,24 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-24 [product]: Change-lead outreach path: event, then one-on-one, then a letter only where a gap remains; sending waits for the call with the game. Founder decision, UNTESTED
+
+**Context:** Follow-up to 2026-11-17 "The change-lead session is the product demo…". Since then, a partner call produced P1709 (meetings through preparation) and P1708 (preparation feels too long), and P1688 step one passed on a real Android phone.
+**Decision:**
+1. **Path:** a warm conversation first, asking whether the lead wants details of a special demonstration event, then an invitation to a hidden event per group. The invitation carries the demo film and requires preparation before the call link. Then the group session (the taste), then a one-on-one discovery call booked at its wrap-up, then a proposal and closing call for a paid, bounded trial.
+2. **A letter only after the one-on-one, and only when a real gap remained.** A letter before any one-on-one is too big an ask. This corrects 2026-11-17 item 1, where the letter was the session's second act.
+3. **No trial offer is fixed in advance.** Its contents depend on discovery. Still binding: paid, bounded, terms agreed before it starts.
+4. **Work order:** prepare the events, then the invitation list and message. Sending waits until the group session can run on our own call with the Listening Game inside it: P1711 (calls in the room), plus a game-in-the-call build that is not specced yet. Meeting the first leads and showing the demo a long time apart wastes the first meeting, so sending is held, while preparation is not.
+5. **No one-to-one-first campaign** (2026-11-17 item 6 stands). P1709's preparation gate applies to the event.
+**Supersedes in part:** 2026-11-17 item 1 (the letter's place) and item 5 (the build is now P1711 plus the game build); 2026-11-06 "nothing goes out before session 1" (session 1 is now 2026-11-26; sending is gated by the build, not the mastermind).
+**Falsifier:** unchanged; of the first 10 invited, fewer than 3 join.
+**Consequences:**
+- goals.md §Current bet and lean-canvas §Channels are updated through /docs-strategy-update.
+- A spec is needed for the Listening Game inside the call.
+**References:** [p1711](../features/p1711_in_app_calls_in_rooms_step_two.md) · P1709 · [p1708](../features/p1708_prepare_friction_feel_the_gap_first.md) · 2026-11-17, 2026-11-06 [product]
+
+---
+
 ## 2026-11-24 [product]: The Clarify Mirror does not score whether a decision is high-stakes; pressing Clarify is that judgment
 
 **Context:** Someone presses Clarify in a live room and the Mirror drafts a point from the transcript (P1631). The question was whether the Mirror should also say which high-stakes conditions the decision meets, or score it. The question was explored against the new high-stakes model agreed the same day in the demo-film session and not yet written into the docs: success depends on shared understanding (the heading), five dimensions each scored on a scale (fuzzy intent, delayed feedback, serious damage, irreversible, explanatory divergence; "concentrated consequences" deleted), high-stakes when the scores together pass a threshold, judged with the person whose decision it is. A separate spec will update the docs, skills and prompt to that model.
