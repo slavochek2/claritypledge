@@ -8,6 +8,20 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-24 [process]: Name the viewer and the action before making a film; the Third Condition film is parked (Status: proposed)
+
+**Context:** The Third Condition explainer film went through three full versions in a week (draft 6, draft 7, draft 8). Each version answered a different unstated guess about who would watch it: community organizers, people arguing about AI risk, then the internal champion. The founder judged draft 7 much worse than draft 6. After draft 8 was finished, the founder said it was not clear what the film is for or whether anyone needs it.
+
+**Decision:** Park the film. Draft 8 (2:55, for the internal champion) stays finished and unpublished. The unlisted draft 5 stays as it is; the corrected story already exists as draft 6, and publishing it would reopen the same unanswered purpose question. Process rule for any future film: before the first render, write one line naming who watches it and what they do afterwards, and point to a real person who asked for it, or to an objection someone actually raised.
+
+**Alternatives rejected:**
+- Fix draft 5 and re-upload: that is publishing draft 6, still without a known viewer.
+- A Fable design pass on draft 8: polish does not answer the purpose question.
+
+**Falsifier:** if a champion asks for something to send to colleagues, or a prospect raises the "we can't all switch" objection, the film has a viewer and draft 8 is the starting point. Revisit tracked in the private inbox.
+
+---
+
 ## 2026-11-23 [product]: One-to-one invitations are a call link, not preparation first; P1709 rejected, superseded by P1688
 
 **Context:** P1709 planned to invite people to the founder's own meetings through preparation: register on a hidden event, do about 15 minutes of preparation, then get the call link. On reflection, a stranger asked to register on a platform and prepare before a 30-minute one-to-one meets three asks before any value. Even a hidden event page reads as signing up for an event, not as a private meeting. Once the ask is explained in conversation, the tool adds nothing.
