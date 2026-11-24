@@ -211,15 +211,16 @@ const CONTRAST_RE = /,\s*not\b|\bahead of\b/gi; // the spec's measure: ", not <Y
 /** A clause marker (the spec's list). Revision 4 allows one per point, so "X over Y, even when <cost>" and "Pays: owners who …" stay legal. */
 const CLAUSE_RE = /\b(?:who|whose|which|where|while|but|if|unless|even when)\b/gi;
 /** A falsified hypothesis that goes on to state the change it made: ", so …", "; therefore …", "and so …", or "so it / so the business / so now" with no comma.
- *  Also "it now sells", "and now sells", "led it to". "so few / so many / so much / so little / so far / so that" is evidence or degree,
- *  and "so it could / would / can" is the expectation's purpose: neither is a change, and neither fires. */
-const FALSIFIED_CHANGE_RE = /(?:[;,]\s*(?:and\s+)?(?:so|therefore|thus|hence)\b(?!\s+(?:few|many|much|little|far|that|(?:it|the business)\s+(?:could|would|can|might|may)\b))|\b(?:and\s+)?therefore\b|\bso (?:it|the business|now)\b(?!\s+(?:could|would|can|might|may)\b)|\b(?:it|the business|and)\s+now\s+[a-z]+s\b|\bled (?:it|the business) to\b)/i;
+ *  Also "it now sells", "and now sells", "and now only sells", "led it to". "so few / so many / so much / so little / so far / so that" is evidence or degree,
+ *  and "so it could / would / can" (or "so now it could") is the expectation's purpose: neither is a change, and neither fires. */
+const FALSIFIED_CHANGE_RE = /(?:[;,]\s*(?:and\s+)?(?:so|therefore|thus|hence)\b(?!\s+(?:few|many|much|little|far|that|(?:it|the business)\s+(?:could|would|can|might|may)\b))|\b(?:and\s+)?therefore\b|\bso (?:it|the business|now)\b(?!\s+(?:(?:it|the business)\s+)?(?:could|would|can|might|may)\b)|\b(?:it|the business|and)\s+now\s+(?:(?:only|instead|just|also)\s+)?[a-z]+s\b|\bled (?:it|the business) to\b)/i;
 
 /** What the rules say is bought, never the kind: ROUTING_RULE's "package, sessions" and the Solution definition's "(package, workshop)", plus "bundle".
  *  A hyphenated compound ("package-tracking software", "bundle-size analyzer") is a product, not a deliverable, and does not fire. */
 const DELIVERABLE_RE = /(?<![\w-])(?:packages?|bundles?|workshops?|sessions?)(?![\w-])/i;
-/** A sentence break inside a point: ". " / "! " / "? " followed by a capital, a digit, a currency sign or an opening quote. */
-const SENTENCE_BREAK_RE = /[.!?]["”')\]]*\s+(?=["“A-Z0-9€$£])/g; // a sentence may open with a number or a currency ("… an app. 0 of 8 …")
+/** A sentence break inside a point: ". " / "! " / "? " followed by a capital (accented too), a digit, a currency sign or an opening quote.
+ *  The full stop of a common abbreviation ("St. Paul", "vs. Annual", "Ltd. founders") is not a break. */
+const SENTENCE_BREAK_RE = /(?:(?<!\b(?:vs|ca|St|Ltd|Inc|Co|Dr|Mr|Mrs|Ms|Jr|Sr|No|approx))\.|[!?])["”')\]]*\s+(?=["“A-Z0-9€$£฿¥₹À-ÖØ-Þ])/g; // a sentence may open with a number or a currency ("… an app. 0 of 8 …")
 
 export interface PointShape { words: number; semicolons: number; thens: number; contrasts: number; clauses: string[]; sentences: number }
 
@@ -260,10 +261,10 @@ export function v10Violations(points: ReadonlyArray<{ box: string; text: string 
   const firstSolution = points.find((p) => p.box === 'canvas:solution');
   if (firstSolution && !/^\s*The product is\b/i.test(firstSolution.text)) violations.push({ box: firstSolution.box, text: firstSolution.text, rule: 'solution-kind', detail: 'first Solution point does not open "The product is"' });
   // revision 4 review: the kind is what sort of product it is, never what is bought. Fires when Solution's first point names a package or bundle,
-  // or repeats an Offers & Pricing point (most of that point's content words reappear in it). A package ruled out in its ", not" contrast does not count.
+  // or repeats an Offers & Pricing point (most of that point's content words reappear in it). A deliverable ruled out in its ", not" or "ahead of" contrast does not count.
   if (firstSolution) {
     const offer = points.filter((p) => p.box === 'canvas:revenue').map((p) => ({ p, share: offerShare(p.text, firstSolution.text) })).find((x) => x.share >= 0.6);
-    const bought = firstSolution.text.split(/,\s*not\b/i)[0]!.match(DELIVERABLE_RE);
+    const bought = firstSolution.text.split(/,\s*not\b|\bahead of\b/i)[0]!.match(DELIVERABLE_RE);
     if (bought) violations.push({ box: firstSolution.box, text: firstSolution.text, rule: 'solution-offer', detail: `the kind names what is bought ("${bought[0]}")` });
     else if (offer) violations.push({ box: firstSolution.box, text: firstSolution.text, rule: 'solution-offer', detail: `repeats the offer "${offer.p.text}" (${Math.round(offer.share * 100)}% of its content words)` });
   }
@@ -275,7 +276,7 @@ const OFFER_STOP = new Set(['with', 'from', 'that', 'this', 'their', 'they', 'th
   'baht', 'euro', 'dollar', 'pound', 'rupee', 'year', 'yearly', 'week', 'weekly', 'quarter', 'quarterly', 'annual', 'seat']);
 /** Share of an Offers point's content words (4+ letters, no price or unit filler) that reappear in the Solution point; 0 when the offer has under 3. */
 export function offerShare(offer: string, solution: string): number {
-  const words = (t: string) => new Set((t.toLowerCase().match(/[a-zà-ÿ][a-zà-ÿ-]{3,}/g) ?? []).map((w) => w.replace(/s$/, '')).filter((w) => !OFFER_STOP.has(w)));
+  const words = (t: string) => new Set((t.toLowerCase().match(/[a-zà-ÿ]{4,}/g) ?? []).map((w) => w.replace(/s$/, '')).filter((w) => !OFFER_STOP.has(w)));
   const o = words(offer); const sol = words(solution);
   if (o.size < 3) return 0; // a one- or two-word offer names the service itself ("Bookkeeping service: …"), which the kind may name
   return [...o].filter((w) => sol.has(w)).length / o.size;
@@ -474,9 +475,10 @@ export function runIdentity(shared: string, boxDefinitions: unknown): { git: str
     const dirty = execFileSync('git', ['-C', shared, 'status', '--porcelain', '--', '.'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     git = `${sha}${dirty ? '+dirty' : ''}`;
   } catch { /* the old rules live in an extracted copy, outside any repository */ }
-  // every rule text the drafter reads (ROUTING_RULE, LEAD_POINT_RULE, DRAFT_RULES...), so two arms that differ only outside BOX_DEFINITIONS are told apart
+  // every _shared file that shapes what a run drafts or drops: the rule texts (ROUTING_RULE, LEAD_POINT_RULE, DRAFT_RULES...), the drop gates and the draft limits,
+  // so two arms that differ only outside BOX_DEFINITIONS are told apart
   const rules = createHash('sha256');
-  for (const f of ['canvas-box-definitions.ts', 'canvas-prompt.ts']) { try { rules.update(readFileSync(join(shared, f), 'utf8')); } catch { rules.update(`(no ${f})`); } }
+  for (const f of ['canvas-box-definitions.ts', 'canvas-prompt.ts', 'canvas-eval-rules.ts', 'canvas-draft.ts', 'canvas-run.ts']) { try { rules.update(readFileSync(join(shared, f), 'utf8')); } catch { rules.update(`(no ${f})`); } }
   return { git, boxDefinitionsSha256: createHash('sha256').update(JSON.stringify(boxDefinitions)).digest('hex').slice(0, 16), rulesSha256: rules.digest('hex').slice(0, 16) };
 }
 
@@ -739,6 +741,20 @@ export function selfTest(): string[] {
   // round-2 review: a second sentence that opens with a number is still a second sentence
   check(v10Rules('canvas:world-needs', 'The business expected cafés to run an app. 0 of 8 trial cafés used it.').includes('chained'), 'v10 missed a second sentence that opens with a digit');
   check(!v10Rules('canvas:revenue', 'Monthly books and tax filing: 2,500 baht per shop per month.').includes('chained'), 'v10 counted a price with a thousands separator as a sentence break');
+  // round-3 review: "ahead of" rules a deliverable out like ", not"; a hyphenated word is its parts in offerShare
+  for (const k of ['The product is a bookkeeping service for cafés, ahead of package deals.', 'The product is bookkeeping software for cafés ahead of a workshop.'])
+    check(!sOffer(k, 'Monthly books and tax filing: 2,500 baht per shop per month.'), `v10 fired solution-offer on a deliverable the "ahead of" contrast rules out: ${k}`);
+  check(sOffer('The product is chat-based software and transcripts for team leads.', 'Chat software and meeting transcripts.'), 'v10 missed a kind repeating the offer across a hyphenated word');
+  check(!sOffer('The product is a coaching service for founders.', 'Two-week coaching: 500 euro month-to-month.'), 'v10 counted hyphenated period words as offer content');
+  // round-3 review: "so now it could" is purpose; an adverb before the verb still states the change
+  check(!v10Rules('canvas:world-needs', 'The business expected yearly pay so now it could plan cash, but none paid.').includes('falsified-change'), 'v10 fired falsified-change on "so now it could"');
+  for (const t of ['The business expected chains to buy and now only sells to cafés.', 'The business expected yearly pay, but it now instead bills monthly.'])
+    check(v10Rules('canvas:world-needs', t).includes('falsified-change'), `v10 missed a falsified change with an adverb: ${t}`);
+  // round-3 review: an abbreviation is no sentence break; an accented capital or a baht sign opens a second sentence
+  for (const t of ['The first customers are St. Paul café owners, ahead of chains.', 'Monthly books vs. Annual filing: 2,500 baht per shop.'])
+    check(!v10Rules(t.startsWith('Monthly') ? 'canvas:revenue' : 'canvas:segments', t).includes('chained'), `v10 counted an abbreviation as a sentence break: ${t}`);
+  for (const t of ['The business expected schools to buy an app. Écoles did not buy.', 'Monthly books for one café. ฿2,500 covers filing.'])
+    check(v10Rules('canvas:world-needs', t).includes('chained'), `v10 missed a second sentence: ${t}`);
   check(runCheckMd(`## Customer Segments\n- ${segFail}`).exit === 1, 'runCheckMd passed the founder\'s long Segments point');
   check(v10BoxMeasure([{ box: 'canvas:segments', text: segFail }, { box: 'canvas:segments', text: 'Pays: café owners.' }], 'canvas:segments').over === 1, 'v10BoxMeasure miscounted points over the cap');
   // ids: a bad --name and a bad pack id are refused, a good one passes
@@ -888,7 +904,7 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
     '- Reason in a point: " because ", ", which ", " so they ", " so that ", " since ", " so the ".',
     '- Dropped: the engine\'s count; every point the model wrote and the engine did not keep is named with the engine\'s reason (only for runs made by a script version that keeps the model actions; earlier files carry none).',
     `- v9 checks (lexical heuristics, a human reads every hit; computed here from the kept points, whatever the run's arm): ${V9_RULES.join(', ')}.`, ''];
-  o.splice(o.length - 1, 0, `- Revision-4 measure (lexical, a human reads every hit): words per point (cap ${V10_MAX_WORDS}); chained = a ";", a "then", a second contrast (", not" or "ahead of"), a second clause marker (who, whose, which, where, while, but, if, unless, even when) or a second sentence; solution-kind = the first Solution point does not open "The product is"; solution-offer = that point names a package or bundle, or repeats 60%+ of an Offers & Pricing point's content words. Rules: ${V10_RULES.join(', ')}.`);
+  o.splice(o.length - 1, 0, `- Revision-4 measure (lexical, a human reads every hit): words per point (cap ${V10_MAX_WORDS}); chained = a ";", a "then", a second contrast (", not" or "ahead of"), a second clause marker (who, whose, which, where, while, but, if, unless, even when) or a second sentence; solution-kind = the first Solution point does not open "The product is"; solution-offer = that point names what is bought (package, bundle, workshop, sessions; not in its contrast), or repeats 60%+ of an Offers & Pricing point's content words. Rules: ${V10_RULES.join(', ')}.`);
   const totals: Record<string, { leads: number; strict: number; pron: number; reasons: number; kept: number; dropped: number; named: number; runs: number; v9: number; words: number; over: number; chained: number; v10: number }> = {};
   for (const l of labels) totals[l] = { leads: 0, strict: 0, pron: 0, reasons: 0, kept: 0, dropped: 0, named: 0, runs: 0, v9: 0, words: 0, over: 0, chained: 0, v10: 0 };
   for (const p of packs) {
@@ -959,7 +975,7 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
   o.push(`| Runs | ${t('runs')} |`, `| **Lead points (strict: a choice word AND an alternative; of ${RANKED.length} ranked boxes x runs)** | ${t('strict')} |`,
     `| Lead points, loose (secondary lexical count) | ${t('leads')} |`, `| Pronouns (I, we, my, our, us, me...) | ${t('pron')} |`,
     `| Reasons inside points | ${t('reasons')} |`, `| Kept points | ${t('kept')} |`, `| Dropped (engine count) | ${t('dropped')} |`, `| Drops named with a reason | ${t('named')} |`, `| v9 violations (all rules) | ${t('v9')} |`,
-    `| Mean words per point | ${[A, B].map((l) => (totals[l]!.kept ? Math.round((totals[l]!.words / totals[l]!.kept) * 10) / 10 : 0)).join(' | ')} |`,
+    `| Mean words per point (pooled over all kept points) | ${[A, B].map((l) => (totals[l]!.kept ? Math.round((totals[l]!.words / totals[l]!.kept) * 10) / 10 : 0)).join(' | ')} |`,
     `| Points over ${V10_MAX_WORDS} words | ${t('over')} |`, `| Chained points | ${t('chained')} |`, `| Revision-4 violations (all rules) | ${t('v10')} |`,
     `| Kept points, ${B} as % of ${A} | | ${totals[A]!.kept ? Math.round((totals[B]!.kept / totals[A]!.kept) * 100) : 0}% |`, '');
   return o.join('\n');
@@ -1100,4 +1116,5 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({ arm, name, shared, ...identity, repeat, usdTotal: Number(total.toFixed(4)), packs: summary }, null, 1));
 }
 
-main().catch((e) => { console.error('eval crashed:', (e as Error).name); process.exit(1); });
+// only as a script: src/tests/p1658-harness-self-test.test.ts imports selfTest without running a model call
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main().catch((e) => { console.error('eval crashed:', (e as Error).name); process.exit(1); });

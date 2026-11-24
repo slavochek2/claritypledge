@@ -533,7 +533,7 @@ describe('S2 box guidance', () => {
     // revision 4: every example is what it asks for — at most MAX_POINT_WORDS words, no ";" or "then", one contrast and one clause marker at most
     const CONTRAST = /,\s*not\b|\bahead of\b/gi; // the spec's contrast: ", not <Y>" or "ahead of <Y>"
     const CLAUSE = /\b(?:who|whose|which|where|while|but|if|unless|even when)\b/gi;
-    const SENTENCE_BREAK = /[.!?]["”')\]]*\s+(?=["“A-Z0-9€$£])/; // one sentence per point (the harness's SENTENCE_BREAK_RE)
+    const SENTENCE_BREAK = /(?:(?<!\b(?:vs|ca|St|Ltd|Inc|Co|Dr|Mr|Mrs|Ms|Jr|Sr|No|approx))\.|[!?])["”')\]]*\s+(?=["“A-Z0-9€$£฿¥₹À-ÖØ-Þ])/; // one sentence per point (the harness's SENTENCE_BREAK_RE); an abbreviation's full stop is no break
     const measureFails = (p: string) => p.split(/\s+/).filter(Boolean).length > MAX_POINT_WORDS || /;|\bthen\b/i.test(p) || (p.match(CONTRAST) ?? []).length > 1 || (p.match(CLAUSE) ?? []).length > 1 || SENTENCE_BREAK.test(p);
     for (const { tag, p } of points) expect(measureFails(p), `${tag}: ${p}`).toBe(false);
     // CONTROL (gate 7d): a real good example, mutated once per branch of the measure, fails it, so no branch is carried by another
@@ -547,6 +547,9 @@ describe('S2 box guidance', () => {
       `${base.replace(/\.$/, '')} which owners pay if the books are done.`,
       `${base.replace(/\.$/, '')} ${'and more '.repeat(6).trim()}.`,
     ]) expect(measureFails(bad), bad).toBe(true);
+    // CONTROL (round-3 review): an abbreviation inside one sentence passes; a second sentence opening with an accented capital fails
+    expect(measureFails(`${base.replace(/\.$/, '')} for St. Paul cafés.`)).toBe(false);
+    expect(measureFails(`${base} Écoles pay yearly.`)).toBe(true);
     // CONTROL (gate 7d): the founder's v9 Segments point (founder-v10.md) fails the measure
     expect(measureFails('Change leads at organizations of about 100 to 1,000 people whose teams\' throughput outgrew their coordination process and who have bought process, not a norm, are the customers, not community organizers.')).toBe(true);
     for (const { tag, p } of points) expect(p.length, `${tag}: ${p}`).toBeLessThanOrEqual(MAX_STATEMENT_CHARS);

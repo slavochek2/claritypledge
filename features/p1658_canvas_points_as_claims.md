@@ -166,6 +166,12 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
            - The routing rule's Solution clause scopes to the kind ("as its kind, Solution names what sort of product it is"); "names only" had forbidden the outcome points.
            - Segments' "at least two" qualifiers apply to each point that names the customers, not to Pays:/Uses:/Approves: role points. The Copy prompt's per-point line says "at most" for both limits.
            - Each run records a hash of the two rule files, and the compare table shows empty Solution and Offers counts.
+         - **Third review round** (Gemini, GLM; a freshness check of the second round's fixes). Fixed, each with a control that fails when the fix is reverted:
+           - `solution-offer` ignores a deliverable ruled out after "ahead of" as well as ", not", and a hyphenated word counts as its parts when an offer is compared with the kind.
+           - `falsified-change` leaves "so now it could" alone and catches "and now only sells".
+           - The sentence measure skips an abbreviation's full stop ("St. Paul") and counts a second sentence that opens with an accented capital or a baht sign, in the harness and the tests.
+           - The harness's own controls now run in the test suite (`src/tests/p1658-harness-self-test.test.ts`), not only by hand.
+           - Re-scoring every arm with these changes moved no count and no hit, so the numbers below stand.
          - **Builder's Copy-prompt run** (fresh agent, sources `docs/lean-canvas.md`, `docs/goals.md` and `docs/decisions.md` only): `.private/canvas-rules-test/v10-copy-run1-79861bfa83cc.md`.
            - On the revision-4 measure it scores 0 in every box: no point over 20 words, nothing chained. Solution opens "The product is a chat and call app with an AI mirror for change leads' teams, not facilitated training"; the package sits in Offers & Pricing.
            - Every sampled claim was found in the three sources by grep (0 of 765, fishbowl, the fewer-than-3 falsifier, 100 to 1,000, paid and bounded, the discovery call, weeks late).
