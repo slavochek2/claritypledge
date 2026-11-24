@@ -36,7 +36,7 @@ export function InChatScreen({ rule }: { rule: ShareRule }) {
           const v = vis[p.id] ?? p.visibility;
           return (
             <div key={p.id} className="flex flex-col gap-1">
-              <span className="text-xs text-muted-foreground">{v === 'private' ? 'A private point' : 'A public point'} · {FROM[p.from]}</span>
+              <span className="text-xs text-muted-foreground">{FROM[p.from]}</span>
               <ChatPointCard statement={p.statement} tags={[]} visibility={v} rule={rule} onMakePublic={() => (p.from === 'chat' ? setWarnFor(p.id) : makePublic(p.id))} />
             </div>
           );

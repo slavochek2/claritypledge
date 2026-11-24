@@ -22,10 +22,11 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
   const [created, setCreated] = useState(false);
   const [draft, update] = useDraft(DRAFTS.oneMic);
   const { statement, tags } = allTags(draft);
-  const choose = (v: Variant) => {
-    setVariant(v); setCreated(false); setAgreed(false);
-    update({ visibility: 'private', text: v === 'my-words' ? ONLY_MINE : DRAFTS.oneMic });
+  const fresh = (v: Variant) => {
+    setCreated(false); setAgreed(false);
+    update({ visibility: 'private', tags: [], position: null, text: v === 'my-words' ? ONLY_MINE : DRAFTS.oneMic });
   };
+  const choose = (v: Variant) => { setVariant(v); fresh(v); };
 
   const consent = variant === 'confirm' ? (
     <label className="flex min-h-11 items-start gap-3 text-sm">
@@ -47,7 +48,7 @@ export function OneMicScreen({ rule }: { rule: ShareRule }) {
         onChange={choose}
         options={[{ id: 'confirm', label: 'A. Confirm they agreed' }, { id: 'my-words', label: 'B. Only my words' }, { id: 'trust', label: 'C. Warning only' }]}
       />
-      <ChatFrame title={MIRROR} mirror action={<ClarifyChip onClick={() => setCreated(false)} label="Clarify recording" />}>
+      <ChatFrame title={MIRROR} mirror action={<ClarifyChip onClick={() => fresh(variant)} label="Clarify recording" />}>
         <p className="text-xs text-muted-foreground">Recording on this device · Speaker 1 is {ME}, Speaker 2 is {OTHER}, not on Clarity Pledge</p>
         {ONE_MIC_TALK.map(m => <Bubble key={m.id} msg={m} name={m.who === 'me' ? ME : OTHER} />)}
         {!created ? (

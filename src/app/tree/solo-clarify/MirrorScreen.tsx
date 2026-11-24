@@ -23,9 +23,9 @@ export function MirrorScreen({ rule }: { rule: ShareRule }) {
   const { statement, tags } = allTags(draft);
   // Every Clarify is a fresh draft: the Mirror's text, no tags, private (in B the picker is hidden, so nothing may carry over).
   const fresh = (text: string) => update({ text, tags: [], visibility: 'private', position: null });
-  const start = (m: FakeMessage | null) => { setSource(m); setClarified(true); setCreated(false); fresh(base); };
+  const start = (m: FakeMessage | null) => { setSource(m); setBase(DRAFTS.mirror); setClarified(true); setCreated(false); fresh(DRAFTS.mirror); };
   const another = () => { const next = NEXT[base] ?? DRAFTS.mirror; setBase(next); setCreated(false); setClarified(true); fresh(next); };
-  const reset = () => { setClarified(false); setCreated(false); setSource(null); fresh(base); };
+  const reset = () => { setClarified(false); setCreated(false); setSource(null); setBase(DRAFTS.mirror); fresh(DRAFTS.mirror); };
 
   return (
     <div className="flex flex-col gap-4">

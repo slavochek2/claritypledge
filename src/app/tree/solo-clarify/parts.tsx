@@ -4,7 +4,7 @@
  * visibility icons, the position buttons and the Mirror's face are the product's own; the chat around them is a
  * render-only stand-in (no network, no auth). Toasts are not mounted on /tree, so what a tap would do is said inline.
  */
-import { useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useState, type ReactNode } from 'react';
 import { Check, Globe, Lock, Pencil, Share2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { PointCardShell } from '@/app/components/shared/presentational/point-car
 import { InlineVisibilityIcon, VisibilityBadge } from '@/app/components/shared/visibility-badge';
 import { PositionButtons, type SevenPointCounts } from '@/app/components/shared';
 import { MirrorGlyph, MirrorMark } from '@/app/pages/chat/chat-kit';
-import { cn } from '@/lib/utils';
+import { cn, extractHashtags } from '@/lib/utils';
 import { removeTag, type FakeMessage, type Visibility } from './model';
 import { allTags, type DraftState } from './draft';
 
@@ -129,14 +129,18 @@ export function TagChips({ tags, onRemove }: { tags: string[]; onRemove?: (t: st
   );
 }
 
+/** One tag by the product's rule (P1660): `#two words` gives `two`, and text with no tag in it gives nothing. */
+const tagOf = (raw: string): string | undefined => extractHashtags(`#${raw.trim().replace(/^#+/, '')}`)[0];
+
 function TagInput({ onAdd, hintId }: { onAdd: (t: string) => void; hintId: string }) {
   const [v, setV] = useState('');
+  const pending = tagOf(v);
   const add = () => {
-    const t = v.trim().replace(/^#/, '').toLowerCase();
-    if (t) onAdd(t);
+    if (pending) onAdd(pending);
     setV('');
   };
   return (
+    <div className="flex flex-col gap-1">
     <Input
       value={v}
       onChange={e => setV(e.target.value)}
@@ -146,6 +150,9 @@ function TagInput({ onAdd, hintId }: { onAdd: (t: string) => void; hintId: strin
       aria-describedby={hintId}
       className="h-10 text-base md:text-sm"
     />
+    {/* No blur commit (a chip appearing under the pointer moves the button being clicked), so a typed tag says it is not added yet */}
+    {v.trim() && <span className="text-xs text-muted-foreground">{pending ? `Press Enter to add #${pending}` : 'Not a tag you can add: letters and numbers, not a system tag'}</span>}
+    </div>
   );
 }
 
@@ -162,13 +169,16 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
   actions: ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
+  const [before, setBefore] = useState(draft.text);
+  const startEdit = () => { setBefore(draft.text); setEditing(true); };
+  const cancelEdit = () => { update({ text: before }); setEditing(false); };
   const hintId = useId();
   const { statement, tags } = allTags(draft);
   const pick = (v: Visibility) => (v === 'public' && draft.visibility !== 'public' && onPublicPick ? onPublicPick() : update({ visibility: v }));
   return (
     <div className="flex flex-col gap-2">
       <PointCardShell
-        aria-label={statement ? `Draft point: ${statement}` : 'Draft point, empty'}
+        aria-label={statement.trim() ? `Draft point: ${statement}` : 'Draft point, empty'}
         header={
           <div className="mb-1 flex items-center gap-2">
             <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">Draft</span>
@@ -180,7 +190,10 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
             <Textarea
               autoFocus rows={3} value={draft.text} aria-label="Point text" className="text-base"
               onChange={e => update({ text: e.target.value })}
-              onKeyDown={e => { if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Escape') { e.preventDefault(); setEditing(false); } }}
+              onKeyDown={e => {
+                if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+                else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setEditing(false); }
+              }}
             />
             <Button type="button" variant="outline" className="h-11 min-h-11 self-end" onClick={() => setEditing(false)}>Done</Button>
           </div>
@@ -188,7 +201,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
           <p className="min-w-0 flex-1 break-words text-base font-medium text-foreground">{statement}</p>
         )}
         corner={!editing && (
-          <Button type="button" variant="ghost" className={cn(QUIET, 'w-11 px-0')} aria-label="Edit" onClick={() => setEditing(true)}><Pencil aria-hidden /></Button>
+          <Button type="button" variant="ghost" className={cn(QUIET, 'w-11 px-0')} aria-label="Edit" onClick={startEdit}><Pencil aria-hidden /></Button>
         )}
         footer={
           <div className="flex flex-col gap-3 px-4 pb-4">
@@ -210,7 +223,7 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
           <PositionButtons userPosition={draft.position} counts={NO_COUNTS} compact narrow onPositionClick={p => update({ position: p })} onClear={() => update({ position: null })} />
         </div>
       </PointCardShell>
-      {statement
+      {editing ? null : statement.trim()
         ? <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>
         : <p className="text-sm text-muted-foreground">Write the point to create it (tags alone are not a point).</p>}
     </div>
@@ -226,16 +239,16 @@ export type ShareRule = 'public-only' | 'people';
 export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic }: {
   statement: string; tags: string[]; visibility: Visibility; rule: ShareRule; onMakePublic?: () => void;
 }) {
-  const [note, setNote] = useState<{ at: string; text: ReactNode } | null>(null);
+  const [said, setSaid] = useState<ReactNode>(null);
   const at = `${visibility}|${rule}`;
-  const said = note?.at === at ? note.text : null;
-  const setSaid = (text: ReactNode) => setNote(text === null ? null : { at, text });
+  const [seen, setSeen] = useState(at);
+  if (seen !== at) { setSeen(at); setSaid(null); }
   const share = () => {
     if (visibility === 'public') { setSaid('Opens the share sheet: copy link, send to a chat, post. Anyone with the link can take a position.'); return; }
     if (rule === 'people') { setSaid('Opens "Share with people": pick who may see it. Only they can see it and take a position; it stays off your profile and the feed.'); return; }
     setSaid(
       <span>Private points are only yours. Make it public to share it.{' '}
-        {onMakePublic && <button type="button" className="inline-flex min-h-11 items-center font-medium text-blue-700 underline underline-offset-4" onClick={() => { setSaid(null); onMakePublic(); }}>Make public</button>}
+        {onMakePublic && <button type="button" className="inline-flex min-h-11 items-center font-medium text-blue-700 underline underline-offset-4" onClick={onMakePublic}>Make public</button>}
       </span>,
     );
   };
@@ -253,7 +266,7 @@ export function ChatPointCard({ statement, tags, visibility, rule, onMakePublic 
           </div>
         }
       >
-        <div className="pt-2"><TagChips tags={tags} /></div>
+        {tags.length > 0 ? <div className="pt-2"><TagChips tags={tags} /></div> : null}
       </PointCardShell>
       {said && <Said>{said}</Said>}
     </div>
@@ -268,6 +281,11 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
   onConfirm: () => void; onClose: () => void;
 }) {
   const [said, setSaid] = useState<string | null>(null);
+  // The screens unmount this dialog rather than closing it, so Radix never hands focus back: return it to what opened it.
+  const [opener] = useState(() => (document.activeElement instanceof HTMLElement ? document.activeElement : null));
+  useEffect(() => () => { setTimeout(() => { if (opener?.isConnected) opener.focus(); }, 0); }, [opener]);
+  const [seen, setSeen] = useState(blocked);
+  if (seen !== blocked) { setSeen(blocked); setSaid(null); }
   const confirm = () => {
     if (blocked) { setSaid(blocked); return; }
     onConfirm(); onClose();
@@ -284,8 +302,9 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
         </DialogHeader>
         {extra}
         {said && blocked && <p role="alert" className="text-sm text-red-800">{said}</p>}
-        <DialogFooter className="flex-row flex-wrap justify-end gap-2">
-          <Button type="button" variant="outline" className="h-11 min-h-11" onClick={onClose}>Keep private</Button>
+        {/* Design-system rule 7: main action filled, the other ghost; phone stacked with the main one on top */}
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="ghost" className="h-11 min-h-11" onClick={onClose}>Keep private</Button>
           <Button type="button" aria-disabled={!!blocked} className={cn('h-11 min-h-11', blocked && 'opacity-50')} onClick={confirm}>Make public</Button>
         </DialogFooter>
       </DialogContent>
@@ -293,7 +312,6 @@ export function MakePublicDialog({ source, extra, blocked, onConfirm, onClose }:
   );
 }
 
-/** A two-way switch between the variants a screen compares. */
 /** The prototype's own switch between variants (not product UI). */
 export function VariantSwitch<T extends string>({ label = 'Variant', value, options, onChange }: { label?: string; value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
   return <Choice<T> label={label} value={value} options={options} onChange={onChange} />;
