@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-23
+Last updated: 2026-11-25
 
 ---
 
@@ -468,6 +468,7 @@ Last updated: 2026-11-23
 
 ## Infrastructure / Process
 
+- **P1723** (Nov 25) /day resolves parked workspaces — a hold ends by recomputed proof (landed/archived) or the founder's answer, never by its age; a founder hold is asked about after 7 days. A fix to tidy's shared freshness scan changed tidy's verdicts and was reverted: change the caller, not the shared predicate. Running the suite against main's copy caught "does not contain X" checks passing on an empty line
 - **P1694** (Nov 17) Ship records a commit as landed without applying it — "empty" is read from git's state (paused pick, nothing unmerged, index equals HEAD), never from words in git's output; a resume checks untracked and ignored files and runs even while the spec is unmerged; landed through commit-to-main because a branch editing git-ops.sh cannot ship itself
 - **P1693** (Nov 16) Function test and type repairs — a cherry-pick ship ran no pre-commit hook, so its tests were re-run on main afterwards (584 of 584)
 - **P1690** (Nov 16) Two deploy scripts report success, or fail, for the wrong reason — a parse loop that kept only the last function name; every name now passes the bare-name and folder checks before the prod token is asked for
