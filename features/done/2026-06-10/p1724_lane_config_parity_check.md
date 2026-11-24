@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 355
 workstream: infrastructure
 created_date: '2026-11-24'
 tags: [test-server, self-hosted, lanes, drift]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: d57f000cc8648b52ee302b96b79dbcae9ab3f037c637f1ea15abd8d8d9ee3ff4
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-24
 ---
 
 # P1724: TEST lanes refuse to go live when their sign-in or mail settings differ from the main TEST server
@@ -299,9 +299,9 @@ do not change. A lane the new gate already quarantined is lifted again with `lan
 
 ## Related
 
-- [P1672](done/2026-06-10/p1672_isolated_test_environments_for_concurrent_branches.md): lanes, the
+- [P1672](p1672_isolated_test_environments_for_concurrent_branches.md): lanes, the
   outbound check, deny-by-default function env.
-- [P1679](p1679_p1672_stage2_second_lane_clean_baseline_main_lane_protection.md): stage 2, enabling
+- [P1679](../../p1679_p1672_stage2_second_lane_clean_baseline_main_lane_protection.md): stage 2, enabling
   lane2. Its first claim is the first end-to-end run of this gate.
-- [P1557](done/2026-06-10/p1557_self_hosted_supabase_test_database.md): the main TEST server's mail
+- [P1557](p1557_self_hosted_supabase_test_database.md): the main TEST server's mail
   sink, relay and templates.
