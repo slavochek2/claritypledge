@@ -536,7 +536,8 @@ describe('S2 box guidance', () => {
     const CLAUSE = /\b(?:who|whose|which|where|while|but|if|unless|even when)\b/gi;
     const SENTENCE_BREAK = /(?:(?<!\b(?:vs|ca|St|Ltd|Inc|Co|Dr|Mr|Mrs|Ms|Jr|Sr|No|approx))\.|[!?])["”')\]]*\s+(?=["“A-Z0-9€$£฿¥₹À-ÖØ-Þ])/; // one sentence per point (the harness's SENTENCE_BREAK_RE); an abbreviation's full stop is no break
     // round-4 review: the three copies above are the harness's own regexes, so the gate and the A/B numbers measure the same thing
-    expect([CONTRAST.source, CLAUSE.source, SENTENCE_BREAK.source]).toEqual([HARNESS_CONTRAST_RE.source, HARNESS_CLAUSE_RE.source, HARNESS_SENTENCE_BREAK_RE.source]);
+    const shapeOf = (r: RegExp) => `${r.source}/${r.flags.replace('g', '')}`; // pattern and flags; "g" differs only by how each side calls it
+    expect([CONTRAST, CLAUSE, SENTENCE_BREAK].map(shapeOf)).toEqual([HARNESS_CONTRAST_RE, HARNESS_CLAUSE_RE, HARNESS_SENTENCE_BREAK_RE].map(shapeOf));
     const measureFails = (p: string) => p.split(/\s+/).filter(Boolean).length > MAX_POINT_WORDS || /;|\bthen\b/i.test(p) || (p.match(CONTRAST) ?? []).length > 1 || (p.match(CLAUSE) ?? []).length > 1 || SENTENCE_BREAK.test(p);
     for (const { tag, p } of points) expect(measureFails(p), `${tag}: ${p}`).toBe(false);
     // CONTROL (gate 7d): a real good example, mutated once per branch of the measure, fails it, so no branch is carried by another
