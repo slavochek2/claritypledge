@@ -252,7 +252,7 @@ o7="$( cd "$R" && HOLD_DUE_DAYS=08 "$GO" holds 2>&1 )"; rc7=$?
 # Under the old check 08 was accepted, and inside 'if (( ))' bash's octal error made every hold
 # read not due, silently; w65 is 8 days old, so it reads due only with the 7-day fallback.
 { [[ $rc7 -eq 0 && "$(col "$(row "$o7" w65)" 13)" == yes ]] && ! grep -q 'value too great' <<<"$o7"; } \
-  && pass "7e: HOLD_DUE_DAYS=08 falls back to 7 days (an 8-day hold still reads due, no octal error)" || fail "7e: rc $rc7: $(row "$o7" w65) / $(grep 'value too great' <<<"$o7" | head -1)"
+  && pass "7e: HOLD_DUE_DAYS=08 falls back to 7 days (an 8-day hold still reads due, no octal error)" || fail "7e: rc $rc7: $(row "$o7" w65) / $(grep -m1 'value too great' <<<"$o7")"
 o7="$( cd "$R" && CP_NOW_EPOCH=0999999999 "$GO" holds 2>&1 )"; rc7=$?
 { [[ $rc7 -eq 0 ]] && [[ -n "$(row "$o7" w40)" ]]; } && pass "7f: CP_NOW_EPOCH=0999999999 falls back to the clock, holds exits 0" || fail "7f: rc $rc7: $o7"
 
