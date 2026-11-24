@@ -21,6 +21,8 @@
 #                - is an ancestor of <head>.
 #   exit 1 otherwise. That includes no branch, and a branch with no pN commit of its own: one just created from main
 #   or from this branch is an ancestor of everything, so it would otherwise count as stacked.
+#   Branches are read and resolved by their full refs/heads/ name (round 19, Opus L2): a tag or remote ref spelled
+#   like a pN branch would otherwise shorten it to heads/... (dropping it from the list) or be resolved in its place.
 #   Not covered (round 17, Opus L1): pN work held only on a detached HEAD in another worktree, next to a stale pN branch
 #   that is contained. A branch made at pN's real work (the second parent of a merge) is that work, like a stale pN
 #   branch, and passes.
@@ -31,13 +33,13 @@ canary_base_contained() {
     while IFS= read -r b; do
         [ -n "$b" ] || continue
         found=1
-        [ "$(git rev-list --parents -n1 "$b" 2>/dev/null | wc -w | tr -d ' ')" = 2 ] || return 1
-        grep -qiE "$token" <<< "$(git log -1 --format=%s "$b" 2>/dev/null)" || return 1
+        [ "$(git rev-list --parents -n1 "refs/heads/$b" 2>/dev/null | wc -w | tr -d ' ')" = 2 ] || return 1
+        grep -qiE "$token" <<< "$(git log -1 --format=%s "refs/heads/$b" 2>/dev/null)" || return 1
         for base in "$main" "origin/$main"; do
             [ "$base" = "$main" ] || git rev-parse --verify -q "refs/remotes/$base" >/dev/null || continue
-            [ "$(git rev-list --count -i -E --grep="$token" "$base..$b" 2>/dev/null || echo 0)" -gt 0 ] || return 1
+            [ "$(git rev-list --count -i -E --grep="$token" "$base..refs/heads/$b" 2>/dev/null || echo 0)" -gt 0 ] || return 1
         done
-        git merge-base --is-ancestor "$b" "$head" 2>/dev/null || return 1
-    done < <(git for-each-ref --format='%(refname:short)' refs/heads/ | grep -iE "^(feature|feat|fix)/${pnum}([-_/].*)?\$")
+        git merge-base --is-ancestor "refs/heads/$b" "$head" 2>/dev/null || return 1
+    done < <(git for-each-ref --format='%(refname:lstrip=2)' refs/heads/ | grep -iE "^(feature|feat|fix)/${pnum}([-_/].*)?\$")
     [ "$found" -eq 1 ]
 }

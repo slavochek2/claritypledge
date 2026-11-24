@@ -5,7 +5,7 @@
 # because only such commits count (Opus M2); cases 9-12 are new, and 13-15 run the real guard block from
 # pre-commit-checks.sh under /bin/bash with set -e (Opus M1). Round 18: cases 16-19 (a branch's tip must be pN's
 # own non-merge commit, any letter case or nesting of the branch name) and 20-22 (the guard still blocks an
-# unrelated canary with the library loaded, and a broken library ends nothing).
+# unrelated canary with the library loaded, and a broken library ends nothing). Round 19: case 23 (same-named tags).
 set -uo pipefail
 # Round 18 (Codex 4): a git hook exports GIT_DIR and GIT_INDEX_FILE, and they override the fixture's own repository.
 for v in $(git rev-parse --local-env-vars 2>/dev/null); do unset "$v"; done
@@ -143,6 +143,18 @@ canary_base_contained p100; check "uppercase branch outside: blocked" 1 $?
 git branch -D -q feature/P100-active; git checkout -q -b feature/p100-a/b feature/p100-old
 commit_on feature/p100-a/b "feat(p100): newer"; git checkout -q feature/p200-top
 canary_base_contained p100; check "nested branch outside: blocked" 1 $?
+done_with
+
+# 23. Round 19 (Opus L2): a tag spelled like the active p100 branch must not hide that branch (it lies outside, so
+#     blocked), and a tag spelled like the contained branch but pointing elsewhere must not be resolved in its place.
+fresh; git checkout -q -b feature/p100-old; commit_on feature/p100-old "feat(p100): one"
+git checkout -q -b feature/p200-top; commit_on feature/p200-top "feat(p200): two"
+git checkout -q -b feature/p100-active feature/p100-old; commit_on feature/p100-active "feat(p100): newer"
+git tag feature/p100-active feature/p100-active; git checkout -q feature/p200-top
+canary_base_contained p100; check "tag named like the outside branch: still blocked" 1 $?
+git branch -D -q feature/p100-active; git tag -d feature/p100-active >/dev/null
+git tag feature/p100-old main
+canary_base_contained p100; check "control: tag named like the contained branch: still allowed" 0 $?
 done_with
 
 # 13-15, 20-22. The real guard block, run under /bin/bash with set -e as pre-commit-checks.sh runs it. The block
