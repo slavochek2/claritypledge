@@ -305,13 +305,28 @@ if [ -n "$STAGED_CANARY_TESTS" ]; then
         echo ""
     else
         CANARY_VIOLATION=0
+        # A missing library leaves the function undefined, which reads as "not stacked": the guard blocks. Tested before
+        # sourcing (review round 17, Opus M1): under macOS bash 3.2 and set -e, sourcing a missing, unreadable or broken
+        # file ends this script (round 18, Opus L5). Loaded from next to this script, as run-quiet.sh is, never from the
+        # committing worktree, so a branch cannot bring a looser copy (round 18).
+        CANARY_LIB="$(cd "$(dirname "$_pcc_self")" && pwd -P)/lib/canary-stacked.sh"
+        if [ -r "$CANARY_LIB" ] && bash -n "$CANARY_LIB" 2>/dev/null; then
+            # shellcheck source=scripts/lib/canary-stacked.sh
+            . "$CANARY_LIB"
+        else
+            echo -e "${YELLOW}⚠ scripts/lib/canary-stacked.sh missing or unreadable: the stacked-branch exception is off${NC}"
+        fi
         while IFS= read -r canary_file; do
             file_pnum=$(basename "$canary_file" | grep -oE '^p[0-9]+' | head -1 || echo "")
             if [ -n "$file_pnum" ] && [ "$file_pnum" != "$BRANCH_PNUM" ]; then
                 spec=$(find features -maxdepth 1 -name "${file_pnum}_*.md" 2>/dev/null | head -1)
                 if [ -n "$spec" ]; then
                     spec_status=$(grep "^status:" "$spec" 2>/dev/null | head -1 | awk '{print $2}' || echo "")
-                    if [ "$spec_status" = "in-progress" ]; then
+                    # P1711: a branch stacked on that feature (every commit of its branch already here) changes
+                    # its behaviour on purpose and ships after it (decisions.md 2026-10-21), so the edit is allowed.
+                    if [ "$spec_status" = "in-progress" ] && type canary_base_contained >/dev/null 2>&1 && canary_base_contained "$file_pnum"; then
+                        echo -e "${GREEN}✓ $canary_file: $file_pnum is in progress, and its branch is already inside '$CURRENT_BRANCH' (stacked)${NC}"
+                    elif [ "$spec_status" = "in-progress" ]; then
                         echo -e "${RED}✗ Cross-feature canary edit: $canary_file is $file_pnum (in-progress) but branch is '$CURRENT_BRANCH'${NC}"
                         echo -e "${RED}  Modifying another feature's active canary silently breaks its reproduce/fix gate.${NC}"
                         echo -e "${RED}  Fix: git reset HEAD -- $canary_file${NC}"
@@ -326,6 +341,13 @@ if [ -n "$STAGED_CANARY_TESTS" ]; then
             echo -e "${GREEN}✓ Canary test edits are on their own feature branch${NC}"
         fi
         echo ""
+    fi
+fi
+# P1711 (review round 18, Opus L1): the stacked exception's canary runs whenever the exception or its guard changes.
+if grep -qE '^scripts/(lib/canary-stacked|test-p1711-canary-stacked|pre-commit-checks)\.sh$' <<< "$STAGED_FILES" \
+    && [ -f "scripts/test-p1711-canary-stacked.sh" ]; then
+    if ! run_quiet "Stacked-branch canary exception (P1711)" bash scripts/test-p1711-canary-stacked.sh; then
+        ERRORS=$((ERRORS + 1))
     fi
 fi
 
