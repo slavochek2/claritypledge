@@ -136,6 +136,7 @@ const tagOf = (raw: string): string | undefined => extractHashtags(`#${raw.trim(
 function TagInput({ onAdd, hintId }: { onAdd: (t: string) => void; hintId: string }) {
   const [v, setV] = useState('');
   const pending = tagOf(v);
+  const statusId = useId();
   const add = () => {
     if (pending) onAdd(pending);
     setV('');
@@ -148,11 +149,11 @@ function TagInput({ onAdd, hintId }: { onAdd: (t: string) => void; hintId: strin
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); } }}
       placeholder="Add a tag"
       aria-label="Add a tag"
-      aria-describedby={hintId}
+      aria-describedby={`${hintId} ${statusId}`}
       className="h-10 text-base md:text-sm"
     />
     {/* No blur commit (a chip appearing under the pointer moves the button being clicked), so a typed tag says it is not added yet */}
-    {v.trim() && <span className="text-xs text-muted-foreground">{pending ? `Press Enter to add #${pending}` : 'Not a tag you can add: letters and numbers, not a system tag'}</span>}
+    <span id={statusId} aria-live="polite" className="text-xs text-muted-foreground">{v.trim() ? (pending ? `Press Enter to add #${pending}` : 'Not a tag you can add: letters and numbers, not a system tag') : null}</span>
     </div>
   );
 }
@@ -209,9 +210,9 @@ export function DraftCard({ draft, update, choose, onPublicPick, actions }: {
         )}
         footer={
           <div className="flex flex-col gap-3 px-4 pb-4">
-            <TagChips tags={tags} onRemove={t => update({ tags: draft.tags.filter(x => x !== t), text: removeTag(draft.text, t) })} />
+            <TagChips tags={tags} onRemove={editing ? undefined : t => update({ tags: draft.tags.filter(x => x !== t), text: removeTag(draft.text, t) })} />
             <div className="flex flex-col gap-1">
-              <TagInput hintId={hintId} onAdd={t => update({ tags: Array.from(new Set([...draft.tags, t])) })} />
+              {!editing && <TagInput hintId={hintId} onAdd={t => update({ tags: Array.from(new Set([...draft.tags, t])) })} />}
               <span id={hintId} className="text-xs text-muted-foreground">Or type #tag in the text</span>
             </div>
             {choose && (

@@ -5,6 +5,7 @@
  * whether making it public warns first: from your own Mirror chat it does not, from a chat with someone else it does (screen 2).
  */
 import { useState } from 'react';
+import type { Position } from '@/app/components/shared/prototype-types';
 import { DRAFTS, ME, OTHER, type Visibility } from './model';
 import { ChatFrame, ChatPointCard, MakePublicDialog, Note, type ShareRule } from './parts';
 
@@ -21,6 +22,7 @@ const FROM: Record<From, string> = { mirror: 'From your Mirror chat', chat: `Fro
 export function InChatScreen({ rule }: { rule: ShareRule }) {
   const [vis, setVis] = useState<Record<string, Visibility>>(Object.fromEntries(POINTS.map(p => [p.id, p.visibility])));
   const [warnFor, setWarnFor] = useState<string | null>(null);
+  const [pos, setPos] = useState<Record<string, Position>>({});
   const makePublic = (id: string) => setVis(v => ({ ...v, [id]: 'public' }));
   return (
     <div className="flex flex-col gap-4">
@@ -37,7 +39,7 @@ export function InChatScreen({ rule }: { rule: ShareRule }) {
           return (
             <div key={p.id} className="flex flex-col gap-1">
               <span className="text-xs text-muted-foreground">{FROM[p.from]}</span>
-              <ChatPointCard statement={p.statement} tags={[]} visibility={v} rule={rule} onMakePublic={() => (p.from === 'chat' ? setWarnFor(p.id) : makePublic(p.id))} />
+              <ChatPointCard statement={p.statement} tags={[]} visibility={v} rule={rule} onMakePublic={() => (p.from === 'chat' ? setWarnFor(p.id) : makePublic(p.id))} position={pos[p.id] ?? null} onPosition={x => setPos(s => ({ ...s, [p.id]: x }))} />
             </div>
           );
         })}
