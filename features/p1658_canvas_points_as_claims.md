@@ -7,13 +7,13 @@ created_date: '2026-11-10'
 tags: [clarity-canvas, points, mirror, prompt]
 disclosure: public
 delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+pipeline_ran: [create-spec, dev, dev.2]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 driver: anomaly
-spec_review_hash: 1c05b656679b41986affce1adc9a3c60bcf12cbb92eeaf7c9507d80dcc95f379
-spec_review_vendors: [gemini]
+spec_review_hash: 102a9aaf288d987d67bc77d9fe30233a87d393091d2f783c6b4e727509e58f13
+spec_review_vendors: [gemini, openrouter]
 ---
 
 # P1658: Clarity Canvas points are written as claims people can take a position on
@@ -124,6 +124,26 @@ Blast radius: medium. Every new canvas draft, every next version and the Copy pr
      - **Anchor each standard box on the Lean Canvas's own definition.** The box rules were written from scratch, and the Solution journey shows they can drift from what the box means. For each box that is a standard Lean Canvas box (Customer Segments, Problem, Solution, Go-to-market strategy as Channels, Offers & Pricing as Revenue Streams), the builder cites the Lean Canvas definition (Ash Maurya's, from a primary source read this session, not from memory) and checks the box rule against it; a difference is kept only with a stated reason. The canvas's own boxes (Guiding values, My next milestone, My current biggest challenge, Hypotheses I've falsified) keep their current definitions. The "a point is a claim you can take a side on" rule stays on top of every box.
      - **Stories stay out of this revision (P1720 is built separately, later).** The founder first asked to build both together ("they're connected … do both"), then reversed the same day: "maybe we do only 1658 … if we put stories, maybe it starts leaking private information that we don't want. But I still want to do it, but maybe it's a separate one." Revision 4 changes point wording only.
      - The 1100-word Copy-prompt cap still holds; the new rules are paid for by cuts, each reported.
+     - **Pinned by the spec review (Gemini, GLM, 2026-11-24; 2 of 2 received).** Builder's calls, made from the founder's words and the cited source:
+       - **The measure, one rule for both prompts:** a point is one sentence of at most 20 words (`MAX_POINT_WORDS`). It has no ";", no " then " and at most one contrast (", not <Y>" or "ahead of <Y>"). It holds at most one clause marker (who, whose, which, where, while, but, if, unless, even when). The Copy prompt's "at most 300 characters" becomes the word cap. `MAX_STATEMENT_CHARS` (300) stays as the engine's backstop. The harness reports per box: points, mean and max words, points over 20 words, and chained points (any ";", " then ", a second contrast or a second clause marker). The builder's own run passes with 0 over the cap and 0 chained, after a human reads each hit. The A/B passes when revision 4 lowers both counts against v9 on every pack and keeps at least 80% of v9's kept points. All earlier measure rows (strict leads, pronouns, kept and dropped, the v9 checks) still run.
+       - **Every multi-idea shape splits or loses its second idea.** This supersedes the v8 Problem lead bullet and these v9 shapes:
+         - Problem: "…; they want <B>, but <obstacle>". The lead names the problem and its rival; another point names an existing alternative and what it leaves broken (Lean Canvas, below); B leaves the box. decisions.md 2026-08-06 already calls the A→B→obstacle bundle story material.
+         - Offers & Pricing: the lead's "; <price>". The lead names the offer and its rival; the price is its own point.
+         - My next milestone: "; if missed, <change>". A stated change becomes its own point.
+         - My current biggest challenge: "at <A> and wants <B>; the obstacle is <barrier>". One idea per point.
+         - Hypotheses I've falsified: "; so it <change>". A point is the expectation and the evidence against it; the change is story material.
+         - Guiding values: keeps "X over Y[, even when <cost>]", since "even when" is the one allowed clause marker.
+       - **Solution, as a claim:** the first point is "The product is <kind> for <customer>[, not <other kind>]." <kind> names software, a service or a physical product, plus the specific kind under it ("online group-session software"). It is never a bare category ("a platform"), so GLOBAL_RULES "Specificity" still holds. Up to two more points each say what solving one listed problem looks like for the customer, as one outcome. `ROUTING_RULE` loses "as does a step order inside Solution". Solution's `type`, `definition`, `shape`, `good`, `not`, `gap` and `empty` lose all step wording, as do the harness's v9 checklist and the test pins.
+       - **Where the Copy prompt carries it:** the per-point line ("up to 3 points, each one short sentence …") states the word cap and the no-";" rule. The Solution rule sits in Solution's own definition and shape. Cuts paying for added words are listed in `.private/canvas-rules-test/v10-copy-word-budget.md`.
+       - **Lean Canvas check (source: Ash Maurya, "What is a Lean Canvas?", leanspark.ai/learn/what-is-lean-canvas, read 2026-11-24; text saved at `.private/canvas-rules-test/lean-canvas-source-leanspark-2026-11-24.txt`).** Every quote below was matched verbatim against that text. A reviewer's claims about the book (early adopters defined by triggers, "top 3 features", gross margin in Revenue Streams) are not on the page and were not used.
+
+         | Box (Lean Canvas name) | Maurya, verbatim | Revision 4 rule | Difference, and why kept |
+         |---|---|---|---|
+         | Customer Segments | "A customer is someone who pays for your product. A user does not." · "Your objective is to define an early adopter, not a mainstream customer." | The lead names the first customers ahead of later ones (the early adopters); Pays:/Uses:/Approves: points for roles. | No total-market (TAM) point: a size the owner never stated would break Grounding. |
+         | Problem | "list the specific problems you will tackle" · "prioritize the top 1-3 problems" · existing alternatives: "Document how you think your early adopters currently address these problems today." | Up to 3 points: the ranked problem, another problem, or an existing alternative and what it leaves broken. | Each problem keeps its cost (the founder's "so what?" UAT complaint). B and the obstacle leave the box. |
+         | Solution | "sketch out the simplest thing you could build to address each problem" · "Bind a solution to your problem as late as possible." | "The product is <kind> for <customer>", then what solving one listed problem looks like. | The kind-and-category point is not in Maurya's box. It is the founder's 2026-11-24 decision (2). Maurya's "less than one-ninth of the entire canvas" backs keeping it high level. |
+         | Channels (Go-to-market strategy) | "Failing to build a clear path to customers is among the top reasons startups fail." · "relying on any channels that get you in front of potential customers is OK." | Where and how the business reaches the segment, with no timing. | None. Scalable channels are a later choice and need no rule. |
+         | Revenue Streams (Offers & Pricing) | "Price is part of the product." · "Many startups defer the 'pricing question' to a later stage, but this is a mistake." | What is bought, then its price; the deliverable stays when no price is stated. | The page's Revenue Streams section names no lifetime value or margin, so the box asks for none. |
 2. **Test before shipping**, two ways:
    - The founder presses Copy prompt on a localhost branch build, runs it in his own AI with his own material, and compares the result with his current canvas.
    - The drafting agent runs on two or three real canvases with the old and new rules, side by side.
