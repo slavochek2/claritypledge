@@ -71,6 +71,37 @@ leak, since the target's own successful path can clear the evidence.
 
 ---
 
+## 2026-11-24 [technical]: A TEST lane goes live only when its sign-in and mail match the main lane's; the tripwire compares paths by membership (P1724)
+
+**Context:** On 2026-11-24, lane1 was missing three things the main TEST server has:
+- Google sign-in
+- the founder-only mail relay
+- the production e-mail designs
+
+All three were fixed by hand. The cause is structural. `write_lane_env` and `lane_yml` copy main's config and drop anything they do not list. So every new main-server setting was silently absent from every lane.
+**Decision:** `lanectl` compares the lane with the main lane. It does this at provisioning, lift, a ready-lane deploy (before quarantine), boot and `check`, and refuses on any difference that is not a named override. Each override states the exact value the lane must hold.
+- **What is compared:**
+  - the auth and mail env docker renders
+  - the running containers: env, image, networks and host entries
+  - auth's own `/auth/v1/settings` answer through each gateway
+- **Two derived rules** cover structure:
+  - main's auth and mail reach the internet, so the lane's must sit on its edge network
+  - a service that names the lane host needs a host entry for it
+- **The tripwire.** Every field main's compose files add beyond upstream must be compared or classified one by one. Ports are keyed per target, networks per name, function env per name. A new main setting therefore refuses lifts until someone decides whether lanes need it.
+**Alternatives rejected:**
+- Allowlist-only copying with a periodic manual audit. That is what drifted.
+- Rewriting a live lane's `.env` to resync it. It regenerates secrets and broke auth on 2026-11-24.
+- Comparing only the settings oracle. It cannot see the relay, the templates' reachability or the container networks.
+**Consequences:**
+- **A changed value on main cannot be healed in place on a lane.** The lane is refused or quarantined. Recovery is a lane-specific exception or a reprovision. Only a tripwire hit is a one-line classification.
+- **Gotcha:** a value comparison of flattened paths drops any path whose value renders as null on one side. Compose renders a network joined without options, and `caddy.command`, as null. Compare by membership as well as by value. Found in the second review round; the live lane1 run then surfaced two such paths.
+- **Method:** the candidate's full check was run read-only on the occupied lane against the real main config before install. That run, not the fixtures, found the main paths the fixtures could not model: four mail fields, then the two null Caddy fields.
+- **Proof:** the defects were proved on the spare lane2 from the generated file with each defect's lines removed, containers created and never started, then everything removed.
+- **Falsifier:** a lane that is ready while its sign-in, relay or templates differ from main's.
+**References:** [p1724 spec](../features/p1724_lane_config_parity_check.md) · [lanectl.py](../scripts/selfhosted/lanes/vm/lanectl.py) · 2026-11-15 "TEST lanes ship (P1672 stage 1)"
+
+---
+
 ## 2026-11-24 [product]: The Clarify Mirror does not score whether a decision is high-stakes; pressing Clarify is that judgment
 
 **Context:** Someone presses Clarify in a live room and the Mirror drafts a point from the transcript (P1631). The question was whether the Mirror should also say which high-stakes conditions the decision meets, or score it. The question was explored against the new high-stakes model agreed the same day in the demo-film session and not yet written into the docs: success depends on shared understanding (the heading), five dimensions each scored on a scale (fuzzy intent, delayed feedback, serious damage, irreversible, explanatory divergence; "concentrated consequences" deleted), high-stakes when the scores together pass a threshold, judged with the person whose decision it is. A separate spec will update the docs, skills and prompt to that model.
