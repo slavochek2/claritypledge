@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 354
 workstream: infrastructure
 created_date: '2026-11-24'
 tags: [day, worktrees, holds, tidy]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 66d7f182cf2980cc389268543d76dfbafde96f1b6bb38bde78e08f8b7e2d40d0
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-24
 ---
 
 # P1723: /day resolves parked workspaces: releases holds whose work is finished, asks about the rest
