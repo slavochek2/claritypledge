@@ -18,7 +18,7 @@ vi.mock('@/lib/mixpanel', () => ({ analytics: { track: vi.fn() } }));
 const room = vi.hoisted(() => ({
   access: {} as Record<string, unknown>,
   self: null as Record<string, unknown> | null,
-  refresh: (() => Promise.resolve()) as () => Promise<void>,
+  refresh: (() => Promise.resolve()) as (signal?: AbortSignal) => Promise<void>,
   prepGate: false as boolean | null,
   arrivalGate: false as boolean | null,
   capturing: false,
@@ -50,8 +50,8 @@ vi.mock('@/app/contexts/room-capture-context', () => ({
 }));
 // The mastermind's step bar reads the learning and the canvas; neither is the subject here.
 const prep = vi.hoisted(() => ({ state: { loading: false, error: false, learned: false } }));
-vi.mock('@/app/prototypes/events/prep/use-prep-state', () => ({
-  usePrepState: () => prep.state,
+vi.mock('@/app/prototypes/events/prep/use-learned', () => ({
+  useLearned: () => prep.state,
 }));
 const canvas = vi.hoisted(() => ({ shared: false, asked: [] as boolean[] }));
 vi.mock('@/app/prototypes/events/rounds/canvas-setup', async (importOriginal) => ({
@@ -436,6 +436,80 @@ describe('a stalled connection never strands the person', () => {
     vi.useRealTimers();
     await expectOnMeet();
     expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
+  });
+
+  // Review round 8 (Codex), rule 3: the re-read is told when the screen stops waiting, so its join fallback never
+  // starts afterwards — once it answers, and once the budget runs out on a re-read that never answers.
+  it('the re-read after a save carries a signal, aborted once the screen stops waiting', async () => {
+    vi.mocked(setRoomReadiness).mockResolvedValue({} as never);
+    const signals: (AbortSignal | undefined)[] = [];
+    room.refresh = vi.fn((signal?: AbortSignal) => { signals.push(signal); return Promise.resolve(); }) as typeof room.refresh;
+    setRoom(mastermind);
+    await mountReady('mm');
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await expectOnMeet();
+    expect(signals).toHaveLength(1);
+    expect(signals[0]).toBeInstanceOf(AbortSignal);
+    expect(signals[0]?.aborted).toBe(true);
+  });
+
+  it('a re-read that never answers is aborted when the save budget runs out', async () => {
+    vi.mocked(setRoomReadiness).mockResolvedValue({} as never);
+    const signals: (AbortSignal | undefined)[] = [];
+    room.refresh = vi.fn((signal?: AbortSignal) => { signals.push(signal); return new Promise<void>(() => {}); }) as typeof room.refresh;
+    setRoom(mastermind);
+    await mountReady('mm');
+    vi.useFakeTimers();
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(signals[0]?.aborted).toBe(false);
+    await act(async () => { await vi.advanceTimersByTimeAsync(READY_SAVE_MS + 10); });
+    vi.useRealTimers();
+    await expectOnMeet();
+    expect(signals[0]?.aborted).toBe(true);
+  });
+
+  // Review round 8 (Codex): a stored answer read late never moves a slider the person has moved, nor the value a save sent.
+  it('a stored answer that arrives after the person moved the slider leaves their value, and Continue saves it', async () => {
+    vi.mocked(setRoomReadiness).mockResolvedValue({} as never);
+    setRoom(mastermind);
+    const view = mountReadyNoWait('mm');
+    await screen.findByTestId('room-ready');
+    moveSlider();
+    expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('6');
+    setRoom(mastermind, { ...selfA, readinessValue: 8 });
+    view.rerender();
+    expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('6');
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await expectOnMeet();
+    expect(setRoomReadiness).toHaveBeenCalledWith('member-a', 6);
+  });
+
+  it('a stored answer that arrives before the person touches the slider still fills it', async () => {
+    setRoom(mastermind);
+    const view = mountReadyNoWait('mm');
+    await screen.findByTestId('room-ready');
+    setRoom(mastermind, { ...selfA, readinessValue: 8 });
+    view.rerender();
+    expect(screen.getByRole('slider').getAttribute('aria-valuenow')).toBe('8');
+  });
+
+  // Review round 8 (Gemini), metered-services rule 3: a tab hidden while the save ran does not re-read the room row.
+  it.each([['hidden', 0], ['visible', 1]] as const)('a save that lands on a %s tab re-reads the room row %i times, and lets them in with no skip', async (state, reads) => {
+    vi.mocked(setRoomReadiness).mockResolvedValue({} as never);
+    const refreshed = vi.fn(() => Promise.resolve());
+    room.refresh = refreshed;
+    setRoom(mastermind);
+    await mountReady('mm');
+    const vis = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(state);
+    moveSlider();
+    fireEvent.click(screen.getByTestId('room-ready-continue'));
+    await expectOnMeet();
+    expect(refreshed).toHaveBeenCalledTimes(reads);
+    expect(readySkipped('profile-a', 'ev-mm')).toBe(false);
+    vis.mockRestore();
   });
 
   it('a slow save inside the budget whose re-read fails lets them in at once, with no skip (review round 5)', async () => {

@@ -112,7 +112,7 @@ export function RoomSteps({
   // P1430 (founder walkthrough 9): done steps carry a check and a muted label, the step on screen
   // is bold with a thicker bar, steps ahead are grey. A step that cannot open says so (aria-disabled)
   // and looks it. Every label stays on phones (founder solo test 2026-11-02); the five-step bar takes a 10px face below
-  // 375px, and a labelled bar of five or more columns hides its ticks below 768px (P1718).
+  // 430px, and a labelled bar of five or more columns hides its ticks below 768px (P1718).
   return (
     <nav aria-label="Your evening" className={className} data-testid="room-steps" data-current={current}>
       <ol className={cn('grid gap-1', labels && 'border-b border-border')} style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
@@ -194,9 +194,9 @@ export function RoomSteps({
                     // Round 6e: at 320 a tick + "Give feedback" fits its cell — a hairline gap and tighter tracking.
                     labels && 'max-[359px]:gap-px max-[359px]:tracking-tighter',
                     // Founder, solo test 2026-11-02: tab names stay visible on phones. The five-step bar's labels get a
-                    // smaller, tighter face below 375px so all five fit beside the Back at 320px and at 360px. (P1718 e2e:
-                    // at 360 the 11px face ran "Compare" into "Feedback" and past the bar beside the worded "← Event".)
-                    !labels && 'max-[374px]:text-[10px] max-[374px]:tracking-tighter',
+                    // smaller, tighter face below 430px, as the six-step bar's (smallFace). (P1718 e2e: at 360 the 11px face ran
+                    // "Compare" into "Feedback"; visual QA round 8: at 375 they stood 5px apart and read as one label.)
+                    !labels && 'max-[429px]:text-[10px] max-[429px]:tracking-tighter',
                     smallFace,
                   )}
                   data-testid={`room-step-${key}-text`}

@@ -19,7 +19,7 @@ import { RoomSteps, type RoomStep } from '../rounds/RoomSteps';
 import { hiddenRoomSteps } from '../rounds/hidden-room-steps';
 import { eventCanvasTiming, useMyCanvasShared } from '../rounds/canvas-setup';
 import { feedbackOpenAnytime, recipeForEvent } from '../series-recipes';
-import { usePrepState } from '../prep/use-prep-state';
+import { useLearned } from '../prep/use-learned';
 import { rememberReadySkipped } from './ready-skip-memory';
 
 export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone, leaving }: {
@@ -36,7 +36,8 @@ export function ReadyStepBar({ event, slug, fromEvent, viewerId, readyDone, leav
   const navigate = useNavigate();
   const recipe = recipeForEvent(event);
   const learnLabel = recipe.room.steps?.learn;
-  const learnState = usePrepState(learnLabel && event ? event : null, viewerId ?? undefined);
+  // Review round 8: only the two reads the Learn tick needs, not the preparation page's plan (use-learned.ts).
+  const learnState = useLearned(learnLabel && event ? event : null, viewerId ?? undefined);
   const withCanvas = !!event && !!recipe.mastermind && eventCanvasTiming(event) === 'at_event';
   const [canvasShared] = useMyCanvasShared(event?.id, withCanvas, null);
   const toMeet = (search: string) => {

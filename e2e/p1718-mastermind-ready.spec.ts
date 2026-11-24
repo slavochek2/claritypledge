@@ -236,6 +236,35 @@ test('a person seated in the round running now is forwarded from /ready to the r
   }
 });
 
+// Review round 8 (Codex): the negative half of R8 against the real query. A seat in a round that has ended, while
+// another round runs without this person, is not a seat now: Ready shows. Without the query's ended_at filter this fails.
+test('a person seated only in a finished round, while another round runs, stays on Ready (R8)', async ({ page }) => {
+  const h = await registered('Hal P1718finished', MM);
+  await enterRoom(page, h, MM);
+  await expect(page.getByTestId('room-ready')).toBeVisible();
+  const { data: member, error: me } = await supabaseAdmin.from('event_room_members').select('id')
+    .eq('event_id', MM.id).eq('profile_id', h.user.user.id).single();
+  if (me) throw new Error(`room member: ${me.message}`);
+  const { data: rounds, error: re } = await supabaseAdmin.from('event_rounds').insert([
+    { event_id: MM.id, round_no: 1, group_size: 2, ended_at: new Date(Date.now() - 60_000).toISOString() },
+    { event_id: MM.id, round_no: 2, group_size: 2 },
+  ]).select('id, round_no');
+  if (re || !rounds) throw new Error(`rounds: ${re?.message}`);
+  const finished = rounds.find((r) => r.round_no === 1)!;
+  try {
+    const { error: se } = await supabaseAdmin.from('event_round_seats')
+      .insert({ round_id: finished.id, room_member_id: member.id, table_no: 1, role: 'first' });
+    if (se) throw new Error(`seat: ${se.message}`);
+    await page.goto(`/events/${MM.slug}/ready`);
+    await expect(page.getByTestId('room-ready')).toBeVisible({ timeout: 60_000 });
+    // Held for longer than the seat read's 4s budget, so a late forward would show.
+    await page.waitForTimeout(6_000);
+    await expect(page).toHaveURL(new RegExp(`/events/${MM.slug}/ready$`));
+  } finally {
+    await supabaseAdmin.from('event_rounds').delete().in('id', rounds.map((r) => r.id));
+  }
+});
+
 test('Canvas made at the event: /ready shows the Canvas step and still no Compare', async ({ page }) => {
   const e = await registered('Ed P1718canvas', MMC);
   await enterRoom(page, e, MMC);

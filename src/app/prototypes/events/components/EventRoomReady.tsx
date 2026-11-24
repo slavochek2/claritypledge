@@ -76,8 +76,12 @@ export function EventRoomReady() {
 
   const [value, setValue] = useState(MIDPOINT_VALUE);
   const [touched, setTouched] = useState(false);
+  // Review round 8 (Codex): a stored answer fills the slider only until the person moves it or leaves. A room-row read
+  // that lands later (slow wifi, a cached row first) never moves the thumb under their finger, nor away from the value
+  // a running save sent.
+  const pinned = useRef(false);
   useEffect(() => {
-    if (self?.readinessValue != null) {
+    if (self?.readinessValue != null && !pinned.current) {
       setValue(self.readinessValue);
       setTouched(true);
     }
@@ -100,6 +104,7 @@ export function EventRoomReady() {
   // Review round 4: once they are leaving, the slider holds still, so it never shows an answer that was not sent.
   const handleChange = useCallback((next: number) => {
     if (leaving.current) return;
+    pinned.current = true;
     setValue(next);
     setTouched(true);
   }, []);
@@ -131,6 +136,7 @@ export function EventRoomReady() {
     }
     if (leaving.current) return;
     leaving.current = true;
+    pinned.current = true;
     if (self) {
       setSaving(true);
       // One budget for the save and the re-read together, so Continue never holds the person past READY_SAVE_MS.
@@ -154,7 +160,13 @@ export function EventRoomReady() {
       const left = deadline - Date.now();
       // Review round 7 (metered-services rule 3): no re-read from a tab hidden while the save ran; /meet reads the row
       // again when it is shown.
-      if (saved && left > 0 && document.visibilityState !== 'hidden') await settleWithin(refresh(), left).catch(() => {});
+      // Review round 8 (Codex): the re-read is told when this screen stops waiting, so its fallback (the room join after
+      // a status read with no row) never starts once the budget is spent or the tab is hidden (EventRoomAccess.tsx `load`).
+      if (saved && left > 0 && document.visibilityState !== 'hidden') {
+        const stop = new AbortController();
+        await settleWithin(refresh(stop.signal), left).catch(() => {});
+        stop.abort();
+      }
       if (!mounted.current) return;
     }
     goToMeet();
