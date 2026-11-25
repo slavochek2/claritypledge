@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-25 [process]: GitHub's own secret scan refuses vendor-shaped fixtures that carry no marker, so an unpushed range is rewritten to build them at run time (P1724, P1726)
+
+**Context:** The first `/push` after P1726 shipped stopped at the staging push with `GH013` (push protection). A P1724 test file held two synthetic strings shaped like a Google OAuth client secret and client id, in six unpushed commits. P1726 had decided the same day that vendor-shaped fixtures are built at run time, but P1724 was built before that rule and nothing local checks GitHub's shapes, so the first check to see them was the server's. They were fixtures, not credentials; the server cannot tell.
+**Decision:** Rewrite the 42 unpushed commits (`filter-branch --tree-filter`, one script, in an isolated temp worktree) so both values are concatenations of two literals in every commit. Only that test file differs from the old tip (3 lines); messages, authors and dates are unchanged; the test suite still passes (115 of 115). `main` was moved to the new tip with `reset --keep` after confirming HEAD had not moved, so other sessions' uncommitted files were untouched. Opus reviewed the rewrite; the Gemini lane was refused by the review wrapper's scan because the diff's removed lines hold the old literals (never edited to get past it), so that lens was not covered.
+**Alternatives rejected:** GitHub's one-click allow links (an irreversible override of a server gate, and it leaves the literals in public history); holding the push (the unpushed commits stay blocked until someone acts); marking the lines with `gitleaks:allow` (P1726: a marker never exempts a vendor-shaped value, and GitHub does not read it).
+**Consequences:** Two local branches still hold the OLD commits: `feature/p1711-calls-in-chats` (44 own commits, merge point `5d0e7af57`) and `feature/p1728-changes-same` (6 own commits, merge point `24b2772b7`). Their sessions are live or holding uncommitted work, so they were not touched. At `/ship`, each would cherry-pick the old range again and re-add the literals, which GitHub refuses. Before shipping either, run in its worktree `git rebase --onto main <merge point> <branch>`, then confirm `git log main..<branch>` lists only the branch's own commits. The privacy stamp written before the rewrite no longer matches, so `/push` re-stamps. Generalisation (UNTESTED, one occurrence): a fixture shaped like a vendor token needs no marker and no commit to reach a review, it needs to not exist as a literal; the check that would have caught it before the push is a local scan for GitHub's shapes, not yet built. Falsifier: a second vendor-shaped fixture reaches a push after P1726 and is refused again.
+**References:** [p1726](../features/done/2026-06-10/p1726_credential_scan_false_positives_review_wrappers.md) · [p1724](../features/done/2026-06-10/p1724_lane_config_parity_check.md) · 2026-11-25 "Secret-shaped test fixtures reach every reviewer…"
+
 ## 2026-11-25 [process]: /day ends a parked workspace's hold by proof or by the founder's answer, and asks about a founder hold after 7 days (P1723)
 
 **Context:** 23 worktree slots were open while far fewer sessions ran; most were held by sessions that had ended. A founder-owned hold never expires (P1519), and only `hold --clear` ended one (P1705 teardown), so nothing ever asked about them. Founder: "those that are not running in separate neighbouring sessions will never be dealt with? if so why not? should it not be part of /day?"
@@ -115,7 +123,7 @@ All three were fixed by hand. The cause is structural. `write_lane_env` and `lan
 - **Method:** the candidate's full check was run read-only on the occupied lane against the real main config before install. That run, not the fixtures, found the main paths the fixtures could not model: four mail fields, then the two null Caddy fields.
 - **Proof:** the defects were proved on the spare lane2 from the generated file with each defect's lines removed, containers created and never started, then everything removed.
 - **Falsifier:** a lane that is ready while its sign-in, relay or templates differ from main's.
-**References:** [p1724 spec](../features/done/2026-06-10/p1724_lane_config_parity_check.md) · [lanectl.py](../scripts/selfhosted/lanes/vm/lanectl.py) · 2026-11-15 "TEST lanes ship (P1672 stage 1)"
+**References:** [p1724 spec](../features/done/2026-06-10/p1724_lane_config_parity_check.md) · [lanectl.py](../scripts/selfhosted/lanes/vm/lanectl.py) · the hand fixes in Context: af3868662 (sign-in, mail relay), 36642d3d0 (e-mail designs) · 2026-11-15 "TEST lanes ship (P1672 stage 1)"
 
 ---
 
