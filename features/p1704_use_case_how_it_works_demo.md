@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 347
 workstream: landing
@@ -82,15 +82,15 @@ Blast radius: six public landing pages and one shared section; no data, auth or 
 
 ## Acceptance Criteria
 
-- [x] On /builders, /change-managers, /hiring, /founder, /hospitals and /coach, a "How it works" section (anchor `#how-it-works`) sits immediately before the Group Terms section, with a heading, a 16:9 video frame and 3-4 numbered steps.
-- [x] With the demo constant unset, the frame shows the placeholder, with no play button. Setting it to a bucket file shows a click-to-play poster on all six pages, and a failed load after Play shows the error frame, not a black box.
-- [ ] On those six pages the founder section shows the founder's photo where the clip was, square and no wider than 360px, with the same credibility text and the founder's chosen link (or none); no founder clip plays anywhere.
+- [x] On /builders, /change-managers, /hiring, /founder, /hospitals and /coach, a "How it works" section (anchor `#how-it-works`) sits right after the hero's stat band (/coach: right after the hero), unnumbered, with a heading, a 16:9 video frame where the page has a film, and 3-5 numbered steps. *(Amended 2026-11-25 per founder: placement moved up from before the Group Terms; five steps from the film.)*
+- [x] A page with no film (DEMO_BY_PAGE null, today /hospitals) shows the heading and steps only, with no frame, no play button and no events; a page with a film shows a click-to-play poster, and a failed load after Play shows the error frame (announced as an alert), not a black box. *(Amended 2026-11-25 per founder: per-page films; no placeholder frame.)*
+- [x] On those six pages the founder section shows the founder's photo where the clip was, square and no wider than 360px (260px desktop, 240px phone, per founder 2026-11-25), with the same credibility text and the founder's chosen link (or none); no founder clip plays anywhere.
 - [x] Each of the six pages renders at most one video player (exactly one with the constant set).
 - [x] /communities renders exactly as before (no new section, no founder section).
 - [x] On each of the six pages (one test per page, analytics spied): playing the demo sends `demo_video_play` with that page's location once, the frame coming on screen sends `demo_video_seen` with that location once, and with the placeholder shown neither fires.
 - [x] `manifesto_film_seen` fires once when the film comes on screen, with `location` `manifesto` on /manifesto and `prepare_end` on the /prepare end screen; `manifesto_film_play` still fires as before.
-- [ ] Screenshots at 375, 320 and desktop of /change-managers, /hospitals (value section before the new one) and /coach (unmuted exchange before it), plus desktop of /builders, /hiring and /founder, pass the visual QA checklist, reviewed by a separate agent; the founder photo is checked at the same widths.
-- [ ] No `[FOUNDER DECISION` text appears in the production build: heading, steps, placeholder, error line and link are the founder's wording before `/ship` (verified by a grep of `dist/` after `npm run build`).
+- [x] Screenshots at 375, 320 and desktop of /change-managers, /hospitals and /coach, plus desktop of /builders, /hiring and /founder, pass the visual QA checklist, reviewed by a separate agent; the founder photo is checked at the same widths. *(36 shots, 2026-11-25: no overflow at 320/375; the one major finding (sticky header over an anchor jump) fixed with a 96px scroll margin and verified in Chrome (section top 96px below an 81px header); in-section orphans fixed with text-pretty. Pre-existing minors outside this change left: the primary button label wraps at 320px, founder eyebrow/subhead orphans.)*
+- [x] No `[FOUNDER DECISION` text appears in the production build: heading, steps, error line and link are the founder's wording before `/ship` (verified: `npm run build` exit 0, then `grep -l "FOUNDER DECISION" dist/assets/*.js` matched no file; the remaining dist hits are source maps and older /presi pages outside this change).
 
 ## UX Notes
 
@@ -109,14 +109,14 @@ Blast radius: six public landing pages and one shared section; no data, auth or 
 - Play-button label (screen readers): "Play the product demo"
 - Poster alt text: describes the chosen poster frame; written when the poster is chosen.
 - Photo alt text: "Vyacheslav Ladischenski, founder of Clarity Pledge"
-- Photo: square, rounded, cropped from the top, max 320px wide on phones, 360px on desktop.
+- Photo: square, rounded, cropped from the top, 240px max on phones, 260px on desktop with the text beside it (founder, 2026-11-25).
 - Events: `demo_video_seen` / `demo_video_play` `{ location }`; `manifesto_film_seen` `{ location }`.
 - Colours: blue for step numbers and accents (design system; no green, amber, purple).
 
 ## Pre-deploy Checklist
 
 - [x] Upload the 640×640 founder photo to `gs://claritypledge-story-images/founder/founder-photo-640-v1.jpg` (founder approves the upload) and confirm its public URL returns 200 with `image/jpeg`.
-- [ ] If the demo is ready: upload it and its poster under `demo/`, set the constant, confirm both URLs return 200 with `video/mp4` and `image/jpeg`.
+- [x] If the demo is ready: upload it and its poster under `demo/`, set the constant, confirm both URLs return 200 with `video/mp4` and `image/jpeg`. *(v4.8 full cut and poster uploaded 2026-11-25: 200, `video/mp4` 31,188,525 bytes; 200, `image/jpeg` 47,122 bytes.)*
 
 ## Cost Budget
 
@@ -163,3 +163,4 @@ The demo is served from the GCS media bucket (registry row "Google Cloud Storage
 - Founder: the 0-10 gap exchange duplicated the film; removed on /builders, /change-managers, /hiring, /coach, /founder, kept on /hospitals (no film) and /communities. Their `*_exchange_viewed` events stop; dead casts deleted. `/coach#how` kept as an alias inside the demo section. Founder photo smaller (260px) with the text beside it.
 - Set aside (pre-existing, site-wide): in-app navigation to any `#anchor` scrolls to the top (scroll manager); a fresh load honours the fragment.
 - Founder: the hero's "or Take the Pledge" becomes "or ▶ Watch the product demo" on the five film pages (/hospitals keeps the pledge; closing sections unchanged). The link sends `demo_link_clicked {location}`, scrolls to the film, presses Play (inside the click, so sound is allowed; verified in Chrome with a real click), moves focus to the player, and resumes it on a repeat click. Review: Codex and GLM 2 of 2 each round; fixed focus, per-page targeting, label-based Play lookup, resume, no link without a film. Set aside: focus when the film errors after the jump; a browser that blocks audible autoplay would need a second press, as with the film's own Play button.
+- Final branch review by Gemini (gemini-4-carbon, served): 2 HIGH, 3 MEDIUM, 2 LOW. Fixed: error frame announced (`role="alert"`); spec amended to the founder's later calls (no placeholder frame, smaller photo). False: /tree prototypes sending events (analytics is production-only and /tree is dev-gated; the p1671 test passes); smooth-scroll/focus conflict (Chrome, real click: plays, focus on the video); `[FOUNDER DECISION]` left (already resolved). Unverified, for the founder's phone at /verify: whether iOS Safari starts the film with sound from the hero link (the film's own Play uses the same mechanism). Left: unused pledge tracking callbacks on /builders and /change-managers.

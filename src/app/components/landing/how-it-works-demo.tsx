@@ -48,15 +48,15 @@ export function HowItWorksDemoSection({ location, anchorAlias, video = DEMO_BY_P
   }, [location, video]);
 
   return (
-    <section id="how-it-works" className="scroll-mt-16 border-t border-border px-4 py-16 lg:py-28">
+    <section id="how-it-works" className="scroll-mt-24 border-t border-border px-4 py-16 lg:py-28">
       {/* An older anchor kept alive for links already out there (/coach#how pointed at the exchange this replaced). */}
-      {anchorAlias && <span id={anchorAlias} className="block scroll-mt-16" aria-hidden />}
+      {anchorAlias && <span id={anchorAlias} className="block scroll-mt-24" aria-hidden />}
       <Reveal className={SHELL}>
         <h2 className="mb-10 max-w-3xl text-3xl font-semibold leading-[1.1] tracking-tight text-balance sm:text-4xl lg:mb-14 lg:text-5xl">{HOW_IT_WORKS.heading}</h2>
         {video !== null && (
           <div ref={frameRef} className="mx-auto max-w-5xl">
             {failed ? (
-              <div className={TEXT_FRAME}>{HOW_IT_WORKS.errorLine}</div>
+              <div role="alert" className={TEXT_FRAME}>{HOW_IT_WORKS.errorLine}</div>
             ) : (
               <Mp4VideoFacade
                 look="landing"
@@ -79,7 +79,7 @@ export function HowItWorksDemoSection({ location, anchorAlias, video = DEMO_BY_P
                 {i + 1}
               </span>
               <h3 className="mt-3 text-xl font-semibold tracking-tight">{s.title}</h3>
-              <p className="mt-2 leading-relaxed text-foreground/75">{s.text}</p>
+              <p className="mt-2 leading-relaxed text-pretty text-foreground/75">{s.text}</p>
             </li>
           ))}
         </ol>

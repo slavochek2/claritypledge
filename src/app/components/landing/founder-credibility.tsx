@@ -83,7 +83,7 @@ function FullTalkLink({ className }: { className?: string }) {
       className={`inline-flex items-center gap-1.5 text-sm text-foreground/70 hover:text-blue-600 underline underline-offset-2 decoration-blue-300 ${className ?? ""}`}
     >
       <Youtube className="h-4 w-4 shrink-0 text-red-600" aria-hidden />
-      {/* [FOUNDER DECISION: the link under the photo — draft "Watch my talk on YouTube", or remove it] */}
+      {/* The link under the photo: "Watch my talk on YouTube", kept by the founder (P1704). */}
       Watch my talk on YouTube
     </a>
   );
