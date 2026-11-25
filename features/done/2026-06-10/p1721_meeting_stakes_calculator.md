@@ -1,17 +1,17 @@
 ---
-status: week
+status: all-done
 type: story
 rank: 358
 workstream: strategy
 created_date: '2026-11-25'
 tags: [high-stakes, prototype, tree]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: medium
 driver: heuristic
+completed_at: 2026-11-25
 ---
 
 # P1721: Meeting-stakes prototype on /tree, shipped and paused
