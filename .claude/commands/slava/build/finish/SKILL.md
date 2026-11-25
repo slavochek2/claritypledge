@@ -224,7 +224,9 @@ independent review of this content ran, not that the code is clean.
 - **Failures:** a non-zero exit, a model MISMATCH, an empty file, or a missing `REVIEW_GEMINI_MODEL` key all
   mean **that review did not run**, whatever else the output says.
   - Re-run it once by a different route (for example without `--model`, falling back to the default
-    `GEMINI_MODEL`, and say so).
+    `GEMINI_MODEL`, and say so). On exit 4 or 5 (a `MAX_TOKENS` stop is exit 5), re-run **without
+    `--model` and with `ASK_MODEL_GEMINI_MODEL` unset**: only a run whose model came from
+    `model-defaults.env` retries by itself on `GEMINI_FALLBACK_MODEL`, and a named model never falls back.
   - If `delegate-gemini` exits 2 (its credential-shape scan refused the payload), or Gemini still has no valid
     output after that re-run, run `codex-review` as the evidence reviewer instead, whatever the size. Never edit the
     payload to get past the scan.

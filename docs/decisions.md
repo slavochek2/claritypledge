@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-25 [process]: A Gemini review that stops for lack of output space is re-run with no model named, so the fallback model can answer (P1726 follow-up). Founder-approved, UNTESTED
+
+**Context:** Gemini reviews on the default model stopped early with `MAX_TOKENS` at least 7 times from 2026-11-07 to 11-25. The review wrapper retries once on its fallback model when a run exits 4 or 5 (a `MAX_TOKENS` stop exits 5), but only when the model came from `model-defaults.env`. `/finish` always names the review model with `--model`, so its first run can never fall back, and the re-run bullet did not say which re-run route keeps the fallback.
+**Decision:** `/finish` Step 4b's failure bullet now says: on exit 4 or 5, re-run without `--model` and with `ASK_MODEL_GEMINI_MODEL` unset. Gemini reviewed the edit twice; its one MEDIUM (the environment variable also disables the fallback, verified in the wrapper) was folded in.
+**Alternatives rejected:** Dropping `--model` from the first run (the review model is deliberately named separately from the bulk default, and the two can differ). Raising the output limit in the wrapper (filed as a separate task-inbox item: it first needs the model's real limit read without generating anything).
+**Consequences:** A review that runs out of space gets a second chance on another model instead of going missing. Falsifier: the next `MAX_TOKENS` review re-run this way still yields no valid run.
+**References:** `.claude/commands/slava/build/finish/SKILL.md` Step 4b, Failures · [p1726](../features/done/2026-06-10/p1726_credential_scan_false_positives_review_wrappers.md)
+
 ## 2026-11-25 [process]: The branches left on pre-rewrite history are repaired, and the local scan gains GitHub's Google OAuth client secret shape
 
 **Context:** The entry below left three things open after the push-protection rewrite: two local branches still built on the old commits, a TEST-server function differing from main, and no local check for the shape GitHub refused. By the time they were picked up, p1728 had already shipped from a rebased copy, and the p1711 session had ended (lock process gone, 10 hours idle, no uncommitted tracked files).
