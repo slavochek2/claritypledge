@@ -79,6 +79,7 @@ export function BuildersFable({ seo, tracking = {} }: { seo: ReactNode; tracking
           sub="Get your team off the treadmill."
           example={AGREED_BUILDERS}
           nextId="stakes"
+          demo="builders"
           nextLabel="Why it matters"
         />
 

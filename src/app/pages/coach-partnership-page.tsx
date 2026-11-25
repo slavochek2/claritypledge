@@ -76,6 +76,7 @@ function CoachHero() {
         </>
       }
       example={AGREED_COACH}
+      demo="coach"
     />
   );
 }

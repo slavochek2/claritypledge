@@ -55,6 +55,7 @@ function clickOn(url: string, page: React.ReactNode, target: () => HTMLElement) 
 }
 
 beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn(); // jsdom has none; the demo link scrolls to the film
   track.mockClear();
   seoProps.mockClear();
 });
@@ -94,24 +95,29 @@ describe('P1671 analytics: each event from its action', () => {
     expect(track.mock.calls.filter((c) => c[0] === 'landing_page_viewed')).toEqual([['landing_page_viewed', { referrer: 'abc', variant: 'build-right-thing' }]]);
   });
 
-  it('/change-managers: page view, the CTA by location, the pledge link', () => {
+  it('/change-managers: page view, the CTA by location, the demo link', () => {
     const { unmount } = renderAt('/change-managers', <ChangeManagersPage />);
     expect(calls()).toEqual([['landing_page_viewed', { variant: 'change-managers' }]]);
     unmount();
     const page = <ChangeManagersPage />;
     expect(clickOn('/change-managers', page, () => screen.getAllByRole('link', { name: CTA })[0]!)).toEqual([['change_managers_cta_clicked', { location: 'hero' }]]);
     expect(clickOn('/change-managers', page, () => screen.getAllByRole('link', { name: CTA })[1]!)).toEqual([['change_managers_cta_clicked', { location: 'closing' }]]);
-    expect(clickOn('/change-managers', page, () => screen.getByRole('link', { name: 'Take the Pledge' }))).toEqual([['change_managers_pledge_clicked', undefined]]);
+    // P1704: the hero's second option is "Watch the product demo"; it sends the demo event, no pledge event.
+    expect(clickOn('/change-managers', page, () => screen.getByRole('button', { name: 'Watch the product demo' }))).toEqual([['demo_link_clicked', { location: 'change-managers' }], ['demo_video_play', { location: 'change-managers' }]]); // the link then presses Play
   });
 
   it.each([
     ['/tree/landing-fable', LandingFable],
     ['/tree/landing-fable-change', LandingFableChange],
   ] as const)('%s fires none of them, and never redirects', (path, Page) => {
-    for (const action of ['hero', 'closing', 'pledge'] as const) {
+    // P1704: the prototypes render the same BuildersFable/ChangeFable components as the live pages,
+    // which pass demo="..." and include the How it works film, so their hero offers the "Watch the
+    // product demo" button (not "Take the Pledge", which these pages no longer render in the hero).
+    for (const action of ['hero', 'closing', 'demo'] as const) {
       const { unmount } = renderAt(`${path}?referrer=x&login=1`, <Page />);
       expect(screen.queryByText(/landed/)).toBeNull();
-      const target = action === 'pledge' ? screen.getByRole('link', { name: 'Take the Pledge' }) : screen.getAllByRole('link', { name: CTA })[action === 'hero' ? 0 : 1]!;
+      expect(screen.queryByRole('link', { name: 'Take the Pledge' })).toBeNull();
+      const target = action === 'demo' ? screen.getByRole('button', { name: 'Watch the product demo' }) : screen.getAllByRole('link', { name: CTA })[action === 'hero' ? 0 : 1]!;
       fireEvent.click(target);
       unmount();
     }

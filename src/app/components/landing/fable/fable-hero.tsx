@@ -17,6 +17,8 @@ import { AgreedGraphic } from "./fable-agreed";
 import { SHELL, type AgreedExample } from "./fable-content";
 import { AuditCTA, OrLink } from "./fable-parts";
 import { useFableTracking } from "./fable-tracking";
+import { WatchDemoLink } from "@/app/components/landing/how-it-works-demo";
+import { DEMO_BY_PAGE, type UseCaseLocation } from "@/app/content/how-it-works-demo";
 
 type HeroProps = {
   eyebrow: string;
@@ -31,22 +33,28 @@ type HeroProps = {
   nextLabel?: string;
   /** The page's own actions. Omitted: the discovery call and "or Take the Pledge". */
   actions?: ReactNode;
+  /** P1704: the page whose film the default actions offer ("or Watch the product demo") instead of the pledge; ignored when that page has no film. */
+  demo?: UseCaseLocation;
 };
 
-/** The discovery call and the quiet pledge link, as /builders and /change-managers have them. */
-function DefaultActions() {
+/** The discovery call and a quiet second option: the page's demo film when it has one (P1704), else the pledge. */
+function DefaultActions({ demo }: { demo?: UseCaseLocation }) {
   const { pledge } = useFableTracking();
   return (
     <>
       <AuditCTA location="hero" />
-      <OrLink to="/sign-pledge" onClick={() => pledge?.()}>
-        Take the Pledge
-      </OrLink>
+      {demo && DEMO_BY_PAGE[demo] ? (
+        <WatchDemoLink location={demo} />
+      ) : (
+        <OrLink to="/sign-pledge" onClick={() => pledge?.()}>
+          Take the Pledge
+        </OrLink>
+      )}
     </>
   );
 }
 
-function HeroText({ eyebrow, EyebrowIcon, title, sub, actions, wide }: Pick<HeroProps, "eyebrow" | "EyebrowIcon" | "title" | "sub" | "actions"> & { wide: boolean }) {
+function HeroText({ eyebrow, EyebrowIcon, title, sub, actions, demo, wide }: Pick<HeroProps, "eyebrow" | "EyebrowIcon" | "title" | "sub" | "actions" | "demo"> & { wide: boolean }) {
   return (
     <div className="my-auto">
       <p className="mb-6 inline-flex items-center gap-2.5 text-xs font-semibold uppercase tracking-[0.12em] sm:tracking-[0.2em] text-blue-700">
@@ -66,7 +74,7 @@ function HeroText({ eyebrow, EyebrowIcon, title, sub, actions, wide }: Pick<Hero
       {sub && (
         <p className={`mt-6 ${wide ? "max-w-2xl" : "max-w-xl"} border-l-2 border-blue-600 pl-5 text-xl lg:text-2xl font-medium text-foreground/70`}>{sub}</p>
       )}
-      <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2">{actions ?? <DefaultActions />}</div>
+      <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2">{actions ?? <DefaultActions demo={demo} />}</div>
       {/* The shared strip centres its avatars over its caption; this hero is left-aligned. */}
       <div className="mt-6 flex justify-start">
         <PledgerAvatarStack className="!items-start" />

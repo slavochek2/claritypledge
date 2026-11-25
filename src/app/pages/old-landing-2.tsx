@@ -29,8 +29,8 @@ import { Testimonials } from "@/app/components/landing/offers-section";
 import { PROGRAM_FAQS } from "@/app/content/faqs";
 import type { EventWithHost } from "@/app/types";
 import { AGREED_FOUNDER, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
-import { OrLink, PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
-import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
+import { PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
+import { HowItWorksDemoSection, WatchDemoLink } from "@/app/components/landing/how-it-works-demo";
 import { CloseSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, PlainSection, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
 import { WebinarCTA, WebinarDateLine } from "./old-landing-2-webinar";
@@ -84,7 +84,7 @@ function FounderHero({ nextEvent }: { nextEvent: EventWithHost | null }) {
             <WebinarCTA hasEvent={nextEvent !== null} />
             <WebinarDateLine event={nextEvent} />
           </div>
-          <OrLink to="/sign-pledge">Take the Pledge</OrLink>
+          <WatchDemoLink location="founder" />
         </>
       }
       example={AGREED_FOUNDER}

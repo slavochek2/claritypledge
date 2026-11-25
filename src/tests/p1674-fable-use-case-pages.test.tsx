@@ -82,6 +82,7 @@ const scopedLinks = (scope: ReturnType<typeof within>, name: string | RegExp) =>
 const h2s = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
 
 beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn(); // jsdom has none; the demo link scrolls to the film
   track.mockClear();
   seoProps.mockClear();
   motion.reduce = true;
@@ -124,16 +125,16 @@ describe('P1674 /hiring: events and actions', () => {
     expect(track.mock.calls.filter((c) => c[0] === 'landing_page_viewed')).toEqual([['landing_page_viewed', { referrer: 'abc', variant: 'program' }]]);
   });
 
-  it('both discovery-call buttons go to /intro and send location "hero"; the pledge link sends nothing', () => {
+  it('both discovery-call buttons go to /intro and send location "hero"; the hero offers the demo button, which sends demo_link_clicked', () => {
     renderAt('/hiring');
     const ctas = links(CALL);
     expect(ctas).toHaveLength(2);
     for (const a of ctas) expect(a).toHaveAttribute('href', '/intro');
-    expect(links('Take the Pledge')).toHaveLength(1);
-    expect(links('Take the Pledge')[0]).toHaveAttribute('href', '/sign-pledge');
+    expect(screen.getByRole('button', { name: 'Watch the product demo' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Take the Pledge' })).toBeNull();
     expect(clickOn('/hiring', (s) => scopedLinks(s, CALL)[0]!)).toEqual([['alignment_audit_cta_clicked', { location: 'hero' }]]);
     expect(clickOn('/hiring', (s) => scopedLinks(s, CALL)[1]!)).toEqual([['alignment_audit_cta_clicked', { location: 'hero' }]]);
-    expect(clickOn('/hiring', (s) => scopedLinks(s, 'Take the Pledge')[0]!)).toEqual([]);
+    expect(clickOn('/hiring', (s) => s.getByRole('button', { name: 'Watch the product demo' }))).toEqual([['demo_link_clicked', { location: 'hiring' }], ['demo_video_play', { location: 'hiring' }]]); // the link then presses Play
   });
 });
 
@@ -146,22 +147,22 @@ describe('P1674 /coach: events and actions', () => {
     expect(props.referrer).toBeUndefined();
   });
 
-  it('hero and closing each offer the discovery call and the pledge link; none of the four is tracked', () => {
+  it('hero offers the discovery call and the demo button, closing the discovery call and the pledge link; only the demo button is tracked', () => {
     renderAt('/coach');
     const ctas = links(CALL);
     const pledges = links('Take the Pledge');
     expect(ctas).toHaveLength(2);
-    expect(pledges).toHaveLength(2);
+    expect(pledges).toHaveLength(1);
     for (const a of ctas) expect(a).toHaveAttribute('href', '/intro');
-    for (const a of pledges) expect(a).toHaveAttribute('href', '/sign-pledge');
-    // The closing pair lives in #book.
+    expect(pledges[0]).toHaveAttribute('href', '/sign-pledge');
+    expect(screen.getByRole('button', { name: 'Watch the product demo' })).toBeInTheDocument();
+    // The closing pair lives in #book; the hero has the demo button instead of the pledge.
     const book = document.getElementById('book')!;
     expect(within(book).getByRole('link', { name: CALL })).toBe(ctas[1]);
-    expect(within(book).getByRole('link', { name: 'Take the Pledge' })).toBe(pledges[1]);
-    for (const i of [0, 1]) {
-      expect(clickOn('/coach', (s) => scopedLinks(s, CALL)[i]!)).toEqual([]);
-      expect(clickOn('/coach', (s) => scopedLinks(s, 'Take the Pledge')[i]!)).toEqual([]);
-    }
+    expect(within(book).getByRole('link', { name: 'Take the Pledge' })).toBe(pledges[0]);
+    for (const i of [0, 1]) expect(clickOn('/coach', (s) => scopedLinks(s, CALL)[i]!)).toEqual([]);
+    expect(clickOn('/coach', (s) => scopedLinks(s, 'Take the Pledge')[0]!)).toEqual([]);
+    expect(clickOn('/coach', (s) => s.getByRole('button', { name: 'Watch the product demo' }))).toEqual([['demo_link_clicked', { location: 'coach' }], ['demo_video_play', { location: 'coach' }]]); // the link then presses Play
   });
 
   it('the hero cue is the untargeted arrow', () => {
@@ -198,11 +199,11 @@ describe('P1674 /founder: events and actions', () => {
     for (const i of [0, 1]) expect(clickOn('/founder', (s) => scopedLinks(s, WEBINAR_CTA_LABEL)[i]!)).toEqual([['webinar_cta_clicked', { location: 'hero', has_event: true }]]);
   });
 
-  it('the hero pledge link goes to /sign-pledge and sends nothing', () => {
+  it('the hero offers the demo button (no pledge link); clicking it sends only demo_link_clicked', () => {
     renderAt('/founder');
-    expect(links('Take the Pledge')).toHaveLength(1);
-    expect(links('Take the Pledge')[0]).toHaveAttribute('href', '/sign-pledge');
-    expect(clickOn('/founder', (s) => scopedLinks(s, 'Take the Pledge')[0]!)).toEqual([]);
+    expect(screen.queryByRole('link', { name: 'Take the Pledge' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Watch the product demo' })).toBeInTheDocument();
+    expect(clickOn('/founder', (s) => s.getByRole('button', { name: 'Watch the product demo' }))).toEqual([['demo_link_clicked', { location: 'founder' }], ['demo_video_play', { location: 'founder' }]]); // the link then presses Play
   });
 
   it('keeps the testimonials\' external links', () => {

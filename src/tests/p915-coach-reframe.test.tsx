@@ -53,8 +53,11 @@ describe('P915: coach landing reframe', () => {
     expect(screen.queryByText(/Meet the Pledgers/i)).not.toBeInTheDocument();
   });
 
-  it('keeps the "Take the Pledge" CTA (hero + final)', () => {
+  it('hero offers "Watch the product demo" (P1704); the final section keeps its "Take the Pledge" link', () => {
     renderPage();
-    expect(screen.getAllByText('Take the Pledge').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole('button', { name: 'Watch the product demo' })).toBeInTheDocument();
+    const pledges = screen.getAllByText('Take the Pledge');
+    expect(pledges).toHaveLength(1);
+    expect(pledges[0]!.closest('a')).toHaveAttribute('href', '/sign-pledge');
   });
 });

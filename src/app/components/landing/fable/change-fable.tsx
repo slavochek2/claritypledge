@@ -37,6 +37,7 @@ export function ChangeFable({ seo, tracking = {} }: { seo: ReactNode; tracking?:
           sub="AI rollouts, new processes, reorganisations. People say yes in the meeting and mean different things."
           example={AGREED_CHANGE}
           nextId="stakes"
+          demo="change-managers"
           nextLabel="Why it matters"
         />
 

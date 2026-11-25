@@ -57,3 +57,6 @@ export const DEMO_BY_PAGE: Record<UseCaseLocation, DemoVideo | null> = {
   coach: DEMO_VIDEO,
   hospitals: null,
 };
+
+/** Window event the hero's "Watch the product demo" link sends; the page's How it works section scrolls to its film and starts it. */
+export const PLAY_DEMO_EVENT = "clarity:play-demo";

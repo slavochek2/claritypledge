@@ -82,6 +82,7 @@ function HiringHero() {
       }
       example={AGREED_HIRING}
       nextId="stakes"
+      demo="hiring"
       nextLabel="Why it matters"
     />
   );

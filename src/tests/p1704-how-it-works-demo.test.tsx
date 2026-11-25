@@ -29,7 +29,7 @@ import { HospitalsPage } from '@/app/pages/hospitals-page';
 import { CommunitiesPage } from '@/app/pages/communities-page';
 import { BuildRightThingLanding } from '@/app/pages/build-right-thing-landing';
 import { ChangeManagersPage } from '@/app/pages/change-managers-page';
-import { HowItWorksDemoSection } from '@/app/components/landing/how-it-works-demo';
+import { HowItWorksDemoSection, WatchDemoLink } from '@/app/components/landing/how-it-works-demo';
 import { DEMO_BY_PAGE, DEMO_VIDEO, HOW_IT_WORKS, type DemoVideo, type UseCaseLocation } from '@/app/content/how-it-works-demo';
 
 const PAGES: Record<UseCaseLocation, ReactElement> = {
@@ -174,5 +174,66 @@ describe('P1704 events with the video set', () => {
     fireEvent.error(container.querySelector('video')!);
     expect(screen.getByText(HOW_IT_WORKS.errorLine)).toBeInTheDocument();
     expect(container.querySelector('video')).toBeNull();
+  });
+});
+
+describe('P1704 the hero link "Watch the product demo"', () => {
+  it('sends demo_link_clicked, brings the film into view and starts it', () => {
+    const scroll = vi.fn();
+    Element.prototype.scrollIntoView = scroll;
+    const { container } = render(
+      <>
+        <WatchDemoLink location="hiring" />
+        <HowItWorksDemoSection location="hiring" video={VIDEO} />
+      </>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Watch the product demo' }));
+    expect(track.mock.calls.filter((c) => c[0] === 'demo_link_clicked')).toEqual([['demo_link_clicked', { location: 'hiring' }]]);
+    expect(track.mock.calls.filter((c) => c[0] === 'demo_video_play')).toEqual([['demo_video_play', { location: 'hiring' }]]);
+    expect(scroll).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('video')).not.toBeNull();
+  });
+
+  it('only the named page\'s film answers the link', () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    const { container } = render(
+      <>
+        <WatchDemoLink location="hiring" />
+        <div id="other"><HowItWorksDemoSection location="coach" video={VIDEO} /></div>
+      </>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Watch the product demo' }));
+    expect(container.querySelector('#other video')).toBeNull();
+    expect(track.mock.calls.filter((c) => c[0] === 'demo_video_play')).toEqual([]);
+  });
+
+  it('is not offered where the page has no film: /hospitals keeps the pledge link', () => {
+    renderPage(<HospitalsPage />);
+    expect(screen.queryByRole('button', { name: 'Watch the product demo' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Take the Pledge' })).toHaveAttribute('href', '/sign-pledge');
+  });
+});
+
+describe('P1704 the hero link, edge cases', () => {
+  it('a second click after the film has started resumes the player instead of doing nothing', () => {
+    Element.prototype.scrollIntoView = vi.fn();
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    render(
+      <>
+        <WatchDemoLink location="hiring" />
+        <HowItWorksDemoSection location="hiring" video={VIDEO} />
+      </>,
+    );
+    const link = screen.getByRole('button', { name: 'Watch the product demo' });
+    fireEvent.click(link);
+    play.mockClear();
+    fireEvent.click(link);
+    expect(play).toHaveBeenCalledTimes(1);
+    play.mockRestore();
+  });
+
+  it('renders nothing for a page with no film', () => {
+    const { container } = render(<WatchDemoLink location="hospitals" />);
+    expect(container).toBeEmptyDOMElement();
   });
 });
