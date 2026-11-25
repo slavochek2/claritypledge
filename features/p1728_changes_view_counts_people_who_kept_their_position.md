@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: change-request
 drafted_by: sonnet
 exec_model: sonnet
@@ -191,8 +191,13 @@ Tests are specs. The following P1061 tests assert the superseded rule and are ch
 - [x] Opening a one-position person in Changes renders their graph with one dot and no horizontal page overflow (component test plus the browser check).
 - [x] Surfaces NOT in scope are unchanged: the P1061 story-surface tests (`p1061-story-surfaces`, `p1061-story-page-movement`, the story-panel and chip tests in `p1061-movement-components`) pass with no edit.
 - [x] All existing P1061 tests pass except the four assertions named under "Tests Updated By This Spec" (three in `p1061-position-movement.test.ts`, one in `p1061-movement-components.test.tsx`), which are changed as stated there.
-- [ ] Browser check after deploy, on the founder's point (`/point/f8629cdd-aa5d-432e-90ae-1c1e8c07be73?view=changes`): the tabs read Disagree 0, Same 10, Agree 3 and the list shows 13 people, the 3 who changed first. Opening Filter people reads "13 people", shows the 3 who changed among the first 4 people, and typing any holder's name finds them. Evidence is the screenshot or page text, pasted. At 320, 375 and 1280 wide: no horizontal overflow, no control under 40px (visual-qa.md).
 - [x] Regression check for the design failure: a point whose holders all kept their position shows Same = N, the full list and a working Filter pill, not an empty "No one here..." view.
+
+## Post-deploy verification
+
+Run after `/ship` and the founder's push and deploy: it reads the live point, so it cannot be ticked before the merge. The same layout was measured on the local fixture before ship (320 and 1280).
+
+- [ ] Browser check after deploy, on the founder's point (`/point/f8629cdd-aa5d-432e-90ae-1c1e8c07be73?view=changes`): the tabs read Disagree 0, Same 10, Agree 3 and the list shows 13 people, the 3 who changed first. Opening Filter people reads "13 people", shows the 3 who changed among the first 4 people, and typing any holder's name finds them. Evidence is the screenshot or page text, pasted. At 320, 375 and 1280 wide: no horizontal overflow, no control under 40px (visual-qa.md).
 
 ## Risks
 
