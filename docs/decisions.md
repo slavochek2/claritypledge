@@ -48,7 +48,7 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Decision:** For those columns the function writes the caller's value only when the key is present in `p_data` (`CASE WHEN p_data ? 'col' THEN EXCLUDED.col ELSE profiles.col END`); an explicit null still clears. Replacing an existing banner now asks first; automatic generation runs at most once per owner. Proven on self-hosted TEST in a rolled-back transaction as `authenticated` (old body wiped, new body kept).
 **Alternatives rejected:** Sending the stored values from the client on sign-in (every caller must remember; a stale client re-wipes). An Undo toast (generate-banner deletes the old object, so Undo points at a dead file and a stale toast can overwrite a newer banner).
 **Consequences:** Sign-in still overwrites `role`, `linkedin_url`, `reason` and the avatar fields the same way; that is a separate bug listed in the spec's Known limitations. Any new upsert writer should follow the key-presence rule.
-**References:** [p1729 spec](../features/p1729_bug-login-wipes-profile-banner.md), `supabase/migrations/20261125110036_p1729_login_keeps_profile_banner.sql`
+**References:** [p1729 spec](../features/done/2026-06-10/p1729_bug-login-wipes-profile-banner.md), `supabase/migrations/20261125110036_p1729_login_keeps_profile_banner.sql`
 
 ## 2026-11-25 [process]: The branches left on pre-rewrite history are repaired, and the local scan gains GitHub's Google OAuth client secret shape
 
@@ -153,7 +153,7 @@ leak, since the target's own successful path can clear the evidence.
 **Decision:** Founder: "Every card has to be formulated to not depend on other cards or to not have redundancy with other cards … if we change customer segment then we need to change also the problem statement." (1) Only Customer Segments names or describes the customers; every other box is written so it stays true when the segment changes (a unit and a channel's own name stay; a falsified hypothesis may name a group other than the current one). (2) No two points say the same thing; Customer Segments holds one point per group of customers, plus role points. This extends 2026-11-23's "each box holds only its own kind of point" from what a box holds to what it names.
 **Alternatives rejected:** Keeping the customer in Problem for readability ("For café owners the problem is …"): the founder's point is that it makes Problem depend on Segments, so a segment change silently leaves Problem stale.
 **Consequences:** P1658 carries a revision-5 Done-When item; the A/B harness measures `segment-named` and `segment-duplicate`. Falsifier: in his next run the founder still finds a box that restates another box, or Problem reads as unclear without the customer named.
-**References:** [p1658](../features/p1658_canvas_points_as_claims.md)
+**References:** [p1658](../features/done/2026-06-10/p1658_canvas_points_as_claims.md)
 
 ## 2026-11-24 [product]: Change-lead outreach path: event, then one-on-one, then a letter only where a gap remains; sending waits for the call with the game. Founder decision, UNTESTED
 
@@ -267,7 +267,7 @@ All three were fixed by hand. The cause is structural. `write_lane_env` and `lan
 **Decision:** (1) A canvas point is one idea in one short sentence. (2) Solution's first point names the kind of product and its category; further points say what solving the problem looks like, at a high level, never a "then … then" sequence. This replaces v9's "Solution only the customer's steps". (3) Each standard Lean Canvas box's rule is checked against a cited Lean Canvas definition; a difference stays only with a reason. The canvas's own boxes keep theirs. (4) P1658 revision 4 and P1720 (drafted stories) are built in one session and tested once. (5) Publishing a canvas version publishes its points and their drafted stories together; publishing is the approval, as for points ("we are not approving points either"). A drafted story inherits the visibility of the point it is linked to. (6) Reviewing points and stories before publishing is P1657, extended to stories and built after.
 **Alternatives rejected:** A per-story approve step (adds a step the founder does not take for points). Building stories after the wording settles (two founder tests instead of one; the A/B scores points and stories separately, so each change stays visible).
 **Consequences:** P1658 carries a revision-4 Done-When item; P1720's founder decisions are resolved with its defaults (no gap question, 600-character cap, no new label, in-app first, 80% bar). Risk accepted: a drafted story can publish unread until P1657 lands. Falsifier: in the combined test the founder marks under 80% of stories "this is how I came to this point", or still reads Solution as a journey.
-**References:** [p1658](../features/p1658_canvas_points_as_claims.md) · P1720 (`features/p1720_canvas_points_with_stories.md`) · [p1657](../features/p1657_canvas_owner_positions_before_publish.md)
+**References:** [p1658](../features/done/2026-06-10/p1658_canvas_points_as_claims.md) · P1720 (`features/p1720_canvas_points_with_stories.md`) · [p1657](../features/p1657_canvas_owner_positions_before_publish.md)
 
 ## 2026-11-24 [process]: A TEST lane inherits every main-lane auth and mail setting; only addresses, ports and secrets differ
 
@@ -290,7 +290,7 @@ All three were fixed by hand. The cause is structural. `write_lane_env` and `lan
 - Status labels kept in every box: they made each point a progress report instead of a claim.
 - A blind model judge to decide adoption (next entry).
 **Consequences:** Revisions 2 and v8 are built, reviewed (Gemini, GLM, Codex, Opus) and deployed to the self-hosted TEST server; nothing is merged. Revision 3 (v9) is specced and reviewed, not built. Reasons, history and status pulled out of points are story material: a separate spec will have the draft write a story under a point, reusing `docs/story-point-model.md`. Adoption waits on the founder marking a shuffled v6/v7 list. Falsifier: if the founder's "cannot take a side" count on the new rules is not below v6's at an equal or higher number of points, revision 2 is dropped.
-**References:** [P1658 spec](../features/p1658_canvas_points_as_claims.md), `supabase/functions/_shared/canvas-box-definitions.ts`
+**References:** [P1658 spec](../features/done/2026-06-10/p1658_canvas_points_as_claims.md), `supabase/functions/_shared/canvas-box-definitions.ts`
 
 ## 2026-11-23 [process]: "Can a reader disagree with this point?" cannot be judged by a model; the founder marking an unlabeled list is the test
 
@@ -298,7 +298,7 @@ All three were fixed by hand. The cause is structural. `write_lane_env` and `lan
 **Decision:** Do not use a model judge for this property; the known-bad control proved it blind. The test is the founder's own reading. One shuffled list mixes two versions' points with no labels, and he marks each "can take a side" or "can't". Report both the count and the share of "can", so a version cannot win by dropping hard points. Mechanical counts (pronouns, reasons inside points, kept and dropped) show only that the rules were followed; they are kept as regression checks, not as the measure.
 **Alternatives rejected:** A model judge with a stricter rubric, untested: it would need its own known-good and known-bad controls to separate, and none was found. A lexical count of choice words as the measure: it counts template compliance and credits ", not" role splits as choices.
 **Consequences:** `scripts/p1658-rules-ab-eval.ts` reports rule-following counts with a strict lead count as headline, and the marking list format lives in `.private/canvas-rules-test/`. Any future "is this text more X" benchmark first runs a known-bad control through the same judge.
-**References:** [P1658 spec](../features/p1658_canvas_points_as_claims.md) Measure paragraph
+**References:** [P1658 spec](../features/done/2026-06-10/p1658_canvas_points_as_claims.md) Measure paragraph
 
 ## 2026-11-23 [technical]: One mail-link rule wins over a branch's own copy at merge (P1675, P1705)
 
