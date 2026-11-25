@@ -22,7 +22,7 @@ import * as draft from '../../supabase/functions/_shared/canvas-draft';
 import { BOX_TAGS, titleOf } from '../../supabase/functions/_shared/canvas-draft';
 import { CANVAS_OWN_AI_PROMPT } from '../app/pages/chat/canvas-thread-copy';
 import { FIXED_BOX_QUESTIONS } from '../lib/canvas-box-questions';
-import { CONTRAST_RE as HARNESS_CONTRAST_RE, CLAUSE_RE as HARNESS_CLAUSE_RE, SENTENCE_BREAK_RE as HARNESS_SENTENCE_BREAK_RE, r5Violations } from '../../scripts/p1658-rules-ab-eval.ts';
+import { CONTRAST_RE as HARNESS_CONTRAST_RE, CLAUSE_RE as HARNESS_CLAUSE_RE, SENTENCE_BREAK_RE as HARNESS_SENTENCE_BREAK_RE, r5Violations, r6Violations } from '../../scripts/p1658-rules-ab-eval.ts';
 
 const root = process.cwd();
 const read = (rel: string) => readFileSync(resolve(root, rel), 'utf8');
@@ -441,7 +441,8 @@ describe('S2 box guidance', () => {
 
   it('P1658 fix round: role points drop "are the customers"; the Copy prompt names who the canvas is for; the shared rules stand apart from the last box', () => {
     // v8: the exception sits in the one sentence that names the role points, so it can never read as a second order next to "are the customers"
-    expect(def('canvas:segments').definition).toContain('Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:", without "are the customers".');
+    // revision 6: "Others", so a role point is never the lead's own customers again (v12's "Pays: change leads …")
+    expect(def('canvas:segments').definition).toContain('Others in the sale get one point each, starting "Pays:", "Uses:", "Approves:", without "are the customers".');
     expect(def('canvas:segments').shape).toMatch(/are the customers\[, not <ruled-out lookalike>\]\."$/);
     expect(CANVAS_OWN_AI_PROMPT).toContain('"This canvas is about <group>." naming who it is for.');
     const block = `\n\nFor all boxes:\n${ROUTING_RULE.text}\n${CANVAS_MATERIAL_RULE}\n${LEAD_POINT_RULE.text}\n${THIRD_PERSON_RULE.text}\n`;
@@ -452,10 +453,11 @@ describe('S2 box guidance', () => {
   it('P1658 revision 4: the milestone and offer leads are one idea each; a stated change and a price are their own points', () => {
     expect(def('canvas:metrics').shape).toContain('(target)');
     // revision 4: v9's "<target>[; if missed, <stated change>]" chained two ideas; a change the owner stated is its own point
-    expect(def('canvas:metrics').shape).toContain('"If <target> is missed, <stated change>."');
+    // revision 6: "specific", since v12's "the offer or the audience changes" restated the target with no real change
+    expect(def('canvas:metrics').shape).toContain('"If <target> is missed, <named new offer, price or audience>."');
     expect(def('canvas:metrics').shape).not.toContain('; if missed');
     expect(def('canvas:metrics').good).toContain('(target), ahead of');
-    expect(def('canvas:metrics').good).toContain('(a change the owner stated)');
+    expect(def('canvas:metrics').good).toContain('(a specific change the owner stated)');
     const offer = def('canvas:revenue');
     // revision 4: the lead names the offer and its rival only; the price is its own point in the second form, each price part optional (round 3)
     expect(offer.shape).toContain('<ahead of|not> <other offer>." when grounded; then "<what is bought>[: <price + currency>[ per <unit>][ <cadence>]]."');
@@ -565,7 +567,7 @@ describe('S2 box guidance', () => {
 /**
  * P1658 revision 3 / v9 (founder, 2026-11-23, reading his own Copy-prompt run v8.md): Solution, Offers & Pricing and Go-to-market describe
  * the intended model with no status; Solution is the kind of product and its outcomes; an offer names what is bought; Go-to-market holds no timing; up to 3 falsified
- * expectations; no label in any template; the Copy prompt stays within 1100 words.
+ * expectations; no label in any template; the Copy prompt stays within 1120 words.
  */
 describe('P1658 revision 3 / v9', () => {
   const STATE_NAMES = ['My next milestone', 'My current biggest challenge', 'Hypotheses I\'ve falsified'];
@@ -677,7 +679,7 @@ describe('P1658 revision 3 / v9', () => {
     expect(gtmTiming(g.shape)).toBe(false);
     expect(g.shape).toContain('[, not <ruled-out path>]');
     expect(g.good).toContain(', not through paid ads');
-    expect(g.definition).toContain('Where and how the business reaches customers. No waiting, conditions or dates; a cadence stays.'); // revision 5: "customers", not "this segment"
+    expect(g.definition).toContain(`Where and how the business reaches customers; one point per route ("The business runs a tax clinic, from invitation to booked call."). No waiting, conditions or dates; a cadence stays.`); // revision 5: "customers", not "this segment"; revision 6: one point per route
     expect(g.gap).not.toMatch(/\blast customer\b|\bfound you\b|\bfind you\b/); // v9 review: the question asks for the plan, not a past result
     expect(FIXED_BOX_QUESTIONS['canvas:channels']).toBe(g.gap);
     expect(ROUTING_RULE.text).toContain('a current blocker goes to My current biggest challenge, a sequence of customer goals the owner states goes to My next milestone as "ahead of", and other timing is left out');
@@ -739,9 +741,10 @@ describe('P1658 revision 3 / v9', () => {
     expect(DRAFT_RULES).toContain('Write the point alone: no explanation or reasoning behind it.'); // the drafting agent's own line
   });
 
-  it('the Copy prompt stays within its 1100-word cap', () => {
+  // P1658 revision 6: founder raised the cap from 1100 to 1120 (2026-11-25) for the Segments qualifier rule and a one-route example.
+  it('the Copy prompt stays within its 1120-word cap', () => {
     const words = (t: string) => t.split(/\s+/).filter(Boolean).length;
-    expect(words(CANVAS_OWN_AI_PROMPT)).toBeLessThanOrEqual(1100);
+    expect(words(CANVAS_OWN_AI_PROMPT)).toBeLessThanOrEqual(1120);
     expect(words(`${CANVAS_OWN_AI_PROMPT} one`)).toBe(words(CANVAS_OWN_AI_PROMPT) + 1); // CONTROL: the counter counts
   });
 
@@ -798,8 +801,34 @@ describe('P1658 revision 5 (founder, 2026-11-25: only Customer Segments names th
     expect(ROUTING_RULE.text).toContain('No two points on the canvas say the same thing');
     expect(DRAFT_RULES).toContain('Only Customer Segments names or describes the customers');
     expect(CANVAS_OWN_AI_PROMPT).toContain('Only Customer Segments names my customers; elsewhere: "customers". No point repeats another.');
-    expect(def('canvas:segments').shape).toContain('then per other group, never a subset:');
+    expect(def('canvas:segments').shape).toContain('when grounded; then roles only; no lead: "');
     // the lead carries the role and its qualifiers, so they never spill into a second point about the same people (first Copy-prompt run)
     expect(def('canvas:segments').shape).toContain('Open with "The <first|best> customers are <role + two qualifiers>, <ahead of|not> <Y>."');
+  });
+});
+
+describe('P1658 revision 6 (founder, 2026-11-25, reading v12: every point is an alternative or an addition)', () => {
+  const quoted = (t: string) => [...t.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+  const rules = (pts: Array<[string, string]>) => r6Violations(pts.map(([box, text]) => ({ box, text }))).map((v) => `${v.rule}@${v.box}`);
+  const lead = quoted(def('canvas:segments').good)[0]!;
+
+  it('every good example scores 0 on the revision-6 measure, and each new Not-this example is caught', () => {
+    const all = BOX_DEFINITIONS.flatMap((b) => quoted(b.good).map((text): [string, string] => [b.tag, text]));
+    expect(rules(all)).toEqual([]);
+    const segNot = quoted(def('canvas:segments').not).find((t) => t.startsWith('Pays:'))!;
+    expect(rules([['canvas:segments', lead], ['canvas:segments', segNot]])).toEqual(['role-repeat@canvas:segments']);
+    const gtmSteps = quoted(def('canvas:channels').not).filter((t) => ['The business invites customers to a free tax clinic.', 'The business sends each invitation with a sample report.', 'The business books a call at the end of each clinic.'].includes(t));
+    expect(gtmSteps).toHaveLength(3);
+    expect(rules(gtmSteps.map((t): [string, string] => ['canvas:channels', t]))).toEqual(['gtm-step@canvas:channels', 'gtm-step@canvas:channels']);
+    const msNot = quoted(def('canvas:metrics').not).find((t) => t.startsWith('If '))!;
+    expect(rules([['canvas:metrics', msNot]])).toEqual(['milestone-vague@canvas:metrics']);
+  });
+
+  it('both prompts carry the three rules: the drafting rule in full, the Copy prompt in the box lines', () => {
+    expect(ROUTING_RULE.text).toContain('Every point is an alternative or an addition');
+    expect(DRAFT_RULES).toContain('one Go-to-market point per route (never its steps as separate points)');
+    expect(CANVAS_OWN_AI_PROMPT).toContain('Others in the sale get one point each');
+    expect(CANVAS_OWN_AI_PROMPT).toContain(`Where and how the business reaches customers; one point per route ("The business runs a tax clinic, from invitation to booked call.").`);
+    expect(CANVAS_OWN_AI_PROMPT).toContain('"If <target> is missed, <named new offer, price or audience>."');
   });
 });

@@ -47,7 +47,7 @@ export const CANVAS_OWN_AI_PROMPT = [
   'Rules:',
   globalRulesText('owner'),
   '',
-  // P1658 v9: the word cap (1100, pinned) paid for the state rule, the two routing destinations and the label-free shapes; every cut is
+  // P1658 v9: the word cap (1100, pinned; 1120 from revision 6, founder's call) paid for the state rule, the two routing destinations and the label-free shapes; every cut is
   // listed in the v9 report. "If I have more than one business" was rule 7's "give each its own canvas" said twice.
   'Return only ONE Markdown file. One section per canvas, my main focus first, each starting "This canvas is about <group>." naming who it is for. Each has the nine headings below, in order, without the lines under them.',
   // P1658 revision 4 (founder: "It's like long sentences. It has to be short"): the word cap replaces "at most 300 characters"; the engine
@@ -63,7 +63,7 @@ export const CANVAS_OWN_AI_PROMPT = [
   // P1658 revision 5 (founder, 2026-11-25): the word cap paid for the routing line's two new sentences (only Customer Segments names the
   // customers; no point repeats another) and Customer Segments' "never a subset". "add one line starting" became "add a ... line", "if there
   // is none" became "with none" and "leave the point out" became "drop the point".
-  '- Under each point, add a "Source:" line naming the chat, memory, file or message it comes from. Never invent a source; with none, drop the point.',
+  '- Under each point, add "Source:" naming where it comes from. Never invent one; with none, drop the point.',
   '- Under an empty heading write only: Not known yet.',
   `- ${NAMING_RULE}`,
   '',

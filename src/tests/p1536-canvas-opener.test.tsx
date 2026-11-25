@@ -115,11 +115,11 @@ describe('CANVAS_OWN_AI_PROMPT', () => {
     expect(headings).toHaveLength(9);
   });
 
-  it('asks for one Markdown file with a "Source:" line each, "Not known yet", no invented numbers, no other people; stays under about 1100 words (Design v6 S2: the nine definitions and the writing rules)', () => {
+  it('asks for one Markdown file with a "Source:" line each, "Not known yet", no invented numbers, no other people; stays under about 1120 words (Design v6 S2: the nine definitions and the writing rules)', () => {
     for (const phrase of ['Markdown', 'This canvas is about', 'Source:', 'Not known yet', 'Never invent numbers', 'Never use the names of other people']) {
       expect(CANVAS_OWN_AI_PROMPT).toContain(phrase);
     }
-    expect(CANVAS_OWN_AI_PROMPT.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(1100);
+    expect(CANVAS_OWN_AI_PROMPT.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(1120);
   });
 
   it('carries the definition and the shape of every box (the examples stay in the drafting prompt)', () => {
