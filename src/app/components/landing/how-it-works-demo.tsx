@@ -27,7 +27,7 @@ export function HowItWorksDemoSection({ location, anchorAlias, video = DEMO_BY_P
   useSeenOnce(frameRef, () => analytics.track("demo_video_seen", { location }), video !== null && !failed);
   const steps: readonly { title: string; text: string }[] = HOW_IT_WORKS.steps;
   const columns = COLUMNS[steps.length] ?? COLUMNS[3];
-  // The hero's "Watch the product demo" link: bring the film into view and press its Play button.
+  // The hero's "Watch demo video" button: bring the film into view and press its Play button.
   // Runs inside the visitor's click, so the browser lets it start with sound.
   useEffect(() => {
     const start = (e: Event) => {
@@ -89,25 +89,23 @@ export function HowItWorksDemoSection({ location, anchorAlias, video = DEMO_BY_P
 }
 
 /**
- * The hero's second option on pages with a film, in place of "or Take the Pledge": a quiet text link
- * that jumps to the film just below and starts it. Sends `demo_link_clicked` with the page.
+ * The hero's second action on pages with a film, in place of "or Take the Pledge" (P1704): a
+ * blue-outlined button beside the filled discovery-call button (P1731: no "or", founder wording).
+ * It jumps to the film just below and starts it. Sends `demo_link_clicked` with the page.
  */
 export function WatchDemoLink({ location }: { location: UseCaseLocation }) {
   if (!DEMO_BY_PAGE[location]) return null; // no film on this page: nothing to jump to
   return (
-    <p className="text-foreground/70">
-      or{" "}
-      <button
-        type="button"
-        onClick={() => {
-          analytics.track("demo_link_clicked", { location });
-          window.dispatchEvent(new CustomEvent(PLAY_DEMO_EVENT, { detail: { location } }));
-        }}
-        className="inline-flex min-h-10 items-center gap-1.5 text-blue-600 underline underline-offset-4 hover:text-blue-700"
-      >
-        <PlayCircleIcon className="h-5 w-5 shrink-0" aria-hidden />
-        Watch the product demo
-      </button>
-    </p>
+    <button
+      type="button"
+      onClick={() => {
+        analytics.track("demo_link_clicked", { location });
+        window.dispatchEvent(new CustomEvent(PLAY_DEMO_EVENT, { detail: { location } }));
+      }}
+      className="inline-flex max-w-full items-center justify-center gap-2.5 rounded-full border-2 border-blue-600 bg-background px-5 py-[14px] text-[0.9375rem] font-semibold text-blue-700 transition-colors hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:px-8 sm:py-[18px] sm:text-lg"
+    >
+      <PlayCircleIcon className="h-5 w-5 shrink-0" aria-hidden />
+      Watch demo video
+    </button>
   );
 }

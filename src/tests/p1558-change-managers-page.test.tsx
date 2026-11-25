@@ -109,11 +109,11 @@ describe('P1558 /change-managers - content', () => {
     expect(document.querySelectorAll('a.bg-blue-600, button.bg-blue-600')).toHaveLength(1);
     expect(document.querySelectorAll('a.bg-white[href="/intro"]')).toHaveLength(1);
     // P1704: the hero's second option is the demo film, not the pledge; the page has no pledge link now.
-    expect(screen.getByRole('button', { name: 'Watch the product demo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Watch demo video' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Take the Pledge' })).toBeNull();
     // P1671: the fable hero adds the phone cue to its example; still no button besides scroll cues.
     // P1704: plus the demo's Play button (its visible text is the film's length; named 'Play the product demo').
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Watch the product demo', 'See an example', 'Why it matters', '6:26']);
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['Watch demo video', 'See an example', 'Why it matters', '6:26']);
     expect(screen.getByRole('button', { name: 'Play the product demo' })).toHaveTextContent('6:26');
   });
 });
@@ -129,7 +129,7 @@ describe('P1558 /change-managers - analytics', () => {
     expect(track).toHaveBeenCalledWith('change_managers_cta_clicked', { location: 'closing' });
     track.mockClear();
     Element.prototype.scrollIntoView = vi.fn(); // jsdom has none; the demo link scrolls to the film
-    fireEvent.click(screen.getByRole('button', { name: 'Watch the product demo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Watch demo video' }));
     // The link then presses the film's Play button, so demo_video_play follows; nothing pledge-related.
     expect(track.mock.calls).toEqual([['demo_link_clicked', { location: 'change-managers' }], ['demo_video_play', { location: 'change-managers' }]]);
   });

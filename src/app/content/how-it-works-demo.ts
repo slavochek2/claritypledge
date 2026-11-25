@@ -45,18 +45,31 @@ export const DEMO_VIDEO: DemoVideo | null = {
 };
 
 /**
+ * The super-short cut of the same film (v4.8, 2:57): the same story with less setup, for pages
+ * whose visitors are not the film's software team (founder choice, P1731). Same poster frame.
+ */
+export const DEMO_VIDEO_SHORT: DemoVideo = {
+  src: publicMediaUrl("demo/product-demo-v4.8-super-short-v1.mp4"),
+  poster: publicMediaUrl("demo/product-demo-v4.8-super-short-poster-v1.jpg"),
+  posterAlt: "A video call with five team members, the opening of the ClarityPledge product demo",
+  playLabel: "Play the product demo",
+  durationSeconds: 177,
+};
+
+/**
  * Which film each page shows. Each page is meant to get its own film (same five steps, its own
- * people and meeting); until it exists, a page shows the shared demo, or no film (null) where the
+ * people and meeting); until it exists, a page shows the shared demo (full cut where the story is
+ * theirs, /builders and /change-managers; the super-short cut elsewhere), or no film (null) where the
  * shared demo's setting would put its visitors off. /hospitals: clinical staff, not a software team.
  */
 export const DEMO_BY_PAGE: Record<UseCaseLocation, DemoVideo | null> = {
   builders: DEMO_VIDEO,
   "change-managers": DEMO_VIDEO,
-  hiring: DEMO_VIDEO,
-  founder: DEMO_VIDEO,
-  coach: DEMO_VIDEO,
+  hiring: DEMO_VIDEO_SHORT,
+  founder: DEMO_VIDEO_SHORT,
+  coach: DEMO_VIDEO_SHORT,
   hospitals: null,
 };
 
-/** Window event the hero's "Watch the product demo" link sends; the page's How it works section scrolls to its film and starts it. */
+/** Window event the hero's "Watch demo video" button sends; the page's How it works section scrolls to its film and starts it. */
 export const PLAY_DEMO_EVENT = "clarity:play-demo";

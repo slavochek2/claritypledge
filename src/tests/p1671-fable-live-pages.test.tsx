@@ -102,8 +102,8 @@ describe('P1671 analytics: each event from its action', () => {
     const page = <ChangeManagersPage />;
     expect(clickOn('/change-managers', page, () => screen.getAllByRole('link', { name: CTA })[0]!)).toEqual([['change_managers_cta_clicked', { location: 'hero' }]]);
     expect(clickOn('/change-managers', page, () => screen.getAllByRole('link', { name: CTA })[1]!)).toEqual([['change_managers_cta_clicked', { location: 'closing' }]]);
-    // P1704: the hero's second option is "Watch the product demo"; it sends the demo event, no pledge event.
-    expect(clickOn('/change-managers', page, () => screen.getByRole('button', { name: 'Watch the product demo' }))).toEqual([['demo_link_clicked', { location: 'change-managers' }], ['demo_video_play', { location: 'change-managers' }]]); // the link then presses Play
+    // P1704: the hero's second option is "Watch demo video"; it sends the demo event, no pledge event.
+    expect(clickOn('/change-managers', page, () => screen.getByRole('button', { name: 'Watch demo video' }))).toEqual([['demo_link_clicked', { location: 'change-managers' }], ['demo_video_play', { location: 'change-managers' }]]); // the link then presses Play
   });
 
   it.each([
@@ -117,7 +117,7 @@ describe('P1671 analytics: each event from its action', () => {
       const { unmount } = renderAt(`${path}?referrer=x&login=1`, <Page />);
       expect(screen.queryByText(/landed/)).toBeNull();
       expect(screen.queryByRole('link', { name: 'Take the Pledge' })).toBeNull();
-      const target = action === 'demo' ? screen.getByRole('button', { name: 'Watch the product demo' }) : screen.getAllByRole('link', { name: CTA })[action === 'hero' ? 0 : 1]!;
+      const target = action === 'demo' ? screen.getByRole('button', { name: 'Watch demo video' }) : screen.getAllByRole('link', { name: CTA })[action === 'hero' ? 0 : 1]!;
       fireEvent.click(target);
       unmount();
     }

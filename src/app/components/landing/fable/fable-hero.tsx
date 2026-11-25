@@ -33,7 +33,7 @@ type HeroProps = {
   nextLabel?: string;
   /** The page's own actions. Omitted: the discovery call and "or Take the Pledge". */
   actions?: ReactNode;
-  /** P1704: the page whose film the default actions offer ("or Watch the product demo") instead of the pledge; ignored when that page has no film. */
+  /** P1704: the page whose film the default actions offer ("Watch demo video", P1731) instead of the pledge; ignored when that page has no film. */
   demo?: UseCaseLocation;
 };
 

@@ -30,7 +30,7 @@ import { CommunitiesPage } from '@/app/pages/communities-page';
 import { BuildRightThingLanding } from '@/app/pages/build-right-thing-landing';
 import { ChangeManagersPage } from '@/app/pages/change-managers-page';
 import { HowItWorksDemoSection, WatchDemoLink } from '@/app/components/landing/how-it-works-demo';
-import { DEMO_BY_PAGE, DEMO_VIDEO, HOW_IT_WORKS, type DemoVideo, type UseCaseLocation } from '@/app/content/how-it-works-demo';
+import { DEMO_BY_PAGE, DEMO_VIDEO, DEMO_VIDEO_SHORT, HOW_IT_WORKS, type DemoVideo, type UseCaseLocation } from '@/app/content/how-it-works-demo';
 
 const PAGES: Record<UseCaseLocation, ReactElement> = {
   builders: <BuildRightThingLanding />,
@@ -73,8 +73,20 @@ describe('P1704 the section on each of the six pages', () => {
     expect(DEMO_VIDEO!.playLabel).toBe('Play the product demo');
   });
 
-  it('every page but /hospitals shows the shared demo until its own film exists', () => {
-    for (const loc of LOCATIONS) expect(DEMO_BY_PAGE[loc]).toBe(loc === 'hospitals' ? null : DEMO_VIDEO);
+  it('full cut where the story is theirs, the super-short cut on /hiring, /founder, /coach, no film on /hospitals', () => {
+    const want: Record<UseCaseLocation, DemoVideo | null> = {
+      builders: DEMO_VIDEO, 'change-managers': DEMO_VIDEO, hiring: DEMO_VIDEO_SHORT, founder: DEMO_VIDEO_SHORT, coach: DEMO_VIDEO_SHORT, hospitals: null,
+    };
+    for (const loc of LOCATIONS) expect(DEMO_BY_PAGE[loc]).toBe(want[loc]);
+    expect(DEMO_VIDEO_SHORT.src).toMatch(/\/demo\/.+super-short.+\.mp4$/);
+    expect(DEMO_VIDEO_SHORT.durationSeconds).toBeLessThan(DEMO_VIDEO!.durationSeconds!);
+  });
+
+  it('the hero action is a blue-outlined button with no "or" before it', () => {
+    const { container } = render(<WatchDemoLink location="hiring" />);
+    const b = screen.getByRole('button', { name: 'Watch demo video' });
+    expect(b.className).toContain('border-blue-600');
+    expect(container.textContent).not.toMatch(/^or\b/);
   });
 
   it('no [FOUNDER DECISION placeholder is left in the wording', () => {
@@ -177,7 +189,7 @@ describe('P1704 events with the video set', () => {
   });
 });
 
-describe('P1704 the hero link "Watch the product demo"', () => {
+describe('P1704 the hero link "Watch demo video"', () => {
   it('sends demo_link_clicked, brings the film into view and starts it', () => {
     const scroll = vi.fn();
     Element.prototype.scrollIntoView = scroll;
@@ -187,7 +199,7 @@ describe('P1704 the hero link "Watch the product demo"', () => {
         <HowItWorksDemoSection location="hiring" video={VIDEO} />
       </>,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Watch the product demo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Watch demo video' }));
     expect(track.mock.calls.filter((c) => c[0] === 'demo_link_clicked')).toEqual([['demo_link_clicked', { location: 'hiring' }]]);
     expect(track.mock.calls.filter((c) => c[0] === 'demo_video_play')).toEqual([['demo_video_play', { location: 'hiring' }]]);
     expect(scroll).toHaveBeenCalledTimes(1);
@@ -202,14 +214,14 @@ describe('P1704 the hero link "Watch the product demo"', () => {
         <div id="other"><HowItWorksDemoSection location="coach" video={VIDEO} /></div>
       </>,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Watch the product demo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Watch demo video' }));
     expect(container.querySelector('#other video')).toBeNull();
     expect(track.mock.calls.filter((c) => c[0] === 'demo_video_play')).toEqual([]);
   });
 
   it('is not offered where the page has no film: /hospitals keeps the pledge link', () => {
     renderPage(<HospitalsPage />);
-    expect(screen.queryByRole('button', { name: 'Watch the product demo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Watch demo video' })).toBeNull();
     expect(screen.getByRole('link', { name: 'Take the Pledge' })).toHaveAttribute('href', '/sign-pledge');
   });
 });
@@ -224,7 +236,7 @@ describe('P1704 the hero link, edge cases', () => {
         <HowItWorksDemoSection location="hiring" video={VIDEO} />
       </>,
     );
-    const link = screen.getByRole('button', { name: 'Watch the product demo' });
+    const link = screen.getByRole('button', { name: 'Watch demo video' });
     fireEvent.click(link);
     play.mockClear();
     fireEvent.click(link);
