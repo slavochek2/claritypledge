@@ -149,8 +149,6 @@ path on every sign-in.
   sign-in-shaped call took the banner from present to wiped (attempted true to false); with the
   new one it was kept, and an explicit `banner_url: null` still cleared it. Migration then applied
   to self-hosted TEST (`migrate.sh --list`: no pending; version added to `test.migrations`).
-- [ ] Migration applied to prod; founder signs in, banner `/banners/slava-desktop.jpg` survives.
-- [ ] Founder decides whether `bio` was lost in prod and needs restoring (prod `bio` reads NULL).
 
 ## Unproven
 
@@ -159,3 +157,8 @@ path on every sign-in.
   several tabs/devices opening the profile after a sign-in, or repeated sign-ins. Not checked.
 - The anon storage listing of `banners/profile/<id>/` returned empty (anon listing is revoked,
   decisions.md P1603), so the earlier generated files could not be dated.
+
+## Post-ship (after merge; migrate.sh applies only migrations committed on main)
+
+- [ ] Migration applied to prod; founder signs in, banner `/banners/slava-desktop.jpg` survives.
+- [ ] Founder decides whether `bio` was lost in prod and needs restoring (prod `bio` reads NULL).
