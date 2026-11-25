@@ -1,8 +1,10 @@
 /**
  * P1704 — content and the demo video constant for the "How it works" section on the six
  * use-case pages (/builders, /change-managers, /hiring, /founder, /hospitals, /coach).
- * Every [FOUNDER DECISION] string below is founder wording, filled in before /ship.
+ * Wording approved by the founder 2026-11-25, taken from the demo film.
  */
+
+import { publicMediaUrl } from "@/lib/public-media";
 
 /** The page that shows the section; becomes the `location` of demo_video_seen / demo_video_play. */
 export type UseCaseLocation = "builders" | "change-managers" | "hiring" | "founder" | "hospitals" | "coach";
@@ -17,23 +19,28 @@ export interface DemoVideo {
 }
 
 export const HOW_IT_WORKS = {
-  heading: "[FOUNDER DECISION: heading — must name the product]",
-  // The founder may add a 4th step; the section renders 3 or 4.
+  heading: "How ClarityPledge works",
+  // The five steps are the demo film's own (v4.8 step bar), worded from its narration, so the page and the film say the same thing.
   steps: [
-    { title: "[FOUNDER DECISION: step 1 title]", text: "[FOUNDER DECISION: step 1, one line; describe only what is built]" },
-    { title: "[FOUNDER DECISION: step 2 title]", text: "[FOUNDER DECISION: step 2, one line; describe only what is built]" },
-    { title: "[FOUNDER DECISION: step 3 title]", text: "[FOUNDER DECISION: step 3, one line; describe only what is built]" },
+    { title: "Increase the will", text: "The app gives everyone the knowledge to want this. Where there's friction, our team helps with coaching and training." },
+    { title: "Agree on expectations", text: "Before the meeting, each person opts in or out of one promise: to answer honestly how well they understand, from 0 to 10." },
+    { title: "Surface high-stakes decisions", text: "The call is transcribed live. Press Clarify, and your Mirror agent drafts the decision as a point everyone takes a position on." },
+    { title: "Decrease the friction", text: "Speaker and listener each give a number, revealed together. A gap shows in three seconds; an explain-back bridges it." },
+    { title: "Improve the skill", text: "Every explain-back feeds your listening calibration: how well you thought you understood, against what the speaker says." },
   ],
-  // [FOUNDER DECISION: placeholder text — draft]
+  // Shown only if DEMO_VIDEO is ever unset again.
   placeholder: "Demo coming soon",
-  // [FOUNDER DECISION: error line — draft]
   errorLine: "The video could not load. Please try again later.",
 } as const;
 
 /**
- * The product demo. Set it with `publicMediaUrl("demo/...")` when the demo is uploaded
- * (playLabel: "Play the product demo"). The video must be 16:9 (the player crops to fill a
- * 16:9 frame) and its poster must have no text in its centre, where the play button sits (P1682).
- * While null, the section shows a placeholder frame and fires no events.
+ * The product demo (v4.8 full cut, 6:26; a shorter cut will replace it later). The video is 16:9 and
+ * its poster has no text in its centre, where the play button sits (P1682). Captions are burned in.
  */
-export const DEMO_VIDEO: DemoVideo | null = null;
+export const DEMO_VIDEO: DemoVideo | null = {
+  src: publicMediaUrl("demo/product-demo-v4.8-v1.mp4"),
+  poster: publicMediaUrl("demo/product-demo-v4.8-poster-v1.jpg"),
+  posterAlt: "A video call with five team members, the opening of the ClarityPledge product demo",
+  playLabel: "Play the product demo",
+  durationSeconds: 386,
+};

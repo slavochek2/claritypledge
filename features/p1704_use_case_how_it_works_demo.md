@@ -150,3 +150,10 @@ The demo is served from the GCS media bucket (registry row "Google Cloud Storage
 - docs/decisions.md 2026-11-17 [product] "The product demo goes on every use-case page in place of the founder video" (P1701 exploration; branch `feature/p1701-video-placements-exploration`, `src/app/tree/video-placements/`)
 - docs/decisions.md 2026-11-17 [product] "The change-lead session is the product demo" (the demo film is planned in a separate session)
 - 2026-07-21 [technical] P1005/P1006 (take-nothing founder section) · 2026-11-15 [product] P1682 (manifesto film, self-hosted player, poster rule) · 2026-11-13 [product] P1674 (no unbuilt claims) · P1385 (public media host)
+
+### 2026-11-25 — demo set, wording filled, section numbered
+
+- Founder: use the full v4.8 cut (6:26) for now, a shorter cut later; fill the wording around the video from the film. Uploaded `demo/product-demo-v4.8-v1.mp4` (31 MB, faststart, 200 `video/mp4`) and `demo/product-demo-v4.8-poster-v1.jpg` (the five-person call, no text in its centre).
+- Heading "How ClarityPledge works"; five steps = the film's own step bar (Increase the will, Agree on expectations, Surface high-stakes decisions, Decrease the friction, Improve the skill), texts from its narration. The section now renders 3-5 steps.
+- The section is numbered like its neighbours (founder: "this one misses the numbering"); the sections after it count on by one on all six pages. Tests updated: P1674 numbering lists, the P1506/P1558 button lists now include the demo's Play button (text "6:26").
+- Video frame widened to max-w-5xl and centred (visual QA finding 1).

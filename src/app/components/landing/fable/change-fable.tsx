@@ -71,9 +71,9 @@ export function ChangeFable({ seo, cast, tracking = {} }: { seo: ReactNode; cast
 
         <ReasonsSection index="01" reasons={CHANGE_REASONS} references={CHANGE_REFERENCES} />
         <ExchangeSection cast={cast} muted />
-        <HowItWorksDemoSection location="change-managers" />
-        <PromiseSection index="02" title={<>Make it <span className="text-blue-400">normal</span> to ask how well we understand each other</>} />
-        <NormSection index="03" />
+        <HowItWorksDemoSection location="change-managers" index="02" />
+        <PromiseSection index="03" title={<>Make it <span className="text-blue-400">normal</span> to ask how well we understand each other</>} />
+        <NormSection index="04" />
         <FounderCredibility />
         <CloseSection title="Reveal gaps in understanding before your rollout stalls" />
         <ReferencesSection references={CHANGE_REFERENCES} />

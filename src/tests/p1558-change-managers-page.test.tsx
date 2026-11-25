@@ -105,7 +105,9 @@ describe('P1558 /change-managers - content', () => {
     expect(document.querySelectorAll('a.bg-white[href="/intro"]')).toHaveLength(1);
     expect(screen.getByRole('link', { name: 'Take the Pledge' })).toHaveAttribute('href', '/sign-pledge');
     // P1671: the fable hero adds the phone cue to its example; still no button besides scroll cues.
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['See an example', 'What nobody said']);
+    // P1704: plus the demo's Play button (its visible text is the film's length; named 'Play the product demo').
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['See an example', 'What nobody said', '6:26']);
+    expect(screen.getByRole('button', { name: 'Play the product demo' })).toHaveTextContent('6:26');
   });
 });
 

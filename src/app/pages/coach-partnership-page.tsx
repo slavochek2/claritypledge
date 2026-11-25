@@ -139,8 +139,8 @@ export function CoachPartnershipPage() {
       </IllusionSection>
       <ReasonsSection index="03" reasons={REASONS} references={REFERENCES} muted />
       <ExchangeSection id="how" cast={COACH_CAST} />
-      <HowItWorksDemoSection location="coach" />
-      <PromiseSection id="agreement" index="04" title="Role model a partnership that survives disagreement." specimen={<PartnerAgreementSpecimen />} />
+      <HowItWorksDemoSection location="coach" index="04" />
+      <PromiseSection id="agreement" index="05" title="Role model a partnership that survives disagreement." specimen={<PartnerAgreementSpecimen />} />
       <FounderCredibility />
       <CoachClose />
       <FaqSection faqs={FAQS} />

@@ -154,9 +154,9 @@ export function ProgramPage() {
         <MisunderstandingVenn />
       </IllusionSection>
       <ExchangeSection cast={HIRING_CAST} muted />
-      <HowItWorksDemoSection location="hiring" />
+      <HowItWorksDemoSection location="hiring" index="04" />
       <PromiseSection
-        index="04"
+        index="05"
         title={<>Protect the relationship before your interests <span className="text-blue-400">quietly diverge</span></>}
         specimen={<PartnerAgreementSpecimen />}
       />

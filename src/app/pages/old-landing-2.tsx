@@ -162,9 +162,9 @@ export function OldLanding2Page() {
         <MisunderstandingVenn />
       </IllusionSection>
       <ExchangeSection cast={FOUNDER_CAST} muted />
-      <HowItWorksDemoSection location="founder" />
+      <HowItWorksDemoSection location="founder" index="04" />
       <PromiseSection
-        index="04"
+        index="05"
         title={<>Protect your partnership so it <span className="text-blue-400">survives strong disagreements</span></>}
         specimen={<PartnerAgreementSpecimen />}
       />

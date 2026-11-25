@@ -66,25 +66,37 @@ beforeEach(() => {
 });
 
 describe('P1704 the section on each of the six pages', () => {
-  it('the demo constant is unset until the video is uploaded', () => {
-    expect(DEMO_VIDEO).toBeNull();
+  it('the demo constant points at the uploaded film and poster in the media bucket', () => {
+    expect(DEMO_VIDEO).not.toBeNull();
+    expect(DEMO_VIDEO!.src).toMatch(/^https:\/\/storage\.googleapis\.com\/claritypledge-story-images\/demo\/.+\.mp4$/);
+    expect(DEMO_VIDEO!.poster).toMatch(/\/demo\/.+\.jpg$/);
+    expect(DEMO_VIDEO!.playLabel).toBe('Play the product demo');
   });
 
-  it.each(LOCATIONS)('%s: #how-it-works sits immediately before the Group Terms, with a heading and 3-4 steps, and no video player', (loc) => {
+  it('no [FOUNDER DECISION placeholder is left in the wording', () => {
+    expect(JSON.stringify(HOW_IT_WORKS)).not.toContain('FOUNDER DECISION');
+  });
+
+  it.each(LOCATIONS)('%s: #how-it-works sits immediately before the Group Terms, numbered one before it, with a heading, 3-5 steps and one demo player', (loc) => {
     const { container } = renderPage(PAGES[loc]);
     const section = container.querySelector('#how-it-works')!;
     expect(section).not.toBeNull();
     expect(within(section as HTMLElement).getByRole('heading', { level: 2 })).toBeInTheDocument();
     const items = within(section as HTMLElement).getAllByRole('listitem');
     expect(items.length).toBeGreaterThanOrEqual(3);
-    expect(items.length).toBeLessThanOrEqual(4);
+    expect(items.length).toBeLessThanOrEqual(5);
     // The next section after it is the dark Group Terms band.
     const next = section.nextElementSibling as HTMLElement;
     expect(next.tagName).toBe('SECTION');
     expect(next.className).toContain('bg-slate-950');
-    // At most one player (none while the constant is unset).
+    // Numbered like its neighbours: the Group Terms carry the next number.
+    const num = (el: Element) => Number(el.querySelector('[aria-hidden].font-mono')?.textContent);
+    expect(num(section)).toBeGreaterThan(0);
+    expect(num(next)).toBe(num(section) + 1);
+    // One player on the page, the demo; nothing loads until Play.
     expect(container.querySelectorAll('video').length).toBe(0);
-    expect(screen.queryByRole('button', { name: /play the (product demo|founder talk clip)/i })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^play /i }).map((b) => b.getAttribute('aria-label') ?? b.textContent)).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Play the product demo' })).toBeInTheDocument();
   });
 
   it('/communities has no How it works section and no founder photo', () => {
@@ -97,7 +109,7 @@ describe('P1704 the section on each of the six pages', () => {
 describe('P1704 placeholder state', () => {
   it('shows the placeholder with no play button, and fires no events when on screen', () => {
     motion.inView = true;
-    render(<HowItWorksDemoSection location="builders" />);
+    render(<HowItWorksDemoSection location="builders" index="04" video={null} />);
     expect(screen.getByText(HOW_IT_WORKS.placeholder)).toBeInTheDocument();
     expect(screen.queryByRole('button')).toBeNull();
     expect(seenAndPlay()).toEqual([]);
@@ -107,8 +119,8 @@ describe('P1704 placeholder state', () => {
 describe('P1704 events with the video set', () => {
   it.each(LOCATIONS)('%s: seen once on screen, play once on click', (loc) => {
     motion.inView = true;
-    const { rerender } = render(<HowItWorksDemoSection location={loc} video={VIDEO} />);
-    rerender(<HowItWorksDemoSection location={loc} video={VIDEO} />);
+    const { rerender } = render(<HowItWorksDemoSection location={loc} index="04" video={VIDEO} />);
+    rerender(<HowItWorksDemoSection location={loc} index="04" video={VIDEO} />);
     expect(track.mock.calls.filter((c) => c[0] === 'demo_video_seen')).toEqual([['demo_video_seen', { location: loc }]]);
     const play = screen.getByRole('button', { name: 'Play the product demo' });
     fireEvent.click(play);
@@ -117,12 +129,12 @@ describe('P1704 events with the video set', () => {
   });
 
   it('does not report seen while off screen', () => {
-    render(<HowItWorksDemoSection location="coach" video={VIDEO} />);
+    render(<HowItWorksDemoSection location="coach" index="04" video={VIDEO} />);
     expect(track.mock.calls.filter((c) => c[0] === 'demo_video_seen')).toEqual([]);
   });
 
   it('a failed load after play shows the error line, not a black box', () => {
-    const { container } = render(<HowItWorksDemoSection location="hiring" video={VIDEO} />);
+    const { container } = render(<HowItWorksDemoSection location="hiring" index="04" video={VIDEO} />);
     fireEvent.click(screen.getByRole('button', { name: 'Play the product demo' }));
     fireEvent.error(container.querySelector('video')!);
     expect(screen.getByText(HOW_IT_WORKS.errorLine)).toBeInTheDocument();

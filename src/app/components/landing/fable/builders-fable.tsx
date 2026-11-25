@@ -117,14 +117,14 @@ export function BuildersFable({ seo, cast, tracking = {} }: { seo: ReactNode; ca
         <ReasonsSection index="02" reasons={REASONS_NOBODY_CHECKS} references={REFERENCES} muted />
         <RootCause />
         <ExchangeSection cast={cast} muted />
-        <HowItWorksDemoSection location="builders" />
+        <HowItWorksDemoSection location="builders" index="04" />
         <PromiseSection
-          index="04"
+          index="05"
           // inline-block: the quoted phrase moves to the next line as one unit and is never split after "I".
           title={<>Make it normal to admit <span className="inline-block text-blue-400">&ldquo;I don&rsquo;t understand&rdquo;</span></>}
           sub="Reveal gaps easily. Bridge them safely."
         />
-        <NormSection index="05" />
+        <NormSection index="06" />
         <FounderCredibility />
         <CloseSection lead="Stop fighting the wrong disagreement." title="Start revealing hidden misunderstandings." />
         <ReferencesSection references={REFERENCES} />
