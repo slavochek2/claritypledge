@@ -1,23 +1,18 @@
-/** Steps 1 and 2 of /tree/meeting-stakes: the meeting with its gate question, and the five points. */
-import { ANOTHER, CONDITIONS, MEETINGS, SCALE, type Answers, type ConditionKey, type Gate } from "./model";
-import { ChoiceGroup } from "./parts";
+/** Steps 1 and 2 of /tree/meeting-stakes: the meeting, and its five dimensions. */
+import { ANOTHER, DIMENSIONS, MEETINGS, type DimensionKey, type Level, type Levels } from "./model";
+import { LevelBar, type DimensionErrors } from "./parts";
 import { FIELD, errorId } from "./ui";
 
-const GATE_OPTIONS = [
-  { value: "yes" as Gate, label: "Yes" },
-  { value: "no" as Gate, label: "No" },
-];
-
-export type MeetingErrors = { meeting?: string; gate?: string };
-
-export function MeetingQuestions({ meeting, customName, gate, errors, onMeeting, onCustomName, onGate }: { meeting: string; customName: string; gate: Gate | null; errors: MeetingErrors; onMeeting: (m: string) => void; onCustomName: (s: string) => void; onGate: (g: Gate | null) => void }) {
+export function MeetingQuestions({ meeting, customName, errors, onMeeting, onCustomName, onSubmit }: { meeting: string; customName: string; errors: { meeting?: string; name?: string }; onMeeting: (m: string) => void; onCustomName: (s: string) => void; onSubmit: () => void }) {
   return (
-    <div className="grid gap-8">
+    <div className="grid gap-4">
       <div data-question="meeting">
-        <label htmlFor="meeting" className="block font-medium">Which meeting?</label>
-        {errors.meeting && <p id={errorId("meeting")} className="mt-1 text-sm text-red-700">{errors.meeting}</p>}
+        <label htmlFor="meeting" className="block font-medium">Meeting</label>
+        {/* role="alert": announced on insertion, even when focus does not move (it may already be on the field). */}
+        {errors.meeting && <p id={errorId("meeting")} role="alert" className="mt-1 text-sm text-red-700">{errors.meeting}</p>}
         <select
           id="meeting"
+          required
           value={meeting}
           onChange={(e) => onMeeting(e.target.value)}
           aria-invalid={errors.meeting ? true : undefined}
@@ -33,42 +28,42 @@ export function MeetingQuestions({ meeting, customName, gate, errors, onMeeting,
             </optgroup>
           ))}
         </select>
-        {meeting === ANOTHER && (
-          <label className="mt-3 block">
-            <span className="mb-1 block text-sm text-muted-foreground">Its name (optional)</span>
-            <input type="text" value={customName} maxLength={80} onChange={(e) => onCustomName(e.target.value)} className={FIELD} />
-          </label>
-        )}
       </div>
-      <ChoiceGroup
-        name="gate"
-        legend="If the participants left with different understandings of what happened, would the results suffer?"
-        options={GATE_OPTIONS}
-        value={gate}
-        onChange={onGate}
-        error={errors.gate}
-        columns={2}
-      />
+      {meeting === ANOTHER && (
+        <div data-question="name">
+          <label htmlFor="meeting-name" className="block font-medium">Its name</label>
+          {errors.name && <p id={errorId("name")} role="alert" className="mt-1 text-sm text-red-700">{errors.name}</p>}
+          <input
+            id="meeting-name"
+            required
+            type="text"
+            value={customName}
+            maxLength={80}
+            onChange={(e) => onCustomName(e.target.value)}
+            // Enter in the only text field does what Continue does, as in any one-field form.
+            onKeyDown={(e) => {
+              // keyCode 229: Safari's Enter that confirms an IME candidate, which can report isComposing false.
+              if (e.key === "Enter" && !e.nativeEvent.isComposing && e.keyCode !== 229) {
+                e.preventDefault();
+                onSubmit();
+              }
+            }}
+            aria-invalid={errors.name ? true : undefined}
+            aria-describedby={errors.name ? errorId("name") : undefined}
+            className={`${FIELD} mt-2`}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-export function StakesQuestions({ answers, errors, onAnswer }: { answers: Answers; errors: Partial<Record<ConditionKey, string>>; onAnswer: (k: ConditionKey, a: Answers[ConditionKey]) => void }) {
+export function StakesQuestions({ levels, errors, onLevel }: { levels: Levels; errors: DimensionErrors; onLevel: (k: DimensionKey, l: Level) => void }) {
   return (
-    <ol className="grid gap-4">
-      {CONDITIONS.map((c, i) => (
-        <li key={c.key} className={`rounded-xl border bg-card p-3 sm:p-5 ${errors[c.key] ? "border-red-700" : "border-border"}`}>
-          <ChoiceGroup
-            name={c.key}
-            legend={<><span className="sr-only">Point {i + 1} of {CONDITIONS.length}: </span>{c.point}</>}
-            options={SCALE}
-            value={answers[c.key]}
-            onChange={(a) => onAnswer(c.key, a)}
-            error={errors[c.key]}
-            columns={5}
-          />
-        </li>
+    <div className="grid gap-5 rounded-xl border border-border bg-card p-4 sm:p-6">
+      {DIMENSIONS.map((d) => (
+        <LevelBar key={d.key} dim={d} value={levels[d.key]} onChange={(l) => onLevel(d.key, l)} error={errors[d.key]} />
       ))}
-    </ol>
+    </div>
   );
 }

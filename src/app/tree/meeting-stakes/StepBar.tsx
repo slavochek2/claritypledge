@@ -9,12 +9,12 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { STEPS, type Step, type StepState } from "./flow";
 
-const SUFFIX: Record<StepState, string> = { current: "", done: ", done", open: "", skipped: ", skipped", ahead: ", not reached yet" };
+const SUFFIX: Record<StepState, string> = { current: "", done: ", done", open: "", ahead: ", not reached yet" };
 
 export function StepBar({ states, onSelect }: { states: Record<Step, StepState>; onSelect: (s: Step) => void }) {
   return (
     <nav aria-label="Steps" className="sticky top-0 z-10 -mx-4 border-b border-border bg-background px-4">
-      <ol className="mx-auto grid max-w-2xl grid-cols-4 gap-1">
+      <ol className="mx-auto grid max-w-2xl grid-cols-3 gap-1">
         {STEPS.map(({ key, label }, i) => {
           const state = states[key];
           const text = (
@@ -23,11 +23,9 @@ export function StepBar({ states, onSelect }: { states: Record<Step, StepState>;
                 className={cn(
                   "inline-flex items-center justify-center gap-1 text-xs leading-tight sm:text-sm",
                   state === "current" ? "font-semibold text-foreground" : state === "done" || state === "open" ? "text-foreground" : "text-muted-foreground",
-                  state === "skipped" && "line-through",
                 )}
               >
-                {/* Below 380px four ticked labels collide, so the tick shows from 380 up (as the room's bar drops it below 430). */}
-                {state === "done" && <Check className="hidden h-3 w-3 shrink-0 text-blue-600 min-[380px]:block" strokeWidth={3} aria-hidden="true" />}
+                {state === "done" && <Check className="h-3 w-3 shrink-0 text-blue-600" strokeWidth={3} aria-hidden="true" />}
                 <span aria-hidden="true">{i + 1}.</span>
                 {label}
                 <span className="sr-only">{SUFFIX[state]}</span>

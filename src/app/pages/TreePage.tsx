@@ -12,7 +12,7 @@ const devPages = [
   {
     path: '/tree/meeting-stakes',
     label: 'Meeting stakes calculator',
-    description: 'Pick a meeting, rate it on the five conditions, see if a check is worth it and what it must catch to pay for itself.'
+    description: 'Name your next high-stakes meeting, set its five dimensions of stakes, and see the impact.'
   },
   {
     path: '/tree/landing-fable-change',

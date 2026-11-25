@@ -1,118 +1,113 @@
 /** Shared controls for the /tree/meeting-stakes prototype. */
-import { useRef, useState, type ReactNode, type RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { FIELD, errorId } from "./ui";
+import { DIMENSIONS, LEVELS, type DimensionKey, type Level, type Levels } from "./model";
+import { errorId } from "./ui";
 
+type Dimension = (typeof DIMENSIONS)[number];
 
 /**
- * One question as a native radio group (arrow keys, one tab stop, announced as "1 of 5").
- * Unanswered is its own state, never Unsure, and Clear takes an answer back.
+ * One segment of a five-segment bar, filled up to the level (the look of the film's five-bar card).
+ * A bar not set yet is dashed, so it never reads as "set to low".
  */
-export function ChoiceGroup<T extends string | number>({ name, legend, options, value, onChange, error, columns }: { name: string; legend: ReactNode; options: ReadonlyArray<{ value: T; label: string }>; value: T | null; onChange: (v: T | null) => void; error?: string; columns: 2 | 5 }) {
-  const set = useRef<HTMLFieldSetElement>(null);
-  const clear = () => {
-    onChange(null);
-    // The Clear button disappears with the answer, so focus goes back into the group.
-    set.current?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
-  };
+const segment = (filled: boolean, unset = false) =>
+  // blue-500 keeps an empty segment's edge at 3:1 against white (non-text contrast).
+  // In forced-colors mode the browser would map filled and empty to the same system colours, so they get their own.
+  cn(
+    "block h-3 w-full rounded-full border transition-colors forced-colors:forced-color-adjust-none",
+    filled ? "border-blue-600 bg-blue-600 forced-colors:border-[color:Highlight] forced-colors:bg-[color:Highlight]" : "border-blue-500 bg-blue-50 forced-colors:border-[color:CanvasText] forced-colors:bg-[color:Canvas]",
+    unset && "border-dashed bg-transparent",
+  );
+
+/**
+ * One dimension as a bar the host fills by tapping a segment. Underneath it is a native radio group
+ * (arrow keys, one tab stop, "3 of 5"), so it starts unset: nothing is pre-set, and no Clear is needed.
+ */
+export function LevelBar({ dim, value, onChange, error }: { dim: Dimension; value: Level | null; onChange: (l: Level) => void; error?: string }) {
+  const hint = `${dim.key}-hint`;
   return (
-    // The wrapper, not the fieldset, anchors Clear: a fieldset lays its children out below the legend.
-    <div className="relative">
-    <fieldset ref={set} data-question={name} aria-describedby={error ? errorId(name) : undefined} aria-invalid={error ? true : undefined}>
-      <legend id={`${name}-legend`} className="pr-16 font-medium">{legend}</legend>
-      {error && <p id={errorId(name)} className="mt-1 text-sm text-red-700">{error}</p>}
-      <div className={cn("mt-3 grid", columns === 5 ? "grid-cols-5 gap-1 sm:gap-1.5" : "grid-cols-2 gap-1.5 sm:max-w-xs")}>
-        {options.map((o) => {
-          const on = value === o.value;
-          return (
-            <label
-              key={o.value}
-              className={cn(
-                "flex min-h-12 cursor-pointer items-center rounded-md border py-2 text-center leading-tight transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-blue-500 has-[:focus-visible]:ring-offset-1",
-                // Five across must fit a 320px phone: a smaller face there, and no bold when picked (bold widens the
-                // word past its box); the filled dot, the border and the fill mark the pick.
-                columns === 5 ? "flex-col justify-start gap-1.5 px-0.5 text-[10px] min-[380px]:text-[11px] sm:text-xs" : "justify-center gap-2 px-1 text-sm",
-                on ? "border-blue-600 bg-blue-100 text-blue-900" : "border-blue-200 text-foreground hover:border-blue-400 hover:bg-blue-50",
-                on && columns === 2 && "font-semibold",
-              )}
-            >
-              <input type="radio" name={name} checked={on} onChange={() => onChange(o.value)} className="sr-only" />
-              <span aria-hidden="true" className={cn("grid h-4 w-4 shrink-0 place-items-center rounded-full border-2", on ? "border-blue-600" : "border-blue-500")}>
-                {on && <span className="h-2 w-2 rounded-full bg-blue-600" />}
-              </span>
-              {o.label}
-            </label>
-          );
-        })}
+    // A radiogroup, not a plain group: aria-invalid is supported on radiogroup (WAI-ARIA 1.2), and named by the legend.
+    <fieldset role="radiogroup" aria-required="true" aria-labelledby={`${dim.key}-legend`} data-question={dim.key} aria-describedby={error ? `${hint} ${errorId(dim.key)}` : hint} aria-invalid={error ? true : undefined}>
+      <legend id={`${dim.key}-legend`} className="font-medium">{dim.name}</legend>
+      <p id={hint} className="text-sm text-muted-foreground">{dim.hint}</p>
+      {error && <p id={errorId(dim.key)} className="text-sm text-red-700">{error}</p>}
+      <div className="mt-1 grid grid-cols-5 gap-1">
+        {LEVELS.map((l) => (
+          // The label is the 44px touch target; the focus ring sits on the visible segment.
+          <label key={l} className="flex min-h-11 cursor-pointer items-center hover:opacity-80">
+            <input type="radio" name={dim.key} checked={value === l} onChange={() => onChange(l)} className="peer sr-only" />
+            <span className="sr-only">{l} of 5{l === 1 ? ", low" : l === 5 ? ", high" : ""}</span>
+            <span aria-hidden="true" className={cn(segment(value !== null && l <= value, value === null), "peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-blue-600 forced-colors:peer-focus-visible:outline-[color:Highlight]")} />
+          </label>
+        ))}
+      </div>
+      <div aria-hidden="true" className="mt-1 flex justify-between text-xs text-muted-foreground">
+        <span>Low</span>
+        <span>High</span>
       </div>
     </fieldset>
-    {/* In the corner beside the question (the legend leaves room), so it takes no row of its own and
-        answering never moves the questions below. After the fieldset, so it is tabbed to after the answers. */}
-    {value !== null && (
-      <button type="button" id={`${name}-clear`} onClick={clear} aria-labelledby={`${name}-clear ${name}-legend`} className="absolute -top-2.5 right-0 min-h-11 rounded-md px-2 text-sm font-medium text-blue-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-        Clear
-      </button>
-    )}
-    </div>
   );
 }
 
-const MAX_NUMBER = 1_000_000_000;
-
-/** A number the host may leave empty (null). The field keeps the typed text, so it can be cleared and retyped. */
-export function NumberField({ label, hint, value, onChange, unit, min = 0 }: { label: string; hint?: string; value: number | null; onChange: (n: number | null) => void; unit?: string; min?: number }) {
-  const [draft, setDraft] = useState(value === null ? "" : String(value));
-  const edit = (text: string, badInput: boolean) => {
-    setDraft(text);
-    // A half-typed number ("1e", "-") reads as empty; keep the last number rather than wiping it.
-    if (badInput) return;
-    const n = Number(text);
-    if (text.trim() === "") onChange(null);
-    else if (Number.isFinite(n)) onChange(Math.min(MAX_NUMBER, Math.max(min, n)));
-  };
+/** The five bars as set, read-only, for the impact step. */
+export function Bars({ levels }: { levels: Levels }) {
   return (
-    <label className="block">
-      <span className="mb-1 block text-sm font-medium">{label}</span>
-      {/* The unit sits inside the field, so every field keeps the same left and right edge. */}
-      <span className="relative flex items-center">
-        {unit === "€" && <span aria-hidden="true" className="pointer-events-none absolute left-3 text-muted-foreground">€</span>}
-        <input type="number" inputMode="decimal" min={min} max={MAX_NUMBER} value={draft} onChange={(e) => edit(e.target.value, e.target.validity.badInput)} onBlur={() => setDraft(value === null ? "" : String(value))} className={cn(FIELD, unit === "€" && "pl-7", unit && unit !== "€" && (unit.length > 3 ? "pr-24" : "pr-12"))} />
-        {unit && unit !== "€" && <span aria-hidden="true" className="pointer-events-none absolute right-3 text-sm text-muted-foreground">{unit}</span>}
-      </span>
-      {/* Below the field, so fields side by side stay level. */}
-      {hint && <span className="mt-1 block text-sm text-muted-foreground">{hint}</span>}
-    </label>
+    <ul className="grid gap-3">
+      {DIMENSIONS.map((d) => {
+        const l = levels[d.key] ?? 0;
+        return (
+          <li key={d.key} data-level={l} className="grid gap-1 sm:grid-cols-[12rem_1fr] sm:items-center sm:gap-3">
+            <span className="text-sm font-medium">
+              {d.name}
+              <span className="sr-only">: {l} of 5</span>
+            </span>
+            <span aria-hidden="true" className="grid grid-cols-5 gap-1">
+              {LEVELS.map((s) => (
+                <span key={s} data-filled={s <= l} className={segment(s <= l)} />
+              ))}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
-/** One step: its heading (focused on arrival, so a screen reader hears the step change) and its own Back / Next row. */
-export function StepFrame({ title, intro, headingRef, children, back, next }: { title: string; intro?: ReactNode; headingRef: RefObject<HTMLHeadingElement | null>; children: ReactNode; back?: { label?: string; onClick: () => void }; next?: { label: string; onClick: () => void; secondary?: { label: string; onClick: () => void } } }) {
+export type DimensionErrors = Partial<Record<DimensionKey, string>>;
+
+/**
+ * One step: its heading (focused on arrival, so a screen reader hears the step change) and its own buttons.
+ * Continue looks muted until the step is answered but always works: pressed early, it names what is missing
+ * (a disabled button could not say why, and the P955 gate bans one in the initial state).
+ */
+export function StepFrame({ title, intro, headingRef, children, back, next }: { title: string; intro?: ReactNode; headingRef: RefObject<HTMLHeadingElement | null>; children: ReactNode; back?: () => void; next?: { label: string; onClick: () => void; ready?: boolean } | { label: string; to: string } }) {
   return (
     <section aria-labelledby="step-title" className="mt-6">
       <h2 id="step-title" ref={headingRef} tabIndex={-1} className="scroll-mt-20 text-2xl font-semibold tracking-tight focus:outline-none">
         {title}
       </h2>
-      {intro && <div className="mt-2 text-muted-foreground">{intro}</div>}
-      <div className="mt-6">{children}</div>
+      {intro && <div className="mt-1 text-muted-foreground">{intro}</div>}
+      <div className="mt-5">{children}</div>
       {(back || next) && (
-        // docs/design-system.md Button Decision Rules: the step forward filled and full width (1), a real
-        // alternative outlined under it (2), backing out as ghost and last (3). One column at every width,
-        // so the reading, tab and visual order are the same.
-        <div className="mt-8 grid gap-3 border-t border-border pt-5">
-          {next && (
-            <Button type="button" size="lg" onClick={next.onClick} className="w-full">
-              {next.label}
-            </Button>
-          )}
-          {next?.secondary && (
-            <Button type="button" variant="outline" size="lg" onClick={next.secondary.onClick} className="w-full">
-              {next.secondary.label}
-            </Button>
-          )}
+        // docs/design-system.md Button Decision Rules: the step forward filled and full width, backing out as ghost and last.
+        <div className="mt-8 grid gap-3">
+          {next &&
+            ("to" in next ? (
+              // Leaving the page is navigation, so a link (opens in a new tab like any link), styled as the primary.
+              <Button asChild size="lg" className="min-h-11 w-full">
+                <Link to={next.to}>{next.label}</Link>
+              </Button>
+            ) : (
+              // Not answered yet: the outlined variant, the design system's quieter blue, until it fills in (founder's ask).
+              <Button type="button" size="lg" variant={next.ready === false ? "outline" : "default"} onClick={next.onClick} className="min-h-11 w-full">
+                {next.label}
+              </Button>
+            ))}
           {back && (
-            <Button type="button" variant="ghost" size="lg" onClick={back.onClick} className="w-full">
-              {back.label ?? "Back"}
+            <Button type="button" variant="ghost" size="lg" onClick={back} className="min-h-11 w-full">
+              Back
             </Button>
           )}
         </div>

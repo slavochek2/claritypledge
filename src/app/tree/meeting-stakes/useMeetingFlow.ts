@@ -1,12 +1,12 @@
-/** State and actions for /tree/meeting-stakes: one meeting at a time, saved (and updated in place) on reaching Result. */
-import { useRef, useState } from "react";
-import { ANOTHER, NO_ANSWERS, NO_MONEY, compute, verdictOf, type Answers, type ConditionKey, type Gate, type Money, type Saved } from "./model";
-import { STEPS, errorsOf, missingOn, nextOf, stateOf, type FlowInput, type Step, type StepState } from "./flow";
+/** State and actions for /tree/meeting-stakes: one meeting, its five levels, and the step shown. */
+import { useState } from "react";
+import { flushSync } from "react-dom";
+import { ANOTHER, NO_LEVELS, type DimensionKey, type Level, type Levels } from "./model";
+import { STEPS, canOpen, errorsOf, missingOn, nextOf, stateOf, stepDone, type FlowInput, type Step, type StepState } from "./flow";
 
-/** Moves focus to the first question still unanswered, so a failed Next lands where the host has to act. */
+/** Moves focus to the first question still unanswered, so a refused Continue lands where the host has to act. */
 function focusQuestion(key: string) {
-  // Focus alone does not bring a visually hidden radio into view on a phone, and the sticky step bar
-  // would cover a question scrolled to the top edge, so the question is centred first.
+  // The sticky step bar would cover a question scrolled to the top edge, so the question is centred first.
   document.querySelector(`[data-question="${key}"]`)?.scrollIntoView({ block: "center" });
   document.querySelector<HTMLElement>(`[data-question="${key}"] input, [data-question="${key}"] select`)?.focus({ preventScroll: true });
 }
@@ -14,63 +14,52 @@ function focusQuestion(key: string) {
 export function useMeetingFlow() {
   const [meeting, setMeeting] = useState("");
   const [customName, setCustomName] = useState("");
-  const [gate, setGate] = useState<Gate | null>(null);
-  const [answers, setAnswers] = useState<Answers>(NO_ANSWERS);
-  const [money, setMoney] = useState<Money>(NO_MONEY);
-  const [visited, setVisited] = useState<ReadonlySet<Step>>(new Set());
+  const [levels, setLevels] = useState<Levels>(NO_LEVELS);
   const [step, setStep] = useState<Step>("meeting");
   const [tried, setTried] = useState<ReadonlySet<Step>>(new Set());
-  const [saved, setSaved] = useState<Saved[]>([]);
-  const [draftId, setDraftId] = useState(1);
-  const nextId = useRef(2);
 
-  const flow: FlowInput = { meeting, gate, answers, visited };
-  const name = meeting === ANOTHER ? customName.trim() || ANOTHER : meeting;
-  const verdict = verdictOf(gate, answers);
+  const flow: FlowInput = { meeting, customName, levels };
+  const name = meeting === ANOTHER ? customName.trim() : meeting;
   const states = Object.fromEntries(STEPS.map((s) => [s.key, stateOf(s.key, step, flow)])) as Record<Step, StepState>;
 
-  const errors = errorsOf(tried, flow);
-
-  const goTo = (target: Step) => {
-    setVisited((v) => new Set(v).add(target));
-    if (target === "result") {
-      const { checkPerYear, atRiskPerYear } = compute(money);
-      const row: Saved = { id: draftId, name, verdict, checkPerYear, atRiskPerYear };
-      setSaved((all) => (all.some((s) => s.id === draftId) ? all.map((s) => (s.id === draftId ? row : s)) : [...all, row]));
-    }
-    setStep(target);
+  const forgetLevels = () => {
+    setLevels(NO_LEVELS);
+    setTried((t) => new Set([...t].filter((s) => s !== "stakes")));
   };
 
   const next = () => {
     const missing = missingOn(step, flow);
     if (missing) {
-      setTried((t) => new Set(t).add(step));
+      // Committed before focus moves, so the focused control already carries its error to announce.
+      flushSync(() => setTried((t) => new Set(t).add(step)));
       focusQuestion(missing);
       return;
     }
-    goTo(nextOf(step, flow));
-  };
-
-  const another = () => {
-    setMeeting("");
-    setCustomName("");
-    setGate(null);
-    setAnswers(NO_ANSWERS);
-    // Every meeting starts blank, estimates included: nothing is pre-filled.
-    setMoney(NO_MONEY);
-    setVisited(new Set());
-    setTried(new Set());
-    setDraftId(nextId.current++);
-    setStep("meeting");
+    setStep(nextOf(step));
   };
 
   return {
-    step, states, name, verdict, meeting, customName, gate, answers, money, saved, draftId, errors,
-    setMeeting, setCustomName, setGate,
-    setAnswer: (k: ConditionKey, a: Answers[ConditionKey]) => setAnswers((r) => ({ ...r, [k]: a })),
-    setMoneyField: (k: keyof Money, n: number | null) => setMoney((m) => ({ ...m, [k]: n })),
-    remove: (id: number) => setSaved((all) => all.filter((s) => s.id !== id)),
-    goTo, next, another,
+    step, states, name, meeting, customName, levels,
+    errors: errorsOf(tried, flow),
+    ready: stepDone(step, flow),
+    // A different meeting starts with its bars unset: the last meeting's levels are not this one's.
+    // That holds for a typed name too, so retyping it is a different meeting.
+    setMeeting: (m: string) => {
+      if (m === meeting) return;
+      setMeeting(m);
+      forgetLevels();
+      // A fresh choice answers the refused Continue; a name field it reveals starts clean until Continue is pressed again.
+      setTried((t) => new Set([...t].filter((s) => s !== "meeting")));
+    },
+    setCustomName: (s: string) => {
+      if (s.trim() !== customName.trim()) forgetLevels();
+      setCustomName(s);
+    },
+    setLevel: (k: DimensionKey, l: Level) => setLevels((all) => ({ ...all, [k]: l })),
+    goTo: (target: Step) => {
+      if (canOpen(target, flow)) setStep(target);
+    },
+    next,
   };
 }
 
