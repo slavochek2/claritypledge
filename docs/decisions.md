@@ -128,6 +128,7 @@ leak, since the target's own successful path can clear the evidence.
 **Decision:** A role card only for someone other than the customers Customer Segments names; one Go-to-market card per route, never its steps; a missed-target milestone card only when it names a specific change (founder's choice of three: keep it when concrete, rather than always dropping it or merging it into the target card).
 **Alternatives rejected:** always dropping the missed-target card (loses a real fallback when the owner has one); merging it into the target card (two ideas in one card, against revision 4's one-idea rule).
 **Falsifier:** the founder's next Copy-prompt output still holds a card he reads as a repeat or a step of another.
+**Adopted (founder, 2026-11-25):** revisions 2–6 are adopted as built, closing the 2026-11-23 entry's "adoption pending"; the reason stays where revision 6 puts it, and the falsified box stays "Hypotheses I've falsified".
 **Cap:** the Copy prompt's word cap rises from 1100 to 1120 (founder's choice over accepting the repeats as known limits): five builder runs at 1100 were clean on Segments and Go-to-market only once, and the two rules that did not fit ("Qualifiers stay in the lead's point." and a one-route example) need about 17 words.
 
 ## 2026-11-25 [product]: Only Customer Segments names the customers; no two canvas points say the same thing (P1658 revision 5). Founder decision, UNTESTED
