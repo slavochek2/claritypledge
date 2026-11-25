@@ -282,6 +282,96 @@ export function offerShare(offer: string, solution: string): number {
   return [...o].filter((w) => sol.has(w)).length / o.size;
 }
 
+// ── Revision 5 measure (founder, 2026-11-25, reading v11.md: no box names another box's content; no two points say the same thing) ──
+// Lexical, like the v9 and revision-4 checks: a human reads every hit.
+
+export const R5_RULES = ['segment-named', 'segment-duplicate'] as const;
+const ROLE_POINT_RE = /^\s*(?:Pays|Uses|Approves):/i;
+/** Words that size or frame a group without naming it ("organizations of 100-1,000 people"), so they never make two groups look alike. */
+const SEGMENT_STOP = new Set(['first', 'best', 'customer', 'people', 'person', 'organization', 'organisation', 'company', 'business', 'independent', 'small', 'large',
+  'mid-size', 'about', 'around', 'between', 'team', 'their', 'them', 'they', 'with', 'from', 'this', 'that', 'each', 'every', 'only', 'other']);
+/** English plural to singular, enough for group nouns: "agencies" → "agency", "coaches" → "coach", "businesses" → "business", "leads" → "lead";
+ *  "business", "focus" and "analysis" stay. (Review: a bare final-"s" drop made "agencies" and "agency" differ and let "businesses" past the stop words.) */
+function singular(w: string): string {
+  if (w.length > 4 && w.endsWith('ies')) return `${w.slice(0, -3)}y`;
+  if (/(?:ch|sh|ss|x|z)es$/.test(w)) return w.slice(0, -2);
+  if (/(?:ss|us|is)$/.test(w)) return w;
+  return w.replace(/s$/, '');
+}
+/** Content words, 4+ letters, singular; a hyphenated compound ("café-owner groups") stays one word, so a channel's own name never matches the role. */
+function segmentTokens(t: string): string[] {
+  return (t.toLowerCase().match(/[a-zà-öø-ÿœ]+(?:-[a-zà-öø-ÿœ]+)*/g) ?? []).filter((w) => w.length >= 4).map(singular).filter((w) => !SEGMENT_STOP.has(w));
+}
+/** The rule lets a unit stay outside Customer Segments ("2,500 baht per café"), so "per <unit>" is taken out before a point is checked. */
+// Up to two words, so "per small café" is a unit too (re-review); a comma ends it ("per seat, billed to owners").
+const withoutUnits = (t: string): string => t.replace(/\bper\s+[\p{L}-]+(?:\s+[\p{L}-]+)?/giu, ' ');
+// "[\w-]": "The early-stage customers are …" (review); the qualifier is optional: "The customers are …" (re-review: it fell back to the whole sentence).
+const SEGMENT_INTRO_RE = /^The\s+(?:[\w-]+\s+)?customers\s+are\s+(.+)$/i;
+/** The customers a Segments point names: the first two content words of X in "The <first|best> customers are X" or "X are the customers" (else the
+ *  point's opening words), cut at the first comma, clause word, contrast, "in" or "at". A role point ("Pays:", "Uses:", "Approves:") names a role, not the group: []. */
+export function segmentHead(text: string): string[] {
+  if (ROLE_POINT_RE.test(text)) return [];
+  const t = text.trim();
+  const m = SEGMENT_INTRO_RE.exec(t) ?? /^(.+?)\s+are\s+the\s+customers\b/i.exec(t);
+  const x = (m?.[1] ?? t).split(/,|\b(?:who|whose|which|that|ahead of|not|in|at|with|want|wants)\b/i)[0]!;
+  return segmentTokens(x).slice(0, 2);
+}
+
+const normWords = (t: string): string => ` ${t.toLowerCase().replace(/[^a-zà-öø-ÿœ0-9,-]+/g, ' ').replace(/,(?!\d)/g, ' ').replace(/\s+/g, ' ').trim()} `;
+/** The group's own words, matched as written: the first four words of X (a group may be all stop words: "people who own what they sell"),
+ *  or of a role point's place ("Uses: champions inside organisations of 100 to 1,000 people" gives "organisations of 100 to"; a place opening "the" is a venue). Under 3 words: none. */
+export function segmentPhrase(text: string): string | null {
+  const t = text.trim();
+  let x: string | undefined;
+  if (ROLE_POINT_RE.test(t)) x = /\b(?:in|at|inside|within)\s+(.+)$/i.exec(t)?.[1];
+  else x = (SEGMENT_INTRO_RE.exec(t) ?? /^(.+?)\s+are\s+the\s+customers\b/i.exec(t))?.[1] ?? t;
+  if (!x || (ROLE_POINT_RE.test(t) && /^the\b/i.test(x))) return null; // "in the sales mastermind" is a venue, not the group
+  const words = normWords(x.split(/,(?!\d)|\bahead of\b|\bnot\b/i)[0]!).trim().split(' ').filter(Boolean);
+  return words.length >= 3 ? words.slice(0, 4).join(' ') : null;
+}
+/** The Problem template revision 4 shipped: "For <customer> the problem is …", "The biggest problem for <customer> is …". The word "customers" is what the
+ *  rule asks for outside Customer Segments, so "The problem for customers is …" is allowed (review: it was flagged). */
+// Re-review: the exception covers "customers" as the WHOLE slot, with or without "the", "our", "their" or "its" ("For our customers the problem is"),
+// and never "customer" as a modifier ("For customer support teams the problem is" still names a group).
+const CUSTOMERS_SLOT = String.raw`(?:(?:the|our|their|its)\s+)?customers?`;
+const PROBLEM_FOR_RE = new RegExp(String.raw`^\s*For\s+(?!the business\b|${CUSTOMERS_SLOT},?\s+the\s+problem\b).+?\s+the\s+problem\s+is\b|`
+  + String.raw`\bproblem\s+for\s+(?!the business\b|${CUSTOMERS_SLOT}\s+is\b).+?\s+is\b`, 'i');
+
+/** Every revision-5 violation: a point outside Customer Segments naming the customers that box names, and a Segments point describing the
+ *  customers an earlier Segments point already names (the founder's v11: two cards about "change leads at organizations of 100-1,000 people"). */
+export function r5Violations(points: ReadonlyArray<{ box: string; text: string }>): Violation[] {
+  const violations: Violation[] = [];
+  const allSegs = points.filter((p) => p.box === 'canvas:segments');
+  const segs = allSegs.filter((p) => !ROLE_POINT_RE.test(p.text));
+  const heads = segs.map((p) => segmentHead(p.text)).filter((h) => h.length);
+  const phrases = allSegs.map((p) => segmentPhrase(p.text)).filter((x): x is string => !!x);
+  for (const p of points) {
+    if (p.box === 'canvas:segments') continue;
+    const body = withoutUnits(p.text);
+    const toks = new Set(segmentTokens(body));
+    const named = heads.find((h) => h.every((w) => toks.has(w)));
+    const phrase = phrases.find((x) => normWords(body).includes(` ${x} `));
+    const template = p.box === 'canvas:problem' ? PROBLEM_FOR_RE.exec(p.text) : null;
+    if (named) violations.push({ box: p.box, text: p.text, rule: 'segment-named', detail: `names the customers ("${named.join(' ')}")` });
+    else if (phrase) violations.push({ box: p.box, text: p.text, rule: 'segment-named', detail: `names the customers ("${phrase}")` });
+    else if (template) violations.push({ box: p.box, text: p.text, rule: 'segment-named', detail: `names who has the problem ("${template[0].trim()}")` });
+  }
+  // One match per point, in this order of evidence; a human reads the detail. Segments-only: a repeat across two other boxes is read by hand (no lexical
+  // check tells "the outcome of that problem", which the Solution shape asks for, from a restatement). The same role in two industries is flagged too.
+  segs.forEach((p, j) => {
+    // Only who this point is about: a ruled-out group after ", not" or "ahead of" may name an earlier group (re-review).
+    const own = p.text.split(/,\s*not\b|\bahead of\b/i)[0]!;
+    const toks = new Set(segmentTokens(own));
+    const earlier = segs.slice(0, j).find((q) => {
+      const h = segmentHead(q.text); const x = segmentPhrase(q.text);
+      // the phrase catches a group made only of stop words ("people who own what they sell"), which has no head words (review)
+      return (h.length > 0 && h.every((w) => toks.has(w))) || (!!x && normWords(own).includes(` ${x} `));
+    });
+    if (earlier) violations.push({ box: p.box, text: p.text, rule: 'segment-duplicate', detail: `the same customers as "${earlier.text}"` });
+  });
+  return violations;
+}
+
 /** Per box: points, mean and max words, points over the cap, chained points. */
 export function v10BoxMeasure(points: ReadonlyArray<{ box: string; text: string }>, box: string): { points: number; meanWords: number; maxWords: number; over: number; chained: number } {
   const shapes = points.filter((p) => p.box === box).map((p) => pointShape(p.text));
@@ -407,6 +497,7 @@ export function checkCanvasMd(md: string): { report: string; total: number } {
   sections.forEach((s, i) => {
     const { violations, offerHeads } = v9Violations(s.points);
     violations.push(...v10Violations(s.points)); // revision 4: the per-point measure is part of the gate
+    violations.push(...r5Violations(s.points)); // revision 5: no box names the customers but Customer Segments, no Segments point repeats another
     for (const h of s.unknownHeadings) violations.push({ box: h, text: h, rule: 'unknown-heading' });
     // round 4: an unplaced line may hold a violation nobody scored, so each one fails the gate until a human reads it (it is still listed below)
     for (const l of s.unplaced) violations.push({ box: '(unplaced)', text: l.trim(), rule: 'unplaced' });
@@ -779,6 +870,54 @@ export function selfTest(): string[] {
     symlinkSync(outside, join(tmp, 'sneaky'));
     check(throws(() => realOutDir(join(tmp, 'sneaky'))), 'a --out symlinked to a non-.private dir accepted');
   } finally { rmSync(tmp, { recursive: true, force: true }); }
+  // revision 5: positives are the founder's own v11 points (founder-v11.md); negatives are every form the revision-5 rules allow
+  const r5Rules = (pts: Array<[string, string]>) => r5Violations(pts.map(([box, text]) => ({ box, text }))).map((v) => `${v.rule}@${v.box}`);
+  const v11Seg1 = 'The first customers are change leads at organizations of 100-1,000 people who want verified understanding, ahead of seed-to-Series-A teams.';
+  const v11Seg2 = 'Change leads at organizations of about 100-1,000 people whose teams outgrew their coordination process are the customers, not community organizers.';
+  check(JSON.stringify(segmentHead(v11Seg1)) === '["change","lead"]' && JSON.stringify(segmentHead(v11Seg2)) === '["change","lead"]', `segmentHead read v11's customers as ${JSON.stringify(segmentHead(v11Seg1))} / ${JSON.stringify(segmentHead(v11Seg2))}`);
+  check(r5Rules([['canvas:segments', v11Seg1], ['canvas:segments', v11Seg2]]).includes('segment-duplicate@canvas:segments'), 'r5 missed v11\'s two Segments points about the same change leads');
+  for (const [box, t] of [['canvas:problem', 'For change leads the problem is that colleagues agree without checking understanding, costing weeks of thrown-away work.'],
+    ['canvas:solution', 'Change leads see where colleagues\' understanding differs before they agree or disagree.'],
+    ['canvas:channels', 'The business invites change leads in its warm network to a hidden group session.'],
+    ['canvas:metrics', 'The next milestone is 3 of 10 invited change leads joining a group session (target), ahead of paid trials.']] as Array<[string, string]>)
+    check(r5Rules([['canvas:segments', v11Seg1], [box, t]]).includes(`segment-named@${box}`), `r5 missed a ${box} point naming the customers: ${t}`);
+  // the three blind spots a control probe on the v10d packs found: a group made of stop words, a group written only in role points, and the template's "For <X> the problem is"
+  const ownSeg = 'The first customers are people who own what they sell.';
+  check(r5Rules([['canvas:segments', ownSeg], ['canvas:solution', 'People who own what they sell check mutual understanding before anyone builds.']]).includes('segment-named@canvas:solution'), 'r5 missed "people who own what they sell" repeated in Solution');
+  const roleSeg = 'Uses: champions inside organisations of 100 to 1,000 people.';
+  check(r5Rules([['canvas:segments', roleSeg], ['canvas:solution', 'The product is an in-person workshop for organisations of 100 to 1,000 people.']]).includes('segment-named@canvas:solution'), 'r5 missed a role point\'s group repeated in Solution');
+  check(r5Rules([['canvas:segments', roleSeg], ['canvas:problem', 'For teams the problem is work built on misunderstandings.']]).includes('segment-named@canvas:problem'), 'r5 missed "For teams the problem is"');
+  check(r5Rules([['canvas:segments', roleSeg], ['canvas:problem', 'The biggest problem for teams is rework, ahead of late invoices.']]).includes('segment-named@canvas:problem'), 'r5 missed "The biggest problem for teams is"');
+  check(r5Rules([['canvas:segments', 'Uses: owners who practise in the sales mastermind.'], ['canvas:revenue', 'Practising at the sales mastermind: 0 per person.']]).length === 0, 'r5 read a role point\'s venue ("in the sales mastermind") as the customers');
+  const cafeSeg = 'The first customers are owners of 1-3 independent cafés in Bangkok, ahead of bakery owners.';
+  check(r5Rules([['canvas:segments', cafeSeg], ['canvas:problem', 'Café owners lose two evenings to receipts before each tax deadline.']]).includes('segment-named@canvas:problem'), 'r5 missed "Café owners" (the role words in the other order) in Problem');
+  for (const [box, t] of [['canvas:problem', 'The biggest problem is two evenings lost to receipts before each tax deadline, ahead of late invoices.'],
+    ['canvas:solution', 'Tax returns go in on time, with no evenings lost to receipts.'],
+    ['canvas:channels', 'The business answers tax questions weekly in two café-owner Facebook groups, not through paid ads.'],
+    ['canvas:revenue', 'Monthly books and tax filing: 2,500 baht per café per month.'],
+    ['canvas:metrics', 'The next milestone is 10 customers paying monthly by 31 March 2027 (target), ahead of a second city.'],
+    ['canvas:world-needs', 'The business expected café chains to buy, but none answered.'],
+    ['canvas:segments', 'Pays: the owner, from the café\'s own account.'],
+    ['canvas:segments', 'Bakery owners with 2-5 shops who bake overnight are the customers later.']] as Array<[string, string]>)
+    check(r5Rules([['canvas:segments', cafeSeg], [box, t]]).length === 0, `r5 fired on an allowed ${box} point: ${t} (${r5Rules([['canvas:segments', cafeSeg], [box, t]]).join(', ')})`);
+  // Review round 7. A one-word head: the unit stays allowed, and the head still fires without "per" (so the exception, not a blind head, spares it).
+  const cafeOnly = 'The first customers are independent cafés in Bangkok.';
+  check(r5Rules([['canvas:segments', cafeOnly], ['canvas:revenue', 'Monthly books and tax filing: 2,500 baht per café per month.']]).length === 0, 'r5 read "per café" (a unit the rule allows) as naming the customers');
+  check(r5Rules([['canvas:segments', cafeOnly], ['canvas:problem', 'Cafés lose two evenings to receipts before each tax deadline.']]).includes('segment-named@canvas:problem'), 'r5 missed "Cafés" in Problem with a one-word head');
+  for (const t of ['The biggest problem for customers is two evenings lost to receipts.', 'For customers the problem is two evenings lost to receipts.'])
+    check(r5Rules([['canvas:segments', cafeOnly], ['canvas:problem', t]]).length === 0, `r5 read "customers", the word the rule asks for, as naming the group: ${t}`);
+  check(r5Rules([['canvas:segments', ownSeg], ['canvas:segments', 'People who own what they sell in retail are the customers.']]).includes('segment-duplicate@canvas:segments'), 'r5 missed a repeat of a group made only of stop words');
+  check(r5Rules([['canvas:segments', 'The first customers are marketing agencies in Berlin.'], ['canvas:problem', 'A marketing agency loses a day to every brief.']]).includes('segment-named@canvas:problem'), 'r5 missed "agency" against "agencies"');
+  check(segmentHead('The first customers are businesses of 50 people in Berlin.').length === 0, '"businesses" got past the stop words');
+  check(segmentHead('The early-stage customers are café owners in Bangkok.').join(' ') === 'café owner', 'a hyphenated "The early-stage customers are" was not read as the Segments lead');
+  // Re-review of round 7.
+  for (const t of ['For our customers the problem is two evenings lost to receipts.', 'The biggest problem for their customers is late invoices.'])
+    check(r5Rules([['canvas:segments', cafeOnly], ['canvas:problem', t]]).length === 0, `r5 read a possessive "customers" as naming the group: ${t}`);
+  check(r5Rules([['canvas:segments', cafeOnly], ['canvas:problem', 'For customer support teams the problem is ticket backlogs.']]).includes('segment-named@canvas:problem'), 'r5 let "customer" as a modifier through the template');
+  check(r5Rules([['canvas:segments', cafeOnly], ['canvas:revenue', 'Monthly books and tax filing: 2,500 baht per small café.']]).length === 0, 'r5 read a two-word unit ("per small café") as naming the customers');
+  check(r5Rules([['canvas:segments', cafeOnly], ['canvas:revenue', 'Monthly books: 2,500 baht per seat, cafés paying yearly.']]).includes('segment-named@canvas:revenue'), 'a comma no longer ends the "per" unit');
+  check(r5Rules([['canvas:segments', ownSeg], ['canvas:segments', 'Bakery chains are the customers later, not people who own what they sell.']]).length === 0, 'r5 read a ruled-out group after ", not" as a repeat');
+  check(segmentPhrase('The customers are people who own what they sell.') === 'people who own what', '"The customers are" (no qualifier) was not read as the Segments lead');
   return fails;
 }
 
@@ -907,9 +1046,9 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
     '- Reason in a point: " because ", ", which ", " so they ", " so that ", " since ", " so the ".',
     '- Dropped: the engine\'s count; every point the model wrote and the engine did not keep is named with the engine\'s reason (only for runs made by a script version that keeps the model actions; earlier files carry none).',
     `- v9 checks (lexical heuristics, a human reads every hit; computed here from the kept points, whatever the run's arm): ${V9_RULES.join(', ')}.`, ''];
-  o.splice(o.length - 1, 0, `- Revision-4 measure (lexical, a human reads every hit): words per point (cap ${V10_MAX_WORDS}); chained = a ";", a "then", a second contrast (", not" or "ahead of"), a second clause marker (who, whose, which, where, while, but, if, unless, even when) or a second sentence; solution-kind = the first Solution point does not open "The product is"; solution-offer = that point names what is bought (package, bundle, workshop, sessions; not in its contrast), or repeats 60%+ of an Offers & Pricing point's content words. Rules: ${V10_RULES.join(', ')}.`);
-  const totals: Record<string, { leads: number; strict: number; pron: number; reasons: number; kept: number; dropped: number; named: number; runs: number; v9: number; words: number; over: number; chained: number; v10: number }> = {};
-  for (const l of labels) totals[l] = { leads: 0, strict: 0, pron: 0, reasons: 0, kept: 0, dropped: 0, named: 0, runs: 0, v9: 0, words: 0, over: 0, chained: 0, v10: 0 };
+  o.splice(o.length - 1, 0, `- Revision-4 measure (lexical, a human reads every hit): words per point (cap ${V10_MAX_WORDS}); chained = a ";", a "then", a second contrast (", not" or "ahead of"), a second clause marker (who, whose, which, where, while, but, if, unless, even when) or a second sentence; solution-kind = the first Solution point does not open "The product is"; solution-offer = that point names what is bought (package, bundle, workshop, sessions; not in its contrast), or repeats 60%+ of an Offers & Pricing point's content words. Rules: ${V10_RULES.join(', ')}.`, `- Revision-5 measure (lexical, a human reads every hit): segment-named = a point outside Customer Segments holding the first two content words of the customers a Segments point names ("change leads", "owner café"), or the first four words of that group (or of a role point's place, unless it opens "the"), or, in Problem, "For <X> the problem is" / "problem for <X> is" with X not "customers"; "per <unit>" is ignored; segment-duplicate = a Segments point holding those words or that phrase of an earlier Segments point. Role points (Pays:, Uses:, Approves:) name a role, not the group. Neither checks a repeat between two other boxes: those are read by hand. Rules: ${R5_RULES.join(', ')}.`);
+  const totals: Record<string, { leads: number; strict: number; pron: number; reasons: number; kept: number; dropped: number; named: number; runs: number; v9: number; words: number; over: number; chained: number; v10: number; r5: number }> = {};
+  for (const l of labels) totals[l] = { leads: 0, strict: 0, pron: 0, reasons: 0, kept: 0, dropped: 0, named: 0, runs: 0, v9: 0, words: 0, over: 0, chained: 0, v10: 0, r5: 0 };
   for (const p of packs) {
     const R = data[p]!;
     const cols = labels.flatMap((l) => R[l]!.map((r) => `${l} r${r.run}`));
@@ -962,6 +1101,18 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
       for (const v of x.violations) o.push(`- [${v.rule}] ${titleOf(v.box)}: ${v.text}${v.detail ? ` (${v.detail})` : ''}`);
       o.push('');
     }
+    // revision 5: only Customer Segments names the customers, and no Segments point describes the same customers twice
+    const r5 = labels.flatMap((l) => R[l]!.map((r) => ({ l, r, violations: r5Violations(r.points) })));
+    o.push('### Revision-5 violations per rule', '', `| Rule | ${cols.join(' | ')} |`, `|---|${cols.map(() => '---').join('|')}|`);
+    for (const rule of R5_RULES) o.push(`| ${rule} | ${r5.map((x) => String(x.violations.filter((v) => v.rule === rule).length)).join(' | ')} |`);
+    o.push(`| **Total** | ${r5.map((x) => { totals[x.l]!.r5 += x.violations.length; return String(x.violations.length); }).join(' | ')} |`);
+    o.push(`| *Customer Segments points (not counted above)* | ${r5.map((x) => String(x.r.points.filter((p) => p.box === 'canvas:segments').length)).join(' | ')} |`, '');
+    for (const x of r5) {
+      if (!x.violations.length) continue;
+      o.push(`Revision-5 violations, ${x.l} r${x.r.run}:`);
+      for (const v of x.violations) o.push(`- [${v.rule}] ${titleOf(v.box)}: ${v.text}${v.detail ? ` (${v.detail})` : ''}`);
+      o.push('');
+    }
     for (const l of labels) {
       for (const r of R[l]!) {
         const pron = r.points.filter((x) => pronounsIn(x.text).length);
@@ -979,7 +1130,7 @@ function compare(outDir: string, labels: [string, string], packs: string[]): str
     `| Lead points, loose (secondary lexical count) | ${t('leads')} |`, `| Pronouns (I, we, my, our, us, me...) | ${t('pron')} |`,
     `| Reasons inside points | ${t('reasons')} |`, `| Kept points | ${t('kept')} |`, `| Dropped (engine count) | ${t('dropped')} |`, `| Drops named with a reason | ${t('named')} |`, `| v9 violations (all rules) | ${t('v9')} |`,
     `| Mean words per point (pooled over all kept points) | ${[A, B].map((l) => (totals[l]!.kept ? Math.round((totals[l]!.words / totals[l]!.kept) * 10) / 10 : 0)).join(' | ')} |`,
-    `| Points over ${V10_MAX_WORDS} words | ${t('over')} |`, `| Chained points | ${t('chained')} |`, `| Revision-4 violations (all rules) | ${t('v10')} |`,
+    `| Points over ${V10_MAX_WORDS} words | ${t('over')} |`, `| Chained points | ${t('chained')} |`, `| Revision-4 violations (all rules) | ${t('v10')} |`, `| Revision-5 violations (all rules) | ${t('r5')} |`,
     `| Kept points, ${B} as % of ${A} | | ${totals[A]!.kept ? Math.round((totals[B]!.kept / totals[A]!.kept) * 100) : 0}% |`, '');
   return o.join('\n');
 }

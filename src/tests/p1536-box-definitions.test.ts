@@ -22,7 +22,7 @@ import * as draft from '../../supabase/functions/_shared/canvas-draft';
 import { BOX_TAGS, titleOf } from '../../supabase/functions/_shared/canvas-draft';
 import { CANVAS_OWN_AI_PROMPT } from '../app/pages/chat/canvas-thread-copy';
 import { FIXED_BOX_QUESTIONS } from '../lib/canvas-box-questions';
-import { CONTRAST_RE as HARNESS_CONTRAST_RE, CLAUSE_RE as HARNESS_CLAUSE_RE, SENTENCE_BREAK_RE as HARNESS_SENTENCE_BREAK_RE } from '../../scripts/p1658-rules-ab-eval.ts';
+import { CONTRAST_RE as HARNESS_CONTRAST_RE, CLAUSE_RE as HARNESS_CLAUSE_RE, SENTENCE_BREAK_RE as HARNESS_SENTENCE_BREAK_RE, r5Violations } from '../../scripts/p1658-rules-ab-eval.ts';
 
 const root = process.cwd();
 const read = (rel: string) => readFileSync(resolve(root, rel), 'utf8');
@@ -310,7 +310,7 @@ describe('S2 box guidance', () => {
    * P1658 revision 4 (founder: "High level, not user journey"): Solution opens with what the product is, then outcomes; no step, no
    * "then", and no package, price, unit or channel in its shape.
    */
-  const solutionIsKind = (shape: string) => shape.startsWith('"The product is <kind> for <customer>[, not <ruled-out kind>]."')
+  const solutionIsKind = (shape: string) => shape.startsWith('"The product is <kind>[, not <ruled-out kind>]."') // revision 5: no "for <customer>" (only Customer Segments names them)
     && [...shape.matchAll(/"([^"]+)"/g)].every((m) => !/\bthen\b|<step/.test(m[1]!)) // "then" joining two templates is the shape's own connector
     && !/\b(price|package|per <unit>|channel|offer)\b/i.test(shape);
 
@@ -528,7 +528,7 @@ describe('S2 box guidance', () => {
   });
 
   it('P1658 revision 4: the Problem "then" form is one idea; every good example point passes the per-point measure; Segments in canvas-prompt asks values, not feelings', () => {
-    expect(def('canvas:problem').shape).toContain(`${LEAD_SEP}"For <customer> the problem is <problem + cost>[, not <ruled-out problem>]."`); // v9: "then", no "Others:" label
+    expect(def('canvas:problem').shape).toContain(`${LEAD_SEP}"The problem is <problem + cost>[, not <ruled-out problem>]."`); // v9: "then", no "Others:" label; revision 5: no "For <customer>"
     const points = BOX_DEFINITIONS.flatMap((b) => [...b.good.matchAll(/"([^"]+)"/g)].map((m) => ({ tag: b.tag, p: m[1]! })));
     expect(points.length).toBeGreaterThan(BOX_DEFINITIONS.length - 1);
     // revision 4: every example is what it asks for — at most MAX_POINT_WORDS words, no ";" or "then", one contrast and one clause marker at most
@@ -626,7 +626,7 @@ describe('P1658 revision 3 / v9', () => {
     expect(sol.definition).toContain('No rule the business keeps; a disclaimer\'s claimed outcome stays.');
     // v9 review: "only as X over Y" read as "rewrite it as X over Y" (an invented trade-off); the spec says only when the owner states it so
     expect(sol.not).toContain('(a rule the business keeps: Guiding values only if the owner says it as "X over Y", else left out)');
-    expect(sol.not).toContain('(a disclaimer: its claimed outcome stays, as "Café owners file each return on time.")');
+    expect(sol.not).toContain('(a disclaimer: its claimed outcome stays, as "Each return is filed on time.")');
     // CONTROL (gate 7d): the real shape with v8's stance form put back fails it
     expect(solutionStance({ ...sol, shape: `${sol.shape} A stance: "The business does not <Y>."` })).toBe(true);
   });
@@ -677,7 +677,7 @@ describe('P1658 revision 3 / v9', () => {
     expect(gtmTiming(g.shape)).toBe(false);
     expect(g.shape).toContain('[, not <ruled-out path>]');
     expect(g.good).toContain(', not through paid ads');
-    expect(g.definition).toContain('Where and how the business reaches this segment. No waiting, conditions or dates; a cadence stays.');
+    expect(g.definition).toContain('Where and how the business reaches customers. No waiting, conditions or dates; a cadence stays.'); // revision 5: "customers", not "this segment"
     expect(g.gap).not.toMatch(/\blast customer\b|\bfound you\b|\bfind you\b/); // v9 review: the question asks for the plan, not a past result
     expect(FIXED_BOX_QUESTIONS['canvas:channels']).toBe(g.gap);
     expect(ROUTING_RULE.text).toContain('a current blocker goes to My current biggest challenge, a sequence of customer goals the owner states goes to My next milestone as "ahead of", and other timing is left out');
@@ -758,3 +758,48 @@ describe('P1658 revision 3 / v9', () => {
   });
 });
 
+describe('P1658 revision 5 (founder, 2026-11-25: only Customer Segments names the customers; no two points say the same thing)', () => {
+  const goodPoints = (tag: string) => [...def(tag).good.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+  const others = BOX_DEFINITIONS.filter((b) => b.tag !== 'canvas:segments').flatMap((b) => goodPoints(b.tag).map((text) => ({ box: b.tag, text })));
+
+  it('no shape outside Customer Segments has a <customer> slot, and the milestone counts "customers"', () => {
+    // shape, good and gap all teach the model; a <customer> slot in any of them would have it name the segment (re-review)
+    const slotted = (defs: typeof BOX_DEFINITIONS) => defs.filter((x) => x.tag !== 'canvas:segments' && /<customers?>/.test(`${x.shape}\n${x.good}\n${x.gap}`)).map((x) => x.tag);
+    expect(slotted(BOX_DEFINITIONS)).toEqual([]);
+    expect(def('canvas:metrics').shape).toContain('"<number> customers <action>');
+    // CONTROL (gate 7d, built from the real definitions): the revision-4 Problem wording put back into the real shape is caught
+    const reverted = BOX_DEFINITIONS.map((b) => (b.tag === 'canvas:problem' ? { ...b, shape: b.shape.replace('"The problem is', '"For <customer> the problem is') } : b));
+    expect(slotted(reverted)).toEqual(['canvas:problem']);
+  });
+
+  it('every good example outside Customer Segments scores 0 on the harness\'s revision-5 measure, against each Segments example as the segment', () => {
+    const segs = goodPoints('canvas:segments');
+    expect(segs.length).toBeGreaterThan(1);
+    for (const seg of segs) expect(r5Violations([{ box: 'canvas:segments', text: seg }, ...others]), seg).toEqual([]);
+    // CONTROL: the revision-4 Problem and Solution examples, put back, are caught
+    const lead = segs[0]!;
+    expect(r5Violations([{ box: 'canvas:segments', text: lead }, { box: 'canvas:problem', text: 'For café owners the problem is a late-filing fine, not the bookkeeping itself.' }]).map((v) => v.rule)).toEqual(['segment-named']);
+    expect(r5Violations([{ box: 'canvas:segments', text: lead }, { box: 'canvas:solution', text: 'Café owners file each tax return on time without losing evenings to receipts.' }]).map((v) => v.rule)).toEqual(['segment-named']);
+  });
+
+  it('the Segments examples as a set: the measure agrees with what the definition says about each one beside the lead', () => {
+    expect(goodPoints('canvas:segments')).toHaveLength(3); // a fourth example, or a lost one, must be placed here on purpose
+    const [lead, noLead, role] = goodPoints('canvas:segments') as [string, string, string];
+    const seg = (...ts: string[]) => r5Violations(ts.map((text) => ({ box: 'canvas:segments', text }))).map((v) => v.rule);
+    expect(def('canvas:segments').good).toContain('beside the lead above it would describe the same people twice');
+    expect(seg(lead, noLead)).toEqual(['segment-duplicate']);
+    expect(seg(lead, role)).toEqual([]);
+    const duplicateNot = [...def('canvas:segments').not.matchAll(/"([^"]+)"/g)].map((m) => m[1]!).find((t) => t.startsWith('Owners of 1-3 Bangkok cafés'))!;
+    expect(seg(lead, duplicateNot)).toEqual(['segment-duplicate']);
+  });
+
+  it('both prompts carry the rule: the drafting rule in full, the Copy prompt in the owner\'s words', () => {
+    expect(ROUTING_RULE.text).toContain('Only Customer Segments names or describes the customers');
+    expect(ROUTING_RULE.text).toContain('No two points on the canvas say the same thing');
+    expect(DRAFT_RULES).toContain('Only Customer Segments names or describes the customers');
+    expect(CANVAS_OWN_AI_PROMPT).toContain('Only Customer Segments names my customers; elsewhere: "customers". No point repeats another.');
+    expect(def('canvas:segments').shape).toContain('then per other group, never a subset:');
+    // the lead carries the role and its qualifiers, so they never spill into a second point about the same people (first Copy-prompt run)
+    expect(def('canvas:segments').shape).toContain('Open with "The <first|best> customers are <role + two qualifiers>, <ahead of|not> <Y>."');
+  });
+});

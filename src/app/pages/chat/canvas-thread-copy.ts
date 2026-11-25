@@ -60,7 +60,10 @@ export const CANVAS_OWN_AI_PROMPT = [
   `- ${ROUTING_RULE.plain}`,
   `- ${LEAD_POINT_RULE.plain}`,
   '- Examples inside a definition show the form only. Never reuse their businesses, numbers or claims.',
-  '- Under each point, add one line starting "Source:" naming the chat, memory, file or message it comes from. Never invent a source; if there is none, leave the point out.',
+  // P1658 revision 5 (founder, 2026-11-25): the word cap paid for the routing line's two new sentences (only Customer Segments names the
+  // customers; no point repeats another) and Customer Segments' "never a subset". "add one line starting" became "add a ... line", "if there
+  // is none" became "with none" and "leave the point out" became "drop the point".
+  '- Under each point, add a "Source:" line naming the chat, memory, file or message it comes from. Never invent a source; with none, drop the point.',
   '- Under an empty heading write only: Not known yet.',
   `- ${NAMING_RULE}`,
   '',

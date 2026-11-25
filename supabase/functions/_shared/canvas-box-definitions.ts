@@ -122,11 +122,17 @@ export const LEAD_POINT_RULE: GlobalRule = {
  * offer as Solution's kind ("The product is a package of …") and left Offers & Pricing empty in 6 of 6 runs of two packs, so what is sold
  * goes in Offers & Pricing. The first fix ("even when Solution names the same kind") still left 4 of 12 runs naming a package or the
  * offer's own sessions as the kind (A/B solution-offer), so the clause now says what the kind is and what it never is.
+ * Revision 5 (founder, 2026-11-25, reading founder-v11.md: "Every card has to be formulated to not depend on other cards or to not have
+ * redundancy with other cards … if we change customer segment then we need to change also the problem statement"): v11 named the customers in
+ * Problem ("For change leads the problem is …" twice), Solution, Go-to-market and the milestone, and wrote two Segments points about the same
+ * people. Two sentences join the map: only Customer Segments names the customers (every other box says "customers", a unit and a channel's
+ * own place name stay, a falsified hypothesis may name a dropped group), and no two points say the same thing. The Copy prompt gets both in
+ * the owner's words (`plain`).
  */
 export const ROUTING_RULE: GlobalRule = {
   name: 'One box, one kind of point',
-  text: `A box never holds another box's point: who the customer is goes in Customer Segments, the pain in Problem, how it is solved in Solution, how the business reaches them in Go-to-market strategy, what is sold and for how much in Offers & Pricing (as its kind, Solution names what sort of product it is, such as "a bookkeeping service", never the package, sessions or parts that are bought), where the business stands now and what blocks it in My current biggest challenge, the next customer result and the later goals it comes ahead of in My next milestone. Go-to-market strategy holds no waiting, conditions or dates (a cadence such as "weekly" stays): a current blocker goes to My current biggest challenge, a sequence of customer goals the owner states goes to My next milestone as "ahead of", and other timing is left out.`,
-  plain: `A heading never holds another heading's point: blockers belong under My current biggest challenge, an order of goals under My next milestone.`,
+  text: `A box never holds another box's point: who the customer is goes in Customer Segments, the pain in Problem, how it is solved in Solution, how the business reaches them in Go-to-market strategy, what is sold and for how much in Offers & Pricing (as its kind, Solution names what sort of product it is, such as "a bookkeeping service", never the package, sessions or parts that are bought), where the business stands now and what blocks it in My current biggest challenge, the next customer result and the later goals it comes ahead of in My next milestone. Go-to-market strategy holds no waiting, conditions or dates (a cadence such as "weekly" stays): a current blocker goes to My current biggest challenge, a sequence of customer goals the owner states goes to My next milestone as "ahead of", and other timing is left out. Only Customer Segments names or describes the customers: every other box is written so it stays true if the segment changes, saying "customers" where it needs them (a unit such as "per shop" and a channel's own place name may stay), and Hypotheses I've falsified may name a dropped group, never the current one. No two points on the canvas say the same thing: Customer Segments has one point per group of customers (its "are the customers" form is that group's point when no lead is grounded, never the lead's customers described again; a further point is another group or a "Pays:", "Uses:" or "Approves:" role), and each Problem point is a different problem, or what is used today and what it leaves broken.`,
+  plain: `A heading never holds another heading's point: blockers belong under My current biggest challenge, an order of goals under My next milestone. Only Customer Segments names my customers; elsewhere: "customers". No point repeats another.`,
 };
 
 /**
@@ -160,13 +166,23 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // Maurya puts under Problem, and Problem already holds it ("<what they use today> leaves <what stays broken>").
     type: 'Claim about who the customer is (not their problem), and who comes first', voice: 'third-person',
     definition: `Who the customers are: a role, plus at least two of industry, company size, place (consumers: age, life stage), values, attitudes. Roles in one sale get one point each, starting "Pays:", "Uses:", "Approves:", without "are the customers".`,
-    shape: `Open with "The <first|best> customers are <X>, <ahead of|not> <Y>." when grounded; then "<role + two qualifiers> are the customers[, not <ruled-out lookalike>]."`,
+    // Revision 5 (founder, 2026-11-25: v11 wrote "The first customers are change leads at organizations of 100-1,000 people …" and "Change leads
+    // at organizations of about 100-1,000 people … are the customers, …", two cards about one group): the "then" form read as a second
+    // point about the lead's customers. It is now written for each OTHER group, so with a lead it never describes the lead's people again,
+    // and with no lead it is the group's one point. The tail stays the same template (pinned) and the separator stays " when grounded; then ".
+    // Revision 5, first Copy-prompt run: with the lead's slot a bare <X>, the run put size in the lead and the values in a second point about the
+    // same people ("spread across three points to stay under 20 words"); the lead's slot now asks for the role and its two qualifiers.
+    // Second Copy-prompt run: the lead held the qualifiers, and a third point still described a narrower slice of the same people ("Change
+    // leads whose teams' throughput outgrew …"); "never a subset" names that case.
+    shape: `Open with "The <first|best> customers are <role + two qualifiers>, <ahead of|not> <Y>." when grounded; then per other group, never a subset: "<role + two qualifiers> are the customers[, not <ruled-out lookalike>]."`,
     // Revision 4 (Lean Canvas, Maurya: "Your objective is to define an early adopter, not a mainstream customer."): the lead names the first
     // customers ahead of later ones. Each example is one idea within MAX_POINT_WORDS; v10.md's failure was a two-clause, two-"not" Segments point.
     // Fix round: each example passes the eval's segmentSpecificity (a role plus two dimensions). "Café owners in Bangkok who file their own tax
     // returns" found only a place (and filing their own returns is what they use today, a Problem point), so the second names a size and an attitude.
-    good: `"The first customers are owners of 1-3 independent cafés in Bangkok, ahead of bakery owners." / "Owners of 1-3 cafés in Bangkok who prefer chat to apps are the customers, not café chains."`,
-    not: `"Owners of independent cafés." (a description nobody can disagree with) / "Café owners who lose evenings to receipts before the tax deadline are the customers." (a problem and its trigger: those go in Problem) / "Café owners in Bangkok whose receipts pile up and who file their own returns are the customers, not chains." (two ideas chained: one per point) / "The best customers are cafés, ahead of bakeries." (the owner never ranked them) / "I sell to small businesses"`,
+    // Revision 5: the two good examples described the same café owners, which is the duplicate v11 copied. The second is now marked as the form
+    // with no lead, a role point shows what a further point is, and a Not-this shows the duplicate.
+    good: `"The first customers are owners of 1-3 independent cafés in Bangkok, ahead of bakery owners." / "Owners of 1-3 cafés in Bangkok who prefer chat to apps are the customers, not café chains." (the point when no lead is grounded; beside the lead above it would describe the same people twice) / "Uses: the shift manager who collects each day's receipts." (a role in the same sale)`,
+    not: `"Owners of independent cafés." (a description nobody can disagree with) / "Café owners who lose evenings to receipts before the tax deadline are the customers." (a problem and its trigger: those go in Problem) / "Café owners in Bangkok whose receipts pile up and who file their own returns are the customers, not chains." (two ideas chained: one per point) / "Owners of 1-3 Bangkok cafés who prefer chat are the customers." beside the lead about the same café owners (one group described twice: one point per group) / "The best customers are cafés, ahead of bakeries." (the owner never ranked them) / "I sell to small businesses"`,
     gap: `Who exactly is the customer (role, industry, size, place, values or attitudes), and which kind is best to start with, ahead of which other?`,
     empty: `Who exactly is the customer, and which kind is best to start with, ahead of which other?`,
   },
@@ -177,10 +193,15 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // currently address these problems today."): up to three problems, each with its cost, or what the customer uses today and what it leaves
     // broken. v8's lead bundled A, B and the obstacle in one sentence; B and the obstacle leave the box (decisions.md 2026-08-06 calls that
     // bundle story material), and each problem keeps its cost (the founder's "so what?").
-    definition: `The customer's problem before they hear of you, with its cost; or what they use today and what it leaves broken.`,
-    shape: `Open with "The <first|biggest> problem for <customer> is <problem + cost>, <ahead of|not> <other problem>." when grounded; then "For <customer> the problem is <problem + cost>[, not <ruled-out problem>]." or "<what they use today> leaves <what stays broken>."`,
-    good: `"The biggest problem for café owners is two evenings lost to receipts before each tax deadline, ahead of late invoices." (the owner ranked them) / "For café owners the problem is a late-filing fine, not the bookkeeping itself." / "A shoebox of paper receipts leaves café owners two evenings of sorting before each tax deadline."`,
-    not: `"Café owners spend time on bookkeeping." (true, and nobody can disagree) / "The biggest problem for café owners is receipts, ahead of invoices." (the owner never ranked them) / "For café owners the problem is two lost evenings; they want their books done, but receipts pile up." (three ideas: what they want and what stops them are no part of the problem) / "There is no simple bookkeeping app for cafés."`,
+    // Revision 5 (founder, 2026-11-25: v11 wrote "For change leads the problem is …" twice; "if we change customer segment then we need to
+    // change also the problem statement"): the shape carried "For <customer> the problem is" and "problem for <customer>", so every Problem
+    // point named the segment. The problem is now the subject, the examples name no customer, and two Not-this examples show the naming and
+    // the same problem said twice. Copy-prompt word cap: the definition's "and what it leaves broken" is cut, because the shape's third form
+    // ("<what they use today> leaves <what stays broken>.") says it right below.
+    definition: `The customer's problem before they hear of you, with its cost; or what they use today.`,
+    shape: `Open with "The <first|biggest> problem is <problem + cost>, <ahead of|not> <other problem>." when grounded; then "The problem is <problem + cost>[, not <ruled-out problem>]." or "<what they use today> leaves <what stays broken>."`,
+    good: `"The biggest problem is two evenings lost to receipts before each tax deadline, ahead of late invoices." (the owner ranked them) / "The problem is a late-filing fine, not the bookkeeping itself." / "A shoebox of paper receipts leaves two evenings of sorting before each tax deadline."`,
+    not: `"Bookkeeping takes time." (true, and nobody can disagree) / "For café owners the problem is a late-filing fine." (names the customers: only Customer Segments says who they are, so the point stays true if the segment changes) / "The biggest problem is receipts, ahead of invoices." (the owner never ranked them) / "The problem is two lost evenings of sorting receipts." beside "Receipts cost two evenings before each deadline." (one problem said twice: each point a different problem) / "The problem is two lost evenings; the books must be done, but receipts pile up." (three ideas: what is wanted and what stops it are no part of the problem) / "There is no simple bookkeeping app."`,
     gap: `What does the problem cost your customers, what do they use today instead, what does that leave broken, and which problem matters most, ahead of which other?`,
     empty: `Which problem do your customers have today, what does it cost them, and which problem matters most, ahead of which other?`,
   },
@@ -204,9 +225,12 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // owner wording ("No other option, skip it") would drop the kind point whenever no ruled-out kind exists.
     type: 'Claim about what the product is, and what solving a listed problem looks like for the customer', voice: 'third-person',
     definition: `What the product is (software, a service or a physical product, and its specific kind), and up to two outcomes you claim, each one listed problem solved. No sale, price or channel; what is bought (package, workshop) goes in Offers & Pricing. No rule the business keeps; a disclaimer's claimed outcome stays.`,
-    shape: `"The product is <kind> for <customer>[, not <ruled-out kind>]."; then "<customer> <outcome of one problem>."`,
-    good: `"The product is a chat-based bookkeeping service for independent cafés, not an app owners run themselves." (the owner dropped the app) / "Café owners file each tax return on time without losing evenings to receipts." (an outcome the owner claims)`,
-    not: `"A café owner photographs each receipt, then the business logs it, then files the return." (a user journey: say what the product is and what solving looks like) / "A platform for cafés." (a bare category: name software, a service or a physical product, and its kind) / "The product is a package of monthly books, tax filing and a call." (what is bought: it goes in Offers & Pricing; the kind is what sort of product it is, such as "a bookkeeping service") / "Café owners never pay a late-filing fine again." (an outcome the owner never claimed) / "The business logs receipts nightly; piloted with two cafés." (status: where the business stands goes in My current biggest challenge) / "The business does not file a return the owner has not seen." (a rule the business keeps: Guiding values only if the owner says it as "X over Y", else left out) / "The business does not promise a perfect return, only one filed on time." (a disclaimer: its claimed outcome stays, as "Café owners file each return on time.") / "The business sells monthly books for 2,500 baht per shop." (an offer: Offers & Pricing) / "The business answers questions in café-owner groups." (a channel: Go-to-market strategy) / "The business logs receipts the same night, which removes the deadline pile-up." (the reason is inside the point)`,
+    // Revision 5 (founder, 2026-11-25: v11 wrote "The product is video-call software for change leads …" and "Change leads see …"): the
+    // shape carried "for <customer>" and "<customer> <outcome>", so Solution named the segment. The kind stands alone and an outcome is
+    // its own subject; the examples name no customer, and a Not-this shows the naming.
+    shape: `"The product is <kind>[, not <ruled-out kind>]."; then "<outcome of one problem>."`,
+    good: `"The product is a chat-based bookkeeping service, not a do-it-yourself app." (the owner dropped the app) / "Each tax return is filed on time without evenings lost to receipts." (an outcome the owner claims)`,
+    not: `"The customer photographs each receipt, then the business logs it, then files the return." (a user journey: say what the product is and what solving looks like) / "A platform." (a bare category: name software, a service or a physical product, and its kind) / "The product is a bookkeeping service for café owners." (names the customers: only Customer Segments says who they are) / "The product is a package of monthly books, tax filing and a call." (what is bought: it goes in Offers & Pricing; the kind is what sort of product it is, such as "a bookkeeping service") / "No late-filing fine is ever paid again." (an outcome the owner never claimed) / "The business logs receipts nightly; piloted with two customers." (status: where the business stands goes in My current biggest challenge) / "The business does not file a return the customer has not seen." (a rule the business keeps: Guiding values only if the owner says it as "X over Y", else left out) / "The business does not promise a perfect return, only one filed on time." (a disclaimer: its claimed outcome stays, as "Each return is filed on time.") / "The business sells monthly books for 2,500 baht per shop." (an offer: Offers & Pricing) / "The business answers questions in café-owner groups." (a channel: Go-to-market strategy) / "The business logs receipts the same night, which removes the deadline pile-up." (the reason is inside the point)`,
     gap: `What is the product (software, a service or a physical product, and what kind), and what does solving each problem look like for your customer?`,
     empty: `What is your product: software, a service or a physical product, and of what kind?`,
   },
@@ -218,10 +242,13 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     type: 'Stance on where and how the business reaches them', voice: 'third-person',
     // /finish review of v9: name what is banned (waiting, conditions, dates) so a cadence ("weekly", the good example) stays; the naming rule
     // already allows public platforms in both prompts, so "Public platform names allowed." paid for the Offers wording.
-    definition: `Where and how the business reaches this segment. No waiting, conditions or dates; a cadence stays.`,
+    // Revision 5: "customers", the word every box outside Customer Segments uses for them (two A/B runs named the segment as the object here).
+    definition: `Where and how the business reaches customers. No waiting, conditions or dates; a cadence stays.`,
     shape: `"The business <action> in <place>[, not <ruled-out path>]."`,
     good: `"The business answers tax questions weekly in two café-owner Facebook groups, not through paid ads."`,
-    not: `"Social media and word of mouth." / "The business answers tax questions in café-owner groups; three clients came this way so far." (a traction count) / "The business posts in café-owner groups once the tax season starts." (timing: an order of goals goes in My next milestone, a blocker in My current biggest challenge) / "We post in café-owner groups because owners trust peers more than ads." (first person, with the reason inside)`,
+    // Revision 5 (founder, 2026-11-25: v11 wrote "The business invites change leads in its warm network …"): a Not-this shows the customers
+    // named as the object; a channel's own place name ("café-owner Facebook groups", the good example) stays.
+    not: `"Social media and word of mouth." / "The business answers tax questions in café-owner groups; three clients came this way so far." (a traction count) / "The business posts in café-owner groups once the tax season starts." (timing: an order of goals goes in My next milestone, a blocker in My current biggest challenge) / "The business invites café owners from its network to a free tax clinic." (names the customers: write "customers", so the point stays true if the segment changes) / "We post in café-owner groups because owners trust peers more than ads." (first person, with the reason inside)`,
     // v9: the box is the intended model, so its question asks for the plan, never for how past customers came (a result).
     gap: `Where do your customers gather, and how do you reach them there?`,
   },
@@ -243,8 +270,9 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // Revision 4 (Lean Canvas, Maurya: "Price is part of the product."): the lead names the offer and its rival only; its price is its own
     // point, in the second form. v9's lead carried "; <price>", two ideas in one sentence.
     shape: `Open with "The offer to sell first is <what is bought>, <ahead of|not> <other offer>." when grounded; then "<what is bought>[: <price + currency>[ per <unit>][ <cadence>]]."`,
-    good: `"The offer to sell first is monthly books and tax filing, ahead of payroll." / "Monthly books and tax filing: 2,500 baht per shop per month." / "A year-end tax return filed for the owner: 6,000 baht per shop once."`,
-    not: `"Affordable packages." / "Setup: 6,000 baht once." (names no deliverable: what is set up?) / "The offer to sell first is monthly books, ahead of payroll; 2,500 baht per shop per month." (two ideas: the price is its own point) / "Monthly books: 2,500 baht per shop per month; two shops pay it." (a traction count) / "I charge 2,500 baht a month because cafés cannot afford an accountant." (first person, with the reason inside)`,
+    // Revision 5 (founder, 2026-11-25): no example names the customer ("filed for the owner" meant the café owner; "per shop" is a unit and stays).
+    good: `"The offer to sell first is monthly books and tax filing, ahead of payroll." / "Monthly books and tax filing: 2,500 baht per shop per month." / "A year-end tax return, prepared and filed: 6,000 baht per shop once."`,
+    not: `"Affordable packages." / "Setup: 6,000 baht once." (names no deliverable: what is set up?) / "The offer to sell first is monthly books, ahead of payroll; 2,500 baht per shop per month." (two ideas: the price is its own point) / "Monthly books: 2,500 baht per shop per month; two shops pay it." (a traction count) / "I charge 2,500 baht a month because customers cannot afford an accountant." (first person, with the reason inside)`,
     gap: `What does the customer get, what does it cost, per what unit, how often, and which offer do you sell first, ahead of which other?`,
     empty: `What does a customer buy, for how much, and which offer do you sell first, ahead of which other?`,
   },
@@ -255,19 +283,22 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     definition: `The next result customers produce (pay, renew, refer).`,
     // P1658 v8: "ahead of" only. A later goal is never rejected (v7: "…session 1 … (target), not 3-7 paid pilots").
     // Revision 4: v9's "<target>[; if missed, <stated change>]" chained two ideas; a stated change is its own point.
-    shape: `Open with "The next milestone is <target>, ahead of <later goal>." when grounded; then "<target>." or "If <target> is missed, <stated change>." A <target> is "<number> <customers> <action>[ by <date>] (target)".`,
-    good: `"The next milestone is 10 cafés paying monthly by 31 March 2027 (target), ahead of opening a second city." / "If 10 cafés paying monthly by 31 March 2027 is missed, the business sells to bakery owners." (a change the owner stated)`,
-    not: `"I aim for 10 cafés paying monthly by 31 March 2027." (about the owner's aim, which nobody can dispute) / "Launch the new website and grow."`,
+    // Revision 5 (founder, 2026-11-25: v11 wrote "3 of 10 invited change leads joining a group session"): the target's <customers> slot
+    // invited the segment's name; it is the word "customers" now, the examples say "10 customers", and a Not-this shows the naming.
+    shape: `Open with "The next milestone is <target>, ahead of <later goal>." when grounded; then "<target>." or "If <target> is missed, <stated change>." A <target> is "<number> customers <action>[ by <date>] (target)".`,
+    good: `"The next milestone is 10 customers paying monthly by 31 March 2027 (target), ahead of opening a second city." / "If 10 customers paying monthly by 31 March 2027 is missed, the business drops the price." (a change the owner stated)`,
+    not: `"I aim for 10 customers paying monthly by 31 March 2027." (about the owner's aim, which nobody can dispute) / "The next milestone is 10 café owners paying monthly (target), ahead of a second city." (names the customers: write "customers") / "Launch the new website and grow."`,
     gap: `What number, by what date, comes next, and which goal comes after it?`,
     empty: `What number, by what date, would show this is working, and what comes after it?`,
   },
   {
     tag: 'canvas:love', title: 'Guiding values',
     type: 'Decision policy', voice: 'as written',
-    definition: `A rule your business and partners live by: which good thing you give up when two good things conflict. Both X and Y are good. Business culture, not a personal habit.`,
+    definition: `A rule your business and partners live by: which good thing you give up when two good things conflict. Both X and Y are good. Business culture, not personal habits.`,
     shape: `"X over Y[, even when <what it costs>]."`,
     good: `"Filing on time over filing perfectly, even when a late receipt means correcting the return afterwards."`,
-    not: `"Integrity and customer focus." / "I keep weekends for family." / "Accuracy over speed, because a wrong return costs the owner more." (the reason is inside the point)`,
+    // Revision 5 (founder, 2026-11-25): "costs the owner more" meant the café owner; the example says "the customer".
+    not: `"Integrity and customer focus." / "I keep weekends for family." / "Accuracy over speed, because a wrong return costs the customer more." (the reason is inside the point)`,
     gap: `What does your business choose over something else it cares about, even when it costs you? Write it as 'X over Y'.`,
   },
   {
@@ -277,13 +308,17 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     type: `The business's constraint, and which is biggest`, voice: 'third-person',
     // P1658 v9: where the business stands now goes here, including what it waits on (v8 run: "invitations wait for a call that can run the
     // Listening Game"), now that Solution, Offers & Pricing and Go-to-market strategy carry no status.
-    definition: `The obstacle most likely to stop this now: where you are (A), where you want to be (B). The obstacle only as you state it.`,
+    // Revision 5: "(A), where you want to be" became "(A) and want to be" and "most likely" became "likeliest", words the Customer Segments
+    // shape paid for (Copy-prompt cap).
+    definition: `The obstacle likeliest to stop this now: where you are (A) and want to be (B). The obstacle only as you state it.`,
     // Round 2 Copy-prompt run: a bare <X> let "The chosen challenge is an online session …, not a one-to-one call campaign" in (a Go-to-market choice).
     // Revision 4: v9's "at <A> and wants <B>; the obstacle is <barrier>" held three ideas. One idea per point: where the business is, or the
     // obstacle between it and B.
     shape: `Open with "The <chosen|biggest> challenge is <obstacle>, <ahead of|not> <other obstacle>." when grounded; then "The business is at <A>." or "The obstacle to <B> is <barrier>."`,
-    good: `"The biggest challenge is getting first calls with café owners, ahead of setting a price." (the owner ranked them) / "The business is at 3 replies from its last 20 messages to café owners." / "The obstacle to 10 first calls a month is that strangers writing about money look like scams."`,
-    not: `"Finding time." / "I think strangers see a scam." (first person) / "The business is at 3 replies; the obstacle is probably trust." (a cause the owner never stated) / "The business is at 3 replies and wants 10 calls; the obstacle is scam fears." (three ideas: one per point) / a copy of the customer's Problem`,
+    // Revision 5 (founder, 2026-11-25: v11 wrote "The business is at zero invitations sent to change leads."): the examples say "customers"
+    // or leave them out, and a Not-this shows the naming.
+    good: `"The biggest challenge is getting first calls with customers, ahead of setting a price." (the owner ranked them) / "The business is at 3 replies from its last 20 cold messages." / "The obstacle to 10 first calls a month is that strangers writing about money look like scams."`,
+    not: `"Finding time." / "I think strangers see a scam." (first person) / "The business is at 3 replies; the obstacle is probably trust." (a cause the owner never stated) / "The business is at 3 replies and wants 10 calls; the obstacle is scam fears." (three ideas: one per point) / "The business is at zero invitations sent to café owners." (names the customers: say "customers", or leave them out) / a copy of the customer's Problem`,
     // No `empty`: the gap already asks for the core fact and the ranking, so emptyQuestionFor falls back to it (fix round 3).
     gap: `Where are you now, where do you want to be, what is in the way, and which challenge is biggest, ahead of which other?`,
   },
@@ -298,12 +333,14 @@ export const BOX_DEFINITIONS: readonly BoxDefinition[] = [
     // Revision 4: v9's "[; <contrary evidence>][; so it <stated change>]" chained three ideas with ";". A point is the expectation and the
     // evidence against it, joined by "but" (the one clause marker); the change it led to leaves the point.
     shape: `"The business expected <X>[, but <contrary evidence>]."`,
-    good: `"The business expected cafés to run a bookkeeping app, but 0 of 8 trial cafés used it a month later." / "The business expected café owners to pay yearly, but the owners it asked all wanted monthly." / "The business expected café chains to buy." (a dropped direction with no evidence still goes here)`,
+    // Revision 5 (founder, 2026-11-25): the current customers are "customers" here too; a dropped group ("café chains", ruled out in the
+    // Segments example) may still be named, because a dropped direction is history (ROUTING_RULE says so).
+    good: `"The business expected customers to run a bookkeeping app, but 0 of 8 trials lasted a month." / "The business expected customers to pay yearly, but every customer it asked wanted monthly." / "The business expected café chains to buy." (a dropped direction with no evidence still goes here)`,
     // /finish review round 2: a whole customer group is a direction (it lands here, evidence or not), so the "not" example is one detail; and a
     // reason or an estimate is not evidence (an organisations run wrote a projection as the contrary evidence).
     // Round 3: an "estimate is no evidence" example taken from a test pack's own material made both of its runs drop that pack's whole
     // falsified direction. Examples stay in the café domain, and a direction with no evidence is shown kept (good, above), never dropped.
-    not: `"The business learned customers value relationships." / "The business expected tax fines to worry owners most." (one detail with no evidence: a "not" point in its own box, here Problem) / "The business expected yearly payment, but owners wanted monthly, so it now bills monthly." (the change it made is left out)`,
+    not: `"The business learned customers value relationships." / "The business expected tax fines to worry customers most." (one detail with no evidence: a "not" point in its own box, here Problem) / "The business expected yearly payment, but customers wanted monthly, so it now bills monthly." (the change it made is left out)`,
     gap: `Which expectations did a test, an event or a conversation with a prospect prove wrong, and what showed it?`,
   },
 ];
