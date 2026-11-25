@@ -34,6 +34,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 **Consequences:** A review that runs out of space gets a second chance on another model instead of going missing. Falsifier: the next `MAX_TOKENS` review re-run this way still yields no valid run.
 **References:** `.claude/commands/slava/build/finish/SKILL.md` Step 4b, Failures · [p1726](../features/done/2026-06-10/p1726_credential_scan_false_positives_review_wrappers.md)
 
+## 2026-11-25 [technical]: A profile write that omits a key keeps the stored value (P1729)
+
+**Context:** Sign-in calls `upsert_my_profile` with only identity fields. Its ON CONFLICT clause set `bio`, `banner_url` and `banner_generation_attempted` from `EXCLUDED`, so every sign-in erased them, and the owner's next profile visit generated a new banner. The founder's custom banner was replaced at least twice.
+**Decision:** For those columns the function writes the caller's value only when the key is present in `p_data` (`CASE WHEN p_data ? 'col' THEN EXCLUDED.col ELSE profiles.col END`); an explicit null still clears. Replacing an existing banner now asks first; automatic generation runs at most once per owner. Proven on self-hosted TEST in a rolled-back transaction as `authenticated` (old body wiped, new body kept).
+**Alternatives rejected:** Sending the stored values from the client on sign-in (every caller must remember; a stale client re-wipes). An Undo toast (generate-banner deletes the old object, so Undo points at a dead file and a stale toast can overwrite a newer banner).
+**Consequences:** Sign-in still overwrites `role`, `linkedin_url`, `reason` and the avatar fields the same way; that is a separate bug listed in the spec's Known limitations. Any new upsert writer should follow the key-presence rule.
+**References:** [p1729 spec](../features/p1729_bug-login-wipes-profile-banner.md), `supabase/migrations/20261125110036_p1729_login_keeps_profile_banner.sql`
+
 ## 2026-11-25 [process]: The branches left on pre-rewrite history are repaired, and the local scan gains GitHub's Google OAuth client secret shape
 
 **Context:** The entry below left three things open after the push-protection rewrite: two local branches still built on the old commits, a TEST-server function differing from main, and no local check for the shape GitHub refused. By the time they were picked up, p1728 had already shipped from a rebased copy, and the p1711 session had ended (lock process gone, 10 hours idle, no uncommitted tracked files).
