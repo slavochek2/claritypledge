@@ -36,7 +36,6 @@ export function chartHint(dated: boolean) {
       ? 'Outlined bars: each person’s first position inside the dates. Blue bars: their latest position inside the dates.'
       : 'Outlined bars: each person’s first position. Blue bars: their latest position.',
     'Strongly disagree on the left, strongly agree on the right.',
-    'People who took a position only once are not drawn.',
   ].join(' ');
 }
 

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import type { PointMovementRows } from '@/app/data/movement-service';
 import { hasDates, inRange, NO_DATES, positionOfLevel, verificationsOf, type DayRange, type Reading } from '@/lib/position-movement';
 import { PersonLog } from './movement-charts';
+import { byChangeThenName } from './movement-scope';
 
 const ROWS_SHOWN = 6;
 
@@ -75,7 +76,7 @@ export function PointChangesPeople({ readings, data, range = NO_DATES }: { readi
   const [openId, setOpenId] = useState<string | null>(null);
   const [all, setAll] = useState(false);
   const nameOf = (r: Reading) => data.people.get(r.userId)?.name ?? 'Someone';
-  const sorted = [...readings].sort((a, b) => Math.abs(b.latest - b.first) - Math.abs(a.latest - a.first) || nameOf(a).localeCompare(nameOf(b)));
+  const sorted = [...readings].sort(byChangeThenName(nameOf));
   const shown = all ? sorted : sorted.slice(0, ROWS_SHOWN);
   if (sorted.length === 0) return <p className="py-3 text-center text-sm text-muted-foreground">(nobody here)</p>;
   return (

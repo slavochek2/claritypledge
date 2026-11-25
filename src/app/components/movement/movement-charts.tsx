@@ -214,19 +214,22 @@ export function PersonLog({ entries, verifications, name }: { entries: PositionE
   const at = (index: number) => verifications.filter(v => entryIndexAt(entries, v.at) === index);
   return (
     <div data-testid="person-log">
-      <LogChart entries={entries} verifications={verifications} />
+      {/* A holder with no position in the history has nothing to draw or list: only their verifications, as text. */}
+      {entries.length > 0 && <LogChart entries={entries} verifications={verifications} />}
       {/* A verification before every position leads the list. */}
       {at(-1).map(v => <VerificationLine key={v.storyId} v={v} name={name} />)}
-      <ol aria-label={`${name}’s positions, oldest first`}>
-        {entries.map((e, i) => (
-          <li key={i}>
-            <div className="sr-only" data-testid="log-position">
-              <span>{dayLabelOf(e.at)}:</span> <PositionBadge position={positionOfLevel(e.level)} />
-            </div>
-            {at(i).map(v => <VerificationLine key={v.storyId} v={v} name={name} />)}
-          </li>
-        ))}
-      </ol>
+      {entries.length > 0 && (
+        <ol aria-label={`${name}’s positions, oldest first`}>
+          {entries.map((e, i) => (
+            <li key={i}>
+              <div className="sr-only" data-testid="log-position">
+                <span>{dayLabelOf(e.at)}:</span> <PositionBadge position={positionOfLevel(e.level)} />
+              </div>
+              {at(i).map(v => <VerificationLine key={v.storyId} v={v} name={name} />)}
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }

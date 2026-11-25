@@ -238,15 +238,19 @@ describe('P1061 story side: before -> latest', () => {
 });
 
 describe('P1061 point side: first -> latest', () => {
-  it('lists a holder with at least two positions, first against current', () => {
+  it('lists a mover first against current, and a one-position holder as Same (first === latest)', () => {
     const history = [h('u1', P.d!, '2026-01-01T10:00:00Z'), h('u1', P.a!, '2026-02-01T10:00:00Z'), h('u2', P.a!, '2026-01-01T10:00:00Z')];
     const out = readingsOf(history, [cur('u1', P.a!), cur('u2', P.a!)], []);
-    expect(out.map(r => r.userId)).toEqual(['u1']);
+    expect(out.map(r => r.userId)).toEqual(['u1', 'u2']);
     expect(out[0]).toMatchObject({ first: -2, latest: 2 });
+    expect(out[1]).toMatchObject({ first: 2, latest: 2 });
   });
-  it('a reasoning-only row does not make a second position', () => {
+  it('a reasoning-only row does not make a second position: the holder is listed once, first === latest', () => {
     const history = [h('u1', P.a!, '2026-01-01T10:00:00Z'), h('u1', P.a!, '2026-02-01T10:00:00Z')];
-    expect(readingsOf(history, [cur('u1', P.a!)], [])).toEqual([]);
+    const out = readingsOf(history, [cur('u1', P.a!)], []);
+    expect(out).toHaveLength(1);
+    expect(out[0]!.entries).toHaveLength(1);
+    expect(out[0]).toMatchObject({ first: 2, latest: 2 });
   });
   it('a person who changed and came back is listed with Same', () => {
     const history = [h('u1', P.a!, '2026-01-01T10:00:00Z'), h('u1', P.d!, '2026-02-01T10:00:00Z'), h('u1', P.a!, '2026-03-01T10:00:00Z')];
@@ -276,9 +280,11 @@ describe('P1061 point side: first -> latest', () => {
     const [r] = readingsOf(history, [cur('u1', P.a!)], [], { from: '2026-02-01', to: '2026-03-31' }, dayOf);
     expect(r).toMatchObject({ first: -2, latest: 1 });
   });
-  it('dates that leave one position drop the person from the dated view', () => {
+  it('dates that leave one position list the person as Same, first and latest being that position', () => {
     const history = [h('u1', P.d!, '2026-01-01T10:00:00Z'), h('u1', P.a!, '2026-04-01T10:00:00Z')];
-    expect(readingsOf(history, [cur('u1', P.a!)], [], { from: '2026-03-01', to: '2026-05-01' }, dayOf)).toEqual([]);
+    const out = readingsOf(history, [cur('u1', P.a!)], [], { from: '2026-03-01', to: '2026-05-01' }, dayOf);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ first: 2, latest: 2 });
   });
   it('dates that fall inside a removal drop the person', () => {
     const history = [h('u1', P.d!, '2026-01-01T10:00:00Z'), h('u1', null, '2026-02-01T10:00:00Z'), h('u1', P.a!, '2026-05-01T10:00:00Z')];

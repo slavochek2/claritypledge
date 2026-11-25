@@ -3,7 +3,7 @@
  * @description P1061: helpers of the Changes filter that are not components: the day labels the graphs write,
  * the level counts of a set of readings, the toggling of a target and the one-line summary of a filter.
  */
-import { positionOfLevel, isEveryone, hasDates, readingsOf, type MovementScope } from '@/lib/position-movement';
+import { positionOfLevel, isEveryone, hasDates, readingsOf, type MovementScope, type Reading } from '@/lib/position-movement';
 import { POSITION_ORDER } from '@/lib/compare-positions';
 import type { LevelCounts } from '@/lib/position-spread';
 import type { PointMovementRows } from '@/app/data/movement-service';
@@ -22,6 +22,13 @@ const shortIso = (iso: string) => {
   const [, month, day] = iso.split('-');
   return `${Number(day)} ${MONTHS[Number(month) - 1] ?? ''}`;
 };
+
+/**
+ * The one order of people on the point page, for the list and for the filter's preview: the largest change first,
+ * then by name, so people who changed stay on top and the ones who kept their position follow alphabetically.
+ */
+export const byChangeThenName = (nameOf: (r: Reading) => string) => (a: Reading, b: Reading): number =>
+  Math.abs(b.latest - b.first) - Math.abs(a.latest - a.first) || nameOf(a).localeCompare(nameOf(b));
 
 /** Seven-level counts of a list of levels (-3 .. 3). */
 export function countsOfLevels(levels: readonly number[]): LevelCounts {
@@ -69,7 +76,7 @@ export function describeScope(scope: MovementScope, data: PointMovementRows): st
 
 /**
  * Whether the Filter pill is offered: while the point has someone to list, and always while a filter is on (so it
- * can be undone). A point nobody has two positions on has nothing to filter.
+ * can be undone). A point with no holder has nothing to filter.
  */
 export function offersFilter(data: PointMovementRows, scope: MovementScope): boolean {
   return !isEveryone(scope) || readingsOf(data.history, data.current, data.agentIds).length > 0;

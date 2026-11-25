@@ -14,19 +14,23 @@ import { Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTr
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { chosenPeople, datesCrossed, EVERYONE, isEveryone, readingsOf, type MovementScope } from '@/lib/position-movement';
-import { chosenTargets, describeScope, toggleTarget } from './movement-scope';
+import { byChangeThenName, chosenTargets, describeScope, toggleTarget } from './movement-scope';
 import { DIALOG_HEAD, QUIET_DIALOG } from './quiet-dialog';
 
 const PEOPLE_SHOWN_UNTYPED = 4;
 
 const sized = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 
-/** The rows on offer: the holders listed in Changes (by the start of the name), then events and groups when signed in. */
+/**
+ * The rows on offer: the holders listed in Changes (any word of the name), in the list's order so the preview of
+ * four shows the people who changed first, then events and groups when signed in.
+ */
 function optionsFor(query: string, scope: MovementScope, data: PointMovementRows, signedIn: boolean): Option[] {
   const needle = query.trim().toLowerCase();
-  const listed = readingsOf(data.history, data.current, data.agentIds).map(r => r.userId);
-  const holders = listed
-    .map(id => ({ id, person: data.people.get(id) }))
+  const readings = readingsOf(data.history, data.current, data.agentIds);
+  const listed = readings.map(r => r.userId);
+  const holders = [...readings].sort(byChangeThenName(r => data.people.get(r.userId)?.name ?? 'Someone'))
+    .map(r => ({ id: r.userId, person: data.people.get(r.userId) }))
     .map(h => ({ id: h.id, name: h.person?.name ?? 'Someone', person: h.person }))
     // Any word of the name, as the canvas Share field matches people: "smith" finds "Alice Smith".
     .filter(h => !scope.people.includes(h.id) && h.name.toLowerCase().split(/[\s\-'’.]+/).some(word => word.startsWith(needle)));
@@ -117,7 +121,7 @@ function Dates({ scope, onChange, id }: { scope: MovementScope; onChange: (scope
   );
 }
 
-/** How many people the filter selects now: those with two positions, after people, events, groups and dates. */
+/** How many people the filter selects now: the holders Changes lists, after people, events, groups and dates. */
 function selectedCount(data: PointMovementRows, scope: MovementScope): number {
   const chosen = chosenPeople(scope, data.events, data.groups);
   return readingsOf(data.history, data.current, data.agentIds, { from: scope.from, to: scope.to }).filter(r => chosen === null || chosen.has(r.userId)).length;

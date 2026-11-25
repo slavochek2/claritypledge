@@ -176,23 +176,23 @@ Tests are specs. The following P1061 tests assert the superseded rule and are ch
 
 ## Acceptance Criteria
 
-- [ ] Unit test: a holder whose one history position equals their current position is listed by `readingsOf` with `first === latest`, and is classified Same by `directionOf(changeOf(r))`.
-- [ ] Unit test: a holder with no history row is listed at their current position as both first and latest (Same); a holder whose history has only removal rows is the same case.
-- [ ] Unit test: dated view, one position inside the dates is listed as Same, first and latest being that position.
-- [ ] Unit test: dated view, no position inside the dates is not listed (including a holder with no history row, and dates that fall inside a removal).
-- [ ] Unit test: an agent account with one position is still excluded.
-- [ ] Unit test: a reasoning-only row (same position twice) is listed once, Same.
-- [ ] Component test: `MovementFilter`'s person list offers one-position holders (found by typing their name), and its "N people" count includes them (for the test fixture: every non-agent holder).
-- [ ] Component test: with nothing typed, the dialog's people preview is the first 4 in the list's order, so people who changed come before people who did not.
-- [ ] Component test: an event or group whose members include only one-position holders is now offered, and its count includes them.
-- [ ] Component test: opening a holder with no history row renders no drawing and no positions list, shows their verification lines as text, and does not throw.
-- [ ] Component test: `PointChangesView` tab counts add up to the number of people listed; the people who changed come before the people who did not.
-- [ ] Unit test: `chartHint(false)` and `chartHint(true)` do not contain "only once" or "not drawn"; each keeps its own first sentence (the dated one says "inside the dates") and the "Strongly disagree on the left..." sentence, unchanged.
+- [x] Unit test: a holder whose one history position equals their current position is listed by `readingsOf` with `first === latest`, and is classified Same by `directionOf(changeOf(r))`.
+- [x] Unit test: a holder with no history row is listed at their current position as both first and latest (Same); a holder whose history has only removal rows is the same case.
+- [x] Unit test: dated view, one position inside the dates is listed as Same, first and latest being that position.
+- [x] Unit test: dated view, no position inside the dates is not listed (including a holder with no history row, and dates that fall inside a removal).
+- [x] Unit test: an agent account with one position is still excluded.
+- [x] Unit test: a reasoning-only row (same position twice) is listed once, Same.
+- [x] Component test: `MovementFilter`'s person list offers one-position holders (found by typing their name), and its "N people" count includes them (for the test fixture: every non-agent holder).
+- [x] Component test: with nothing typed, the dialog's people preview is the first 4 in the list's order, so people who changed come before people who did not.
+- [x] Component test: an event or group whose members include only one-position holders is now offered, and its count includes them.
+- [x] Component test: opening a holder with no history row renders no drawing and no positions list, shows their verification lines as text, and does not throw.
+- [x] Component test: `PointChangesView` tab counts add up to the number of people listed; the people who changed come before the people who did not.
+- [x] Unit test: `chartHint(false)` and `chartHint(true)` do not contain "only once" or "not drawn"; each keeps its own first sentence (the dated one says "inside the dates") and the "Strongly disagree on the left..." sentence, unchanged.
 - [ ] Opening a one-position person in Changes renders their graph with one dot and no horizontal page overflow (component test plus the browser check).
-- [ ] Surfaces NOT in scope are unchanged: the P1061 story-surface tests (`p1061-story-surfaces`, `p1061-story-page-movement`, the story-panel and chip tests in `p1061-movement-components`) pass with no edit.
-- [ ] All existing P1061 tests pass except the four assertions named under "Tests Updated By This Spec" (three in `p1061-position-movement.test.ts`, one in `p1061-movement-components.test.tsx`), which are changed as stated there.
+- [x] Surfaces NOT in scope are unchanged: the P1061 story-surface tests (`p1061-story-surfaces`, `p1061-story-page-movement`, the story-panel and chip tests in `p1061-movement-components`) pass with no edit.
+- [x] All existing P1061 tests pass except the four assertions named under "Tests Updated By This Spec" (three in `p1061-position-movement.test.ts`, one in `p1061-movement-components.test.tsx`), which are changed as stated there.
 - [ ] Browser check after deploy, on the founder's point (`/point/f8629cdd-aa5d-432e-90ae-1c1e8c07be73?view=changes`): the tabs read Disagree 0, Same 10, Agree 3 and the list shows 13 people, the 3 who changed first. Opening Filter people reads "13 people", shows the 3 who changed among the first 4 people, and typing any holder's name finds them. Evidence is the screenshot or page text, pasted. At 320, 375 and 1280 wide: no horizontal overflow, no control under 40px (visual-qa.md).
-- [ ] Regression check for the design failure: a point whose holders all kept their position shows Same = N, the full list and a working Filter pill, not an empty "No one here..." view.
+- [x] Regression check for the design failure: a point whose holders all kept their position shows Same = N, the full list and a working Filter pill, not an empty "No one here..." view.
 
 ## Risks
 

@@ -98,13 +98,13 @@ describe('P1061 movement components', () => {
     expect(screen.getByLabelText('Test Group A, 2 people')).toBeTruthy();
   });
 
-  it('PointChangesView lists only holders with two positions and never an agent', () => {
+  it('PointChangesView lists every holder, one-position ones included, and never an agent', () => {
     wrap(<PointChangesView data={DATA} scope={EVERYONE} />);
     const rows = screen.getAllByTestId('row-change');
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
     expect(screen.getByLabelText(/Test Person 1’s positions over time/)).toBeTruthy();
     expect(screen.getByLabelText(/Test Person 3’s positions over time/)).toBeTruthy();
-    expect(screen.queryByLabelText(/Test Person 2’s positions/)).toBeNull();
+    expect(screen.getByLabelText(/Test Person 2’s positions over time: Agree, unchanged/)).toBeTruthy();
     expect(screen.queryByText(/user-id-0099/)).toBeNull();
     fireEvent.click(screen.getByLabelText(/Test Person 1’s positions over time/));
     expect(screen.getByTestId('person-log')).toBeTruthy();

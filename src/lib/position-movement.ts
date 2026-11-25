@@ -314,8 +314,10 @@ export function inRange(at: string, range: DayRange, dayOf: (at: string) => stri
 
 /**
  * The point page's "first and latest" for each holder, agent accounts excluded. Without dates: the earliest
- * position against the current one, listed only with at least two positions. With dates: the first and last of the
- * positions taken inside them, listed only with at least two there.
+ * position against the current one; every holder is listed, and one who took a position once and kept it (or has no
+ * position in the history at all, so their current one stands in) has first = latest, which reads as Same. With
+ * dates: the first and last of the positions taken inside them, listed with at least one there; a holder with none
+ * inside the dates, including one with no history, drops out of the dated view.
  */
 export function readingsOf(
   history: readonly HistoryRow[],
@@ -334,9 +336,15 @@ export function readingsOf(
     const entries = dated ? all.filter(e => inRange(e.at, range, dayOf)) : all;
     const first = entries[0];
     const last = entries.at(-1);
-    if (entries.length < 2 || !first || !last) continue;
-    // Without dates, "latest" is the current position; with dates, the last one taken inside them.
-    out.push({ userId: holder.userId, entries, first: first.level, latest: dated ? last.level : levelOf(holder.position) });
+    if (dated) {
+      // The last position taken inside the dates is "latest"; none inside means no place in the dated view.
+      if (!first || !last) continue;
+      out.push({ userId: holder.userId, entries, first: first.level, latest: last.level });
+      continue;
+    }
+    // Without dates "latest" is the current position, which also stands in for a holder with no history position.
+    const current = levelOf(holder.position);
+    out.push({ userId: holder.userId, entries, first: first?.level ?? current, latest: current });
   }
   return out;
 }
