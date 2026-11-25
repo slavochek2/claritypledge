@@ -13,11 +13,6 @@ const devPages = [
     path: '/meeting-types',
     label: 'Meeting stakes calculator',
     description: 'Name your next high-stakes meeting, set its five dimensions of stakes, and see the impact.'
-    },
-    {
-    path: '/tree/solo-clarify',
-    label: 'Make a point on your own (P1722)',
-    description: 'Clarify with your Mirror alone, private or public points, sharing from chats, one mic with two people.'
   },
   {
     path: '/tree/landing-fable-change',
