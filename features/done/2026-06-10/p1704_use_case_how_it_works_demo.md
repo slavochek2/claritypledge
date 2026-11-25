@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 347
 workstream: landing
 created_date: '2026-11-17'
 tags: [landing, video, analytics, use-cases]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: sonnet
@@ -14,6 +13,7 @@ exec_effort: high
 driver: heuristic
 spec_review_hash: c7e014900e9878ed50e2f6437add61ef5160611d60dd40cb4505388b11a4908e
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-25
 ---
 
 # P1704: Use-case pages show the product: a "How it works" section with the demo, and the founder's photo in place of the founder clip
