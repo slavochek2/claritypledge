@@ -57,19 +57,27 @@ export function useBanner({
   const [showSearch, setShowSearch] = useState(false);
   const [searchError, setSearchError] = useState('');
 
-  const handleRegenerate = useCallback(async () => {
-    if (isLoading) return;
-    if (bannerUrl && confirmReplace && !confirmReplace()) return;
+  // Shared start of a generation: confirm a replacement, mark loading, get the token.
+  // Returns null when the owner declined or is signed out (loading already cleared).
+  const beginGeneration = useCallback(async (): Promise<string | null> => {
+    if (bannerUrl && confirmReplace && !confirmReplace()) return null;
     setIsLoading(true);
     setSearchError('');
+    const token = await getAuthToken();
+    if (!token) {
+      toast.error('You need to be signed in to generate banners');
+      setIsLoading(false);
+      return null;
+    }
+    return token;
+  }, [bannerUrl, confirmReplace]);
+
+  const handleRegenerate = useCallback(async () => {
+    if (isLoading) return;
 
     try {
-      const token = await getAuthToken();
-      if (!token) {
-        toast.error('You need to be signed in to generate banners');
-        setIsLoading(false);
-        return;
-      }
+      const token = await beginGeneration();
+      if (!token) return;
 
       const result = await generateAIBannerResult(entityType, entityId, token);
       const newUrl = result?.url ?? null;
@@ -90,7 +98,7 @@ export function useBanner({
     }
 
     setIsLoading(false);
-  }, [isLoading, bannerUrl, confirmReplace, entityType, entityId, onSave]);
+  }, [isLoading, beginGeneration, entityType, entityId, onSave]);
 
   const handleRemove = useCallback(async () => {
     if (isLoading) return;
@@ -113,17 +121,10 @@ export function useBanner({
   const handleSearch = useCallback(
     async (keywords: string) => {
       if (isLoading || !keywords.trim()) return;
-      if (bannerUrl && confirmReplace && !confirmReplace()) return;
-      setIsLoading(true);
-      setSearchError('');
 
       try {
-        const token = await getAuthToken();
-        if (!token) {
-          toast.error('You need to be signed in to generate banners');
-          setIsLoading(false);
-          return;
-        }
+        const token = await beginGeneration();
+        if (!token) return;
 
         const result = await generateAIBannerResult(entityType, entityId, token, keywords);
         const newUrl = result?.url ?? null;
@@ -142,7 +143,7 @@ export function useBanner({
 
       setIsLoading(false);
     },
-    [isLoading, bannerUrl, confirmReplace, entityType, entityId, onSave],
+    [isLoading, beginGeneration, entityType, entityId, onSave],
   );
 
   return {
