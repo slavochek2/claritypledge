@@ -65,6 +65,16 @@ describe('logDbError', () => {
       vi.unstubAllEnvs();
     });
 
+    it('returns whether it reported: true for a real error, false for a blip, an expired token or no error (P1730)', async () => {
+      const { logDbError } = await import('../app/data/db-error-logger');
+      expect(logDbError('ctx', null)).toBe(false);
+      expect(logDbError('ctx', { message: 'TypeError: Failed to fetch', code: '', details: '', hint: '' })).toBe(false);
+      expect(logDbError('ctx', { message: 'JWT expired', code: 'PGRST303', details: '', hint: '' })).toBe(false);
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+      expect(logDbError('ctx', { message: 'permission denied', code: '42501', details: '', hint: '' })).toBe(true);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    });
+
     it('skips Sentry for "Failed to fetch" errors (offline)', async () => {
       const { logDbError } = await import('../app/data/db-error-logger');
       logDbError('getInboxItems', {

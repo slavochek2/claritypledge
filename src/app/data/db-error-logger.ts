@@ -50,17 +50,20 @@ export function noteNoSessionSuppression(context: string): void {
  * - Dev: console.error with context + full error object.
  * - Prod: Sentry.captureException with context, code, details, and hint as extras.
  * - `extra` (optional) adds caller context (e.g. `{ storyId }`); it never overrides the error fields.
+ * - Returns true when the error was reported, false when it was absent or suppressed, so a caller that reports once
+ *   (P1730) can tell a real report from a breadcrumb. Dev suppresses nothing (every error goes to the console, so true);
+ *   only prod drops network blips and expired tokens.
  */
 export function logDbError(
   context: string,
   error: PostgrestError | null | undefined,
   extra?: Record<string, unknown>
-): void {
-  if (!error) return;
+): boolean {
+  if (!error) return false;
 
   if (isDev) {
     console.error(`[db-error] ${context}:`, error, ...(extra ? [extra] : []));
-    return;
+    return true;
   }
 
   // Network blips (offline / tab-switch mid-flight) — not real DB errors,
@@ -69,7 +72,7 @@ export function logDbError(
   // definition — P990: a local copy here left the re-throw door open.
   if (isNetworkBlip(error)) {
     noteSuppression(context);
-    return;
+    return false;
   }
 
   // P1011: PGRST303 "JWT expired" — an expired-token artifact arriving through
@@ -93,7 +96,7 @@ export function logDbError(
   // this logger's, and is deliberately left for its own spec.
   if (error.code === 'PGRST303') {
     noteSuppression(context, 'jwt-expired');
-    return;
+    return false;
   }
 
   Sentry.captureException(new Error(`DB error in ${context}: ${error.message}`), {
@@ -105,6 +108,7 @@ export function logDbError(
       hint: error.hint,
     },
   });
+  return true;
 }
 
 /**

@@ -407,10 +407,16 @@ export function EventRoomMeet() {
   // Attendees get only notHere; the host also gets the merged undecided number (never shown to attendees).
   // Called here, above the early returns, like every hook in this component: below them, the first room render after the
   // loader, offline or gate screen ran one hook more than the render before it and React threw #310 (P1730).
-  // Off behind the offline screen: an offline access read keeps the event and registration, so granted stays true, and the
-  // poll would keep calling a dead network. Coming back online re-enables it, which reads at once. Not gated on loading:
-  // the reconnect loader flash would reset the counts and re-read on every reconnect.
-  const roomCounts = useEventRoomCounts(event?.id, granted && !accessOffline && recipeForEvent(event).registration === 'hike');
+  // Off where the room has not shown yet or cannot work: not behind the offline screen (an offline access read
+  // keeps the event and registration, so granted stays true and the poll would call a dead network), and not before the
+  // seat read ends (it joins a first arrival, and a read sent before that counts this person as "registered, not here
+  // yet"). selfLoading turns true only for a new event, so neither gate flickers mid-session. The access loader is not a
+  // gate: it flashes on a reconnect after a cached or offline read, and toggling here would reset the counts and re-read.
+  // The slug check scopes it to this room: moving to another room's URL keeps the old event until the new read lands.
+  const roomCounts = useEventRoomCounts(
+    event?.id,
+    granted && !accessOffline && !selfLoading && event?.slug === slug && recipeForEvent(event).registration === 'hike',
+  );
 
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;

@@ -21,10 +21,10 @@ vi.mock('@/app/contexts/offline-status-context', () => ({
   useOfflinePageReport: () => {},
 }));
 vi.mock('@/app/components/layout/app-shell/shell-nav', () => ({ useHideTodaysStripForEvent: () => {} }));
-const room = vi.hoisted(() => ({ access: {} as Record<string, unknown> }));
+const room = vi.hoisted(() => ({ access: {} as Record<string, unknown>, selfLoading: false }));
 vi.mock('@/app/prototypes/events/components/EventRoomAccess', () => ({
   useEventRoomAccess: () => room.access,
-  useEventRoomSelf: () => ({ self: null, loading: false, refresh: vi.fn().mockResolvedValue(true), runSelfWrite: vi.fn() }),
+  useEventRoomSelf: () => ({ self: null, loading: room.selfLoading, refresh: vi.fn().mockResolvedValue(true), runSelfWrite: vi.fn() }),
 }));
 const roster = vi.hoisted(() => ({ onUpdate: null as null | ((r: unknown[]) => void), onStatus: null as null | ((s: string) => void) }));
 vi.mock('@/app/data/event-room-service', () => ({
@@ -75,6 +75,7 @@ const hookOrderErrors = () => consoleError.mock.calls.filter((c: unknown[]) => /
 beforeEach(() => {
   vi.useFakeTimers();
   auth.id = 'u1';
+  room.selfLoading = false;
   counts.get.mockReset();
   counts.get.mockResolvedValue({ notHere: 2 });
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -143,9 +144,12 @@ describe('P1730: the room renders after an early-return screen', () => {
 
   it('the host still gets the merged undecided number after the loader', async () => {
     auth.id = 'h';
-    counts.get.mockResolvedValue({ notHere: 2, in: 1, out: 0, undecided: 14 });
+    // Merged totals that differ from the local roster (1 in, 0 out, 1 undecided), so a heading that fell back to the roster fails.
+    counts.get.mockResolvedValue({ notHere: 2, in: 4, out: 3, undecided: 14 });
     await openFrom({ ...loaded, event: null, loading: true }, loaded, screens.loader);
     expect(screen.getByTestId('room-roster-undecided')).toHaveTextContent('Undecided (14)');
+    expect(screen.getByTestId('room-roster-in')).toHaveTextContent('Opted in (4)');
+    expect(screen.getByTestId('room-roster-out')).toHaveTextContent('Opted out (3)');
     expect(screen.getByTestId('room-not-here-line')).toHaveTextContent('and 2 registered, not here yet');
   });
 
@@ -159,6 +163,42 @@ describe('P1730: the room renders after an early-return screen', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(screen.getByTestId('room-not-here-line')).toHaveTextContent('and 2 registered, not here yet');
     expect(counts.get).toHaveBeenCalledTimes(1); // the loader flash keeps the counts and makes no second read
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+    expect(counts.get).toHaveBeenCalledTimes(2); // and the 30 s poll carries on
+  });
+
+  it('first arrival: no count read while the seat read (and join) is in flight, one read once the room shows', async () => {
+    // The count excludes people with a room row; a read sent before the join counted this person as not here.
+    room.selfLoading = true;
+    room.access = loaded;
+    const { rerender } = render(tree());
+    screens.loader();
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+    expect(counts.get).not.toHaveBeenCalled();
+    room.selfLoading = false;
+    rerender(tree());
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    rosterOk();
+    expect(counts.get).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('room-not-here-line')).toHaveTextContent('and 2 registered, not here yet');
+  });
+
+  it('moving to another room: no count read for the old event while the new room loads, then the new room is read', async () => {
+    const rerender = await openFrom({ ...loaded, event: null, loading: true }, loaded, screens.loader);
+    expect(counts.get).toHaveBeenCalledTimes(1);
+    // A defensive case: the shipped route remounts the page on a new pathname, so the access hook starts with no event.
+    // Under a retained mount (a route marked stable, as /chats is), the access read for the next room would still hold
+    // the previous event while it loads.
+    room.access = { ...loaded, slug: 'walk-2', loading: true };
+    rerender(tree());
+    screens.loader();
+    await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+    expect(counts.get).toHaveBeenCalledTimes(1);
+    // The new room's access read lands.
+    room.access = { ...loaded, slug: 'walk-2', event: { ...hike, id: 'ev-2', slug: 'walk-2' } };
+    rerender(tree());
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(counts.get.mock.calls.map((c: unknown[]) => c[0])).toEqual(['ev-1', 'ev-2']);
   });
 
   it('gate screen, then the room once access is granted', async () => {
