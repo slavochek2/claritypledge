@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 disclosure: public
 rank: 20
@@ -11,8 +11,8 @@ tags:
   - banner
   - auth
   - data-loss
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
+completed_at: 2026-11-25
 ---
 
 # P1729: Signing in wipes the profile banner, and the next profile visit generates an AI one over it
