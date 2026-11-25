@@ -174,6 +174,10 @@ describe('P1728 PointChangesView', () => {
     expect(screen.getByRole('button', { name: 'Moved toward agree (1)' })).toBeTruthy();
     const names = rowButtons().map(b => /^(Test Person \d)/.exec(b.getAttribute('aria-label')!)![1]);
     expect(names).toEqual(['Test Person 5', 'Test Person 6', 'Test Person 1', 'Test Person 2', 'Test Person 3', 'Test Person 4']);
+    // The three tab counts add up to the people listed.
+    const counts = within(screen.getByRole('group', { name: 'Filter by change' })).getAllByRole('button')
+      .map(b => Number(/\((\d+)\)$/.exec(b.getAttribute('aria-label')!)![1]));
+    expect(counts.reduce((s, c) => s + c, 0)).toBe(rowButtons().length);
     // The chart draws every listed person: six first positions and six latest ones.
     const total = (bar: string) => [...document.querySelectorAll(`[data-bar="${bar}"]`)].reduce((s, r) => s + Number(r.getAttribute('data-count')), 0);
     expect(total('before')).toBe(6);
@@ -214,7 +218,9 @@ describe('P1728 PointChangesView', () => {
       current: DATA.current.filter(r => ['user-id-0001', 'user-id-0002', 'user-id-0003'].includes(r.userId)),
     };
     wrap(<PointChangesView data={allSame} scope={EVERYONE} />);
+    expect(screen.getByRole('button', { name: 'Moved toward disagree (0)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Same position (3)' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Moved toward agree (0)' })).toBeTruthy();
     expect(rowButtons()).toHaveLength(3);
     expect(screen.queryByTestId('chart-empty')).toBeNull();
     expect(screen.queryByText(/No one here has a position/)).toBeNull();

@@ -150,8 +150,8 @@ New for this spec:
 - `src/app/components/movement/movement-copy.ts`: `chartHint` (one sentence removed)
 - `src/app/components/movement/movement-filter.tsx`: untyped preview order (Redesign 3b); comments at `:24` (also untrue today: matching is by any word of the name, not its start) and `:120`
 - `src/app/components/movement/movement-charts.tsx`: `PersonLog` with no entries (no drawing, no empty list)
-- `src/app/components/movement/point-changes-people.tsx`: export the list comparator for 3b, if that is where it lives
-- `src/app/components/movement/movement-scope.ts`: `offersFilter` comment
+- `src/app/components/movement/point-changes-people.tsx`: uses the shared comparator; the row's face moves into `RowFace` so a holder with nothing behind the row renders as a plain card (`row-static`) beside the opening rows
+- `src/app/components/movement/movement-scope.ts`: `offersFilter` comment; the shared list comparator `byChangeThenName` (3b, 4)
 - Tests, named below
 
 **Out of scope:**

@@ -9,7 +9,7 @@ import { PositionBadge } from '@/app/components/shared/PositionBadge';
 import { POSITION_LABELS } from '@/app/types';
 import { GravatarAvatar } from '@/components/ui/gravatar-avatar';
 import { Button } from '@/components/ui/button';
-import type { PointMovementRows } from '@/app/data/movement-service';
+import type { MovementPerson, PointMovementRows } from '@/app/data/movement-service';
 import { hasDates, inRange, NO_DATES, positionOfLevel, verificationsOf, type DayRange, type Reading } from '@/lib/position-movement';
 import { PersonLog } from './movement-charts';
 import { byChangeThenName } from './movement-scope';
@@ -21,9 +21,7 @@ const said = (level: number) => POSITION_LABELS[positionOfLevel(level)];
 const ROW = 'flex min-h-11 w-full items-start gap-3 rounded-lg border border-border bg-muted p-3 text-left sm:items-center';
 
 /** What a row shows: the avatar, the name, first → latest, and the chevron when the row opens. */
-function RowFace({ reading, data, chevron }: { reading: Reading; data: PointMovementRows; chevron: ReactNode }) {
-  const person = data.people.get(reading.userId);
-  const name = person?.name ?? 'Someone';
+function RowFace({ reading, person, name, chevron }: { reading: Reading; person: MovementPerson | undefined; name: string; chevron: ReactNode }) {
   return (
     <>
       <GravatarAvatar
@@ -51,7 +49,8 @@ function RowFace({ reading, data, chevron }: { reading: Reading; data: PointMove
 
 /** One person: the first position, the latest one, and their whole graph and log behind the row. */
 function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading; data: PointMovementRows; range: DayRange; open: boolean; onToggle: () => void }) {
-  const name = data.people.get(reading.userId)?.name ?? 'Someone';
+  const person = data.people.get(reading.userId);
+  const name = person?.name ?? 'Someone';
   const { first, latest } = reading;
   // With dates set the graph draws only the positions inside them, so only the verifications inside them belong on it:
   // one from outside would be drawn beside the first or last dot, as if it had happened then.
@@ -67,7 +66,8 @@ function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading;
   if (reading.entries.length === 0 && verifications.length === 0) {
     return (
       <div className={ROW} data-testid="row-static">
-        <span className="contents" aria-hidden><RowFace reading={reading} data={data} chevron={null} /></span>
+        {/* A real box, not display: contents: WebKit has dropped aria-hidden on boxless elements. */}
+        <span className="flex min-w-0 flex-1 items-start gap-3 sm:items-center" aria-hidden><RowFace reading={reading} person={person} name={name} chevron={null} /></span>
         <span className="sr-only">{label}</span>
       </div>
     );
@@ -83,7 +83,8 @@ function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading;
       >
         <RowFace
           reading={reading}
-          data={data}
+          person={person}
+          name={name}
           chevron={open ? <ChevronDown size={14} className="shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight size={14} className="shrink-0 text-muted-foreground" aria-hidden />}
         />
       </button>
