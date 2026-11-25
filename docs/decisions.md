@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-25 [process]: A page meant to persuade is shown to one real person before it is polished (P1721). Status: proposed, UNTESTED
+
+**Context:** The meeting-stakes prototype (/tree/meeting-stakes) went through five rounds of outside review: button states, focus, screen-reader details, contrast. Then the founder tried it and found it only gives the host back what they entered. Rating "Hiring decision" high on serious damage produces "High on serious damage", which they already knew. Its job was to make people realize which meetings are high stakes and why, so they want to go deeper. It does not do that job.
+**Decision:** Before polishing a prototype whose job is to persuade or inspire, show the rough version to one real person and ask "did this change how you see your meeting?". Polish and review rounds come after a yes. P1721 shipped to main as a DEV-only /tree prototype and is paused. If it resumes, the likely direction is a mirror with a surprise: pick a meeting and get a real short failure story for that kind of meeting, with no sliders. The stories are the founder's to write.
+**Alternatives rejected:** Another rebuild of the form, which would polish the wrong thing again. Deleting the prototype, which would lose the record of what was tried.
+**Falsifier:** The next persuasive prototype gets a person test first, and the test changes nothing that review rounds would not have caught anyway.
+**References:** [p1721](../features/done/2026-06-10/p1721_meeting_stakes_calculator.md), P1727
+
 ## 2026-11-25 [product]: Use-case pages show the product right after the stat band; the hero offers the demo instead of the pledge (P1704)
 
 **Context:** P1701 ruled that every use-case page shows the product demo in place of the founder video. Building it (P1704), the founder saw the section sitting 3.5 to 7 screens down, where few visitors reach, and two near-identical chat blocks per page (the "what nobody said" story and the 0-10 gap exchange). The film made the exchange a second demo of the same fix.
