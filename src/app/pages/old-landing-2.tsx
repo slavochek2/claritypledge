@@ -155,6 +155,7 @@ export function OldLanding2Page() {
         of high-potential startups fail from co-founder conflict
         <RefSup n={3} label={WASSERMAN} tone="dark" />
       </StakesBand>
+      <HowItWorksDemoSection location="founder" />
       <EquityChat />
       <AssumedSection index="01" stats={ASSUMED_STATS} references={REFERENCES} />
       <ReasonsSection index="02" reasons={REASONS} references={REFERENCES} muted />
@@ -162,9 +163,8 @@ export function OldLanding2Page() {
         <MisunderstandingVenn />
       </IllusionSection>
       <ExchangeSection cast={FOUNDER_CAST} muted />
-      <HowItWorksDemoSection location="founder" index="04" />
       <PromiseSection
-        index="05"
+        index="04"
         title={<>Protect your partnership so it <span className="text-blue-400">survives strong disagreements</span></>}
         specimen={<PartnerAgreementSpecimen />}
       />

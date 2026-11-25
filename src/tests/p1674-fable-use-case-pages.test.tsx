@@ -378,10 +378,10 @@ describe('P1674 copy and sections', () => {
 describe('P1674 numbering follows the fable pages', () => {
   const numbers = () => [...document.querySelectorAll('h2')].map((h) => h.closest('.grid')?.querySelector('.font-mono')?.textContent ?? null).filter(Boolean);
   it.each([
-    ['/hiring', ['01', '02', '03', '04', '05']], // P1704: How it works is numbered; the Group Terms move up one
-    ['/coach', ['01', '02', '03', '04', '05']], // P1704: How it works is numbered; the Group Terms move up one
-    ['/founder', ['01', '02', '03', '04', '05']], // P1704: How it works is numbered; the Group Terms move up one
-    ['/hospitals', ['01', '02', '03', '04', '05']], // P1704: How it works is numbered; the Group Terms move up one
+    ['/hiring', ['01', '02', '03', '04']],
+    ['/coach', ['01', '02', '03', '04']],
+    ['/founder', ['01', '02', '03', '04']],
+    ['/hospitals', ['01', '02', '03', '04']],
     ['/communities', ['01', '02']],
   ] as const)('%s numbers its arguing sections %j', (path, expected) => {
     renderAt(path);

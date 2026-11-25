@@ -81,22 +81,31 @@ describe('P1704 the section on each of the six pages', () => {
     expect(JSON.stringify(HOW_IT_WORKS)).not.toContain('FOUNDER DECISION');
   });
 
-  it.each(LOCATIONS)('%s: #how-it-works sits immediately before the Group Terms, numbered one before it, with a heading, 3-5 steps and one demo player', (loc) => {
+  it.each(LOCATIONS)('%s: #how-it-works sits near the top (after the stat band, before the numbered argument), unnumbered, with a heading, 3-5 steps and one demo player', (loc) => {
     const { container } = renderPage(PAGES[loc]);
     const section = container.querySelector('#how-it-works')!;
     expect(section).not.toBeNull();
-    expect(within(section as HTMLElement).getByRole('heading', { level: 2 })).toBeInTheDocument();
+    expect(within(section as HTMLElement).getByRole('heading', { level: 2, name: HOW_IT_WORKS.heading })).toBeInTheDocument();
     const items = within(section as HTMLElement).getAllByRole('listitem');
     expect(items.length).toBeGreaterThanOrEqual(3);
     expect(items.length).toBeLessThanOrEqual(5);
-    // The next section after it is the dark Group Terms band.
-    const next = section.nextElementSibling as HTMLElement;
-    expect(next.tagName).toBe('SECTION');
-    expect(next.className).toContain('bg-slate-950');
-    // Numbered like its neighbours: the Group Terms carry the next number.
-    const num = (el: Element) => Number(el.querySelector('[aria-hidden].font-mono')?.textContent);
-    expect(num(section)).toBeGreaterThan(0);
-    expect(num(next)).toBe(num(section) + 1);
+    // Same order on every page: hero, its stat band, then the film (/coach has no stat band: hero, then the film).
+    const prev = section.previousElementSibling as HTMLElement;
+    if (loc === 'coach') expect(prev.querySelector('h1')).not.toBeNull();
+    else {
+      expect(prev.id).toBe('stakes');
+      expect(prev.previousElementSibling?.querySelector('h1')).not.toBeNull();
+    }
+    // Before every numbered section, and carries no number itself.
+    expect(container.querySelectorAll('#how-it-works')).toHaveLength(1);
+    // Section numbers only (the mono number beside each h2), as P1674's numbering test reads them.
+    const numbered = [...container.querySelectorAll('h2')].map((h) => h.closest('.grid')?.querySelector('.font-mono')).filter((n): n is Element => !!n && /^0\d$/.test(n.textContent ?? ''));
+    expect(numbered.length).toBeGreaterThan(0);
+    // The argument's numbers run 01, 02, ... with no gap or repeat, and each page keeps its count.
+    const COUNT: Record<UseCaseLocation, number> = { builders: 5, 'change-managers': 3, hiring: 4, founder: 4, hospitals: 4, coach: 4 };
+    expect(numbered.map((n) => n.textContent)).toEqual(Array.from({ length: COUNT[loc] }, (_, i) => `0${i + 1}`));
+    for (const n of numbered) expect(section.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(section as HTMLElement).queryByText(/^0\d$/)).toBeNull();
     // One player on the page (none on /hospitals); nothing loads until Play.
     expect(container.querySelectorAll('video').length).toBe(0);
     expect(screen.queryAllByRole('button', { name: /^play /i })).toHaveLength(loc === 'hospitals' ? 0 : 1);
@@ -112,14 +121,14 @@ describe('P1704 the section on each of the six pages', () => {
 describe('P1704 a page with no film', () => {
   it('shows the heading and steps, no frame, no button, and fires no events when on screen', () => {
     motion.inView = true;
-    const { container } = render(<HowItWorksDemoSection location="hospitals" index="03" />);
+    const { container } = render(<HowItWorksDemoSection location="hospitals" />);
     expect(screen.getByRole('heading', { level: 2, name: HOW_IT_WORKS.heading })).toBeInTheDocument();
     expect(screen.getAllByRole('listitem')).toHaveLength(HOW_IT_WORKS.steps.length);
     expect(screen.queryByRole('button')).toBeNull();
     expect(container.querySelector('video')).toBeNull();
-    // No frame at all: the section holds only the heading block and the steps.
+    // No frame at all: the steps follow the heading directly.
     expect(container.querySelector('.aspect-video')).toBeNull();
-    expect(container.querySelector('#how-it-works ol')?.previousElementSibling?.querySelector('h2')).toBeInstanceOf(HTMLHeadingElement);
+    expect(container.querySelector('#how-it-works ol')?.previousElementSibling).toBeInstanceOf(HTMLHeadingElement);
     expect(seenAndPlay()).toEqual([]);
   });
 });
@@ -127,8 +136,8 @@ describe('P1704 a page with no film', () => {
 describe('P1704 events with the video set', () => {
   it.each(LOCATIONS)('%s: seen once on screen, play once on click', (loc) => {
     motion.inView = true;
-    const { rerender } = render(<HowItWorksDemoSection location={loc} index="04" video={VIDEO} />);
-    rerender(<HowItWorksDemoSection location={loc} index="04" video={VIDEO} />);
+    const { rerender } = render(<HowItWorksDemoSection location={loc} video={VIDEO} />);
+    rerender(<HowItWorksDemoSection location={loc} video={VIDEO} />);
     expect(track.mock.calls.filter((c) => c[0] === 'demo_video_seen')).toEqual([['demo_video_seen', { location: loc }]]);
     const play = screen.getByRole('button', { name: 'Play the product demo' });
     fireEvent.click(play);
@@ -138,7 +147,7 @@ describe('P1704 events with the video set', () => {
 
   it('pressing Play hands keyboard focus to the player', () => {
     const focus = vi.spyOn(HTMLMediaElement.prototype, 'focus');
-    render(<HowItWorksDemoSection location="builders" index="04" video={VIDEO} />);
+    render(<HowItWorksDemoSection location="builders" video={VIDEO} />);
     const play = screen.getByRole('button', { name: 'Play the product demo' });
     play.focus();
     fireEvent.click(play);
@@ -148,19 +157,19 @@ describe('P1704 events with the video set', () => {
 
   it('a scripted click (the button never had focus) does not move focus', () => {
     const focus = vi.spyOn(HTMLMediaElement.prototype, 'focus');
-    render(<HowItWorksDemoSection location="builders" index="04" video={VIDEO} />);
+    render(<HowItWorksDemoSection location="builders" video={VIDEO} />);
     fireEvent.click(screen.getByRole('button', { name: 'Play the product demo' }));
     expect(focus).not.toHaveBeenCalled();
     focus.mockRestore();
   });
 
   it('does not report seen while off screen', () => {
-    render(<HowItWorksDemoSection location="coach" index="04" video={VIDEO} />);
+    render(<HowItWorksDemoSection location="coach" video={VIDEO} />);
     expect(track.mock.calls.filter((c) => c[0] === 'demo_video_seen')).toEqual([]);
   });
 
   it('a failed load after play shows the error line, not a black box', () => {
-    const { container } = render(<HowItWorksDemoSection location="hiring" index="04" video={VIDEO} />);
+    const { container } = render(<HowItWorksDemoSection location="hiring" video={VIDEO} />);
     fireEvent.click(screen.getByRole('button', { name: 'Play the product demo' }));
     fireEvent.error(container.querySelector('video')!);
     expect(screen.getByText(HOW_IT_WORKS.errorLine)).toBeInTheDocument();

@@ -119,12 +119,12 @@ export function HospitalsPage() {
         of 23,658 US malpractice cases studied involved a communication failure.
         <RefSup n={1} label={REFERENCES[0]?.label} tone="dark" />
       </StakesBand>
+      <HowItWorksDemoSection location="hospitals" />
       <ReasonsSection index="01" reasons={REASONS} references={REFERENCES} />
       <ExchangeSection cast={HOSPITAL_CAST} muted />
       <ValueSection />
-      <HowItWorksDemoSection location="hospitals" index="03" />
-      <PromiseSection index="04" title={<>Make it <span className="text-blue-400">normal</span> to ask how well we understand each other</>} />
-      <NormSection index="05" maintainText={HOSPITAL_MAINTAIN_TEXT} />
+      <PromiseSection index="03" title={<>Make it <span className="text-blue-400">normal</span> to ask how well we understand each other</>} />
+      <NormSection index="04" maintainText={HOSPITAL_MAINTAIN_TEXT} />
       <FounderCredibility />
       <CloseSection title="Reveal gaps in understanding between hospital staff before they become mistakes" />
       <ReferencesSection references={REFERENCES} />

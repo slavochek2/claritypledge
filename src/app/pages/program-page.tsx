@@ -146,6 +146,7 @@ export function ProgramPage() {
     >
       <HiringHero />
       <HiringStakes />
+      <HowItWorksDemoSection location="hiring" />
       <KatieChat />
       <KeyHireCalculator />
       <AssumedSection index="01" stats={ASSUMED_STATS} references={REFERENCES} />
@@ -154,9 +155,8 @@ export function ProgramPage() {
         <MisunderstandingVenn />
       </IllusionSection>
       <ExchangeSection cast={HIRING_CAST} muted />
-      <HowItWorksDemoSection location="hiring" index="04" />
       <PromiseSection
-        index="05"
+        index="04"
         title={<>Protect the relationship before your interests <span className="text-blue-400">quietly diverge</span></>}
         specimen={<PartnerAgreementSpecimen />}
       />

@@ -41,10 +41,16 @@ describe('P1558 /change-managers - content', () => {
     expect(screen.getByText('For change managers')).toBeInTheDocument();
     expect(screen.getByText('AI rollouts, new processes, reorganisations. People say yes in the meeting and mean different things.')).toBeInTheDocument();
     expect(screen.getByText('Sounds good 👍')).toBeInTheDocument();
-    // the hero scroll cue targets the chat story section
-    // the hero scroll cue's real target holds the chat story
-    const cue = screen.getByRole('button', { name: 'What nobody said' });
-    expect(document.getElementById(cue.dataset.target!)).toContainElement(screen.getByText('Sounds good 👍'));
+    // P1704: same order as the other use-case pages: hero, the 59% stat band, the demo, then the chat.
+    // The hero scroll cue now targets the stat band, as on the others.
+    const cue = screen.getByRole('button', { name: 'Why it matters' });
+    expect(document.getElementById(cue.dataset.target!)).toContainElement(screen.getByTestId('stat-card'));
+    // Then the demo, then the chat story: stat band → How it works → What nobody said.
+    const stakes = document.getElementById('stakes')!;
+    const demo = document.getElementById('how-it-works')!;
+    const chat = document.getElementById('what-nobody-said')!;
+    expect(stakes.nextElementSibling).toBe(demo);
+    expect(demo.compareDocumentPosition(chat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const order = [
       'Why almost nobody verifies understanding',
       'Reveal a gap in understanding, then bridge it',
@@ -106,7 +112,7 @@ describe('P1558 /change-managers - content', () => {
     expect(screen.getByRole('link', { name: 'Take the Pledge' })).toHaveAttribute('href', '/sign-pledge');
     // P1671: the fable hero adds the phone cue to its example; still no button besides scroll cues.
     // P1704: plus the demo's Play button (its visible text is the film's length; named 'Play the product demo').
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['See an example', 'What nobody said', '6:26']);
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['See an example', 'Why it matters', '6:26']);
     expect(screen.getByRole('button', { name: 'Play the product demo' })).toHaveTextContent('6:26');
   });
 });

@@ -37,9 +37,23 @@ export function ChangeFable({ seo, cast, tracking = {} }: { seo: ReactNode; cast
           }
           sub="AI rollouts, new processes, reorganisations. People say yes in the meeting and mean different things."
           example={AGREED_CHANGE}
-          nextId="what-nobody-said"
-          nextLabel="What nobody said"
+          nextId="stakes"
+          nextLabel="Why it matters"
         />
+
+        <StakesBand
+          id="stakes"
+          big={<><span className="text-blue-400">59</span>%</>}
+          visual={
+            <div className="h-14 overflow-hidden rounded-sm border border-white/25" aria-hidden>
+              <div className="h-full w-[59%] bg-blue-400" />
+            </div>
+          }
+        >
+          of change projects missed at least one objective or failed entirely. The top obstacle was changing mindsets and attitudes, not technology.
+          <RefSup n={1} label={CHANGE_REFERENCES[0]?.label} tone="dark" />
+        </StakesBand>
+        <HowItWorksDemoSection location="change-managers" />
 
         <section id="what-nobody-said" className="scroll-mt-16 border-t border-border bg-muted/40 px-4 py-16 lg:py-28">
           <HardTruthChat
@@ -56,24 +70,10 @@ export function ChangeFable({ seo, cast, tracking = {} }: { seo: ReactNode; cast
           />
         </section>
 
-        <StakesBand
-          id="stakes"
-          big={<><span className="text-blue-400">59</span>%</>}
-          visual={
-            <div className="h-14 overflow-hidden rounded-sm border border-white/25" aria-hidden>
-              <div className="h-full w-[59%] bg-blue-400" />
-            </div>
-          }
-        >
-          of change projects missed at least one objective or failed entirely. The top obstacle was changing mindsets and attitudes, not technology.
-          <RefSup n={1} label={CHANGE_REFERENCES[0]?.label} tone="dark" />
-        </StakesBand>
-
         <ReasonsSection index="01" reasons={CHANGE_REASONS} references={CHANGE_REFERENCES} />
         <ExchangeSection cast={cast} muted />
-        <HowItWorksDemoSection location="change-managers" index="02" />
-        <PromiseSection index="03" title={<>Make it <span className="text-blue-400">normal</span> to ask how well we understand each other</>} />
-        <NormSection index="04" />
+        <PromiseSection index="02" title={<>Make it <span className="text-blue-400">normal</span> to ask how well we understand each other</>} />
+        <NormSection index="03" />
         <FounderCredibility />
         <CloseSection title="Reveal gaps in understanding before your rollout stalls" />
         <ReferencesSection references={CHANGE_REFERENCES} />

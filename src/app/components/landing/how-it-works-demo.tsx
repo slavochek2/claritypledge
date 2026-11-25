@@ -1,8 +1,9 @@
 /**
  * P1704 — the "How it works" section on the six use-case pages: a heading, the product demo
- * (click to play, the manifesto film's player) and 3-5 numbered steps (the film's five). It is a numbered
- * section like its neighbours: the page passes its `index`, and the sections after it count on from it. One component on all
- * six pages; per page it takes the analytics `location`, the section `index`, and its film from DEMO_BY_PAGE.
+ * (click to play, the manifesto film's player) and 3-5 numbered steps (the film's five). It sits near the
+ * top of each page, right after the hero's stat band (founder: seen by more visitors than halfway down), and is
+ * unnumbered like the other "see it" blocks; the numbered argument follows it. One component on all six pages;
+ * per page it takes the analytics `location` and its film from DEMO_BY_PAGE.
  * Owns `demo_video_seen` (35% of the frame on screen, once) and `demo_video_play` (first play,
  * once). A page with no film (DEMO_BY_PAGE null) shows the heading and steps only, and fires nothing.
  */
@@ -11,7 +12,7 @@ import { analytics } from "@/lib/mixpanel";
 import { Mp4VideoFacade } from "@/app/components/shared/mp4-video-facade";
 import { useSeenOnce } from "@/app/components/shared/use-seen-once";
 import { DEMO_BY_PAGE, HOW_IT_WORKS, type DemoVideo, type UseCaseLocation } from "@/app/content/how-it-works-demo";
-import { Reveal, SectionHeading } from "./fable/fable-parts";
+import { Reveal } from "./fable/fable-parts";
 import { SHELL } from "./fable/fable-content";
 
 const TEXT_FRAME =
@@ -19,7 +20,7 @@ const TEXT_FRAME =
 
 const COLUMNS: Record<number, string> = { 3: "lg:grid-cols-3", 4: "sm:grid-cols-2 lg:grid-cols-4", 5: "sm:grid-cols-2 lg:grid-cols-5" };
 
-export function HowItWorksDemoSection({ location, index, video = DEMO_BY_PAGE[location] }: { location: UseCaseLocation; index: string; video?: DemoVideo | null }) {
+export function HowItWorksDemoSection({ location, video = DEMO_BY_PAGE[location] }: { location: UseCaseLocation; video?: DemoVideo | null }) {
   const [failed, setFailed] = useState(false);
   const frameRef = useRef<HTMLDivElement>(null);
   useSeenOnce(frameRef, () => analytics.track("demo_video_seen", { location }), video !== null && !failed);
@@ -29,7 +30,7 @@ export function HowItWorksDemoSection({ location, index, video = DEMO_BY_PAGE[lo
   return (
     <section id="how-it-works" className="scroll-mt-16 border-t border-border px-4 py-16 lg:py-28">
       <Reveal className={SHELL}>
-        <SectionHeading index={index} title={HOW_IT_WORKS.heading} />
+        <h2 className="mb-10 max-w-3xl text-3xl font-semibold leading-[1.1] tracking-tight text-balance sm:text-4xl lg:mb-14 lg:text-5xl">{HOW_IT_WORKS.heading}</h2>
         {video !== null && (
           <div ref={frameRef} className="mx-auto max-w-5xl">
             {failed ? (
