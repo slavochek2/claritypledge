@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: change-request
 drafted_by: sonnet
 exec_model: sonnet
@@ -13,8 +13,8 @@ tags:
   - positions
   - point-page
 created_date: '2026-11-25'
-delivery_stage: change-request
-pipeline_ran: [change-request]
+delivery_stage: dev
+pipeline_ran: [change-request, dev]
 spec_review_hash: 14dc8e3610daf1029604936240eb7da94e5a3ea42ea0fd59cb748447e058a70b
 spec_review_vendors: [gemini, openrouter]
 ---
