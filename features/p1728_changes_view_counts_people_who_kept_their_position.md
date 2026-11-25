@@ -13,8 +13,8 @@ tags:
   - positions
   - point-page
 created_date: '2026-11-25'
-delivery_stage: dev
-pipeline_ran: [change-request, dev]
+delivery_stage: ship
+pipeline_ran: [change-request, dev, ship]
 spec_review_hash: 14dc8e3610daf1029604936240eb7da94e5a3ea42ea0fd59cb748447e058a70b
 spec_review_vendors: [gemini, openrouter]
 ---
