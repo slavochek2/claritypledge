@@ -61,13 +61,14 @@ function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading;
     authorName: data.people.get(v.authorId)?.name ?? 'Someone',
     at: v.at,
   }));
+  const label = `${name}’s positions over time: ${said(first)}${latest !== first ? `, then ${said(latest)}` : ', unchanged'}`;
   // A holder with no position in the history and no verification has nothing behind the row: it does not open.
+  // Screen readers hear the same sentence as the button's label, not the badges one by one.
   if (reading.entries.length === 0 && verifications.length === 0) {
     return (
       <div className={ROW} data-testid="row-static">
-        <RowFace reading={reading} data={data} chevron={null} />
-        {/* first === latest here, so the row reads as the button's label would: "..., unchanged". */}
-        <span className="sr-only">, unchanged</span>
+        <span className="contents" aria-hidden><RowFace reading={reading} data={data} chevron={null} /></span>
+        <span className="sr-only">{label}</span>
       </div>
     );
   }
@@ -76,7 +77,7 @@ function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading;
       <button
         type="button"
         aria-expanded={open}
-        aria-label={`${name}’s positions over time: ${said(first)}${latest !== first ? `, then ${said(latest)}` : ', unchanged'}`}
+        aria-label={label}
         onClick={onToggle}
         className={`${ROW} transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
       >

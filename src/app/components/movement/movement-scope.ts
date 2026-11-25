@@ -23,8 +23,11 @@ const shortIso = (iso: string) => {
   return `${Number(day)} ${MONTHS[Number(month) - 1] ?? ''}`;
 };
 
-/** Whether a person took more than one position, including someone who changed and came back to where they began. */
-const moved = (r: Reading) => (r.entries.length > 1 ? 1 : 0);
+/**
+ * Whether a person moved: their first and latest differ, or they took more than one position and came back to where
+ * they began. Only the second case breaks a tie, inside size 0; for any other size everyone tied has moved.
+ */
+const moved = (r: Reading) => (r.first !== r.latest || r.entries.length > 1 ? 1 : 0);
 
 /**
  * The one order of people on the point page, for the list and for the filter's preview: the largest change first,

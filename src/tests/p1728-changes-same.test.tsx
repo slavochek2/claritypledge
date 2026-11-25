@@ -10,7 +10,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { PersonLog } from '@/app/components/movement/movement-charts';
 import { chartHint } from '@/app/components/movement/movement-copy';
 import { MovementFilter } from '@/app/components/movement/movement-filter';
-import { offersFilter } from '@/app/components/movement/movement-scope';
+import { byChangeThenName, offersFilter } from '@/app/components/movement/movement-scope';
 import { PointChangesView } from '@/app/components/movement/point-changes';
 import type { MovementPerson, PointMovementRows } from '@/app/data/movement-service';
 import type { PositionType } from '@/app/types';
@@ -174,6 +174,22 @@ describe('P1728 PointChangesView', () => {
     expect(screen.getByRole('button', { name: 'Moved toward agree (1)' })).toBeTruthy();
     const names = rowButtons().map(b => /^(Test Person \d)/.exec(b.getAttribute('aria-label')!)![1]);
     expect(names).toEqual(['Test Person 5', 'Test Person 6', 'Test Person 1', 'Test Person 2', 'Test Person 3', 'Test Person 4']);
+    // The chart draws every listed person: six first positions and six latest ones.
+    const total = (bar: string) => [...document.querySelectorAll(`[data-bar="${bar}"]`)].reduce((s, r) => s + Number(r.getAttribute('data-count')), 0);
+    expect(total('before')).toBe(6);
+    expect(total('after')).toBe(6);
+  });
+
+  it('inside one size of change other than 0 the order is by name, however many positions each took', () => {
+    // Person 1: one history row (unsure) and a current row that disagrees (agree), size 2, one entry.
+    // Person 2: unsure then agree, size 2, two entries. Both moved, so by name: Person 1 first.
+    const readings = readingsOf(
+      [h('user-id-0002', P.u!, '2026-01-01T10:00:00Z'), h('user-id-0002', P.a!, '2026-02-01T10:00:00Z'), h('user-id-0001', P.u!, '2026-01-01T10:00:00Z')],
+      [cur('user-id-0002', P.a!), cur('user-id-0001', P.a!)],
+      [],
+    );
+    const sorted = [...readings].sort(byChangeThenName(r => (r.userId === 'user-id-0001' ? 'Test Person 1' : 'Test Person 2')));
+    expect(sorted.map(r => r.userId)).toEqual(['user-id-0001', 'user-id-0002']);
   });
 
   it('someone who changed and came back (Same) is listed before the people who took one position', () => {
@@ -238,6 +254,9 @@ describe('P1728 PointChangesView', () => {
     expect(screen.getByRole('button', { name: 'Same position (1)' })).toBeTruthy();
     const row = screen.getByTestId('row-static');
     expect(within(row).getByText('Test Person 1')).toBeTruthy();
+    // Screen readers hear one sentence, the button's label, not the name and two badges one by one.
+    expect(row.querySelector('[aria-hidden]')!.textContent).toContain('Test Person 1');
+    expect(row.querySelector('.sr-only')!.textContent).toBe('Test Person 1’s positions over time: Agree, unchanged');
     expect(screen.queryByRole('button', { name: /positions over time/ })).toBeNull();
     expect(screen.queryByTestId('person-log')).toBeNull();
   });
