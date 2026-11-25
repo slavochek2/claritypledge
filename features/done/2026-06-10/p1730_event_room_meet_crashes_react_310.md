@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: bug
 rank: 358
 severity: critical
@@ -11,7 +11,6 @@ exec_model: opus
 exec_effort: high
 tags: [events, event-room, react-hooks, regression]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: src/tests/p1730-reproduce.test.tsx
@@ -25,6 +24,7 @@ root_cause: "useEventRoomCounts called below EventRoomMeet's early returns (P167
 resolution: "moved the useEventRoomCounts call above the early returns; it does not poll behind the offline screen, before the first seat read and join end, or for a room other than the one in the URL; a failing count read is reported once per event per page load"
 spec_review_hash: 6c5a46add64553cebbf39e7b68b43448a8e80d078de01da4bed6119f3f0a52f6
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-25
 ---
 
 # P1730: Event room /meet crashes with "Something went wrong" (React #310) once it loads
