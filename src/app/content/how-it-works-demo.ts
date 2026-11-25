@@ -22,11 +22,11 @@ export const HOW_IT_WORKS = {
   heading: "How ClarityPledge works",
   // The five steps are the demo film's own (v4.8 step bar), worded from its narration, so the page and the film say the same thing.
   steps: [
-    { title: "Increase the will", text: "The app gives everyone the knowledge to want this. Where there's friction, our team helps with coaching and training." },
-    { title: "Agree on expectations", text: "Before the meeting, each person opts in or out of one promise: to answer honestly how well they understand, from 0 to 10." },
-    { title: "Surface high-stakes decisions", text: "The call is transcribed live. Press Clarify, and your Mirror agent drafts the decision as a point everyone takes a position on." },
-    { title: "Decrease the friction", text: "Speaker and listener each give a number, revealed together. A gap shows in three seconds; an explain-back bridges it." },
-    { title: "Improve the skill", text: "Every explain-back feeds your listening calibration: how well you thought you understood, against what the speaker says." },
+    { title: "Increase the will", text: "Learn why gaps happen. We coach where it's hard." },
+    { title: "Agree on expectations", text: "Everyone opts in to answer one question honestly." },
+    { title: "Surface high-stakes decisions", text: "Press Clarify: your agent turns a decision into a point." },
+    { title: "Decrease the friction", text: "Two numbers reveal a gap in three seconds." },
+    { title: "Improve the skill", text: "Each explain-back shows how well you listened." },
   ],
   // Shown only if DEMO_VIDEO is ever unset again.
   placeholder: "Demo coming soon",
