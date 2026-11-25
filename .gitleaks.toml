@@ -115,3 +115,24 @@ useDefault = true
       '''hf_[xX]{20,}''',                 # placeholder tokens (hf_xxxxxxxx…)
       '''hf_[A-Za-z0-9]*(EXAMPLE|EXMPL)''',  # documentation example tokens
     ]
+
+# Google OAuth client secret (GOCSPX- plus 28 characters). gitleaks' default ruleset has
+# no rule for this shape (checked against gitleaks 8.30.1), but GitHub push protection refuses it — a synthetic test fixture
+# of exactly this shape was refused at push on 2026-11-25 (decisions.md, "GitHub's own
+# secret scan"). No rule allowlist on purpose: a fixture that needs this shape builds it at
+# run time from two literals split inside the prefix (P1726), and a doc writes "GOCSPX-…"
+# rather than a full-length placeholder, so a match here is always worth stopping for. Never
+# bypass the hook to get past it.
+# Known gap: the file-wide [allowlist] above still applies to this rule, so a value under an
+# allowlisted path that is committed and pushed (features/done/, features/drafts/,
+# scripts/audit-credential-drift.test.sh) passes here and is still refused by GitHub. A spec
+# in features/ outside drafts is scanned before it is archived, so the realistic cases are a
+# fixture added to that test script, a draft (never scanned) and an edit to an archived spec.
+# The directory entries are not anchored, so any path that merely contains one (e.g.
+# "dist/" inside "src/redist/") is exempt as well.
+# The client ID (...apps.googleusercontent.com) is public by design and is not matched.
+[[rules]]
+  id = "google-oauth-client-secret"
+  description = "Google OAuth client secret (GOCSPX-...) — GitHub push protection refuses it"
+  regex = '''GOCSPX-[A-Za-z0-9_-]{28}'''
+  keywords = ["gocspx-"]
