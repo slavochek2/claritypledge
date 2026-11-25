@@ -1,12 +1,11 @@
 ---
-status: qa
+status: all-done
 type: task
 rank: 356
 workstream: infrastructure
 created_date: '2026-11-24'
 tags: [review, ask-model, credential-scan, finish]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 608d418a9bea1b75663ced06e36944317c5aac79a93cb0eab0fc328d15c89394
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-25
 ---
 
 # P1726: The review wrappers' credential scan refuses test fixtures and code, not secrets
@@ -413,6 +413,6 @@ case in `scripts/test-token-usage-refresh.py` only reads a header format, and it
 
 ## Related
 
-- [P1630](done/2026-06-10/p1630_glm_extra_reviewer_in_finish_and_receipt_floor.md) — GLM shares this scan.
+- [P1630](p1630_glm_extra_reviewer_in_finish_and_receipt_floor.md) — GLM shares this scan.
 - decisions.md 2026-11-17 [process] "A package with no valid Gemini or Codex run is held".
 - pp `tasks/done/p67_model_wrappers_any_model_strip_gemini_gate.md` — the scan's last redesign.
