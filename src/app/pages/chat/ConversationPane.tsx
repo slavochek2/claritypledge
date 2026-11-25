@@ -48,7 +48,7 @@ interface Props {
 /** 3c X3: the + of the composer: the mirror's canvas menu, or New point elsewhere. A private @mirror ask hides the paperclip, so it hides this too. */
 function composerPlus(summary: ChatSummary, privateTo: MentionEntry | null, newPoint: boolean) {
   if (privateTo) return undefined;
-  if (summary.kind === 'mirror') return <CanvasPlusMenu />;
+  if (summary.kind === 'mirror') return <CanvasPlusMenu conversationId={summary.conversationId} />;
   // P1631: "New point" in an ordinary chat, once there is a message to clarify and Clarify drafting is on
   return newPoint ? <NewPointMenu conversationId={summary.conversationId} /> : undefined;
 }

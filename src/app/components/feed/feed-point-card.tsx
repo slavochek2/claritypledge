@@ -135,6 +135,8 @@ interface FeedPointCardProps {
   decideOnly?: boolean;
   /** P1515: set only by the canvas page — see FeedPointCardCanvas. Unset everywhere else. */
   canvas?: FeedPointCardCanvas;
+  /** P1722: a card shown as a chat attachment. Its ⋯ menu then offers the existing Share and only that, and only for a public point. */
+  shareOnly?: boolean;
 }
 
 /** The compact form shares the card's frame (PointCardShell) and drops everything that acts. */
@@ -174,7 +176,22 @@ function addStoryCopyFor(conditions: boolean[], position: Parameters<typeof getP
 const isCanvasOwnerOnOwnPoint = (viewerId: string | undefined, owner: FeedPointCardOwner | undefined, canvas: FeedPointCardCanvas | undefined): boolean =>
   !!viewerId && !!owner && viewerId === owner.id && !!canvas && !canvas.reader;
 
-function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', decideOnly = false, hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory, canvas }: FeedPointCardProps) {
+/** The card's ⋯ (Share). `hidden`: a canvas reader's card, or a chat attachment of a point that is not public (P1722). */
+function PointCardMenu({ point, surface, owner, hidden }: { point: PointWithUserPosition; surface: NonNullable<FeedPointCardProps['surface']>; owner?: FeedPointCardOwner; hidden: boolean }) {
+  if (hidden) return null;
+  return (
+    <CardMenu
+      type="point"
+      id={point.id}
+      surface={surface}
+      description={point.statement.slice(0, 100)}
+      fromUserId={owner?.id}
+      className={owner ? '-my-3 -mr-2' : '-mt-2 -mr-2'}
+    />
+  );
+}
+
+function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, surface = 'feed', decideOnly = false, hideAnonSignupCta = false, onPositionSaved, owner, spread, collapseStoriesOnEscape = false, onAddStory, canvas, shareOnly }: FeedPointCardProps) {
   // P1336: in-app paths open in a new tab when the host flow says so (onboarding's embedded stake).
   const openPath = useOpenPath();
   const { session } = useAuth();
@@ -317,16 +334,7 @@ function FullFeedPointCard({ point, activeTag, onPointRemoved, linkedStories, su
     ? (isOwnView ? 'Your story' : 'Their story')
     : `${shownStories?.length ?? 0} ${shownStories?.length === 1 ? 'story' : 'stories'}`;
 
-  const menu = canvas?.reader ? null : (
-    <CardMenu
-      type="point"
-      id={point.id}
-      surface={surface}
-      description={point.statement.slice(0, 100)}
-      fromUserId={owner?.id}
-      className={owner ? '-my-3 -mr-2' : '-mt-2 -mr-2'}
-    />
-  );
+  const menu = <PointCardMenu point={point} surface={surface} owner={owner} hidden={!!canvas?.reader || (!!shareOnly && point.visibility !== 'public')} />;
 
   /* A confirmed vote is the viewer's position again: it also ends a withdrawal (P1420 round 3).
      Without this, re-voting after a removal kept `withdrawn` set — the stale fetched position was

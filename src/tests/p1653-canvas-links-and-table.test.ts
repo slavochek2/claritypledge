@@ -183,8 +183,8 @@ const sqlCodesOf = (sql: string): string[] => {
 };
 const MIG = 'supabase/migrations/';
 // P1631's Clarify migrations write error codes on clarify_drafts, a different table with its own reply copy (clarify-copy.ts);
-// they are not canvas failures, so the canvas reply table does not cover them.
-const migrationFiles = (): string[] => readdirSync(resolve(process.cwd(), MIG)).filter((f) => f.endsWith('.sql') && !f.includes('_p1631_')).map((f) => MIG + f);
+// they are not canvas failures, so the canvas reply table does not cover them. P1722 redefines the same Clarify functions.
+const migrationFiles = (): string[] => readdirSync(resolve(process.cwd(), MIG)).filter((f) => f.endsWith('.sql') && !f.includes('_p1631_') && !f.includes('_p1722_')).map((f) => MIG + f);
 const sqlCodes = (): string[] => [...new Set(migrationFiles().flatMap((f) => sqlCodesOf(read(f))))];
 const thrown = (): string[] => [...(/readonly code: ([^)]+)\)/.exec(calls)?.[1] ?? '').matchAll(/'([A-Z_]+)'/g)].map((m) => m[1]!);
 const clientCodes = (): string[] => [...new Set([...union(calls, 'CanvasDraftErrorCode'), ...union(calls, 'CanvasRefusalCode'), ...thrown()])];

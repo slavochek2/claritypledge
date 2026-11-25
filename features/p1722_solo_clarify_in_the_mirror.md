@@ -136,6 +136,8 @@ Also from the founder, 2026-11-25:
 
 ## Risks / Non-Goals
 
+- **Known limitation (ACCEPT):** a private Clarify card posted before P1722 whose message was then hard-deleted leaves no trace that it was ever posted (share rows cascade, and the draft had no publish column). Its owner can switch it to Public. Only the owner's own private point and positions are replaced: other people's answers refuse it (`answered`), and letter, story and badge links refuse it (`point_linked`).
+
 | Risk | Label | Note |
 |---|---|---|
 | A public draft carries someone else's words from a chat or a one-mic recording | MITIGATE | The server-decided warning (Solution 6). Citations and source lines stay Mirror-only (P1631), so a public point exposes its statement, tags, positions and owner, not its sources |
@@ -197,9 +199,16 @@ Clarify and transcription are metered (Gemini), and the Mirror chat gains Transc
 |---|---|---|---|
 | Metered requests | Clarify: 1 draft call per press, plus 1 if the owner taps "Make one anyway", as P1631. Transcription: billed per audio minute, as today | Bounded by the owner's own presses and recording minutes. 0 Mirror replies per transcribed line (Solution 4) | 3 Clarify calls + 1 recording of 1 min = 3 draft calls + 1 audio minute |
 | Supabase calls | Room-state poll in the Mirror chat: 2 calls per 15 s while it is open and visible, plus one read on mount and on each capture or room change | 3600 s / 15 s x 2 = 480 calls per hour of visible Mirror chat | about 2 min open x 8 calls/min = 16 calls |
-| Cost | A 10-minute solo recording: 10 min x ($0.003 audio + $0.002 text per min) = $0.05, at the `gemini-3.5-transcribe` rate in metered-services.md. /dev confirms Transcribe uses that model (UNVERIFIED) | — | 1 min x $0.005 = $0.005 transcription + 3 draft calls under the existing Clarify budget |
+| Cost | A 10-minute solo recording: 10 min x ($0.003 audio + $0.002 text per min) = $0.05 per pass, at the `gemini-3.5-transcribe` rate in metered-services.md (the configured model, confirmed in review). Capture transcribes twice (live slices, then the saved archive), so 2 x $0.05 = $0.10 per 10-minute recording before slice overlap and retries | — | Browser UAT: 1 min x $0.005 x 2 passes = $0.01 transcription; fixture tests hand-write worker results, so $0 + 3 draft calls under the existing Clarify budget |
 
-Rules: the existing Clarify, Mirror and transcription caps and the budget-capped keys apply unchanged. The poll makes no periodic calls in a hidden tab.
+Rules: the existing Clarify, Mirror and transcription caps and the budget-capped keys apply unchanged. The poll makes no periodic calls in a hidden tab, and neither do the read on mount and the reads on capture or room change (rule 3).
+
+- **Why a poll (rule 2).** This spec adds no new poll. It opens Transcribe's existing room-state poll (`startVisiblePoll`, P1604, two RPCs every 15 s) to one more chat, the Mirror. P1604 records no reason for polling over push or realtime. `[FOUNDER DECISION: accept the P1604 poll in the Mirror unchanged, or require a Realtime replacement before ship]`
+- **Requests.** Visible Mirror with Transcribe available: `2 RPCs x 3600 / 15 = 480 per visible hour`, plus `2 x (mounts + capture/room changes + tab-shown resumes)`. Hidden tab: 0.
+- **Egress.** `240 poll pairs per visible hour (3600 / 15) x visible Mirror hours x bytes per poll pair`, plus the event-triggered reads above,, where bytes per pair is the two small JSON answers (no live session: under 1 KB together).
+- **Log lines.** The new refusals (`answered`, `visibility_changed`, `needs_warning`, `earlier_version`) return a JSON status, not an error, so they add no error log lines.
+- **Test runs (rule 6).** The three P1722 integration files create 21 test accounts per run (2 in `e2e/integration/p1722-solo-clarify.spec.ts`, 5 in `src/tests/integration/p1722-solo-clarify.test.ts`, 14 in `src/tests/integration/p1722-fix-round-1.test.ts`) and delete them after (one batch delete call per file). Fixtures are written with the admin client, a few dozen requests per test. The draft model is never called: the tests write worker results by hand.
+- **Fits the plan.** Monthly requests: `480 x visible Mirror hours per month + (21 accounts x (create + sign-in) = 42 auth calls + about 60 fixture reads and writes + 3 batch deletes, about 105 requests) x P1722 test runs per month`. Monthly egress: `240 x visible Mirror hours per month x bytes per poll pair`. The verdict for today and for 10x is the reviewer's, read from the registry row's "Where usage is read"; the values stay out of this file.
 
 ## Related
 

@@ -1,11 +1,11 @@
 /**
  * @file p1536-x3-plus-menu.test.tsx
  * @description P1536 3c X3 (S3c.3): + means create, the paperclip means attach. The REAL conversation pane, composer and thread panel:
- *  - the owner's mirror chat's MAIN composer has a + beside the paperclip, while canvas drafting is on; its menu is "New canvas" and "Clone a version"
+ *  - the owner's mirror chat's MAIN composer has a + beside the paperclip, while canvas drafting is on; its menu is "New canvas" and "Modify a canvas"
  *  - no other composer has one: not a thread of the mirror chat, not a direct chat, not a channel; not while drafting is off
  *  - the paperclip's dialog has Points and Stories only, and the "..." menu has no New canvas (drafting ON: the older tests of these two ran with
  *    drafting off, where they hold for the wrong reason)
- *  - New canvas opens a draft with no base; Clone a version picks a published version and NAVIGATES to it (writing nothing) carrying the Clone intent
+ *  - New canvas opens a draft with no base; Modify a canvas picks a published version and NAVIGATES to it (writing nothing) carrying the Clone intent
  */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
@@ -151,11 +151,11 @@ describe('S3c.3 (X3): the + on the owner\'s mirror chat', () => {
     expect(button.getAttribute('type')).toBe('button');
   });
 
-  it('its menu reads New canvas, Clone a version', async () => {
+  it('its menu reads New canvas, Modify a canvas', async () => {
     await mount(pane(MIRROR), [MIRROR], `/chats/c/${CONV}`);
     fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
     const items = within(await screen.findByRole('menu')).getAllByRole('menuitem').map(i => i.textContent);
-    expect(items).toEqual(['New canvas', 'Clone a version']);
+    expect(items).toEqual(['New canvas', 'Modify a canvas']);
   });
 
   it('is not there while drafting is off', async () => {
@@ -167,7 +167,7 @@ describe('S3c.3 (X3): the + on the owner\'s mirror chat', () => {
   });
 
   // P1631 supersedes P1536 X3 on this one point: an ordinary chat's + exists (Entry: "New point in the composer's + menu ... in any chat"). What stays true from X3:
-  // it carries no canvas item, "New canvas" and "Clone a version" are the mirror's alone, and its only item is "New point".
+  // it carries no canvas item, "New canvas" and "Modify a canvas" are the mirror's alone, and its only item is "New point".
   it('on a direct chat or a channel the + holds only "New point", no canvas items (CONTROL: the mirror\'s own + has them)', async () => {
     seedClarifyAvailability(true);
     for (const chat of [DIRECT, CHANNEL]) {
@@ -184,7 +184,7 @@ describe('S3c.3 (X3): the + on the owner\'s mirror chat', () => {
     fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
     expect(await screen.findByTestId('plus-new-canvas')).toBeInTheDocument();
     expect(screen.getByTestId('plus-clone-version')).toBeInTheDocument();
-    expect(screen.queryByTestId('plus-new-point')).toBeNull();
+    expect(screen.getByTestId('plus-new-point')).toBeInTheDocument(); // P1722: the Mirror's + gains New point when Clarify is on
   });
 
   it('is not on a thread composer of the mirror chat (plain thread and canvas thread)', async () => {
@@ -223,11 +223,11 @@ describe('S3c.3 (X3): what the two items do', () => {
     expect(svc.openCanvasDraft).toHaveBeenCalledWith(null);
   });
 
-  it('Clone a version lists the published versions, and picking one navigates to it carrying the intent, writing nothing', async () => {
+  it('Modify a canvas lists the published versions, and picking one navigates to it carrying the intent, writing nothing', async () => {
     await mount(pane(MIRROR), [MIRROR], `/chats/c/${CONV}`);
     fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clone a version' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Clone a version' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Modify a canvas' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Modify a canvas' });
     expect(within(dialog).queryByRole('tab')).toBeNull();
     fireEvent.click(await within(dialog).findByRole('button', { name: /v1/ }));
     await waitFor(() => expect(screen.getByTestId('path').textContent === '/p/ana/canvas/canvas?v=canvas_d111111').toBe(true));
@@ -237,13 +237,13 @@ describe('S3c.3 (X3): what the two items do', () => {
   });
 });
 
-describe('review: Clone a version with no known owner slug', () => {
+describe('review: Modify a canvas with no known owner slug', () => {
   it('says so in the start-a-canvas sentence and goes nowhere, instead of closing silently', async () => {
     who.slug = null;
     await mount(pane(MIRROR), [MIRROR], `/chats/c/${CONV}`);
     fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clone a version' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Clone a version' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Modify a canvas' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Modify a canvas' });
     fireEvent.click(await within(dialog).findByRole('button', { name: /v1/ }));
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('Could not start a canvas. Try again.'));
     expect(screen.getByTestId('path').textContent).toBe(`/chats/c/${CONV}`);

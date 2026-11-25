@@ -24,11 +24,9 @@ import { CHAT_EXPLANATION, LIVE_SESSION_JOIN, TRANSCRIBE_MENU_LABEL, TRANSCRIPT_
 /** How often the live-session line re-reads while the chat is open. */
 const LIVE_POLL_MS = 15_000;
 
-/** The mirror is a person's own notes: it has no room. */
-const canTranscribe = (chat: ChatSummary) => chat.kind !== 'mirror';
-
-export function TranscribeMenuItem({ chat, onTranscribe }: { chat: ChatSummary; onTranscribe?: () => void }) {
-  if (!canTranscribe(chat) || !onTranscribe) return null;
+/** P1722: every chat transcribes, the Mirror included (one microphone, a person alone or with someone who is not a user). */
+export function TranscribeMenuItem({ onTranscribe }: { chat: ChatSummary; onTranscribe?: () => void }) {
+  if (!onTranscribe) return null;
   return (
     <DropdownMenuItem className="min-h-11" onSelect={onTranscribe} data-testid="chat-transcribe-item">
       <Mic className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -55,7 +53,8 @@ function useChatTranscribeState(conversationId: string, enabled: boolean, phase:
       const preparing = rows.some((r) => r.state === 'processing') ? 'processing' : rows.length > 0 ? 'failed' : null;
       setState({ live, preparing });
     });
-    read();
+    // a hidden tab makes no request, not even this one: startVisiblePoll reads once the moment the tab is visible again
+    if (document.visibilityState !== 'hidden') read();
     const stop = startVisiblePoll(read, LIVE_POLL_MS);   // nothing while the tab is hidden; one read the moment it is visible
     return () => {
       cancelled = true;
@@ -111,7 +110,7 @@ export function ChatTranscribe({ chat, children }: { chat: ChatSummary; children
   const capture = useRoomCapture();
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
-  const enabled = canTranscribe(chat);
+  const enabled = true;
   const { live, preparing } = useChatTranscribeState(chat.conversationId, enabled, capture.phase, capture.roomId);
 
   const start = useCallback(async () => {

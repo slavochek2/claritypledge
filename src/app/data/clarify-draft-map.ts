@@ -33,7 +33,9 @@ export function mapDraft(raw: unknown): ClarifyDraft | null {
   return {
     id,
     state,
-    point: p && pid && typeof p.statement === 'string' ? { id: pid, statement: p.statement, ownerPosition: (str(p.owner_position) as OwnerPosition) } : null,
+    point: p && pid && typeof p.statement === 'string'
+      ? { id: pid, statement: p.statement, ownerPosition: (str(p.owner_position) as OwnerPosition), tags: Array.isArray(p.tags) ? p.tags.filter((t): t is string => typeof t === 'string' && t !== '') : [] }
+      : null,
     // distinct, so a chip's key (its text) is unique
     suggestions: Array.isArray(d.suggestions) ? [...new Set(d.suggestions.filter((s): s is string => typeof s === 'string' && s.trim() !== '').map((s) => s.trim()))] : [],
     errorCode: str(d.error_code),
@@ -42,6 +44,10 @@ export function mapDraft(raw: unknown): ClarifyDraft | null {
     refineTargetId: str(d.refine_target_id),
     sourceKind: str(d.source_kind),
     published: publishedOf(d.published),
+    visibility: d.visibility === 'public' ? 'public' : 'private',
+    everPublished: d.ever_published === true,
+    isLatest: d.is_latest !== false,
+    publicWarning: d.public_warning !== false,
   };
 }
 

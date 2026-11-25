@@ -1,6 +1,6 @@
 /**
  * @file NewPointMenu.tsx
- * @description P1631: the + beside the paperclip in the composer of a DM, group or event chat (the Mirror keeps its own, CanvasPlusMenu). One item, "New point":
+ * @description P1631: the + beside the paperclip in the composer of a DM, group or event chat (the Mirror's + is CanvasPlusMenu, which carries the same "New point" item beside its canvas ones). One item, "New point":
  * it opens a Clarify thread on this chat in the Mirror, with no draft yet; the owner's first words start the first draft.
  */
 import { Plus } from 'lucide-react';
@@ -12,6 +12,16 @@ import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
 import { NEW_POINT_LABEL } from './clarify-copy';
 import { useClarifyChat } from './use-clarify-chat';
 
+/** The "New point" item, shared with the Mirror's + (CanvasPlusMenu). `onSelect` comes from the menu's owner: the item unmounts with the menu, and the Clarify start must outlive it. */
+export function NewPointItem({ onSelect }: { onSelect: () => void }) {
+  return (
+    <DropdownMenuItem className="min-h-10" data-testid="plus-new-point" onSelect={onSelect}>
+      <span className="mr-2 flex h-4 w-4 items-center justify-center"><ClarifyMenuIcon /></span>
+      {NEW_POINT_LABEL}
+    </DropdownMenuItem>
+  );
+}
+
 export function NewPointMenu({ conversationId }: { conversationId: string }) {
   const clarifyChat = useClarifyChat();
   return (
@@ -22,10 +32,7 @@ export function NewPointMenu({ conversationId }: { conversationId: string }) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuItem className="min-h-10" data-testid="plus-new-point" onSelect={() => clarifyChat(conversationId, { draft: false })}>
-          <span className="mr-2 flex h-4 w-4 items-center justify-center"><ClarifyMenuIcon /></span>
-          {NEW_POINT_LABEL}
-        </DropdownMenuItem>
+        <NewPointItem onSelect={() => clarifyChat(conversationId, { draft: false })} />
       </DropdownMenuContent>
     </DropdownMenu>
   );

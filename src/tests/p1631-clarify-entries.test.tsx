@@ -100,11 +100,11 @@ describe('Clarify on a chat-list row', () => {
     expect(await screen.findByTestId('row-clarify')).toHaveTextContent('Clarify');
   });
 
-  it('a Mirror row has no Clarify (control: its menu does open)', async () => {
+  it('a Mirror row has Clarify too (P1722)', async () => {
     await mount(<ChatList activeId={null} />, [DM, MIRROR]);
     fireEvent.contextMenu(rowOf(MIRROR.conversationId));
     await screen.findByRole('menuitem', { name: /Archive|Mark as/ });
-    expect(screen.queryByTestId('row-clarify')).toBeNull();
+    expect(await screen.findByTestId('row-clarify')).toHaveTextContent('Clarify');
   });
 
   it('selecting it calls clarify_start_chat, opens the Mirror beside THAT chat and starts the run', async () => {

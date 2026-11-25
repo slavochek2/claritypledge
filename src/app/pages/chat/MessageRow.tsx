@@ -103,7 +103,6 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   const ownerOnly = agent || !!server?.contextConversationId;
   // P1576: a voice note has no words to edit, forward or clarify (each would make an empty message).
   const voiceNote = server?.audio ? server : null;
-  const noCopy = ownerOnly || !!voiceNote;
   const [selected, setSelected] = useState(false);
   // The one menu, at the pointer (right-click, long press) or under the ⋯ button.
   const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
@@ -156,7 +155,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
   // P1652: reactions take the message's ACTUAL chat (never the mirror; a private mirror row is a mirror row), and never a private row or an unsent one.
   // Not before the chats have loaded: until then the mirror chat is unknown, and a mirror row must never get a control or a read.
   const rx = useMessageReactions(server?.id, chatsStatus === 'ready' && live && !privateHere && server?.conversationId !== mirrorChat?.conversationId, viewerId);
-  const items = buildMenuItems({ server, live, privateHere, agent, mine, ownerOnly, noCopy, voiceNote: !!voiceNote, actions, startEdit: (b) => { setEditError(null); setDraft(b); } });
+  const items = buildMenuItems({ server, live, privateHere, agent, mine, ownerOnly, mirrorChat, voiceNote: !!voiceNote, actions, startEdit: (b) => { setEditError(null); setDraft(b); } });
   // The reactions strip on top of the menu: the React picker's emoji, the viewer's own marked.
   const menuReactions = rx.enabled ? { mine: new Set(rx.reactions.filter((r) => r.profileId === viewerId).map((r) => r.emoji)), onPick: rx.toggle } : undefined;
 
@@ -189,7 +188,7 @@ export function MessageRow({ msg, mine, viewerId, author, authors, compact, prev
       <MessageToolbar
         message={server}
         selected={selected}
-        noCopy={noCopy}
+        clarifiable={items.some((i) => i.key === 'clarify')}
         mirror={mirror}
         actions={actions}
         hasMenu={items.length > 0}

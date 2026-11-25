@@ -432,14 +432,20 @@ describe('P1631 publish to chat: refusals, erasure of a cited person, an event c
     for (const e of eventIds) await admin.from('events').delete().eq('id', e);
   });
 
-  it('6: needs_target when the draft\'s source conversation is the Mirror', async () => {
+  it('6: P1722 lifted needs_target for the draft\'s OWN Mirror (the card posts to the Mirror main chat); another person\'s Mirror still answers needs_target', async () => {
     const src = await ok(x.c, 'send_chat_message', { p_conversation: xy, p_body: `${TAG} needs-target source`, p_client_id: randomUUID() });
     const d = await draftBy(x, src.id, 'needs-target');
     const row = await draftRow(d.draft);
-    const moved = await admin.from('clarify_drafts').update({ source_conversation_id: row.mirror_conversation_id }).eq('id', d.draft);
+    // somebody else's Mirror as the source: never a target
+    const theirs = (await admin.rpc('_chat_ensure_mirror', { p_uid: y.id })).data as string;
+    const moved = await admin.from('clarify_drafts').update({ source_conversation_id: theirs }).eq('id', d.draft);
     expect(moved.error).toBeNull();
     expect(await ok(x.c, 'clarify_publish', { p_draft: d.draft })).toMatchObject({ status: 'refused', code: 'needs_target' });
     expect(await shares(d.point)).toHaveLength(0);
+    // the draft's own Mirror as the source: published into that Mirror's main chat
+    const own = await admin.from('clarify_drafts').update({ source_conversation_id: row.mirror_conversation_id }).eq('id', d.draft);
+    expect(own.error).toBeNull();
+    expect(await ok(x.c, 'clarify_publish', { p_draft: d.draft })).toMatchObject({ status: 'published', conversation_id: row.mirror_conversation_id, thread_root_id: null });
   });
 
   it('6: earlier_version once a done refine names the draft', async () => {

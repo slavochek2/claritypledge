@@ -74,7 +74,9 @@ describe('P1631 migration: header and file', () => {
     for (const name of ['mirror_request_reply', '_mirror_voice_start_reply']) {
       const defs = all.filter((f) => re(name).test(stripComments(read(f))));
       // the review-fix migration (20261110170000) restates both again, keyed on the thread marker: it is the newest definition now
-      expect(defs.slice(-2)).toEqual([FILE, FIX]);
+      // P1722 restates mirror_request_reply once more (the transcription quiet rule); _mirror_voice_start_reply is untouched by it
+      const P1722 = ['20261125104835_p1722_solo_clarify_in_the_mirror.sql', '20261125110523_p1722_mirror_reply_rule_order.sql'];
+      expect(defs.slice(defs.indexOf(FILE))).toEqual(name === 'mirror_request_reply' ? [FILE, FIX, ...P1722] : [FILE, FIX]);
     }
   });
 });

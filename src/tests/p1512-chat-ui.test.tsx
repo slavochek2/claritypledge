@@ -1172,7 +1172,8 @@ describe('conversation', () => {
     await screen.findByText('a note to self');
     await menuOn('a note to self');
     expect(await screen.findByRole('menuitem', { name: 'Reply' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'Clarify' })).not.toBeInTheDocument();
+    // P1722: the owner's own typed note in the Mirror now offers Clarify
+    expect(screen.getByRole('menuitem', { name: 'Clarify' })).toBeInTheDocument();
   });
 
   it('renders forwarded and clarified cards with their snapshot, the thread, and a tap-to-jump block that checks access when pressed', async () => {
@@ -2999,7 +3000,7 @@ describe('message actions: toolbar and More', () => {
     expect(names(toolbarOf('my own post'))).toEqual(["Clarify with your mirror agent", 'More actions']);
   });
 
-  it('a 1:1 has Clarify and More; in the mirror itself there is no Clarify, so only More', async () => {
+  it('a 1:1 has Clarify and More; in the mirror itself the owner\'s own note has them too (P1722)', async () => {
     const { unmount } = renderChat('/chats/c/dm1', [mirror(), dmChat], { dm1: [msg('dm1', 'p-dm1', 'a plain message')] });
     await screen.findByText('a plain message');
     fireEvent.pointerUp(screen.getByText('a plain message'));
@@ -3009,7 +3010,7 @@ describe('message actions: toolbar and More', () => {
     renderChat('/chats/c/c-mirror', [mirror(), dmChat], { 'c-mirror': [msg('c-mirror', ME.id, 'a note to self')] });
     await screen.findByText('a note to self');
     fireEvent.pointerUp(screen.getByText('a note to self'));
-    expect(names(toolbarOf('a note to self'))).toEqual(['More actions']);
+    expect(names(toolbarOf('a note to self'))).toEqual(["Clarify with your mirror agent", 'More actions']);
   });
 
   it('the three dots open the same menu as a right-click: reactions on top, then Clarify, Reply, Reply in thread, Forward, Copy text, and Edit and Delete on my own', async () => {

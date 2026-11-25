@@ -51,5 +51,31 @@ export const NEW_POINT_LABEL = 'New point';
 export const CLARIFY_NO_DRAFT_HINT = 'Say what the point is about';
 export const chatScopeLine = (kind: string | null, title: string | null): string =>
   kind === 'dm' ? (title ? `Chat with ${title}` : 'Chat') : title ?? 'Chat';
+// P1722: approved by the founder (spec UI Contract).
+export const VISIBILITY_PRIVATE_LABEL = 'Private';
+export const VISIBILITY_PUBLIC_LABEL = 'Public';
+export const PUBLIC_WARNING_TITLE = 'Make this point public?';
+export const PUBLIC_WARNING_CONFIRM = 'Make public';
+export const PUBLIC_WARNING_KEEP = 'Keep private';
+export const RECORDING_SOURCE_NAME = 'a recording';
+export const publicWarningBody = (source: string): string =>
+  `It came from ${source}. Anyone will be able to read it and take a position, and it can't be made private again. Check it doesn't share anything said in confidence.`;
+/** Where the draft's words came from, for the warning: the source chat's own title, or "a recording" (the Mirror's case). */
+export const warningSourceName = (sourceKind: string | null, chatTitle: string | null): string =>
+  sourceKind === 'mirror' ? RECORDING_SOURCE_NAME : chatTitle?.trim() || 'this chat';
+export const VISIBILITY_FAILED_TOAST = 'Could not change this. Try again.';
 export const DRAFT_MAX = 300;
 export const CLARIFY_MESSAGE_MAX = 500;
+// P1722: plain-language answers to the new refusals of Publish and visibility.
+export const PUBLISH_ANSWERED_TOAST = 'Someone already answered this point, so it can no longer change.';
+export const PUBLISH_VISIBILITY_CHANGED_TOAST = 'The visibility changed. Check it and publish again.';
+export const PUBLISH_NEEDS_WARNING_TOAST = 'Confirm that this point becomes public, then publish again.';
+// A draft carries at most this many #tags (the server refuses more).
+export const MAX_DRAFT_TAGS = 20;
+export const TOO_MANY_TAGS_TEXT = 'Up to 20 tags. Remove a few #tags and save again.';
+// A draft that only holds #tags has no point to save.
+export const TAGS_ONLY_TEXT = 'A point needs some words besides the #tags.';
+// The words behind this draft belong to a person who has since been erased: there is nothing to retry.
+export const ERASED_TEXT = 'This draft can no longer be made: the person whose words it used was erased.';
+// The point's words changed after the owner saw them: Publish stopped.
+export const PUBLISH_CHANGED_TOAST = 'This point changed. Check it and publish again.';

@@ -133,7 +133,7 @@ describe('clarify-service (the contract names and shapes)', () => {
     const out = await s.getClarifyThread('r1');
     expect(rpc).toHaveBeenCalledWith('get_clarify_thread', { p_thread_root: 'r1' });
     expect(out.map((d) => d.id)).toEqual(['a', 'b', 'c']);
-    expect(out[0].point).toEqual({ id: 'p', statement: 'S', ownerPosition: 'agree' });
+    expect(out[0].point).toEqual({ id: 'p', statement: 'S', ownerPosition: 'agree', tags: [] }); // P1722: tags are mapped (none here)
     expect(out[0].cited.map((l) => l.id)).toEqual(['m1']);
     expect(out[1].suggestions).toEqual(['x', 'y']);
     expect(out[1].cited.map((l) => l.id)).toEqual(['m2', 'm3']);
@@ -156,8 +156,8 @@ describe('clarify-service (the contract names and shapes)', () => {
 });
 
 describe('ClarifyDraftCard', () => {
-  it('shows the statement with a "Draft" pill and the private icon (informational, not a control), the position buttons with no label, and one row of small icons (Publish and "N cited" are not in the card)', () => {
-    render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+  it('shows the statement with a "Draft" pill and the private icon (informational, not a control, once the visibility can no longer change: P1722 makes it a control on a never-published latest card), the position buttons with no label, and one row of small icons (Publish and "N cited" are not in the card)', () => {
+    render(<ClarifyDraftCard draft={draft({ isLatest: false })} userId="me" onChanged={() => undefined} />);
     expect(screen.getByTestId('clarify-draft-statement')).toHaveTextContent('Deadlines should be set by the team');
     expect(screen.getByTestId('clarify-draft-pill')).toHaveTextContent(DRAFT_PILL);
     const lock = screen.getByTestId('clarify-draft-lock');
@@ -229,7 +229,7 @@ describe('ClarifyDraftCard', () => {
     expect(ready).toHaveAttribute('aria-disabled', 'false');
     svc.publishClarify.mockResolvedValue({ status: 'published', messageId: 'm9', conversationId: 'c1', threadRootId: null });
     fireEvent.click(ready);
-    await waitFor(() => expect(svc.publishClarify).toHaveBeenCalledWith('d1'));
+    await waitFor(() => expect(svc.publishClarify).toHaveBeenCalledWith('d1', expect.objectContaining({ visibility: 'private', warningAck: false })));
   });
 
   describe('Publish to chat (A9)', () => {
@@ -285,10 +285,9 @@ describe('ClarifyDraftCard', () => {
       expect(screen.getByTestId('clarify-published-d1')).toHaveTextContent(PUBLISH_PUBLISHED_TEXT);
     });
 
-    it('a Mirror-sourced card has no Publish control at all', () => {
+    it('P1722: a Mirror-sourced card now has Publish (it posts into the Mirror main chat)', () => {
       render(<ClarifyPublishButton {...props} sourceKind="mirror" />);
-      expect(screen.queryByRole('button', { name: PUBLISH_LABEL })).not.toBeInTheDocument();
-      expect(screen.queryByTestId('clarify-published-d1')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: PUBLISH_LABEL })).toBeInTheDocument();
     });
   });
 
@@ -333,7 +332,7 @@ describe('ClarifyDraftCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
     fireEvent.change(screen.getByLabelText('Point text'), { target: { value: 'Deadlines are the manager\'s call' } });
     fireEvent.click(screen.getByTestId('clarify-draft-editor-save'));
-    await waitFor(() => expect(svc.editClarifyDraft).toHaveBeenCalledWith('d1', 'Deadlines are the manager\'s call'));
+    await waitFor(() => expect(svc.editClarifyDraft).toHaveBeenCalledWith('d1', 'Deadlines are the manager\'s call', [])); // P1722: the owner's typed #tags ride along (none here)
     await waitFor(() => expect(changed).toHaveBeenCalled());
     expect(screen.queryByTestId('clarify-draft-editor')).not.toBeInTheDocument();
   });
@@ -421,6 +420,29 @@ describe('ClarifyDrafts (the thread under the source copy)', () => {
     fireEvent.click(chips[1]);
     await waitFor(() => expect(svc.anotherPoint).toHaveBeenCalledWith('r1', 'who decides'));
     await waitFor(() => expect(svc.invokeClarifyDraft).toHaveBeenCalledWith('d2'));
+  });
+
+  it('Q3: a draft that was ever posted shows no Edit and no Delete (the server refuses both); an unposted one shows both', () => {
+    const base = { id: 'd1', state: 'done', point: { id: 'pt1', statement: 'S', ownerPosition: null, tags: [] }, suggestions: [], cited: [], refineTargetId: null, errorCode: null, createdAt: '2026-11-25T08:00:00.000Z' };
+    const view = (over: object) => render(<ClarifyDraftCard draft={{ ...base, published: [], ...over } as never} userId="me" onChanged={() => undefined} />);
+    const first = view({ everPublished: true });
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    first.unmount();
+    const second = view({ published: [{ messageId: 'm1', conversationId: 'c1' }] });
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
+    second.unmount();
+    view({});
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('Y3: a draft failed `erased` says so and offers no Retry (the server would refuse it)', async () => {
+    svc.getClarifyThread.mockResolvedValue([draft({ state: 'failed', point: null, cited: [], errorCode: 'erased' })]);
+    render(<ClarifyDrafts rootId="r1" name="Mirror" userId="me" />);
+    expect(await screen.findByTestId('clarify-failed-d1')).toHaveTextContent('was erased');
+    expect(screen.queryByTestId('clarify-retry')).not.toBeInTheDocument();
   });
 
   it('a failed draft says so with Retry; Retry asks the server, then runs it again', async () => {

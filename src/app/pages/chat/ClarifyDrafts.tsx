@@ -13,7 +13,7 @@ import { ClarifyDraftCard } from './ClarifyDraftCard';
 import { ClarifyPublishButton } from './ClarifyPublishButton';
 import { MirrorThinking } from './MirrorReplyState';
 import { MirrorMark } from './chat-kit';
-import { ANOTHER_POINT_LABEL, CAPPED_TEXT, CITED_LEAD, FAILED_TEXT, LOAD_FAILED_TEXT, MAKE_ANYWAY_INSTRUCTION, MAKE_ANYWAY_LABEL, NO_SPLIT_TEXT, RETRY_LABEL, UPDATED_LEAD } from './clarify-copy';
+import { ANOTHER_POINT_LABEL, CAPPED_TEXT, CITED_LEAD, ERASED_TEXT, FAILED_TEXT, LOAD_FAILED_TEXT, MAKE_ANYWAY_INSTRUCTION, MAKE_ANYWAY_LABEL, NO_SPLIT_TEXT, RETRY_LABEL, UPDATED_LEAD, warningSourceName } from './clarify-copy';
 import { earlierDraftIds, mayAddAnother } from './clarify-timeline';
 import type { ClarifyActions } from './use-clarify-actions';
 
@@ -57,9 +57,9 @@ function Refused({ draft, onPick, latest }: { draft: ClarifyDraft; onPick: (text
 function Failed({ draft, onRetry }: { draft: ClarifyDraft; onRetry: () => void }) {
   return (
     <div role="alert" data-testid={`clarify-failed-${draft.id}`} className="flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
-      <span>{draft.state === 'capped' ? CAPPED_TEXT : FAILED_TEXT}</span>
+      <span>{draft.errorCode === 'erased' ? ERASED_TEXT : draft.state === 'capped' ? CAPPED_TEXT : FAILED_TEXT}</span>
       {/* a capped draft cannot be retried: the cap is the answer */}
-      {draft.state !== 'capped' && (
+      {draft.state !== 'capped' && draft.errorCode !== 'erased' && (
         <Button type="button" variant="ghost" className="h-11 min-h-11 text-blue-700 hover:bg-blue-50 hover:text-blue-700" onClick={onRetry} data-testid="clarify-retry">{RETRY_LABEL}</Button>
       )}
     </div>
@@ -90,16 +90,17 @@ function CitedLines({ draft }: { draft: ClarifyDraft }) {
  * The card Publish belongs to: the newest finished point that is not an earlier version. A refine or Another point that failed, was capped or
  * found nothing to split leaves the card before it current, so that card keeps its Publish.
  */
-function publishable(all: ClarifyDraft[], earlier: ReadonlySet<string>): ClarifyDraft | null {
+function publishable(all: ClarifyDraft[]): ClarifyDraft | null {
   for (let i = all.length - 1; i >= 0; i--) {
     const d = all[i];
-    if (d && d.state === 'done' && d.point && !earlier.has(d.id)) return d;
+    // the server says which card is the latest (get_clarify_thread is_latest); an old answer without it counts as latest
+    if (d && d.state === 'done' && d.point && d.isLatest !== false) return d;
   }
   return null;
 }
 
 /** A right-aligned row: Another point (the product's blue-outline secondary) and/or Publish to chat (the filled primary, right-most). */
-function LatestRow({ latest, onAnother, onPublished }: { latest: ClarifyDraft | null; onAnother?: () => void; onPublished?: ClarifyActions['onPublished'] }) {
+function LatestRow({ latest, onAnother, onPublished, onReload, sourceName }: { latest: ClarifyDraft | null; onAnother?: () => void; onPublished?: ClarifyActions['onPublished']; onReload?: () => void; sourceName?: string }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2 px-3 pt-1" data-testid="clarify-latest-row">
       {onAnother && (
@@ -110,7 +111,7 @@ function LatestRow({ latest, onAnother, onPublished }: { latest: ClarifyDraft | 
       {latest?.point && (
         <ClarifyPublishButton
           id={latest.id} pointId={latest.point.id} serverHasPosition={latest.point.ownerPosition !== null}
-          published={latest.published.length > 0} sourceKind={latest.sourceKind} onPublished={onPublished}
+          published={latest.published.length > 0} sourceKind={latest.sourceKind} visibility={latest.visibility ?? 'private'} publicWarning={latest.publicWarning} everPublished={latest.everPublished === true} statement={latest.point.statement} sourceName={sourceName} onReload={onReload} onPublished={onPublished}
         />
       )}
     </div>
@@ -136,6 +137,10 @@ export interface ClarifyDraftsViewProps {
   first: boolean;
   /** The last place: it draws "Another point" under the latest card. */
   last: boolean;
+  /** P1722: a New point thread the owner has not replied in yet: the composer is the action, so no "Another point". */
+  awaitingFirstReply?: boolean;
+  /** P1722: the source chat's own title (the Clarify root's snapshot), named in the warning before a point goes public. */
+  sourceTitle?: string | null;
 }
 
 function DraftTurn({ draft, props, earlier }: { draft: ClarifyDraft; props: ClarifyDraftsViewProps; earlier: ReadonlySet<string> }) {
@@ -148,7 +153,7 @@ function DraftTurn({ draft, props, earlier }: { draft: ClarifyDraft; props: Clar
     <AgentTurn name={name}>
       <CitedLines draft={draft} />
       {refines && <p className="text-sm text-muted-foreground" data-testid="clarify-updated-lead">{UPDATED_LEAD}</p>}
-      <ClarifyDraftCard draft={draft} userId={userId} onChanged={actions.onChanged} earlier={earlier.has(draft.id)} mentioned={mentionedId === draft.id} onMention={() => onMention(draft.id)} />
+      <ClarifyDraftCard draft={draft} userId={userId} onChanged={actions.onChanged} earlier={earlier.has(draft.id)} mentioned={mentionedId === draft.id} onMention={() => onMention(draft.id)} sourceName={warningSourceName(draft.sourceKind, props.sourceTitle ?? null)} />
     </AgentTurn>
   );
 }
@@ -165,10 +170,10 @@ export function ClarifyDraftsView(props: ClarifyDraftsViewProps) {
     ) : null;
   }
   const earlier = earlierDraftIds(all);
-  const another = last && mayAddAnother(all);
+  const another = last && !props.awaitingFirstReply && mayAddAnother(all);
   // Publish sits right under the card it publishes, wherever that card is drawn (a newer run that is thinking, failed or found nothing comes
   // after it). Another point sits at the end of the thread; when the current card is the last thing drawn, the two share one row.
-  const current = publishable(all, earlier);
+  const current = publishable(all);
   const here = current && drafts.some((d) => d.id === current.id) ? current : null;
   const shared = another && here !== null && drafts[drafts.length - 1]?.id === here.id;
   if (drafts.length === 0 && !another && !(first && failed)) return null;
@@ -183,7 +188,7 @@ export function ClarifyDraftsView(props: ClarifyDraftsViewProps) {
       {drafts.map((d) => (
         <Fragment key={d.id}>
           <DraftTurn draft={d} props={props} earlier={earlier} />
-          {here?.id === d.id && <LatestRow latest={here} onAnother={shared ? actions.onAnother : undefined} onPublished={actions.onPublished} />}
+          {here?.id === d.id && <LatestRow latest={here} onAnother={shared ? actions.onAnother : undefined} onPublished={actions.onPublished} onReload={onReload} sourceName={warningSourceName(here.sourceKind, props.sourceTitle ?? null)} />}
         </Fragment>
       ))}
       {another && !shared && <LatestRow latest={null} onAnother={actions.onAnother} />}

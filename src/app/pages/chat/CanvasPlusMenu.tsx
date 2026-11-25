@@ -1,10 +1,11 @@
 /**
  * @file CanvasPlusMenu.tsx
  * @description P1536 3c X3: "+ means create, the paperclip means attach". The + on the owner's mirror chat's MAIN composer, beside the paperclip,
- * while canvas drafting is on. Its menu: "New canvas" (today's opener with no base) and "Clone a version" (pick a published version, navigate to it,
+ * while canvas drafting or Clarify is on. Its menu: "New point" (Clarify on; opens the New point thread, as in other chats), and with canvas drafting on
+ * "New canvas" (today's opener with no base) and "Modify a canvas" (pick a published version, navigate to it,
  * and the canvas page then runs the same clone() decision as its Clone button, once the version has loaded: use-clone-canvas). Picking writes nothing.
- * No other composer gets one (the conversation pane passes it only for the mirror, and not in a private ask, where the paperclip is hidden too).
- * Letters and points join this menu in their own specs.
+ * Other chats' composers get NewPointMenu instead (the conversation pane passes this one only for the mirror, and not in a private ask, where the paperclip is hidden too).
+ * Letters join this menu in their own spec.
  */
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -23,6 +24,9 @@ import { publishedViewHref } from './canvas-links';
 import { FOCUS_RING, HOVER, ROUND } from './chat-kit';
 import { useChat } from './chat-state';
 import { useCanvasDraftAvailability } from './use-canvas-availability';
+import { useClarifyDraftAvailability } from './use-clarify-availability';
+import { NewPointItem } from './NewPointMenu';
+import { useClarifyChat } from './use-clarify-chat';
 import { useStartCanvas } from './use-start-canvas';
 
 /** The pick: a dialog over the published versions. Its title is the menu item's label. */
@@ -42,7 +46,9 @@ function CloneVersionDialog({ onPick, onClose }: { onPick: (v: CanvasVersionOpti
   );
 }
 
-export function CanvasPlusMenu() {
+export function CanvasPlusMenu({ conversationId }: { conversationId: string }) {
+  const clarifyChat = useClarifyChat();
+  const clarify = useClarifyDraftAvailability(true) === true;
   const chat = useChat();
   const navigate = useNavigate();
   const location = useLocation();
@@ -52,7 +58,7 @@ export function CanvasPlusMenu() {
   const here = `${location.pathname}${location.search}`;
   const drafting = useCanvasDraftAvailability(true) === true;
 
-  if (!drafting) return null;
+  if (!drafting && !clarify) return null;
   return (
     <>
       <DropdownMenu modal={false}>
@@ -62,14 +68,21 @@ export function CanvasPlusMenu() {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuItem className="min-h-10" data-testid="plus-new-canvas" onSelect={() => void start(null)}>
-            <LayoutGrid className="mr-2 h-4 w-4" aria-hidden="true" />
-            {NEW_CANVAS_LABEL}
-          </DropdownMenuItem>
-          <DropdownMenuItem className="min-h-10" data-testid="plus-clone-version" onSelect={() => setPicking(true)}>
-            <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
-            {CLONE_VERSION_LABEL}
-          </DropdownMenuItem>
+          {clarify && (
+            <NewPointItem onSelect={() => clarifyChat(conversationId, { draft: false })} />
+          )}
+          {drafting && (
+            <>
+              <DropdownMenuItem className="min-h-10" data-testid="plus-new-canvas" onSelect={() => void start(null)}>
+                <LayoutGrid className="mr-2 h-4 w-4" aria-hidden="true" />
+                {NEW_CANVAS_LABEL}
+              </DropdownMenuItem>
+              <DropdownMenuItem className="min-h-10" data-testid="plus-clone-version" onSelect={() => setPicking(true)}>
+                <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+                {CLONE_VERSION_LABEL}
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
       {picking && (

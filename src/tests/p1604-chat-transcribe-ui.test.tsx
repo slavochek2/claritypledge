@@ -57,10 +57,9 @@ describe('the three-dot item', () => {
     expect(await screen.findByRole('menuitem', { name: /transcribe/i })).toBeTruthy();
   });
 
-  it('is not there for the mirror', async () => {
+  it('is there for the mirror too (P1722)', async () => {
     render(<Harness summary={chat('mirror')} />);
-    await act(async () => { await Promise.resolve(); });
-    expect(screen.queryByRole('menuitem', { name: /transcribe/i })).toBeNull();
+    expect(await screen.findByRole('menuitem', { name: /transcribe/i })).toBeTruthy();
   });
 
   it('is at least 44px high', async () => {
@@ -148,10 +147,10 @@ describe('the live-session line', () => {
     expect(join.className).toMatch(/min-h-11/);
   });
 
-  it('never asks the server about the mirror', async () => {
+  it('asks the server about the mirror too (P1722)', async () => {
     render(<Harness summary={chat('mirror')} />);
     await act(async () => { await Promise.resolve(); });
-    expect(live).not.toHaveBeenCalled();
+    expect(live).toHaveBeenCalled();
   });
 });
 
@@ -240,13 +239,13 @@ describe('P1604 founder live test: the chat says where the thread will appear', 
     expect((await screen.findByTestId('chat-transcription-state')).textContent).toContain(TRANSCRIPT_PROCESSING);
   });
 
-  it('nothing when nothing is processing, and never for the mirror', async () => {
+  it('nothing when nothing is processing, and the mirror is read like any chat (P1722)', async () => {
     render(<Harness summary={chat('dm', 'chat-3')} />);
     await act(async () => { await Promise.resolve(); });
     expect(screen.queryByTestId('chat-transcription-state')).toBeNull();
     render(<Harness summary={chat('mirror', 'chat-m')} />);
     await act(async () => { await Promise.resolve(); });
-    expect(processing).not.toHaveBeenCalledWith('chat-m');
+    expect(processing).toHaveBeenCalledWith('chat-m');
   });
 
   it('is not a spinner: a still mark, no animation (the loading-state rules)', async () => {

@@ -11,7 +11,9 @@ export type ClarifyDraftState = 'queued' | 'running' | 'done' | 'refused' | 'fai
 export type OwnerPosition = import('@/app/types').PositionType | null;
 
 export interface ClarifyCitedLine { id: string; text: string; at: string | null }
-export interface ClarifyDraftPoint { id: string; statement: string; ownerPosition: OwnerPosition }
+/** `tags`: the point's tags (P1722, only ever what the owner typed as #tags); absent is none. */
+export interface ClarifyDraftPoint { id: string; statement: string; ownerPosition: OwnerPosition; tags?: string[] }
+export type ClarifyVisibility = 'private' | 'public';
 export interface ClarifyDraft {
   id: string;
   state: ClarifyDraftState;
@@ -29,6 +31,14 @@ export interface ClarifyDraft {
   sourceKind: string | null;
   /** The live cards of this point in chats (none: not published, or its cards were deleted). */
   published: { conversationId: string; messageId: string }[];
+  /** P1722: the owner's choice for this card. Absent is private. Public is applied at Publish (a new public point), never to the draft point itself. */
+  visibility?: ClarifyVisibility;
+  /** P1722: the draft was ever posted into a chat, so its visibility can no longer change. Absent is never. */
+  everPublished?: boolean;
+  /** P1722: no newer card was made from this one. Absent is true. */
+  isLatest?: boolean;
+  /** P1722: the server's verdict that going public needs the warning. Absent is true: an unknown answer warns. */
+  publicWarning?: boolean;
 }
 
 export type StartClarifyResult =
@@ -127,8 +137,18 @@ export async function retryClarify(draftId: string): Promise<RetryResult> {
 const changeResult = (r: Row): ClarifyChangeResult => (r.status === 'refused' ? { status: 'refused', code: str(r.code) ?? 'refused' } : { status: 'ok' });
 
 /** Owner only. Refused (someone else has a position, or there is no point) comes back as a value; a call that cannot be made throws. */
-export async function editClarifyDraft(draftId: string, statement: string): Promise<ClarifyChangeResult> {
-  return changeResult(await call('clarify_draft_edit', { p_draft: draftId, p_statement: statement }));
+export async function editClarifyDraft(draftId: string, statement: string, tags?: string[]): Promise<ClarifyChangeResult> {
+  return changeResult(await call('clarify_draft_edit', { p_draft: draftId, p_statement: statement, ...(tags ? { p_tags: tags } : {}) }));
+}
+
+export type SetVisibilityResult = { status: 'ok'; visibility: ClarifyVisibility; publicWarning: boolean } | { status: 'refused'; code: string };
+
+/** Owner only, on the latest card of a never-published draft. Refused (published, earlier version) comes back as a value. */
+export async function setClarifyVisibility(draftId: string, visibility: ClarifyVisibility): Promise<SetVisibilityResult> {
+  const r = await call('clarify_set_visibility', { p_draft: draftId, p_visibility: visibility });
+  if (r.status === 'refused') return { status: 'refused', code: str(r.code) ?? 'refused' };
+  if (r.status === 'ok') return { status: 'ok', visibility: r.visibility === 'public' ? 'public' : 'private', publicWarning: r.public_warning !== false };
+  throw new Error('clarify_set_visibility: unexpected answer');
 }
 
 /** Owner only; refused while the draft is queued or running (a value, not a throw). */
@@ -141,8 +161,10 @@ export type PublishResult =
   | { status: 'refused'; code: string };
 
 /** Owner only. Posts the card's point into the chat it came from; a refusal is an answer (a value), a call that cannot be made throws. */
-export async function publishClarify(draftId: string): Promise<PublishResult> {
-  const r = await call('clarify_publish', { p_draft: draftId, p_client_id: crypto.randomUUID() });
+export async function publishClarify(draftId: string, opts: { visibility?: ClarifyVisibility; warningAck?: boolean; expectedStatement?: string } = {}): Promise<PublishResult> {
+  const r = await call('clarify_publish', {
+    p_draft: draftId, p_client_id: crypto.randomUUID(), p_visibility: opts.visibility ?? 'private', p_warning_ack: opts.warningAck ?? false, p_expected_statement: opts.expectedStatement ?? null,
+  });
   if (r.status === 'refused') return { status: 'refused', code: str(r.code) ?? 'refused' };
   const messageId = str(r.message_id);
   const conversationId = str(r.conversation_id);

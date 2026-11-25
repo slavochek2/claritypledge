@@ -308,7 +308,7 @@ describe('AC16: drafting off', () => {
   });
 
   function Entry({ part }: { part: 'menu' | 'paperclip' | 'plus' }) {
-    if (part === 'plus') return <CanvasPlusMenu />;
+    if (part === 'plus') return <CanvasPlusMenu conversationId={MIRROR_ID} />;
     return part === 'menu' ? (
       <ConversationHeader chat={mirrorChat} blocked={false} actions={{ onBack: vi.fn(), onArchive: vi.fn(), onMarkUnread: vi.fn(), onBlock: vi.fn(), onUnblock: vi.fn(), onRename: vi.fn() } as HeaderActions} />
     ) : (
@@ -394,10 +394,10 @@ describe('AC9 (3c X3 premise change): Clone a version lists the canvas versions'
     { id: 'ver-1', canvasId: 'cv-1', canvasName: 'canvas', name: 'canvas_daaa11', seq: 1, publishedAt: '2026-10-20T10:00:00Z', hasOpenDraft: false },
   ];
   const openClone = async () => {
-    wrap(<CanvasPlusMenu />, `/chats/c/${MIRROR_ID}`);
+    wrap(<CanvasPlusMenu conversationId={MIRROR_ID} />, `/chats/c/${MIRROR_ID}`);
     fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
-    fireEvent.click(await screen.findByRole('menuitem', { name: 'Clone a version' }));
-    return screen.findByRole('dialog', { name: 'Clone a version' });
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Modify a canvas' }));
+    return screen.findByRole('dialog', { name: 'Modify a canvas' });
   };
 
   it('lists the versions as "v{seq} · date", and picking an older one navigates to it without starting anything', async () => {
@@ -428,7 +428,7 @@ describe('AC9 (3c X3 premise change): Clone a version lists the canvas versions'
 
 describe('the entry point: New canvas in the mirror chat\'s + (3c X3 premise change: it was the "..." menu)', () => {
   const openMenu = async () => {
-    wrap(<CanvasPlusMenu />, `/chats/c/${MIRROR_ID}`);
+    wrap(<CanvasPlusMenu conversationId={MIRROR_ID} />, `/chats/c/${MIRROR_ID}`);
     fireEvent.pointerDown(await screen.findByTestId('composer-plus'), { button: 0, ctrlKey: false, pointerType: 'mouse' });
     fireEvent.click(await screen.findByRole('menuitem', { name: 'New canvas' }));
   };

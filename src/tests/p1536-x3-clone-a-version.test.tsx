@@ -1,6 +1,6 @@
 /**
  * @file p1536-x3-clone-a-version.test.tsx
- * @description P1536 3c X3 (S3c.3): "Clone a version" lands on the published version carrying the Clone intent, and the canvas page runs the SAME
+ * @description P1536 3c X3 (S3c.3): "Modify a canvas" lands on the published version carrying the Clone intent, and the canvas page runs the SAME
  * clone() decision as the Clone button once that version has loaded. The REAL route element, canvas page, thread panel and composer (only the database
  * and the chat's message transport are faked). One test each, as the spec asks:
  *  - no draft: pending (nothing written)
@@ -139,7 +139,7 @@ function Where() {
     </>
   );
 }
-/** The page as "Clone a version" leaves it: a published version in the address, the intent and the way back in the navigation state. */
+/** The page as "Modify a canvas" leaves it: a published version in the address, the intent and the way back in the navigation state. */
 function mount(search: string, intent = true) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: '/p/ana/canvas/canvas', search, state: { from: '/chats/c/conv-mirror-1', ...(intent ? { [CLONE_INTENT_KEY]: true } : {}) } }]}>
@@ -201,7 +201,7 @@ const typeAndSend = async (text: string) => {
   return field;
 };
 
-describe('S3c.3 (X3): Clone a version = navigate, then the Clone button\'s decision', () => {
+describe('S3c.3 (X3): Modify a canvas = navigate, then the Clone button\'s decision', () => {
   it('NO DRAFT: the version loads, then it is pending: the agent line, "New draft", ws=1 by REPLACE; nothing written; the intent is gone', async () => {
     st.hasV2 = true;
     mount('?v=canvas_d111111');

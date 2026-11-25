@@ -11,6 +11,7 @@ import { ClarifyMenuIcon } from './MessageParts';
 import { copyableText, copyMessageText } from './message-copy';
 import { isKnownPrivatePoint } from './private-point-cache';
 import type { MessageActions } from './MessageRow';
+import { rowClarifiable } from './row-clarifiable';
 
 export interface MenuContext {
   server: ChatMessage | null;
@@ -19,8 +20,13 @@ export interface MenuContext {
   agent: boolean;
   mine: boolean;
   ownerOnly: boolean;
-  noCopy: boolean;
+  /** Never copied (forwarded or clarified): a private row or a voice note. Unset: derived from those two. */
+  noCopy?: boolean;
   voiceNote: boolean;
+  /** P1722: the viewer's Mirror chat: in it, Clarify is decided per message (row-clarifiable.ts). */
+  mirrorChat?: { conversationId: string };
+  /** Overrides the above (tests). */
+  clarifiable?: boolean;
   actions: MessageActions;
   startEdit: (body: string) => void;
 }
@@ -28,7 +34,8 @@ export interface MenuContext {
 /** Clarify, then Reply, Reply in thread and Forward: a person's message only for the ones that copy it, never the agent's. */
 function pushActionItems(c: MenuContext, server: NonNullable<MenuContext['server']>, items: MenuItem[]) {
   const { actions } = c;
-  if (!c.agent && actions.onClarify && !c.noCopy) {
+  const noCopy = c.noCopy ?? (c.ownerOnly || c.voiceNote);
+  if (!c.agent && actions.onClarify && (c.clarifiable ?? rowClarifiable(server, c.mirrorChat?.conversationId, c.mine, noCopy, actions.getLoaded))) {
     const clarify = actions.onClarify;
     items.push({ key: 'clarify', label: 'Clarify', Icon: ClarifyMenuIcon, onSelect: () => clarify(server) });
   }
@@ -40,7 +47,7 @@ function pushActionItems(c: MenuContext, server: NonNullable<MenuContext['server
   const privatePoint = server.attachmentKind === 'point' && isKnownPrivatePoint(server.attachmentId); // P1631: a private point is never forwarded
   // P1631: a whole-chat Clarify root holds no words of anyone's; a forward of it would arrive in another chat as a removed message
   const chatScopeRoot = server.forwardSnapshot?.scope === 'chat' || server.forwardSnapshot?.scope === 'recording';
-  if (!c.agent && !c.noCopy && !privatePoint && !chatScopeRoot) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
+  if (!c.agent && !noCopy && !privatePoint && !chatScopeRoot) items.push({ key: 'forward', label: 'Forward', Icon: Forward, onSelect: () => actions.onForward(server) });
 }
 
 export function buildMenuItems(c: MenuContext): MenuItem[] {

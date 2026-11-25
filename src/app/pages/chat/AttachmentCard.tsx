@@ -47,6 +47,8 @@ function useOnline(): boolean {
  * a card sitting in a conversation: Delete from inside a chat is not what anyone expects there.
  */
 export const HIDE_CARD_CHROME = "[&_[aria-label^='More_actions_for_this']]:hidden [&_[aria-label='Add_a_point_to_this_story']]:hidden";
+/** P1722: a public point card in a chat keeps its ⋯ (Share only, FeedPointCard `shareOnly`); the story invitation stays hidden. */
+const HIDE_CARD_CHROME_KEEP_SHARE = "[&_[aria-label='Add_a_point_to_this_story']]:hidden";
 
 const NOUN: Record<ChatAttachmentKind, string> = { point: 'point', story: 'story', canvas: 'canvas', letter: 'letter', canvas_version: 'canvas' };
 
@@ -80,8 +82,22 @@ function PointAttachmentBody({ point, compact, conversationId, messageId }: { po
   useEffect(() => {
     if (isPrivate) notePrivatePoint(point.id);
   }, [isPrivate, point.id]);
-  if (!isPrivate || compact) return <FeedPointCard point={point} compact={compact} />;
+  if (!isPrivate || compact) return <FeedPointCard point={point} compact={compact} shareOnly />;
   return <PrivatePointAttachment point={point} conversationId={conversationId} messageId={messageId} />;
+}
+
+/** A loaded attachment drawn as its card. A public point keeps its ⋯ (Share only, P1722); every other card has its chrome hidden. */
+function ReadyAttachment({ kind, item, viewerId, compact, conversationId, messageId }: { kind: ChatAttachmentKind; item: Shareable; viewerId: string; compact: boolean; conversationId?: string; messageId?: string }) {
+  const drawable = (item.kind === 'point' && item.point) || (item.kind === 'story' && item.story) || (item.kind === 'canvas_version' && item.canvasVersion);
+  if (!drawable) return <p className={`${NOTE} min-h-10 italic`}>Not available to you</p>;
+  if (item.kind === 'canvas_version' && item.canvasVersion) return <CanvasVersionCard data={item.canvasVersion} compact={compact} />;
+  const shareable = item.kind === 'point' && item.point?.visibility === 'public' && !compact;
+  return (
+    <div className={`mt-1 w-full max-w-md ${shareable ? HIDE_CARD_CHROME_KEEP_SHARE : HIDE_CARD_CHROME}`} data-testid={`attachment-${kind}`}>
+      {item.kind === 'point' && item.point && <PointAttachmentBody point={item.point} compact={compact} conversationId={conversationId} messageId={messageId} />}
+      {item.kind === 'story' && item.story && <FeedStoryCard story={item.story} linkedPoints={item.linkedPoints} currentUserId={viewerId} compact={compact} />}
+    </div>
+  );
 }
 
 function FeedItemAttachmentCard({ kind, id, viewerId, compact = false, conversationId, messageId }: { kind: ChatAttachmentKind; id: string; viewerId: string; compact?: boolean; conversationId?: string; messageId?: string }) {
@@ -142,18 +158,7 @@ function FeedItemAttachmentCard({ kind, id, viewerId, compact = false, conversat
     loadAttachment(kind, id, viewerId).then((item) => setState((now) => swapIn(now, item, generation.current === mine)), () => undefined);
   });
 
-  if (state.status === 'ready') {
-    const { item } = state;
-    const drawable = (item.kind === 'point' && item.point) || (item.kind === 'story' && item.story) || (item.kind === 'canvas_version' && item.canvasVersion);
-    if (!drawable) return <p className={`${NOTE} min-h-10 italic`}>Not available to you</p>;
-    if (item.kind === 'canvas_version' && item.canvasVersion) return <CanvasVersionCard data={item.canvasVersion} compact={compact} />;
-    return (
-      <div className={`mt-1 w-full max-w-md ${HIDE_CARD_CHROME}`} data-testid={`attachment-${kind}`}>
-        {item.kind === 'point' && item.point && <PointAttachmentBody point={item.point} compact={compact} conversationId={conversationId} messageId={messageId} />}
-        {item.kind === 'story' && item.story && <FeedStoryCard story={item.story} linkedPoints={item.linkedPoints} currentUserId={viewerId} compact={compact} />}
-      </div>
-    );
-  }
+  if (state.status === 'ready') return <ReadyAttachment kind={kind} item={state.item} viewerId={viewerId} compact={compact} conversationId={conversationId} messageId={messageId} />;
   if (state.status === 'missing') {
     return <p className={`${NOTE} min-h-10 italic`}>Not available to you</p>;
   }

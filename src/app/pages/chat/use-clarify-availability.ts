@@ -36,8 +36,10 @@ export function useClarifyDraftAvailability(active = true): boolean | null {
   return useAvailabilityProbe(active, settled, ask);
 }
 
-/** The one gate of every Clarify entry: not the Mirror itself, and drafting is known to be on. */
-export function useClarifyAvailable(summary: Pick<ChatSummary, 'kind'>): boolean {
-  const ordinary = summary.kind !== 'mirror';
-  return useClarifyDraftAvailability(ordinary) === true;
+/**
+ * The one gate of every Clarify entry: drafting is known to be on. P1722: the Mirror is no longer left out; which Mirror messages offer it is
+ * decided per message (mirror-clarify.ts).
+ */
+export function useClarifyAvailable(_summary: Pick<ChatSummary, 'kind'>): boolean {
+  return useClarifyDraftAvailability(true) === true;
 }

@@ -118,7 +118,7 @@ export const CLOSED_THREAD_TITLE = 'Thread';
 /** The menu item that opens a new canvas thread from the mirror. */
 export const NEW_CANVAS_LABEL = 'New canvas';
 /** 3c X3: the + on the mirror chat's composer creates; its second item clones a published version. [FOUNDER DECISION: wording, built as written in the spec's wording table.] */
-export const CLONE_VERSION_LABEL = 'Clone a version';
+export const CLONE_VERSION_LABEL = 'Modify a canvas';
 export const CREATE_LABEL = 'Create';
 
 /** A button tapped after its question closed (the server refused the mark, or answers a stale tap): the approved sentence, the server's. */

@@ -199,11 +199,12 @@ describe('P1631 clarify_start_chat', () => {
     expect(await draftRow(m.draft_id)).toMatchObject({ instruction: 'a point about pricing', source_conversation_id: conv, state: 'queued' });
   });
 
-  it('a Mirror conversation answers 22023', async () => {
+  it('a Mirror conversation (P1722: no longer refused) with nothing to anchor on answers empty', async () => {
     expect(mirror, 'set by the p_draft true test').toBeTruthy();
     await settle(a); // the busy check comes before the kind check
     const r = await rpc(a.c, 'clarify_start_chat', { p_conversation: mirror, p_draft: true });
-    expect(r.error?.code, JSON.stringify(r)).toBe('22023');
+    expect(r.error, JSON.stringify(r)).toBeNull();
+    expect(r.data, JSON.stringify(r)).toMatchObject({ status: 'empty' });
   });
 });
 

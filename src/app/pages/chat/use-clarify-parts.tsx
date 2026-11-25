@@ -50,13 +50,17 @@ export function useClarifyParts(summary: ChatSummary, root: ChatMessage | undefi
   const places = [root, ...messages.filter((m) => m.threadRootId === root.id && !m.isDeleted)];
   const placed = draftsByMessage(places, drafts);
   const lastPlace = lastDraftPlace(places, placed, drafts, root.id);
+  // P1722: a New point thread offers "Another point" only after the owner replied in it (a reply stays after its drafts are deleted)
+  const awaitingFirstReply = root.forwardSnapshot?.newPoint === true && drafts.length === 0
+    && !messages.some((m) => m.threadRootId === root.id && m.authorId === userId && !m.isDeleted);
   const after: Record<string, ReactNode> = {};
   for (const id of new Set([root.id, lastPlace, ...placed.keys()])) {
     after[id] = (
       <ClarifyDraftsView
         drafts={placed.get(id) ?? []} all={drafts} loaded={loaded} failed={thread.failed} name={name} userId={userId}
         mentionedId={mentionId} onMention={setMentionId} actions={actions} onReload={() => void thread.reload()}
-        first={id === root.id} last={id === lastPlace}
+        first={id === root.id} last={id === lastPlace} awaitingFirstReply={awaitingFirstReply}
+        sourceTitle={root.forwardSnapshot?.conversationTitle}
       />
     );
   }

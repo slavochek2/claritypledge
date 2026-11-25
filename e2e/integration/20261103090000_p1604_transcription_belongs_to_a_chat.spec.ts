@@ -122,12 +122,15 @@ test.describe('P1604: transcription belongs to a chat', () => {
     await stop('d', again.room_id);
   });
 
-  test('access: the mirror never has a room', async () => {
+  test('access: only the mirror\'s owner can have a room in it (P1722 lifted the blanket refusal)', async () => {
     const { data: mirror } = await supabaseAdmin.from('chat_conversations').insert({ kind: 'mirror', owner_id: users.a.user.id }).select('id').single();
     conversationIds.push(mirror!.id);
-    const res = await as.a.client.rpc('enter_transcribe_room', {
-      p_display_name: 'A', p_session_id: await session('a'), p_consent: true, p_new_code: newCode(), p_event_id: null, p_conversation_id: mirror!.id });
-    expect(res.error?.code).toBe('42501');
+    const other = await as.b.client.rpc('enter_transcribe_room', {
+      p_display_name: 'B', p_session_id: await session('b'), p_consent: true, p_new_code: newCode(), p_event_id: null, p_conversation_id: mirror!.id });
+    expect(other.error?.code, 'somebody else\'s mirror is still closed').toBe('42501');
+    const r = await enter('a', mirror!.id);
+    expect(r.room_id).toBeTruthy();
+    await stop('a', r.room_id);
   });
 
   // ── Rule 1 ────────────────────────────────────────────────────────────────

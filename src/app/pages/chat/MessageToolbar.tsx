@@ -13,11 +13,12 @@ import { menuWidth } from './menu-width';
 interface Props {
   message: ChatMessage;
   selected: boolean;
-  noCopy: boolean;
   mirror: string;
   actions: MessageActions;
   /** The ⋯ button shows when the message has a menu. */
   hasMenu: boolean;
+  /** Whether this message offers Clarify (its menu has the item; the Mirror decides per message, P1722). */
+  clarifiable: boolean;
   /** The menu carries the reactions strip (it is wider): where the dots anchor it depends on that. */
   hasReactions: boolean;
   /** Close the in-line toolbar (a button was used). */
@@ -28,7 +29,7 @@ interface Props {
 
 const ICON = 'h-[18px] w-[18px]';
 
-export function MessageToolbar({ message, selected, noCopy, mirror, actions, hasMenu, hasReactions, onDone, onMore }: Props) {
+export function MessageToolbar({ message, selected, clarifiable, mirror, actions, hasMenu, hasReactions, onDone, onMore }: Props) {
   return (
     <div
       role="toolbar"
@@ -40,7 +41,7 @@ export function MessageToolbar({ message, selected, noCopy, mirror, actions, has
           : 'pointer-events-none absolute -top-5 right-3 z-10 opacity-0 transition-opacity focus-within:pointer-events-auto focus-within:opacity-100 lg:[@media(hover:hover)]:group-hover:pointer-events-auto lg:[@media(hover:hover)]:group-hover:opacity-100',
       )}
     >
-      {!noCopy && actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { onDone(); actions.onClarify?.(message); }} />}
+      {clarifiable && actions.onClarify && <ClarifyButton mirror={mirror} onClick={() => { onDone(); actions.onClarify?.(message); }} />}
       {hasMenu && (
         <ToolButton
           label="More actions"

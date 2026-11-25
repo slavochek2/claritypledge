@@ -75,7 +75,7 @@ function Mirror() {
   const { start, dialog } = useStartCanvas();
   return (
     <>
-      <CanvasPlusMenu />
+      <CanvasPlusMenu conversationId="conv-1" />
       <button type="button" onClick={() => void start('ver-2')}>plus-canvas</button>
       {dialog}
     </>
