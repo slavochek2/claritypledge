@@ -12,7 +12,7 @@ tags:
   - auth
   - data-loss
 delivery_stage: ship
-pipeline_ran: [inline, ship]
+pipeline_ran: [create-bug, reproduce, fix, ship]
 ---
 
 # P1729: Signing in wipes the profile banner, and the next profile visit generates an AI one over it
