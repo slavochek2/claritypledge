@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: change-request
 drafted_by: sonnet
 exec_model: sonnet
@@ -13,15 +13,15 @@ tags:
   - positions
   - point-page
 created_date: '2026-11-25'
-delivery_stage: ship
 pipeline_ran: [change-request, dev, ship]
 spec_review_hash: 14dc8e3610daf1029604936240eb7da94e5a3ea42ea0fd59cb748447e058a70b
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-25
 ---
 
 # P1728: The point page's Changes view counts people who kept their position
 
-> **Redesign of:** [P1061: Show position movement on a point or story](done/2026-06-10/p1061_point_position_movement_analytics.md)
+> **Redesign of:** [P1061: Show position movement on a point or story](p1061_point_position_movement_analytics.md)
 > (P1061 is closed and sits under `features/done/`; the link follows `/ship`'s move of this spec as it does for any closed predecessor. Fix the path if the folder differs.)
 > **What was wrong:** The "Changes" view lists only holders with at least two distinct positions, so "Same" means only "changed and came back". Everyone who took a position once and kept it is missing from the chart, the "Same" count, the list and the Filter people dialog. On the founder's point that hides 10 of 13 holders and leaves a filter that offers 3 people. The rule is `if (entries.length < 2 ...) continue;` in `readingsOf` (`src/lib/position-movement.ts:337`).
 
