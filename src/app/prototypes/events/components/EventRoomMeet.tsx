@@ -403,6 +403,14 @@ export function EventRoomMeet() {
   useEffect(() => { setWriteFailed(false); }, [stepKey]);
   // A new moment (seated, at the table, the evening over) brings the page back to it.
   useEffect(() => { setViewingBack(null); }, [moment.seated, moment.atTable, moment.eveningOver]);
+  // P1675 section 6 (hikes only, so Clarity Night's room is unchanged): the count RPC every 30 s while the room is open.
+  // Attendees get only notHere; the host also gets the merged undecided number (never shown to attendees).
+  // Called here, above the early returns, like every hook in this component: below them, the first room render after the
+  // loader, offline or gate screen ran one hook more than the render before it and React threw #310 (P1730).
+  // Off behind the offline screen: an offline access read keeps the event and registration, so granted stays true, and the
+  // poll would keep calling a dead network. Coming back online re-enables it, which reads at once. Not gated on loading:
+  // the reconnect loader flash would reset the counts and re-read on every reconnect.
+  const roomCounts = useEventRoomCounts(event?.id, granted && !accessOffline && recipeForEvent(event).registration === 'hike');
 
   if (loading || (granted && selfLoading)) return <ClarityPageLoader />;
   if (accessOffline) return <NeedsConnection />;
@@ -421,9 +429,6 @@ export function EventRoomMeet() {
   const inMembers = roster.filter((m) => m.optedIn === true);
   const outMembers = roster.filter((m) => m.optedIn === false);
   const undecidedMembers = roster.filter((m) => m.optedIn == null);
-  // P1675 section 6 (hikes only, so Clarity Night's room is unchanged): the count RPC every 30 s while the room is open.
-  // Attendees get only notHere; the host also gets the merged undecided number (never shown to attendees).
-  const roomCounts = useEventRoomCounts(event?.id, granted && recipeForEvent(event).registration === 'hike');
   // P1675 section 6: the host alone sees the merged In / Out / Undecided (the server returns them only to the host).
   const hostMerged = event && user && event.hostId === user.id ? roomCounts : null;
   const hostMergedUndecided = hostMerged?.undecided;
