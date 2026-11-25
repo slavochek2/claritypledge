@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 328
 workstream: clarity-canvas
 created_date: '2026-11-10'
 tags: [clarity-canvas, points, mirror, prompt]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, dev.2, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 102a9aaf288d987d67bc77d9fe30233a87d393091d2f783c6b4e727509e58f13
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-25
 ---
 
 # P1658: Clarity Canvas points are written as claims people can take a position on
