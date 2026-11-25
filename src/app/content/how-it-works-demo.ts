@@ -24,7 +24,7 @@ export const HOW_IT_WORKS = {
   steps: [
     { title: "Increase the will", text: "Learn why gaps happen. We coach where it's hard." },
     { title: "Agree on expectations", text: "Everyone opts in to answer one question honestly." },
-    { title: "Surface high-stakes decisions", text: "Press Clarify: your agent turns a decision into a point." },
+    { title: "Surface high-stakes decisions", text: "One press turns a decision into a point." },
     { title: "Decrease the friction", text: "Two numbers reveal a gap in three seconds." },
     { title: "Improve the skill", text: "Each explain-back shows how well you listened." },
   ],
