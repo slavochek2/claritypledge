@@ -413,7 +413,11 @@ test.describe('P510 — Profile Banner Controls (Owner vs Visitor)', () => {
 
     // Click "New banner" from dropdown
     const newBannerItem = page.getByRole('menuitem', { name: /new banner/i });
+    // P1729: replacing an existing banner now asks first; the seeded owner has one, so it must fire.
+    let confirmShown = false;
+    page.once('dialog', d => { confirmShown = d.type() === 'confirm'; void d.accept(); });
     await newBannerItem.click();
+    await expect.poll(() => confirmShown).toBe(true);
 
     // Wait for the generation to fail
     await page.waitForTimeout(2000);
@@ -465,7 +469,11 @@ test.describe('P510 — Profile Banner Controls (Owner vs Visitor)', () => {
     await pencilIcon.click();
 
     const newBannerItem = page.getByRole('menuitem', { name: /new banner/i });
+    // P1729: replacing an existing banner now asks first; the seeded owner has one, so it must fire.
+    let confirmShown = false;
+    page.once('dialog', d => { confirmShown = d.type() === 'confirm'; void d.accept(); });
     await newBannerItem.click();
+    await expect.poll(() => confirmShown).toBe(true);
 
     // New banner image should appear
     await expect(page.locator(`img[src="${newBannerUrl}"]`)).toBeVisible({ timeout: 15000 });

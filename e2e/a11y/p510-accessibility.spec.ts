@@ -301,6 +301,8 @@ test.describe('P510: Accessibility — Search Input & Loading States', () => {
     await pencilIcon.click();
 
     const newBannerItem = page.getByRole('menuitem', { name: /new banner/i });
+    // P1729: replacing an existing banner now asks first; accept it.
+    page.once('dialog', d => { void d.accept(); });
     await newBannerItem.click();
 
     // aria-busy should appear on the banner container during loading
@@ -334,6 +336,8 @@ test.describe('P510: Accessibility — Search Input & Loading States', () => {
     const searchInput = page.locator('input[aria-label*="describe" i], input[aria-label*="banner" i]');
     await expect(searchInput).toBeVisible({ timeout: 5000 });
     await searchInput.fill('mountains sunset');
+    // P1729: replacing an existing banner now asks first; accept it.
+    page.once('dialog', d => { void d.accept(); });
     await page.keyboard.press('Enter');
 
     // Error message should have role="alert"

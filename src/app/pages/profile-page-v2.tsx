@@ -17,6 +17,7 @@ import {
   readListReturnCache,
   writeListReturnCache,
 } from "@/lib/list-return-cache";
+import { useLazyProfileBanner, confirmReplaceBanner } from "./use-lazy-profile-banner";
 import { getProfile, getProfileBySlug, createProfile, updateProfile, type Profile } from "@/app/data/api";
 import { BannerDisplay, BannerControls, useBanner } from '@/app/components/shared/banner';
 import { creditForBanner } from '@/lib/banner-credit';
@@ -655,26 +656,15 @@ export function ProfilePageV2() {
     entityId: profile?.id ?? '',
     initialBannerUrl: profile?.bannerUrl ?? null,
     onSave: saveBanner,
+    confirmReplace: confirmReplaceBanner, // P1729
   });
 
   // P1453: the "after <artist>" credit for the banner on screen — a fresh generation's credit,
   // else the stored one, and only when it belongs to exactly this banner URL.
   const bannerCredit = creditForBanner(banner.bannerUrl, banner.credit, profile?.bannerCredit);
 
-  // P504: Lazy banner generation for profiles without banners
-  const lazyBannerTriggered = useRef(false);
-  useEffect(() => {
-    if (
-      !profile ||
-      lazyBannerTriggered.current ||
-      profile.bannerUrl ||
-      profile.bannerGenerationAttempted ||
-      !session?.access_token ||
-      currentUserId !== profile.id
-    ) return;
-    lazyBannerTriggered.current = true;
-    banner.handleRegenerate();
-  }, [profile, session?.access_token, currentUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // P504/P1729: lazy banner generation for an owner whose profile has none
+  useLazyProfileBanner(profile, banner, session?.access_token, currentUserId);
 
   const handleCreateClick = useCallback(() => {
     navigate('/create');

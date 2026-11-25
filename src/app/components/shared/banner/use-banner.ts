@@ -10,6 +10,11 @@ interface UseBannerOptions {
   initialBannerUrl?: string | null;
   onSave: (bannerUrl: string | null) => Promise<void>;
   enableUnsplash?: boolean;
+  /**
+   * P1729: asked before Regenerate or Search replaces a banner that is already there. Return false to
+   * cancel. Omitted = no confirmation (stories, events, points keep today's behaviour).
+   */
+  confirmReplace?: () => boolean;
 }
 
 interface UseBannerReturn {
@@ -38,6 +43,7 @@ export function useBanner({
   entityId,
   initialBannerUrl,
   onSave,
+  confirmReplace,
 }: UseBannerOptions): UseBannerReturn {
   const [bannerUrl, setBannerUrl] = useState<string | null>(initialBannerUrl ?? null);
   // Sync when initialBannerUrl arrives async (e.g. after profile fetch on hard refresh)
@@ -53,6 +59,7 @@ export function useBanner({
 
   const handleRegenerate = useCallback(async () => {
     if (isLoading) return;
+    if (bannerUrl && confirmReplace && !confirmReplace()) return;
     setIsLoading(true);
     setSearchError('');
 
@@ -83,7 +90,7 @@ export function useBanner({
     }
 
     setIsLoading(false);
-  }, [isLoading, entityType, entityId, onSave]);
+  }, [isLoading, bannerUrl, confirmReplace, entityType, entityId, onSave]);
 
   const handleRemove = useCallback(async () => {
     if (isLoading) return;
@@ -106,6 +113,7 @@ export function useBanner({
   const handleSearch = useCallback(
     async (keywords: string) => {
       if (isLoading || !keywords.trim()) return;
+      if (bannerUrl && confirmReplace && !confirmReplace()) return;
       setIsLoading(true);
       setSearchError('');
 
@@ -134,7 +142,7 @@ export function useBanner({
 
       setIsLoading(false);
     },
-    [isLoading, entityType, entityId, onSave],
+    [isLoading, bannerUrl, confirmReplace, entityType, entityId, onSave],
   );
 
   return {
