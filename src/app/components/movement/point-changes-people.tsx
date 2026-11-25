@@ -3,7 +3,7 @@
  * @description P1061: the people behind the Changes chart, largest change first, six at a time, each opening
  * into their own graph and verifications.
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ArrowRight, ChevronDown, ChevronRight } from 'lucide-react';
 import { PositionBadge } from '@/app/components/shared/PositionBadge';
 import { POSITION_LABELS } from '@/app/types';
@@ -18,10 +18,40 @@ const ROWS_SHOWN = 6;
 
 const said = (level: number) => POSITION_LABELS[positionOfLevel(level)];
 
-/** One person: the first position, the latest one, and their whole graph and log behind the row. */
-function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading; data: PointMovementRows; range: DayRange; open: boolean; onToggle: () => void }) {
+const ROW = 'flex min-h-11 w-full items-start gap-3 rounded-lg border border-border bg-muted p-3 text-left sm:items-center';
+
+/** What a row shows: the avatar, the name, first → latest, and the chevron when the row opens. */
+function RowFace({ reading, data, chevron }: { reading: Reading; data: PointMovementRows; chevron: ReactNode }) {
   const person = data.people.get(reading.userId);
   const name = person?.name ?? 'Someone';
+  return (
+    <>
+      <GravatarAvatar
+        name={name}
+        size="sm"
+        photoUrl={person?.avatarUrl ?? undefined}
+        avatarColor={person?.avatarColor ?? undefined}
+        isPledger={person?.hasPledged ?? false}
+        showRing={false}
+        className="!h-5 !w-5 !text-[10px]"
+      />
+      {/* Phone: the name and the arrow share the first line, the change takes the whole width under them. */}
+      <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_auto]">
+        <span className="truncate text-sm font-medium text-foreground">{name}</span>
+        <span className="sm:order-3">{chevron}</span>
+        <span className="col-span-2 inline-flex min-w-0 items-center gap-1.5 sm:order-2 sm:col-span-1" data-testid="row-change">
+          <PositionBadge position={positionOfLevel(reading.first)} />
+          <ArrowRight size={12} className="shrink-0 text-muted-foreground" aria-hidden />
+          <PositionBadge position={positionOfLevel(reading.latest)} />
+        </span>
+      </span>
+    </>
+  );
+}
+
+/** One person: the first position, the latest one, and their whole graph and log behind the row. */
+function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading; data: PointMovementRows; range: DayRange; open: boolean; onToggle: () => void }) {
+  const name = data.people.get(reading.userId)?.name ?? 'Someone';
   const { first, latest } = reading;
   // With dates set the graph draws only the positions inside them, so only the verifications inside them belong on it:
   // one from outside would be drawn beside the first or last dot, as if it had happened then.
@@ -31,6 +61,16 @@ function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading;
     authorName: data.people.get(v.authorId)?.name ?? 'Someone',
     at: v.at,
   }));
+  // A holder with no position in the history and no verification has nothing behind the row: it does not open.
+  if (reading.entries.length === 0 && verifications.length === 0) {
+    return (
+      <div className={ROW} data-testid="row-static">
+        <RowFace reading={reading} data={data} chevron={null} />
+        {/* first === latest here, so the row reads as the button's label would: "..., unchanged". */}
+        <span className="sr-only">, unchanged</span>
+      </div>
+    );
+  }
   return (
     <div>
       <button
@@ -38,29 +78,13 @@ function PersonRow({ reading, data, range, open, onToggle }: { reading: Reading;
         aria-expanded={open}
         aria-label={`${name}’s positions over time: ${said(first)}${latest !== first ? `, then ${said(latest)}` : ', unchanged'}`}
         onClick={onToggle}
-        className="flex min-h-11 w-full items-start gap-3 rounded-lg border border-border bg-muted p-3 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:items-center"
+        className={`${ROW} transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2`}
       >
-        <GravatarAvatar
-          name={name}
-          size="sm"
-          photoUrl={person?.avatarUrl ?? undefined}
-          avatarColor={person?.avatarColor ?? undefined}
-          isPledger={person?.hasPledged ?? false}
-          showRing={false}
-          className="!h-5 !w-5 !text-[10px]"
+        <RowFace
+          reading={reading}
+          data={data}
+          chevron={open ? <ChevronDown size={14} className="shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight size={14} className="shrink-0 text-muted-foreground" aria-hidden />}
         />
-        {/* Phone: the name and the arrow share the first line, the change takes the whole width under them. */}
-        <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_auto]">
-          <span className="truncate text-sm font-medium text-foreground">{name}</span>
-          <span className="sm:order-3">
-            {open ? <ChevronDown size={14} className="shrink-0 text-muted-foreground" aria-hidden /> : <ChevronRight size={14} className="shrink-0 text-muted-foreground" aria-hidden />}
-          </span>
-          <span className="col-span-2 inline-flex min-w-0 items-center gap-1.5 sm:order-2 sm:col-span-1" data-testid="row-change">
-            <PositionBadge position={positionOfLevel(first)} />
-            <ArrowRight size={12} className="shrink-0 text-muted-foreground" aria-hidden />
-            <PositionBadge position={positionOfLevel(latest)} />
-          </span>
-        </span>
       </button>
       {open && (
         <div className="ml-2 mt-2 border-l-2 border-gray-200 pb-1 pl-4">

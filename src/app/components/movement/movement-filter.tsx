@@ -22,12 +22,13 @@ const PEOPLE_SHOWN_UNTYPED = 4;
 const sized = (n: number) => `${n} ${n === 1 ? 'person' : 'people'}`;
 
 /**
- * The rows on offer: the holders listed in Changes (any word of the name), in the list's order so the preview of
- * four shows the people who changed first, then events and groups when signed in.
+ * The rows on offer: the holders listed in Changes inside the chosen dates (any word of the name), in the list's
+ * order so the preview of four shows the people who changed first, then events and groups when signed in.
  */
 function optionsFor(query: string, scope: MovementScope, data: PointMovementRows, signedIn: boolean): Option[] {
   const needle = query.trim().toLowerCase();
-  const readings = readingsOf(data.history, data.current, data.agentIds);
+  // The same dates as the list and the count, so nobody is offered whom choosing would leave at "0 people".
+  const readings = readingsOf(data.history, data.current, data.agentIds, { from: scope.from, to: scope.to });
   const listed = readings.map(r => r.userId);
   const holders = [...readings].sort(byChangeThenName(r => data.people.get(r.userId)?.name ?? 'Someone'))
     .map(r => ({ id: r.userId, person: data.people.get(r.userId) }))

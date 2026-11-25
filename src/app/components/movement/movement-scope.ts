@@ -23,12 +23,16 @@ const shortIso = (iso: string) => {
   return `${Number(day)} ${MONTHS[Number(month) - 1] ?? ''}`;
 };
 
+/** Whether a person took more than one position, including someone who changed and came back to where they began. */
+const moved = (r: Reading) => (r.entries.length > 1 ? 1 : 0);
+
 /**
  * The one order of people on the point page, for the list and for the filter's preview: the largest change first,
- * then by name, so people who changed stay on top and the ones who kept their position follow alphabetically.
+ * then people who moved and came back ahead of people who took one position, then by name, so everyone who changed
+ * stays on top and the ones who kept their position follow alphabetically.
  */
 export const byChangeThenName = (nameOf: (r: Reading) => string) => (a: Reading, b: Reading): number =>
-  Math.abs(b.latest - b.first) - Math.abs(a.latest - a.first) || nameOf(a).localeCompare(nameOf(b));
+  Math.abs(b.latest - b.first) - Math.abs(a.latest - a.first) || moved(b) - moved(a) || nameOf(a).localeCompare(nameOf(b));
 
 /** Seven-level counts of a list of levels (-3 .. 3). */
 export function countsOfLevels(levels: readonly number[]): LevelCounts {

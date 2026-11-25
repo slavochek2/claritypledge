@@ -148,6 +148,15 @@ describe('P1728 MovementFilter', () => {
     expect(personOptions()).toEqual(['Test Person 5', 'Test Person 6', 'Test Person 1', 'Test Person 2']);
   });
 
+  it('with dates set, offers only the people the dates keep, matching the "N people" count', () => {
+    // Day 1 holds only the second positions of persons 5 and 6; persons 1-4 took theirs on day 0.
+    const dated = { ...EVERYONE, from: '2026-09-11', to: '2026-09-11' };
+    wrap(<MovementFilter data={DATA} scope={dated} onChange={() => {}} signedIn defaultOpen />);
+    expect(screen.getByTestId('scope-count').textContent).toBe('2 people');
+    fireEvent.change(screen.getByLabelText('People, events, groups'), { target: { value: 'test' } });
+    expect(personOptions()).toEqual(['Test Person 5', 'Test Person 6']);
+  });
+
   it('offers an event or a group whose members are only one-position holders, with the count of them', () => {
     wrap(<MovementFilter data={DATA} scope={EVERYONE} onChange={() => {}} signedIn defaultOpen />);
     expect(screen.getByLabelText('Test Event Keepers, Event · 2 people')).toBeTruthy();
@@ -165,6 +174,21 @@ describe('P1728 PointChangesView', () => {
     expect(screen.getByRole('button', { name: 'Moved toward agree (1)' })).toBeTruthy();
     const names = rowButtons().map(b => /^(Test Person \d)/.exec(b.getAttribute('aria-label')!)![1]);
     expect(names).toEqual(['Test Person 5', 'Test Person 6', 'Test Person 1', 'Test Person 2', 'Test Person 3', 'Test Person 4']);
+  });
+
+  it('someone who changed and came back (Same) is listed before the people who took one position', () => {
+    // Person 7 went agree -> disagree -> agree: Same, but a mover; by name alone they would sort after persons 1-4.
+    const cameBack: PointMovementRows = {
+      ...DATA,
+      history: [...DATA.history, row(7, 'agree', 0), row(7, 'disagree', 1), row(7, 'agree', 2)],
+      current: [...DATA.current, now(7, 'agree')],
+      people: new Map([...DATA.people, [uid(7), person(7)] as const]),
+    };
+    wrap(<PointChangesView data={cameBack} scope={EVERYONE} />);
+    expect(screen.getByRole('button', { name: 'Same position (5)' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^Show all/ }));
+    const names = rowButtons().map(b => /^(Test Person \d)/.exec(b.getAttribute('aria-label')!)![1]);
+    expect(names).toEqual(['Test Person 5', 'Test Person 6', 'Test Person 7', 'Test Person 1', 'Test Person 2', 'Test Person 3', 'Test Person 4']);
   });
 
   it('a point whose holders all kept their position shows Same = N, the full list and a Filter pill', () => {
@@ -191,11 +215,13 @@ describe('P1728 PointChangesView', () => {
     expect(screen.getByTestId('log-chart-scroll').className).toContain('overflow-x-auto');
   });
 
-  it('opening a holder with no history row renders no drawing and no positions list, and does not throw', () => {
+  it('opening a holder with no history row renders no drawing and no positions list, shows their verification lines as text, and does not throw', () => {
     const noHistory: PointMovementRows = {
       ...DATA,
       history: [],
       current: [now(1, 'agree')],
+      stories: [{ id: 'story-id-0001', authorId: uid(2) }],
+      verifications: [{ id: 'verification-id-0001', storyId: 'story-id-0001', listenerId: uid(1), accuracyAchieved: true, createdAt: '2026-09-12T12:00:00.000Z' }],
     };
     wrap(<PointChangesView data={noHistory} scope={EVERYONE} />);
     expect(screen.getByRole('button', { name: 'Same position (1)' })).toBeTruthy();
@@ -203,6 +229,17 @@ describe('P1728 PointChangesView', () => {
     expect(screen.getByTestId('person-log')).toBeTruthy();
     expect(screen.queryByTestId('log-chart')).toBeNull();
     expect(screen.queryByRole('list')).toBeNull();
+    expect(within(screen.getByTestId('verification')).getByText(/Test Person 2 verified Test Person 1’s understanding of/)).toBeTruthy();
+  });
+
+  it('a holder with no history row and no verification is listed, but their row does not open: nothing is behind it', () => {
+    const bare: PointMovementRows = { ...DATA, history: [], current: [now(1, 'agree')], verifications: [] };
+    wrap(<PointChangesView data={bare} scope={EVERYONE} />);
+    expect(screen.getByRole('button', { name: 'Same position (1)' })).toBeTruthy();
+    const row = screen.getByTestId('row-static');
+    expect(within(row).getByText('Test Person 1')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /positions over time/ })).toBeNull();
+    expect(screen.queryByTestId('person-log')).toBeNull();
   });
 });
 
