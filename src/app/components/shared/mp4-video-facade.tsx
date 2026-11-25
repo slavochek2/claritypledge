@@ -70,8 +70,15 @@ export function Mp4VideoFacade({
     // The element stays mounted at its paused frame with its native controls, so the person resumes where they were.
     if (paused) videoRef.current?.pause();
   }, [paused]);
+  // The play button unmounts on click. If it held focus (a keyboard or mouse press, not a scripted
+  // click from elsewhere) and the player is visible, hand focus to the player so it is not lost to <body>.
+  const handoffRef = useRef(false);
+  useEffect(() => {
+    if (playing && handoffRef.current && !pausedRef.current) videoRef.current?.focus();
+  }, [playing]);
 
-  const handlePlay = () => {
+  const handlePlay = (e?: { currentTarget: EventTarget }) => {
+    handoffRef.current = !!e && document.activeElement === e.currentTarget;
     if (!firedRef.current) {
       firedRef.current = true;
       onPlay?.();

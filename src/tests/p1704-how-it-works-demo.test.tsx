@@ -128,6 +128,24 @@ describe('P1704 events with the video set', () => {
     expect(track.mock.calls.filter((c) => c[0] === 'demo_video_seen')).toHaveLength(1);
   });
 
+  it('pressing Play hands keyboard focus to the player', () => {
+    const focus = vi.spyOn(HTMLMediaElement.prototype, 'focus');
+    render(<HowItWorksDemoSection location="builders" index="04" video={VIDEO} />);
+    const play = screen.getByRole('button', { name: 'Play the product demo' });
+    play.focus();
+    fireEvent.click(play);
+    expect(focus).toHaveBeenCalledTimes(1);
+    focus.mockRestore();
+  });
+
+  it('a scripted click (the button never had focus) does not move focus', () => {
+    const focus = vi.spyOn(HTMLMediaElement.prototype, 'focus');
+    render(<HowItWorksDemoSection location="builders" index="04" video={VIDEO} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Play the product demo' }));
+    expect(focus).not.toHaveBeenCalled();
+    focus.mockRestore();
+  });
+
   it('does not report seen while off screen', () => {
     render(<HowItWorksDemoSection location="coach" index="04" video={VIDEO} />);
     expect(track.mock.calls.filter((c) => c[0] === 'demo_video_seen')).toEqual([]);
