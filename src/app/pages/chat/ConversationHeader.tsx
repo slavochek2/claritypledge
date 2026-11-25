@@ -36,7 +36,7 @@ const NAME = 'block truncate text-[15px] font-semibold leading-tight text-foregr
 /** The mirror's name keeps its role as its own segment, so it is one line and the title truncates. */
 const NAME_ONE_LINE = 'block min-w-0 text-[15px] font-semibold leading-tight text-foreground sm:text-base sm:leading-normal';
 const SUB = 'block truncate text-xs text-muted-foreground';
-const TITLE_BOX = 'flex min-h-11 min-w-0 items-center gap-2.5 rounded-lg';
+const TITLE_BOX = 'inline-flex max-w-full min-h-11 min-w-0 items-center gap-2.5 rounded-lg';
 
 function eventWhen(iso: string): string {
   const d = new Date(iso);
