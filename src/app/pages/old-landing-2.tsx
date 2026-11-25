@@ -6,12 +6,12 @@
  *
  * Since P1674 it renders the fable layout of /builders and /change-managers, with the hero
  * drawing, drawn with two people (the two co-founders). Copy is
- * unchanged; "How the platform works" became the gap exchange (it claimed an agent feature that is
+ * unchanged; "How the platform works" was dropped for the demo film (it claimed an agent feature that is
  * not built, decisions.md 2026-10-28).
  *
  * Owns what only the live page does: `landing_page_viewed` (variant "old-landing-2", referrer) once
  * on load; the event-aware actions (old-landing-2-webinar.tsx), which send `webinar_cta_clicked`;
- * `founder_exchange_viewed` via FOUNDER_CAST; the invite redirects; SEO. The pledge link stays
+ * the invite redirects; SEO. The pledge link stays
  * untracked.
  */
 import { CountUpPercent } from "@/app/components/landing/count-up-percent";
@@ -28,10 +28,10 @@ import { FounderCredibility } from "@/app/components/landing/founder-credibility
 import { Testimonials } from "@/app/components/landing/offers-section";
 import { PROGRAM_FAQS } from "@/app/content/faqs";
 import type { EventWithHost } from "@/app/types";
-import { AGREED_FOUNDER, FOUNDER_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
+import { AGREED_FOUNDER, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { OrLink, PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
 import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
-import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
+import { CloseSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, PlainSection, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
 import { WebinarCTA, WebinarDateLine } from "./old-landing-2-webinar";
 
@@ -162,7 +162,6 @@ export function OldLanding2Page() {
       <IllusionSection index="03" kicker="The root cause">
         <MisunderstandingVenn />
       </IllusionSection>
-      <ExchangeSection cast={FOUNDER_CAST} muted />
       <PromiseSection
         index="04"
         title={<>Protect your partnership so it <span className="text-blue-400">survives strong disagreements</span></>}

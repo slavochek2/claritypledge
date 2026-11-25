@@ -53,7 +53,6 @@ describe('P1558 /change-managers - content', () => {
     expect(demo.compareDocumentPosition(chat) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const order = [
       'Why almost nobody verifies understanding',
-      'Reveal a gap in understanding, then bridge it',
       'Make it normal to ask how well we understand each other',
       'How revealing gaps becomes a team norm',
       'Paid for the lesson',
@@ -178,20 +177,20 @@ describe('P1558 /change-managers - route, nav, preview', () => {
     expect(ua.test('Mozilla/5.0 (Macintosh) AppleWebKit/537.36 Chrome/130.0 Safari/537.36')).toBe(false);
   });
 
-  it('the exchange shows office teammates, never the hospital doctor and nurse', () => {
+  it('the page has no gap exchange: no office teammates pictures, no hospital doctor and nurse', () => {
     const { container } = renderPage();
     const srcs = [...container.querySelectorAll('img')].map((i) => i.getAttribute('src') ?? '');
-    expect(srcs).toContain('/change-managers/teammate-a.jpg');
-    expect(srcs).toContain('/change-managers/teammate-b.jpg');
+    expect(srcs).not.toContain('/change-managers/teammate-a.jpg');
+    expect(srcs).not.toContain('/change-managers/teammate-b.jpg');
     expect(srcs.filter((x) => x.startsWith('/hospitals/'))).toEqual([]);
   });
 
-  it('the shared exchange reports its own analytics event on this page, never the hospitals one', () => {
+  it('no exchange view event fires on this page (the demo film replaced the exchange)', () => {
     inViewMock.value = true;
     try {
       renderPage();
       const events = track.mock.calls.map((c) => c[0]);
-      expect(events).toContain('change_managers_exchange_viewed');
+      expect(events).not.toContain('change_managers_exchange_viewed');
       expect(events).not.toContain('hospitals_exchange_viewed');
     } finally {
       inViewMock.value = false;

@@ -103,13 +103,12 @@ describe.each([
 });
 
 describe('P1667 builders page: sections', () => {
-  it('replaces "How the platform works" with the gap exchange and the team-norm path', () => {
+  it('replaces "How the platform works" with the team-norm path (no gap exchange)', () => {
     render(<MemoryRouter><LandingFable /></MemoryRouter>);
     const order = [
       'Everybody assumes they understand',
       'Why almost nobody verifies understanding',
       'The illusion of shared understanding',
-      'Reveal a gap in understanding, then bridge it',
       'Make it normal to admit “I don’t understand”',
       'How revealing gaps becomes a team norm',
       'Paid for the lesson',
@@ -118,6 +117,7 @@ describe('P1667 builders page: sections', () => {
     expect(h2s().filter((t) => order.includes(t!))).toEqual(order);
     expect(screen.queryByText(/How the platform works/i)).toBeNull();
     expect(screen.queryByText(/Agents flag/i)).toBeNull();
+    expect(screen.queryByText('Reveal a gap in understanding, then bridge it')).toBeNull();
     for (const step of ['See the cost', 'Find champions', 'Spread', 'Norm', 'Maintain']) expect(screen.getByText(step)).toBeInTheDocument();
     expect(screen.getByText('failed startups built something the market never wanted.', { exact: false })).toBeInTheDocument();
   });
@@ -134,13 +134,13 @@ describe('P1667 change managers page: sections', () => {
     render(<MemoryRouter><LandingFableChange /></MemoryRouter>);
     const order = [
       'Why almost nobody verifies understanding',
-      'Reveal a gap in understanding, then bridge it',
       'Make it normal to ask how well we understand each other',
       'How revealing gaps becomes a team norm',
       'Paid for the lesson',
       'Reveal gaps in understanding before your rollout stalls',
     ];
     expect(h2s().filter((t) => order.includes(t!))).toEqual(order);
+    expect(screen.queryByText('Reveal a gap in understanding, then bridge it')).toBeNull();
     expect(screen.getByText('For change managers')).toBeInTheDocument();
     expect(screen.getByText('AI rollouts, new processes, reorganisations. People say yes in the meeting and mean different things.')).toBeInTheDocument();
     expect(screen.getByText('Sounds good 👍')).toBeInTheDocument();

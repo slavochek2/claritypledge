@@ -10,17 +10,16 @@
 import { MotionConfig } from "framer-motion";
 import { FlagIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import type { ExchangeCast } from "@/app/content/exchange-casts";
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
 import { AGREED_CHANGE, CHANGE_REASONS, CHANGE_REFERENCES } from "./fable-content";
 import { RefSup } from "./fable-parts";
 import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
-import { CloseSection, ExchangeSection, FableHero, NormSection, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "./fable-sections";
+import { CloseSection, FableHero, NormSection, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "./fable-sections";
 import { FableTrackingProvider, type FableTracking } from "./fable-tracking";
 
-/** The change-managers page. `seo`, `cast` and `tracking` are the caller's: /change-managers passes its live ones, /tree none. */
-export function ChangeFable({ seo, cast, tracking = {} }: { seo: ReactNode; cast: ExchangeCast; tracking?: FableTracking }) {
+/** The change-managers page. `seo` and `tracking` are the caller's: /change-managers passes its live ones, /tree none. */
+export function ChangeFable({ seo, tracking = {} }: { seo: ReactNode; tracking?: FableTracking }) {
   return (
     <FableTrackingProvider value={tracking}>
     <MotionConfig reducedMotion="user">
@@ -71,7 +70,6 @@ export function ChangeFable({ seo, cast, tracking = {} }: { seo: ReactNode; cast
         </section>
 
         <ReasonsSection index="01" reasons={CHANGE_REASONS} references={CHANGE_REFERENCES} />
-        <ExchangeSection cast={cast} muted />
         <PromiseSection index="02" title={<>Make it <span className="text-blue-400">normal</span> to ask how well we understand each other</>} />
         <NormSection index="03" />
         <FounderCredibility />

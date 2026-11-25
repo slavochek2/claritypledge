@@ -6,13 +6,12 @@
  * Copy is unchanged; P1674 lifts P1004's freeze for style only. Stats are source-verified (lesson
  * #2): every citation resolves AND the wording matches. The stat stays in Leadership IQ's own words
  * ("attitude, not skill"); "Small understanding gaps compound." is the only bridge to the thesis
- * (decisions.md, "the page's thesis smuggled into a stat"). "How the platform works" became the gap
- * exchange (it claimed an agent feature that is not built, decisions.md 2026-10-28).
+ * (decisions.md, "the page's thesis smuggled into a stat"). "How the platform works" was dropped for the
+ * demo film (it claimed an agent feature that is not built, decisions.md 2026-10-28).
  *
  * Owns what only the live page does: `landing_page_viewed` (variant "program", referrer from the
  * query) once on load; `alignment_audit_cta_clicked` with location "hero" from BOTH discovery-call
- * buttons (the value the old layout sent, the button size); `hiring_exchange_viewed` via
- * HIRING_CAST; the invite redirects; SEO. The pledge link stays untracked.
+ * buttons (the value the old layout sent, the button size); the invite redirects; SEO. The pledge link stays untracked.
  */
 import { CountUpPercent } from "@/app/components/landing/count-up-percent";
 import { useEffect } from "react";
@@ -26,10 +25,10 @@ import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { KeyHireCalculator } from "@/app/components/stakes/key-hire-calculator";
 import { KEY_HIRE_FAQS } from "@/app/content/faqs";
-import { AGREED_HIRING, HIRING_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
+import { AGREED_HIRING, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { PercentBar, RefSup } from "@/app/components/landing/fable/fable-parts";
 import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
-import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
+import { CloseSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
 import type { FableTracking } from "@/app/components/landing/fable/fable-tracking";
 
@@ -154,7 +153,6 @@ export function ProgramPage() {
       <IllusionSection index="03" kicker="The root cause">
         <MisunderstandingVenn />
       </IllusionSection>
-      <ExchangeSection cast={HIRING_CAST} muted />
       <PromiseSection
         index="04"
         title={<>Protect the relationship before your interests <span className="text-blue-400">quietly diverge</span></>}

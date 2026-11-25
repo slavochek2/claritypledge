@@ -99,7 +99,7 @@ function FounderPhoto() {
         width={640}
         height={640}
         loading="lazy"
-        className="aspect-square w-full max-w-[320px] rounded-2xl object-cover object-top lg:max-w-[360px]"
+        className="aspect-square w-full max-w-[240px] rounded-2xl object-cover object-top lg:w-[260px] lg:max-w-none"
       />
       <FullTalkLink className="mt-3" />
     </div>
@@ -140,7 +140,7 @@ export function FounderCredibility() {
   return (
     <section className="px-4 py-20 lg:py-28 border-t border-border">
       <Reveal className="container mx-auto max-w-5xl">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-14 items-start">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[auto_1fr] lg:items-center lg:gap-12">
           {/* Photo on top (mobile) / left (desktop). */}
           <FounderPhoto />
           <CredText />

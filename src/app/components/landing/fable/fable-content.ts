@@ -6,7 +6,6 @@
  */
 import { NEUTRAL_HIERARCHY_TEXT } from "@/app/components/landing/why-nobody-verifies";
 import { NEUTRAL_MAINTAIN_TEXT } from "@/app/components/landing/team-norm-section";
-import { TEAM_CAST, type ExchangeCast } from "@/app/content/exchange-casts";
 
 /** The content column every section of these pages shares. */
 export const SHELL = "container mx-auto max-w-6xl";
@@ -59,17 +58,6 @@ export const NORM_PATH: { title: string; text: string; strip: { blue: number[]; 
   { title: "Maintain", text: NEUTRAL_MAINTAIN_TEXT, strip: { blue: [0, 1, 2, 3, 4], plus: true } },
 ];
 
-/** The office cast of the gap exchange, under prototype event names so a dev view never counts as a production one. */
-export const FABLE_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "tree_landing_fable_exchange_viewed", surface: "tree-landing-fable-exchange" };
-/** /builders: the same office cast, reporting under its own page's name. /change-managers uses TEAM_CAST as before. */
-export const BUILDERS_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "builders_exchange_viewed", surface: "builders-exchange" };
-/**
- * /hiring, /coach, /founder (P1674): the same office cast where "How the platform works" stood, each
- * under its own event, with the other person's role from the page's story.
- */
-export const HIRING_CAST: ExchangeCast = { ...TEAM_CAST, viewEvent: "hiring_exchange_viewed", surface: "hiring-exchange" };
-export const COACH_CAST: ExchangeCast = { ...TEAM_CAST, otherRole: "Client", viewEvent: "coach_exchange_viewed", surface: "coach-exchange" };
-export const FOUNDER_CAST: ExchangeCast = { ...TEAM_CAST, otherRole: "Co-founder", viewEvent: "founder_exchange_viewed", surface: "founder-exchange" };
 
 /**
  * The hero example: one sentence everyone said yes to, and what each person understood by it.

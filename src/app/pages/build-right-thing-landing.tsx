@@ -19,7 +19,6 @@ import { useInviteRedirects } from "@/app/hooks/useInviteRedirects";
 import { SEO } from "@/app/components/seo";
 import { analytics } from "@/lib/mixpanel";
 import { BuildersFable } from "@/app/components/landing/fable/builders-fable";
-import { BUILDERS_CAST } from "@/app/components/landing/fable/fable-content";
 import type { FableTracking } from "@/app/components/landing/fable/fable-tracking";
 
 const TRACKING: FableTracking = {
@@ -42,7 +41,6 @@ export function BuildRightThingLanding() {
 
   return (
     <BuildersFable
-      cast={BUILDERS_CAST}
       tracking={TRACKING}
       seo={
         <SEO

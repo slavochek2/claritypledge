@@ -6,11 +6,11 @@
  * Since P1674 it renders the fable layout of /builders and /change-managers, with the hero
  * drawing, drawn with two people (a coach and a client). Copy
  * and section order are unchanged. The page keeps its own chat and Venn (coach-partnership-chat.tsx,
- * coach-partnership-venn.tsx), restyled in place. "How the platform works" became the gap exchange
- * (it claimed an agent feature that is not built, decisions.md 2026-10-28), keeping its #how anchor.
+ * coach-partnership-venn.tsx), restyled in place. "How the platform works" was dropped for the demo
+ * film (it claimed an agent feature that is not built, decisions.md 2026-10-28); /coach#how now lands on the demo.
  *
  * Owns: `landing_page_viewed` (referrer from the query, no variant) once on load;
- * `coach_exchange_viewed` via COACH_CAST; the invite redirects; SEO. The discovery-call buttons and
+ * the invite redirects; SEO. The discovery-call buttons and
  * the pledge links stay untracked, as before. The hero's scroll cue is the untargeted arrow.
  */
 import { useEffect } from "react";
@@ -21,10 +21,10 @@ import { SEO } from "@/app/components/seo";
 import { useInviteRedirects } from "@/app/hooks/useInviteRedirects";
 import { SectionHeader } from "@/app/components/landing/section-header";
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
-import { AGREED_COACH, COACH_CAST, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
+import { AGREED_COACH, type Reason, type Reference } from "@/app/components/landing/fable/fable-content";
 import { AuditCTA, OrLink } from "@/app/components/landing/fable/fable-parts";
 import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
-import { CloseSection, ExchangeSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection } from "@/app/components/landing/fable/fable-sections";
+import { CloseSection, FableHero, PromiseSection, ReasonsSection, ReferencesSection } from "@/app/components/landing/fable/fable-sections";
 import { AssumedSection, ChatSection, FablePage, FaqSection, IllusionSection, PartnerAgreementSpecimen, type AssumedStat } from "@/app/components/landing/fable/fable-use-case";
 import { CoachHardTruthChat } from "./coach-partnership-chat";
 import { CoachMisunderstandingVenn } from "./coach-partnership-venn";
@@ -132,14 +132,13 @@ export function CoachPartnershipPage() {
       }
     >
       <CoachHero />
-      <HowItWorksDemoSection location="coach" />
+      <HowItWorksDemoSection location="coach" anchorAlias="how" />
       <RefundChat />
       <AssumedSection index="01" stats={STATS} references={REFERENCES} />
       <IllusionSection index="02">
         <CoachMisunderstandingVenn />
       </IllusionSection>
       <ReasonsSection index="03" reasons={REASONS} references={REFERENCES} muted />
-      <ExchangeSection id="how" cast={COACH_CAST} />
       <PromiseSection id="agreement" index="04" title="Role model a partnership that survives disagreement." specimen={<PartnerAgreementSpecimen />} />
       <FounderCredibility />
       <CoachClose />

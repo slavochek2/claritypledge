@@ -4,14 +4,13 @@
  * dev-only /tree/landing-fable prototype (P1671).
  *
  * Against the older /builders layout: the hero carries the wordless example (one sentence, five
- * different builds); "How the platform works" is replaced by the gap exchange and the team-norm
- * path, because that section claimed an agent feature that is not built. Text-argument sections
+ * different builds); "How the platform works" is replaced by the team-norm path
+ * (and the demo film near the top), because that section claimed an agent feature that is not built. Text-argument sections
  * are left-aligned and numbered; dark bands carry the stake and the promise.
  */
 import { motion, MotionConfig } from "framer-motion";
 import { ShieldCheckIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import type { ExchangeCast } from "@/app/content/exchange-casts";
 import { FounderCredibility } from "@/app/components/landing/founder-credibility";
 import { MisunderstandingVenn } from "@/app/components/landing/misunderstanding-venn";
 import { HardTruthChat } from "@/app/components/landing/hard-truth-chat";
@@ -19,7 +18,7 @@ import { AGREED_BUILDERS, ASSUMED_STATS, REASONS_NOBODY_CHECKS, REFERENCES, SHEL
 import { STAGGER, VIEWPORT_ONCE } from "./fable-motion";
 import { DotStat, Indented, RefSup, Reveal, SectionHeading } from "./fable-parts";
 import { HowItWorksDemoSection } from "@/app/components/landing/how-it-works-demo";
-import { CloseSection, ExchangeSection, FableHero, NormSection, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "./fable-sections";
+import { CloseSection, FableHero, NormSection, PromiseSection, ReasonsSection, ReferencesSection, StakesBand } from "./fable-sections";
 import { FableTrackingProvider, type FableTracking } from "./fable-tracking";
 
 function Assumption() {
@@ -59,8 +58,8 @@ function RootCause() {
   );
 }
 
-/** The builders page. `seo`, `cast` and `tracking` are the caller's: /builders passes its live ones, /tree none. */
-export function BuildersFable({ seo, cast, tracking = {} }: { seo: ReactNode; cast: ExchangeCast; tracking?: FableTracking }) {
+/** The builders page. `seo` and `tracking` are the caller's: /builders passes its live ones, /tree none. */
+export function BuildersFable({ seo, tracking = {} }: { seo: ReactNode; tracking?: FableTracking }) {
   return (
     <FableTrackingProvider value={tracking}>
     <MotionConfig reducedMotion="user">
@@ -117,7 +116,6 @@ export function BuildersFable({ seo, cast, tracking = {} }: { seo: ReactNode; ca
         <Assumption />
         <ReasonsSection index="02" reasons={REASONS_NOBODY_CHECKS} references={REFERENCES} muted />
         <RootCause />
-        <ExchangeSection cast={cast} muted />
         <PromiseSection
           index="04"
           // inline-block: the quoted phrase moves to the next line as one unit and is never split after "I".

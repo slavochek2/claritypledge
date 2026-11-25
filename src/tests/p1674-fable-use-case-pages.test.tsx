@@ -38,7 +38,7 @@ import { OldLanding2Page } from '@/app/pages/old-landing-2';
 import { HospitalsPage } from '@/app/pages/hospitals-page';
 import { CommunitiesPage } from '@/app/pages/communities-page';
 import { HOSPITALS_OG } from '@/app/content/hospitals-og';
-import { AGREED_COACH, AGREED_COMMUNITIES, AGREED_FOUNDER, AGREED_HIRING, AGREED_HOSPITALS, COACH_CAST, FOUNDER_CAST, HIRING_CAST } from '@/app/components/landing/fable/fable-content';
+import { AGREED_COACH, AGREED_COMMUNITIES, AGREED_FOUNDER, AGREED_HIRING, AGREED_HOSPITALS } from '@/app/components/landing/fable/fable-content';
 import { layoutFor } from '@/app/components/landing/fable/fable-agreed-layout';
 import { WEBINAR_CTA_LABEL, WEBINAR_REGISTER_URL } from '@/app/content/webinar';
 
@@ -244,9 +244,6 @@ describe('P1674 /communities: events and actions', () => {
 
 describe('P1674 the gap exchange on every page: its own view event, once, with no properties', () => {
   it.each([
-    ['/hiring', 'hiring_exchange_viewed', 'Teammate'],
-    ['/coach', 'coach_exchange_viewed', 'Client'],
-    ['/founder', 'founder_exchange_viewed', 'Co-founder'],
     ['/hospitals', 'hospitals_exchange_viewed', 'Ward doctor'],
     ['/communities', 'communities_exchange_viewed', 'Member'],
   ] as const)('%s → %s; the other person is the %s', (path, event, role) => {
@@ -259,13 +256,21 @@ describe('P1674 the gap exchange on every page: its own view event, once, with n
     expect(screen.queryByText(/Agents flag/i)).toBeNull();
   });
 
-  it('the three new casts report to Sentry under their own surface', () => {
-    expect([HIRING_CAST.surface, COACH_CAST.surface, FOUNDER_CAST.surface]).toEqual(['hiring-exchange', 'coach-exchange', 'founder-exchange']);
+  it.each([
+    ['/hiring', 'hiring_exchange_viewed'],
+    ['/coach', 'coach_exchange_viewed'],
+    ['/founder', 'founder_exchange_viewed'],
+  ] as const)('%s has no gap exchange and never fires %s', (path, event) => {
+    motion.inView = true;
+    renderAt(path);
+    expect(screen.queryByTestId('gap-exchange')).toBeNull();
+    expect(screen.queryByTestId('exchange-visual')).toBeNull();
+    expect(track.mock.calls.filter((c) => c[0] === event)).toEqual([]);
   });
 
-  it('/coach keeps #how on the exchange', () => {
+  it('old /coach#how links still land on the demo, which replaced the exchange there', () => {
     renderAt('/coach');
-    expect(document.getElementById('how')).toContainElement(screen.getByTestId('gap-exchange'));
+    expect(document.getElementById('how')?.closest('#how-it-works')).not.toBeNull();
   });
 });
 
@@ -287,7 +292,6 @@ describe('P1674 copy and sections', () => {
       'Everybody assumes they understand',
       'Why almost nobody verifies understanding',
       'The illusion of shared understanding',
-      'Reveal a gap in understanding, then bridge it',
       'Protect the relationship before your interests quietly diverge',
       'Your new hire nods. And maybe holds back.',
     ];
@@ -318,7 +322,6 @@ describe('P1674 copy and sections', () => {
       'Everybody assumes they understand',
       'The illusion of shared understanding',
       'Why almost nobody verifies understanding',
-      'Reveal a gap in understanding, then bridge it',
       'Role model a partnership that survives disagreement.',
       "Your customer nods. But doesn't understand.",
     ];
@@ -337,7 +340,6 @@ describe('P1674 copy and sections', () => {
       'Everybody assumes they understand',
       'Why almost nobody verifies understanding',
       'The illusion of shared understanding',
-      'Reveal a gap in understanding, then bridge it',
       'Protect your partnership so it survives strong disagreements',
       'Your co-founder nods. And maybe holds back.',
     ];

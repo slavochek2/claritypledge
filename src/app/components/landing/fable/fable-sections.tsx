@@ -66,10 +66,10 @@ export function ReasonsSection({ index, reasons, references, muted = false }: { 
   );
 }
 
-/** The gap exchange: a centred chat exhibit with its own heading. `cast` carries the view event, so each page reports its own. `id`: an anchor a link targets (/coach #how). */
-export function ExchangeSection({ cast, muted = false, id }: { cast: ExchangeCast; muted?: boolean; id?: string }) {
+/** The gap exchange: a centred chat exhibit with its own heading. `cast` carries the view event, so each page reports its own. */
+export function ExchangeSection({ cast, muted = false }: { cast: ExchangeCast; muted?: boolean }) {
   return (
-    <section id={id} className={`border-t border-border px-4 py-16 lg:py-28 ${muted ? "bg-muted/40" : ""}${id ? " scroll-mt-16" : ""}`}>
+    <section className={`border-t border-border px-4 py-16 lg:py-28 ${muted ? "bg-muted/40" : ""}`}>
       <GapExchangeSection cast={cast} />
     </section>
   );

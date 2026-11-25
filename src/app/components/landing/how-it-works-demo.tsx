@@ -20,7 +20,7 @@ const TEXT_FRAME =
 
 const COLUMNS: Record<number, string> = { 3: "lg:grid-cols-3", 4: "sm:grid-cols-2 lg:grid-cols-4", 5: "sm:grid-cols-2 lg:grid-cols-5" };
 
-export function HowItWorksDemoSection({ location, video = DEMO_BY_PAGE[location] }: { location: UseCaseLocation; video?: DemoVideo | null }) {
+export function HowItWorksDemoSection({ location, anchorAlias, video = DEMO_BY_PAGE[location] }: { location: UseCaseLocation; anchorAlias?: string; video?: DemoVideo | null }) {
   const [failed, setFailed] = useState(false);
   const frameRef = useRef<HTMLDivElement>(null);
   useSeenOnce(frameRef, () => analytics.track("demo_video_seen", { location }), video !== null && !failed);
@@ -29,6 +29,8 @@ export function HowItWorksDemoSection({ location, video = DEMO_BY_PAGE[location]
 
   return (
     <section id="how-it-works" className="scroll-mt-16 border-t border-border px-4 py-16 lg:py-28">
+      {/* An older anchor kept alive for links already out there (/coach#how pointed at the exchange this replaced). */}
+      {anchorAlias && <span id={anchorAlias} className="block scroll-mt-16" aria-hidden />}
       <Reveal className={SHELL}>
         <h2 className="mb-10 max-w-3xl text-3xl font-semibold leading-[1.1] tracking-tight text-balance sm:text-4xl lg:mb-14 lg:text-5xl">{HOW_IT_WORKS.heading}</h2>
         {video !== null && (
