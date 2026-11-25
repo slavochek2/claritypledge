@@ -1,5 +1,5 @@
 ---
-status: week
+status: in-progress
 type: bug
 rank: 358
 severity: critical
@@ -11,8 +11,15 @@ exec_model: opus
 exec_effort: high
 tags: [events, event-room, react-hooks, regression]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: src/tests/p1730-reproduce.test.tsx
+  root_cause: "useEventRoomCounts is called below EventRoomMeet's early returns (loader, offline, gate), so the first room render after any of them runs one more hook and React throws #310"
+  confidence: high
+  surfaces_in_scope: [loading-then-room, offline-then-room, gate-then-room, non-hike-room]
+  surfaces_deferred: []
+  reproduced_at: 2026-11-25
 ---
 
 # P1730: Event room /meet crashes with "Something went wrong" (React #310) once it loads
@@ -23,7 +30,7 @@ Opening an event room at `/events/<slug>/meet` on prod shows the error boundary 
 
 ## Root Cause
 
-Hypothesis (to be confirmed by /reproduce): `useEventRoomCounts` is called at `EventRoomMeet.tsx:426`, **after** the early returns at lines 407–410 (`<ClarityPageLoader />` while loading, `<NeedsConnection />` offline, `<EventRoomGateScreen />` when not granted). The first render (still loading) returns early having run N hooks; the next render (loaded, granted) reaches line 426 and runs N+1, so React throws #310. The prod stack matches: `useState` ← `use-event-room-counts` ← `EventRoomMeet`.
+Confirmed by /reproduce (canary `src/tests/p1730-reproduce.test.tsx`, 4 of 4 red with "Rendered more hooks than during the previous render" before the fix): `useEventRoomCounts` is called at `EventRoomMeet.tsx:426`, **after** the early returns at lines 407–410 (`<ClarityPageLoader />` while loading, `<NeedsConnection />` offline, `<EventRoomGateScreen />` when not granted). The first render (still loading) returns early having run N hooks; the next render (loaded, granted) reaches line 426 and runs N+1, so React throws #310. The prod stack matches: `useState` ← `use-event-room-counts` ← `EventRoomMeet`.
 
 Why nothing caught it: `eslint.config.js` ignores `src/app/prototypes/**`, so `react-hooks/rules-of-hooks` never runs on `EventRoomMeet.tsx`, even though the route at `src/App.tsx:104` serves it in production.
 
@@ -37,7 +44,7 @@ Why nothing caught it: `eslint.config.js` ignores `src/app/prototypes/**`, so `r
 2. The loader shows while the access and seat reads are in flight.
 3. Once they resolve, observe the error boundary: "Something went wrong".
 
-**Reproduction rate:** expected 100% whenever the page renders the loader first (the normal path). Seen on prod by the founder on 2026-11-25 at 370 px wide (a mastermind event, not a hike, so the `registration === 'hike'` gate does not help: the hook is called whatever `enabled` is).
+**Reproduction rate:** 100% in the canary for each of loader, offline screen and gate screen giving way to the room, hike and non-hike alike; on prod, whenever the page renders the loader first (the normal path). Seen on prod by the founder on 2026-11-25 at 370 px wide (a mastermind event, not a hike, so the `registration === 'hike'` gate does not help: the hook is called whatever `enabled` is).
 
 ## Expected Behavior
 
