@@ -420,6 +420,7 @@ Last updated: 2026-11-25
 
 ## Events & Content
 - **P1675** (Nov 26) A hike asks for the short introduction before the seat — a branch-built link rule duplicated main's P1705 rule; the guard test caught it at merge, main's kept.
+- **P1730** (Nov 26) Event room /meet crashed with React #310 — a hook below early returns in `src/app/prototypes/**`, which ESLint ignores; a polled read reports a failure once per page load.
 - **P1718** (Nov 24) Ready back in the mastermind room with Skip — store a readiness value only when the slider moved; reads live in the screen a loader cannot unmount
 - **P1698** (Nov 17) My events tab on /events/list — hidden events reach host and registered only via a per-viewer read; never fold it into the group-keyed list read
 - **P1686** (Nov 16) Next version reviewed and published in the event room — Publish only under the list of the exact revision read; mocked reads hid a wrong field name until a TEST walk
