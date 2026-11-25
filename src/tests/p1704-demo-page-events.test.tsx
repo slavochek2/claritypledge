@@ -2,7 +2,7 @@
  * P1704 — page-level event wiring. With a demo video set, each of the six real pages sends
  * demo_video_seen and demo_video_play with ITS OWN location (catches a page passing another
  * page's location, which a section-only test cannot). The content module is mocked so
- * DEMO_VIDEO is non-null; the shipped constant stays null until the video is uploaded.
+ * every page has a film, /hospitals included (it ships with none until its own film exists).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
@@ -24,15 +24,17 @@ vi.mock('framer-motion', async (orig) => ({
   useReducedMotion: () => true,
   useInView: () => motion.inView,
 }));
-vi.mock('@/app/content/how-it-works-demo', async (orig) => ({
-  ...(await orig<typeof import('@/app/content/how-it-works-demo')>()),
-  DEMO_VIDEO: {
+vi.mock('@/app/content/how-it-works-demo', async (orig) => {
+  const real = await orig<typeof import('@/app/content/how-it-works-demo')>();
+  const video = {
     src: 'https://storage.googleapis.com/claritypledge-story-images/demo/test.mp4',
     poster: 'https://storage.googleapis.com/claritypledge-story-images/demo/test.jpg',
     posterAlt: 'A poster',
     playLabel: 'Play the product demo',
-  },
-}));
+  };
+  // Every page gets a film here (including /hospitals, which ships with none), so the wiring of each location is tested.
+  return { ...real, DEMO_VIDEO: video, DEMO_BY_PAGE: Object.fromEntries(Object.keys(real.DEMO_BY_PAGE).map((k) => [k, video])) };
+});
 
 import { ProgramPage } from '@/app/pages/program-page';
 import { CoachPartnershipPage } from '@/app/pages/coach-partnership-page';

@@ -135,9 +135,8 @@ describe('P1506 /hospitals — content', () => {
     expect(screen.getByRole('link', { name: 'Take the Pledge' })).toHaveAttribute('href', '/sign-pledge');
     expect(screen.getByTestId('pledgers')).toBeInTheDocument();
     // P1674: the picture hero adds the phone cue to the drawing, as on /builders.
-    // P1704: plus the demo's Play button (its visible text is the film's length; named 'Play the product demo').
-    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['See an example', 'Why it matters', '6:26']);
-    expect(screen.getByRole('button', { name: 'Play the product demo' })).toHaveTextContent('6:26');
+    // P1704: /hospitals shows the How it works steps without a film until its own exists, so no Play button.
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual(['See an example', 'Why it matters']);
   });
 
   it('gives the chart a text alternative', () => {

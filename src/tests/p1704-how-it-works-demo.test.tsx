@@ -30,7 +30,7 @@ import { CommunitiesPage } from '@/app/pages/communities-page';
 import { BuildRightThingLanding } from '@/app/pages/build-right-thing-landing';
 import { ChangeManagersPage } from '@/app/pages/change-managers-page';
 import { HowItWorksDemoSection } from '@/app/components/landing/how-it-works-demo';
-import { DEMO_VIDEO, HOW_IT_WORKS, type DemoVideo, type UseCaseLocation } from '@/app/content/how-it-works-demo';
+import { DEMO_BY_PAGE, DEMO_VIDEO, HOW_IT_WORKS, type DemoVideo, type UseCaseLocation } from '@/app/content/how-it-works-demo';
 
 const PAGES: Record<UseCaseLocation, ReactElement> = {
   builders: <BuildRightThingLanding />,
@@ -73,6 +73,10 @@ describe('P1704 the section on each of the six pages', () => {
     expect(DEMO_VIDEO!.playLabel).toBe('Play the product demo');
   });
 
+  it('every page but /hospitals shows the shared demo until its own film exists', () => {
+    for (const loc of LOCATIONS) expect(DEMO_BY_PAGE[loc]).toBe(loc === 'hospitals' ? null : DEMO_VIDEO);
+  });
+
   it('no [FOUNDER DECISION placeholder is left in the wording', () => {
     expect(JSON.stringify(HOW_IT_WORKS)).not.toContain('FOUNDER DECISION');
   });
@@ -93,10 +97,9 @@ describe('P1704 the section on each of the six pages', () => {
     const num = (el: Element) => Number(el.querySelector('[aria-hidden].font-mono')?.textContent);
     expect(num(section)).toBeGreaterThan(0);
     expect(num(next)).toBe(num(section) + 1);
-    // One player on the page, the demo; nothing loads until Play.
+    // One player on the page (none on /hospitals); nothing loads until Play.
     expect(container.querySelectorAll('video').length).toBe(0);
-    expect(screen.getAllByRole('button', { name: /^play /i }).map((b) => b.getAttribute('aria-label') ?? b.textContent)).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Play the product demo' })).toBeInTheDocument();
+    expect(screen.queryAllByRole('button', { name: /^play /i })).toHaveLength(loc === 'hospitals' ? 0 : 1);
   });
 
   it('/communities has no How it works section and no founder photo', () => {
@@ -106,12 +109,17 @@ describe('P1704 the section on each of the six pages', () => {
   });
 });
 
-describe('P1704 placeholder state', () => {
-  it('shows the placeholder with no play button, and fires no events when on screen', () => {
+describe('P1704 a page with no film', () => {
+  it('shows the heading and steps, no frame, no button, and fires no events when on screen', () => {
     motion.inView = true;
-    render(<HowItWorksDemoSection location="builders" index="04" video={null} />);
-    expect(screen.getByText(HOW_IT_WORKS.placeholder)).toBeInTheDocument();
+    const { container } = render(<HowItWorksDemoSection location="hospitals" index="03" />);
+    expect(screen.getByRole('heading', { level: 2, name: HOW_IT_WORKS.heading })).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(HOW_IT_WORKS.steps.length);
     expect(screen.queryByRole('button')).toBeNull();
+    expect(container.querySelector('video')).toBeNull();
+    // No frame at all: the section holds only the heading block and the steps.
+    expect(container.querySelector('.aspect-video')).toBeNull();
+    expect(container.querySelector('#how-it-works ol')?.previousElementSibling?.querySelector('h2')).toBeInstanceOf(HTMLHeadingElement);
     expect(seenAndPlay()).toEqual([]);
   });
 });
