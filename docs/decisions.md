@@ -8,6 +8,16 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-25 [product]: Use-case pages show the product right after the stat band; the hero offers the demo instead of the pledge (P1704)
+
+**Context:** P1701 ruled that every use-case page shows the product demo in place of the founder video. Building it (P1704), the founder saw the section sitting 3.5 to 7 screens down, where few visitors reach, and two near-identical chat blocks per page (the "what nobody said" story and the 0-10 gap exchange). The film made the exchange a second demo of the same fix.
+**Decision:** (1) Same order on every use-case page: hero, its stat band, then "How ClarityPledge works" (heading, the demo film, five numbered steps taken from the film's own step bar), unnumbered, then the problem chat and the numbered argument; /coach has no stat band, so hero then film. (2) The hero's quiet second option is "or Watch the product demo" (jumps to the film and starts it), not "or Take the Pledge"; the pledge stays in closing sections and on /hospitals. (3) Each page names its own film (`DEMO_BY_PAGE`); until tailored films exist (inbox, due this month), five pages show the shared v4.8 full cut (6:26) and /hospitals shows the steps without a film, since a software team's kickoff would put clinical staff off. (4) The 0-10 gap exchange is removed where the film shows the fix; it stays on /hospitals and /communities. (5) The founder section shows a small photo (260px) with the text beside it.
+**Alternatives rejected:** the film mid-page before the Group Terms (seen by few); the film directly under the hero (the hero's "Why it matters" cue would skip it); a numbered "How it works" step (it is a "see it" block, like the stat band); the 64-second short cut (founder: the full cut is more comprehensive, a shorter one comes later); keeping the pledge as the hero's second option (it asks for commitment before the visitor knows what the product is).
+**Consequences:** `demo_link_clicked`, `demo_video_seen` and `demo_video_play` (with the page as location) measure the placement; the `*_exchange_viewed` events stop on five pages. UNTESTED; falsifier: if fewer than 1 in 20 visitors who see the film press Play over a month, or discovery-call clicks per page view fall after the switch, the film's placement or length is wrong, not the pages' argument.
+**References:** [p1704](../features/done/2026-06-10/p1704_use_case_how_it_works_demo.md) · P1701 entry 2026-11-17 · P1674 entry 2026-11-13
+
+---
+
 ## 2026-11-25 [process]: A Gemini review that stops for lack of output space is re-run with no model named, so the fallback model can answer (P1726 follow-up). Founder-approved, UNTESTED
 
 **Context:** Gemini reviews on the default model stopped early with `MAX_TOKENS` at least 7 times from 2026-11-07 to 11-25. The review wrapper retries once on its fallback model when a run exits 4 or 5 (a `MAX_TOKENS` stop exits 5), but only when the model came from `model-defaults.env`. `/finish` always names the review model with `--model`, so its first run can never fall back, and the re-run bullet did not say which re-run route keeps the fallback.
