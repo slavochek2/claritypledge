@@ -1,5 +1,5 @@
 ---
-status: week
+status: all-done
 type: bug
 rank: 362
 severity: medium
@@ -11,9 +11,9 @@ exec_model: sonnet
 exec_effort: medium
 tags: [finish, review, openrouter, reviewers]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, inline, ship]
 flow: inline
+completed_at: 2026-11-26
 ---
 
 # P1737: GLM reviews come back empty on large prompts because the wrapper caps reasoning and answer together at 16,000 tokens
