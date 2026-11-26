@@ -93,10 +93,18 @@ board.
 - The calendar's repeated `strict-source-failure` (five passes in a row, 2026-11-19..26) stayed a
   daily card and never became a task. Escalating a recurring fault into a task is a design question.
 
+- Review 2026-11-26 (Codex): a finding filed under a mistyped producer id (`cp.tsetdb:...`) has no
+  check row and counts as ran, so a record keyed on that exact typo can hide it. Set aside: a filed
+  finding means its producer looked, and the real check's own not-run card still shows.
+  `day-step.sh finding` validates only the id's format.
+- The 14 h cutoff leaves 1.9 h over the largest measured gap and roughly doubles detection
+  latency for a stalled schedule. A gap over 14 h brings the false unknown back; re-measure before
+  raising it again.
+
 ## Acceptance Criteria
 
 - [x] A `disp.0f` finding with an `accepted` record in date shows in the one-line evaluated count, not as a card (day-evaluated.test.ts P1736)
 - [x] A `disp.0d` finding with a `fixed` record still shows as a card marked fixed-returned (day-evaluated.test.ts P1736)
-- [x] A check that did not run still shows as not run despite a record (P1605 control unchanged)
-- [x] `day-health.sh` reports ok for a passing scheduled run 12 h old and unknown for one 15 h old (test-p1584: 64/0)
+- [x] A check that did not run still shows as not run despite a record (P1605 control unchanged), and the read-time `run:no-checks` card ignores a record
+- [x] `day-health.sh` reports ok for a passing scheduled run 13 h 59 min old and unknown just past 14 h (test-p1584)
 - [x] Existing day-loops tests pass (server suite 857 passed; the 1 failure, p645 worktree filter, fails identically on main)

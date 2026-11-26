@@ -441,9 +441,21 @@ describe('P1736 a finding filed by a step with no check row', () => {
     expect(hiddenIn(view, D)?.loop?.evaluated).toMatchObject({ hidden: true, verdict: 'accepted' })
   })
 
-  it('a fixed record still shows it, marked fixed-returned', () => {
-    const { view } = render([rec({ fps: [D], verdict: 'fixed' })], withDispatcherFinding)
-    expect(shown(view, D)?.loop?.evaluated).toMatchObject({ hidden: false, why_shown: 'fixed-returned' })
+  it('a fixed record on the calendar finding (disp.0d) still shows it, marked fixed-returned', () => {
+    const C0 = 'disp.0d:day:calendar-stale'
+    const { view } = render([rec({ fps: [C0], verdict: 'fixed' })], (r) => {
+      expect(r.checks.find((c) => c.id === 'disp.0d')).toBeUndefined()
+      r.issues.push({ ...clone(issue(r, A)), fp: C0, check: undefined, title: 'Calendar stale' } as DayIssue)
+    })
+    expect(shown(view, C0)?.loop?.evaluated).toMatchObject({ hidden: false, why_shown: 'fixed-returned' })
+  })
+
+  it('a card built at read time with no check row (run:no-checks) still ignores a record', () => {
+    const { view } = render([rec({ fps: ['run:no-checks'] })], (r) => {
+      r.checks = []
+    })
+    expect(shown(view, 'run:no-checks')).toBeDefined()
+    expect(hiddenIn(view, 'run:no-checks')).toBeUndefined()
   })
 
   it('P1605 unchanged: a finding whose check row says not-run still ignores the record', () => {
