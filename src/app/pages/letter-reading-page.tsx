@@ -55,7 +55,7 @@ import { pointsService } from '@/app/data/points-service';
 import { publicLetterRead, type PublicLetter } from '@/app/data/offline-reads-letters';
 import { peekOfflineCache, readThrough, rememberOffline } from '@/lib/offline-read-cache';
 import { networkFailedSince, networkMark, recordNetworkTrouble } from '@/lib/network-outcome';
-import { useConnectivity, useOfflinePageReport } from '@/app/contexts/offline-status-context';
+import { useConnectivityAndAuthSettled, useOfflinePageReport } from '@/app/contexts/offline-status-context';
 import { NeedsConnection } from '@/app/components/offline/needs-connection';
 
 /**
@@ -83,7 +83,7 @@ export function LetterReadingPage() {
   const token = searchParams.get('token') ?? '';
   const navigate = useNavigate();
   const location = useLocation();
-  const { user: currentUser, session, sessionChecked, isLoading: authLoading, signOut } = useAuth();
+  const { user: currentUser, session, signOut } = useAuth();
 
   // P696: skip cover when arriving from confirm page (avoids flash)
   const skipToComplete = (location.state as { skipToComplete?: boolean } | null)?.skipToComplete === true;
@@ -116,7 +116,7 @@ export function LetterReadingPage() {
   const offlineCachedAtRef = useRef<number | null>(null);
   useEffect(() => { offlineCachedAtRef.current = offlineCachedAt; }, [offlineCachedAt]);
   useOfflinePageReport(offlineCachedAt === null ? null : { kind: 'cached', storedAt: offlineCachedAt, slow: offlineSlow });
-  const { reconnectTick } = useConnectivity();
+  const { reconnectTick, authSettled } = useConnectivityAndAuthSettled(); // P1297: authSettled opens offline
   const offlineReconnectKey = offlineCachedAt !== null || offlineMiss ? reconnectTick : 0;
 
   const [letter, setLetter] = useState<ClarityLetter | null>(null);
@@ -221,7 +221,7 @@ export function LetterReadingPage() {
   // 3. Cancellation flag: stale async runs cannot mutate state after a newer run starts.
   // P710: 4. magicLinkProcessing gate: block load until magic-link hash session is established.
   useEffect(() => {
-    if (!sessionChecked || authLoading || !deliveryId || magicLinkProcessing) return;
+    if (!authSettled || !deliveryId || magicLinkProcessing) return;
     if (viewState !== 'cover') return;
     const showingOfflineCopy = offlineCachedAtRef.current !== null;
     if (!showingOfflineCopy && (pageStateRef.current === 'ready' || pageStateRef.current === 'ready_public' || pageStateRef.current === 'own_letter')) return; // already loaded
@@ -587,7 +587,7 @@ export function LetterReadingPage() {
 
     load();
     return () => { cancelled = true; };
-  }, [sessionChecked, authLoading, deliveryId, token, currentUser?.id, magicLinkProcessing, offlineReconnectKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [authSettled, deliveryId, token, currentUser?.id, magicLinkProcessing, offlineReconnectKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup auth delay timer
   useEffect(() => {
@@ -1232,7 +1232,7 @@ function LetterReadingFlow({
     priorPositions,
   });
   const { state, currentPhase, nextStory, tokenExpired } = readingState;
-  const { user, sessionChecked, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
 
   // P711: Post-reveal position edits — writes directly to point_positions (does not transition phase).
   // Mirrors handleResultsPositionChange in letter-results-page.tsx. Auth-only; anon path no-ops.
@@ -1261,7 +1261,7 @@ function LetterReadingFlow({
   // default), one-to-one keeps its historical 'invite' so explain-back is not lost.
   const resolvedResponsesMode = resolveResponsesMode(letter);
   // P1379 (review #2): the public reveal-skip waits until the session is resolved.
-  const identitySettled = sessionChecked && !authLoading;
+  const { authSettled: identitySettled } = useConnectivityAndAuthSettled(); // P1297: opens offline
 
   // Fetch position stories + explain-backs when receiver is authenticated and responses enabled.
   useEffect(() => {

@@ -26,6 +26,7 @@ import { readRsvpGate, selectEventRowBySlugWith } from './event-slug-and-group-r
 import { rsvpToHiddenEvent } from './event-hidden-rsvp';
 import { getSeatSecret, setSeatSecret, clearSeatSecret, restoreSeatSecret } from './seat-secret';
 import type { AuthError } from '@supabase/supabase-js';
+import type { ApiResult } from './api-result';
 import type {
   Profile,
   ProfileSummary,
@@ -114,10 +115,8 @@ export function extractErrorDetail(bodyText: string): string {
 // Result Types - Discriminated unions for proper error handling
 // ============================================================================
 
-/** Result type for operations that can fail with different error types */
-export type ApiResult<T> =
-  | { success: true; data: T }
-  | { success: false; error: 'not_found' | 'server_error'; message?: string };
+/** Result type for operations that can fail with different error types (P1297: its own module). */
+export type { ApiResult } from './api-result';
 
 // ============================================================================
 // Private Helpers - Shared logic to avoid duplication
@@ -178,12 +177,12 @@ export async function getProfileResult(id: string): Promise<ApiResult<Profile>> 
     // Read through the SECURITY DEFINER accessor: it returns the row owner's email
     // only to the owner, and linkedin_url/reason only for verified+pledged users
     // (public by design) or the owner. Returns NULL (not an error) when no row.
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError, status } = await supabase
       .rpc('get_profile_by_id', { p_id: id });
 
     if (profileError) {
       console.error('Error fetching profile:', profileError.message);
-      return { success: false, error: 'server_error', message: profileError.message };
+      return { success: false, error: 'server_error', message: profileError.message, status, code: profileError.code };
     }
 
     if (!profile) {
@@ -198,7 +197,7 @@ export async function getProfileResult(id: string): Promise<ApiResult<Profile>> 
     };
   } catch (err) {
     console.error('Unexpected error in getProfileResult:', err);
-    return { success: false, error: 'server_error' };
+    return { success: false, error: 'server_error', thrown: true };
   }
 }
 

@@ -13,15 +13,22 @@
 import { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo, ReactNode } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { getProfileResult, signOut as apiSignOut, patchClaritySessionLiveState, clearSessionJoiner } from '@/app/data/api';
+import { signOut as apiSignOut, patchClaritySessionLiveState, clearSessionJoiner } from '@/app/data/api';
 import { analytics } from '@/lib/mixpanel';
 import { clearActiveSessionFromStorage } from '@/app/contexts/live-session-context';
-import { clearOfflineReadCache } from '@/lib/offline-read-cache';
-import { clearLinkTokens, clearLinkTokensExceptThisLoad } from '@/lib/canvas-link-token';
-import { clearArtifactAttachmentCache } from '@/app/pages/chat/artifact-attachment-cache';
-import { clearAllNavVerifiedHints } from '@/lib/nav-verified-hint';
 import type { Profile } from '@/app/types';
-import { noteAppSession } from '@/lib/session-guard';
+import { noteAppSession, isRetryableAuthError } from '@/lib/session-guard';
+import {
+  hasStoredAuthToken,
+  authTokenStoredAtBoot,
+  setSessionExpiredNotice,
+  clearSessionExpiredNotice,
+  markDeliberateSignOut,
+  clearDeliberateSignOut,
+  recentDeliberateSignOut,
+} from './stored-session';
+import { trackUnexplainedSessionLoss, clearSessionScopedState, isUnchosenSessionEnd } from './session-end';
+import { fetchProfileRound, restoreProfile } from './profile-restore';
 
 interface AuthState {
   user: Profile | null;
@@ -48,11 +55,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Track previous user state to preserve data on transient network errors
+  // Track previous user state to preserve data on transient network errors. P1297/P1560: only
+  // ever used for the SAME user id — another account's profile is never a fallback.
   const previousUserRef = useRef<Profile | null>(null);
+  // P1297: the user id the session currently belongs to. Every profile commit checks it, so a
+  // result that resolves after a sign-out or an account switch is dropped, never shown.
+  const currentUserIdRef = useRef<string | undefined>(undefined);
 
   // Track if initial session check is complete
   const [sessionChecked, setSessionChecked] = useState(false);
+
+  // P1297: bumped by every auth event that carries a real change. initSession() reads the session
+  // with getSession(), which can resolve AFTER a newer event; a stale result must not overwrite it.
+  const authEventGenRef = useRef(0);
+  // P1297: the last session an auth event delivered (INITIAL_SESSION included).
+  const eventSessionRef = useRef<Session | null>(null);
+  // P1297 (B): getSession() could not tell — the stored token needed a refresh and the refresh
+  // failed on the network. auth-js keeps the session and keeps trying on its own (a 30 s ticker
+  // while visible, and on every hidden -> visible change), and reports the verdict as an auth
+  // event: TOKEN_REFRESHED on success, SIGNED_OUT when the server refuses the refresh. Until that
+  // event, the restore is pending and sessionChecked stays false, so no gate redirects. The
+  // provider does NOT poll getSession() here: each call holds the auth lock for a full refresh
+  // cycle, and every database request waits behind that lock.
+  const restorePendingRef = useRef(false);
 
   // P1240: distinguish a session the person ENDED from one that vanished on them.
   // Set only by the signOut() below; every other transition to a null session is
@@ -76,32 +101,63 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // This follows Supabase's recommended pattern - onAuthStateChange just updates session
   useEffect(() => {
     let initFallbackTimer: ReturnType<typeof setTimeout> | undefined;
+    const initAbort = new AbortController();
+    // The boot read failed: auth is checked. P1297: a session an auth event delivered meanwhile is
+    // the profile restore's to settle, so loading is left to it.
+    const settleBootWithoutSession = () => {
+      setSessionChecked(true);
+      if (!eventSessionRef.current) setIsLoading(false);
+    };
     // Get initial session
     const initSession = async () => {
+      const genAtStart = authEventGenRef.current;
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        if (initAbort.signal.aborted) return;
 
-        if (error) {
-          setSessionChecked(true);
-          setIsLoading(false);
+        // P1297: a token was stored at boot and auth-js has since dropped it (its refresh was
+        // refused, possibly inside this very getSession(), which then returns an error). That is an
+        // expired session, not a person who never signed in — say so on /login.
+        if (!initialSession && authTokenStoredAtBoot && !hasStoredAuthToken() && !recentDeliberateSignOut()) {
+          setSessionExpiredNotice();
+        }
+
+        if (error && isRetryableAuthError(error) && hasStoredAuthToken()) {
+          // An auth event may already have delivered the session (auth-js's own INITIAL_SESSION
+          // read can succeed where this one failed). Then the restore is done; otherwise wait.
+          if (eventSessionRef.current) {
+            setSessionChecked(true);
+          } else {
+            restorePendingRef.current = true;
+          }
           return;
         }
 
-        setSession(initialSession);
-        noteAppSession(initialSession); // P1441: the guard's re-sync source
-        hadSessionRef.current = !!initialSession;  // P1240: seed, so the first
-        // transition after mount is classified against a real prior state
+        if (error) {
+          settleBootWithoutSession();
+          return;
+        }
+
+        // P1297: an auth event delivered while getSession() was pending is newer than this read;
+        // it has already set the session, so only the "checked" flag is ours to set.
+        if (authEventGenRef.current === genAtStart) {
+          currentUserIdRef.current = initialSession?.user?.id;
+          setSession(initialSession);
+          noteAppSession(initialSession); // P1441: the guard's re-sync source
+          hadSessionRef.current = !!initialSession;  // P1240: seed, so the first
+          // transition after mount is classified against a real prior state
+        }
         setSessionChecked(true);
 
         // Only set loading false here if NO session (profile effect won't run)
-        if (!initialSession) {
+        if (!initialSession && authEventGenRef.current === genAtStart) {
           setIsLoading(false);
         }
       } catch {
-        setSessionChecked(true);
-        setIsLoading(false);
+        if (initAbort.signal.aborted) return;
+        settleBootWithoutSession();
       } finally {
-        if (!authInitializedRef.current) {
+        if (!authInitializedRef.current && !initAbort.signal.aborted) {
           initFallbackTimer = setTimeout(() => { authInitializedRef.current = true; }, INITIAL_SESSION_FALLBACK_MS);
         }
       }
@@ -109,84 +165,76 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     initSession();
 
+    // The profile on screen belongs to the session's user, or to nobody.
+    const dropProfileNotOwnedBy = (newSession: Session | null) => {
+      // Clear user immediately on sign out
+      if (!newSession) {
+        setUser(null);
+      } else if (previousUserRef.current && previousUserRef.current.id !== newSession.user?.id) {
+        // P1297/P1560: another account. Drop the previous profile in the SAME render as the new
+        // session, so no frame shows account A under B's session — and mark loading, so that
+        // frame is not read as "nobody signed in" either. Effect 2 then loads B's profile.
+        previousUserRef.current = null;
+        setUser(null);
+        setIsLoading(true);
+      }
+    };
+
     // Listen for auth changes - ONLY update session, don't fetch profile here
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
+        const hadSessionBefore = hadSessionRef.current;
+        // P1297: checked first — the P1240 block below resets deliberateSignOutRef. Tell them on
+        // /login instead of showing a bare form.
+        if (isUnchosenSessionEnd({
+          event,
+          hadSession: hadSessionBefore,
+          restorePending: restorePendingRef.current,
+          deliberate: deliberateSignOutRef.current,
+          recentDeliberate: recentDeliberateSignOut(),
+        })) {
+          setSessionExpiredNotice();
+        }
         // P1240: fire BEFORE state updates — this is the only moment where the
         // previous session and the new absence are both observable.
-        if (hadSessionRef.current && !newSession) {
-          if (deliberateSignOutRef.current) {
-            deliberateSignOutRef.current = false;
-          } else {
-            let storedToken: string | null = null;
-            try {
-              // Index API, not Object.keys(localStorage): Storage exposes its
-              // entries as own enumerable properties in browsers, but not in every
-              // Storage implementation — under the test environment Object.keys
-              // returns the METHOD names ('getItem', 'setItem', …) and the lookup
-              // silently reports "no token" while a token is sitting right there.
-              // That is the one field this whole measurement turns on, so it must
-              // not depend on which Storage implementation is underneath.
-              for (let i = 0; i < localStorage.length; i++) {
-                const k = localStorage.key(i);
-                if (k && k.endsWith('-auth-token')) {
-                  storedToken = localStorage.getItem(k);
-                  break;
-                }
-              }
-            } catch {
-              // Storage can throw outright (private mode, blocked site data) — that
-              // IS a candidate cause, so record it rather than swallowing it.
-              storedToken = '__storage_threw__';
-            }
-            analytics.track('session_lost_unexplained', {
-              auth_event: event,
-              // The discriminator: token still on disk => the client dropped it.
-              // Token gone => storage was cleared underneath us (eviction, WebView
-              // spawn, browser setting). Threw => storage is unreadable.
-              stored_token_present: storedToken === '__storage_threw__' ? 'threw' : !!storedToken,
-              visibility: typeof document !== 'undefined' ? document.visibilityState : 'unknown',
-              was_hidden: typeof document !== 'undefined' ? document.hidden : null,
-              online: typeof navigator !== 'undefined' ? navigator.onLine : null,
-              path: typeof window !== 'undefined' ? window.location.pathname : null,
-            });
-          }
+        if (hadSessionBefore && !newSession) {
+          if (deliberateSignOutRef.current) deliberateSignOutRef.current = false;
+          else trackUnexplainedSessionLoss(event);
         }
-        // P1369: every way a session ENDS — our signOut, a sign-out in another tab, supabase-js
-        // dropping a revoked session — clears the offline read cache. api.ts signOut already
-        // cleared it for the deliberate path; this covers the rest. Not on INITIAL_SESSION with
-        // no session: that is an anonymous boot, and its cached reads are the anonymous reader's.
-        if (event === 'SIGNED_OUT' || (hadSessionRef.current && !newSession)) {
-          void clearOfflineReadCache();
-          // P1421: same paths drop the nav's "this user was verified here" marker.
-          clearAllNavVerifiedHints();
-          // P1545: and the chat artifact cards' answers, judged for the person who just left.
-          clearArtifactAttachmentCache();
-          // P1515: and the canvas link tokens held in this tab (expiry, a sign-out in another tab and revocation never go
-          // through api.signOut, and must not leave them for the next person on this device).
-          //  - Only during auth initialization (boot recovery: an expired, unrefreshable stored session is dropped at
-          //    startup, before the first auth state settles) the token the head script has just taken from the address
-          //    must survive; tokens left by EARLIER loads of this tab are the previous person's and go.
-          //  - Any other session loss clears ALL of them, this load's included: a session this tab held that ended, a
-          //    cross-tab sign-out, a later expiry, even on a tab that never saw a live session itself.
-          if (authInitializedRef.current || hadSessionRef.current) clearLinkTokens();
-          else clearLinkTokensExceptThisLoad();
+        // P1369/P1515: every session end clears per-person state. Not on INITIAL_SESSION with no
+        // session: that is an anonymous boot, and its cached reads are the anonymous reader's.
+        if (event === 'SIGNED_OUT' || (hadSessionBefore && !newSession)) {
+          clearSessionScopedState(!authInitializedRef.current && !hadSessionBefore);
         }
         hadSessionRef.current = !!newSession;
         if (event === 'INITIAL_SESSION') authInitializedRef.current = true;
+        // P1297: INITIAL_SESSION replays what getSession() reads; anything else is a newer state.
+        else authEventGenRef.current += 1;
+        eventSessionRef.current = newSession;
+        // P1297/P1560: set here, not only in Effect 2. Effect 2 runs after the render this event
+        // causes; a profile request for the previous account that resolves in between must already
+        // read as stale.
+        currentUserIdRef.current = newSession?.user?.id;
+        // P1297: a new sign-in ends the deliberate-sign-out window — a later loss is not that sign-out.
+        // Not on the SIGNED_IN auth-js replays (to every tab) whenever a tab holding a session is shown.
+        if (event === 'SIGNED_IN' && newSession && !hadSessionBefore) clearDeliberateSignOut();
+        // P1297 (B): auth-js has given its verdict on a restore getSession() could not settle — a
+        // session (any event), or a definite end (any event but the INITIAL_SESSION replay, which
+        // in this state is the same failed read reported again).
+        if (restorePendingRef.current && (newSession || event !== 'INITIAL_SESSION')) {
+          restorePendingRef.current = false;
+          setSessionChecked(true);
+        }
 
         setSession(newSession);
         noteAppSession(newSession);
-
-        // Clear user immediately on sign out
-        if (!newSession) {
-          setUser(null);
-        }
+        dropProfileNotOwnedBy(newSession);
       }
     );
 
     return () => {
       clearTimeout(initFallbackTimer);
+      initAbort.abort();
       subscription.unsubscribe();
     };
   }, []);
@@ -199,61 +247,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Shared profile fetch logic with retry for transient errors.
   // Uses getProfileResult to distinguish "not found" (no retry) from "server error" (retry).
   const fetchProfileForUser = useCallback(async (id: string): Promise<Profile | null> => {
-    const MAX_RETRIES = 2;
-    const RETRY_DELAY_MS = 1000;
-
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      const result = await getProfileResult(id);
-
-      if (result.success) return result.data;
-
-      // Profile genuinely doesn't exist — don't retry
-      if (result.error === 'not_found') return null;
-
-      // Server error — retry after delay (except on last attempt)
-      if (attempt < MAX_RETRIES) {
-        console.warn(`Profile fetch attempt ${attempt + 1} failed, retrying in ${RETRY_DELAY_MS}ms...`);
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-      }
-    }
-
-    console.error(`Profile fetch failed after ${MAX_RETRIES + 1} attempts for user ${id}`);
-    return null;
+    const result = await fetchProfileRound(id);
+    return result.success ? result.data : null;
   }, []);
 
   useEffect(() => {
     let isMounted = true;
+    const abort = new AbortController();
+    currentUserIdRef.current = userId;
+
+    const acceptProfile = (profile: Profile) => {
+      if (currentUserIdRef.current !== profile.id) return; // P1297: the session moved on
+      setUser(profile);
+      previousUserRef.current = profile;
+      // Identify user in analytics on session restore (returning users)
+      // This ensures Mixpanel knows who the user is even without going through magic link
+      analytics.identify(profile.id);
+      // P1133: is_internal is NOT re-set here. It's a Mixpanel People property
+      // (people.set), which is persistent current-state — once AuthCallbackPage
+      // sets it at login, it stays on the profile. Re-setting it here on every
+      // page load would be a redundant network call, and would trust
+      // profile.email (user-writable via upsert_my_profile, unverified against
+      // auth.users) instead of the session's authenticated email.
+    };
 
     const fetchProfile = async () => {
       if (userId) {
         setIsLoading(true);
-        const profile = await fetchProfileForUser(userId);
-
-        if (!isMounted) return;
-
-        // Only update user state if we got a valid profile OR if user was null
-        // This prevents wiping existing user data on transient network errors
-        if (profile !== null) {
-          setUser(profile);
-          previousUserRef.current = profile;
-
-          // Identify user in analytics on session restore (returning users)
-          // This ensures Mixpanel knows who the user is even without going through magic link
-          analytics.identify(userId);
-          // P1133: is_internal is NOT re-set here. It's a Mixpanel People property
-          // (people.set), which is persistent current-state — once AuthCallbackPage
-          // sets it at login, it stays on the profile. Re-setting it here on every
-          // page load would be a redundant network call, and would trust
-          // profile.email (user-writable via upsert_my_profile, unverified against
-          // auth.users) instead of the session's authenticated email.
-        } else if (previousUserRef.current === null) {
-          // Profile not found and we have no cached user - this is a new/deleted user
+        // P1297/P1560: the profile on screen belongs to this session's user, or to nobody.
+        // A direct switch (A -> B without a sign-out between) must not keep showing A.
+        if (previousUserRef.current && previousUserRef.current.id !== userId) {
+          previousUserRef.current = null;
           setUser(null);
         }
-        // If profile fetch failed but we have cached user, keep the cached user
-        // (handles transient network errors without logging user out)
-
-        setIsLoading(false);
+        await restoreProfile({
+          userId,
+          signal: abort.signal,
+          stale: () => !isMounted || currentUserIdRef.current !== userId,
+          previousUserRef,
+          deliberateSignOutRef,
+          setUser,
+          setIsLoading,
+          acceptProfile,
+        });
       } else {
         setUser(null);
         previousUserRef.current = null;
@@ -269,8 +305,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     fetchProfile();
-    return () => { isMounted = false; };
-  }, [userId, fetchProfileForUser, sessionChecked]);
+    return () => {
+      isMounted = false;
+      abort.abort();
+    };
+  }, [userId, sessionChecked]);
 
   // P537: useCallback keeps refreshProfile reference stable across renders
   const refreshProfile = useCallback(async () => {
@@ -278,10 +317,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return;
     }
 
-    const profile = await fetchProfileForUser(userId);
+    let profile = await fetchProfileForUser(userId);
 
-    if (profile) {
+    // P1297: a read without the owner's email may have gone out with no usable token (the anon
+    // key). Never let it replace a profile that has one; otherwise confirm a session exists and
+    // read once more, as the restore loop does.
+    if (profile && !profile.email) {
+      if (previousUserRef.current?.email) return;
+      const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      if (!data.session) return;
+      profile = await fetchProfileForUser(userId);
+    }
+    // P1297/P1560: commit only if the session still belongs to the user it was fetched for.
+    if (profile && currentUserIdRef.current === userId && profile.id === userId) {
       setUser(profile);
+      previousUserRef.current = profile;
     }
     // On failure, keep existing user state (don't wipe on transient errors)
   }, [userId, fetchProfileForUser]);
@@ -311,6 +361,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     }
     deliberateSignOutRef.current = true;  // P1240: this one is expected — don't record it
+    clearSessionExpiredNotice();           // P1297: and it is not an expiry,
+    markDeliberateSignOut();               // in this tab or in any other
     await apiSignOut(options);
     // Clear localStorage session info so the banner doesn't show stale data after sign-out
     clearActiveSessionFromStorage();

@@ -51,7 +51,7 @@ export function noteAppSession(session: Session | null): void {
  */
 const UNREACHABLE = Symbol('unreachable');
 
-function isRetryableAuthError(error: { name?: string; status?: number } | null | undefined): boolean {
+export function isRetryableAuthError(error: { name?: string; status?: number } | null | undefined): boolean {
   if (!error) return false;
   if (error.name === 'AuthRetryableFetchError') return true;
   const status = error.status;

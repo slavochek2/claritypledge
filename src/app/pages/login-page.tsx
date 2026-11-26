@@ -16,6 +16,7 @@ import { isSafeReturnPath } from "@/auth/redirect-allowlist";
 import { profilePath } from "@/lib/profile-path";
 import { toast } from "sonner";
 import { takeSignInAgainNotice } from "@/lib/session-guard";
+import { takeSessionExpiredNotice } from "@/auth/stored-session";
 
 export function LoginPage() {
   const location = useLocation();
@@ -48,9 +49,14 @@ export function LoginPage() {
   }
 
   // P1441: arriving here because the session was lost mid-RSVP/cancel — say so, once.
+  // P1297: arriving here because a stored session ended without the person signing out — say
+  // that, instead of a bare form that looks as if they had never signed in. At most one toast:
+  // the seat-specific P1441 message wins when both are set.
   useEffect(() => {
     const notice = takeSignInAgainNotice();
-    if (notice) toast.error(notice);
+    const expired = takeSessionExpiredNotice();
+    const message = notice ?? expired;
+    if (message) toast.error(message);
   }, []);
 
   useEffect(() => {

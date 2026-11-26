@@ -41,6 +41,7 @@ import {
   subscribeNetworkOutcome,
 } from '@/lib/network-outcome';
 import { formatSeenAge } from '@/lib/format-seen-age';
+import { useAuth } from '@/auth';
 
 /** `slow`: the copy is on screen because the network was slow, not because a request failed
  * (P1337) — the page replaces it when the late answer arrives. */
@@ -293,6 +294,20 @@ export function useOfflinePageReport(report: OfflinePageReport | null): void {
 export function useConnectivity(): { offline: boolean; reconnectTick: number } {
   const { offline, reconnectTick } = useOfflineStatus();
   return { offline, reconnectTick };
+}
+
+/**
+ * P1297: connectivity, plus "auth has finished restoring — or we are offline and must not wait".
+ * AuthProvider keeps a stored session it could not confirm in "loading" until the network answers
+ * either way, so a signed-in person is never sent to /login by a dropped request. Offline that wait
+ * can be indefinite, so a page that reads offline (P1369) opens its auth wait on `offline` too, as
+ * story-detail does: the offline read cache is keyed by the stored session, not by the context.
+ * Only for components inside AuthProvider (which App.tsx nests inside this provider).
+ */
+export function useConnectivityAndAuthSettled(): { offline: boolean; reconnectTick: number; authSettled: boolean } {
+  const { offline, reconnectTick } = useConnectivity();
+  const { sessionChecked, isLoading } = useAuth();
+  return { offline, reconnectTick, authSettled: (sessionChecked && !isLoading) || offline };
 }
 
 /** Re-render every minute so "5 min ago" stays true while the strip is up. */

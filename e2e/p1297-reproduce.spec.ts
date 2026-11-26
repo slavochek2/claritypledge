@@ -2,8 +2,8 @@
  * @file p1297-reproduce.spec.ts
  * @description P1297 canary: a signed-in user is bounced to /login on a cold page load.
  *
- * Mechanism (reproduced 2026-11-26): on a cold load auth-js hands back the unexpired stored
- * session without contacting the server, so AuthProvider always holds a `session`. It then
+ * Mechanism (reproduced 2026-11-26): on a cold load auth-js hands back a stored session that is
+ * not near expiry without contacting the server, so AuthProvider holds a `session`. It then
  * fetches the profile (`get_profile_by_id`, 3 attempts, 1 s apart). If all three fail, the
  * provider settles on `user: null, isLoading: false, sessionChecked: true` — byte-for-byte
  * the "nobody is signed in" state — and every auth gate redirects to /login, while the token
@@ -55,6 +55,8 @@ test.describe('P1297 — signed-in user on a cold load of an auth-gated route', 
       await page.waitForTimeout(WATCH_MS);
       expect(logins, 'never navigated to /login').toEqual([]);
       await expect(page).toHaveURL(/\/transcribe/);
+      // Positive signal: past the auth gate, not stuck on its loader.
+      await expect(page.getByTestId('transcribe-consent-screen')).toBeVisible();
     } finally {
       await cleanup();
     }
@@ -65,9 +67,12 @@ test.describe('P1297 — signed-in user on a cold load of an auth-gated route', 
     const page = await context.newPage();
     try {
       const logins = recordLoginNavigations(page);
-      let outageEndsAt = Number.POSITIVE_INFINITY;
+      // Setup: the outage starts at the FIRST profile request, not at goto — a cold dev server can
+      // take longer than OUTAGE_MS to serve the app, and then the fault never fired (seen once).
+      let outageEndsAt: number | null = null;
       let failed = 0;
       await context.route(PROFILE_RPC, async (route) => {
+        outageEndsAt ??= Date.now() + OUTAGE_MS;
         if (Date.now() < outageEndsAt) {
           failed += 1;
           await route.abort('internetdisconnected');
@@ -76,17 +81,22 @@ test.describe('P1297 — signed-in user on a cold load of an auth-gated route', 
         }
       });
 
-      outageEndsAt = Date.now() + OUTAGE_MS;
       await page.goto('/transcribe');
+      await expect.poll(() => failed, { timeout: 30_000 }).toBeGreaterThan(0);
       await page.waitForTimeout(OUTAGE_MS + WATCH_MS);
 
-      expect(failed, 'the fault actually hit the profile request').toBeGreaterThan(0);
+      // The whole first round (3 attempts, 1 s apart) fell inside the outage — the case that used
+      // to settle as signed out — not just one request.
+      expect(failed, 'the fault hit every first-round profile request').toBeGreaterThanOrEqual(3);
       // Precondition of the bug report: a valid credential is still in storage.
       expect(await storedTokenPresent(page), 'stored session still present').toBe(true);
       // The symptom.
       expect(logins, 'signed-in user was sent to /login').toEqual([]);
       await expect(page).toHaveURL(/\/transcribe/);
       await expect(page.getByRole('button', { name: /sign in|log in|continue with/i })).toHaveCount(0);
+      // And the room is usable once the network is back — an endless loader would also pass the
+      // three checks above.
+      await expect(page.getByTestId('transcribe-consent-screen')).toBeVisible();
     } finally {
       await cleanup();
     }
