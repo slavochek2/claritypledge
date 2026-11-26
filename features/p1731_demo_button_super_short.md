@@ -6,8 +6,8 @@ workstream: landing
 created_date: '2026-11-25'
 tags: [landing, video, use-cases]
 disclosure: public
-pipeline_ran: [dev]
-delivery_stage: dev
+pipeline_ran: [dev, ship]
+delivery_stage: ship
 drafted_by: opus
 exec_model: opus
 ---
