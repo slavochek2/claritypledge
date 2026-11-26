@@ -341,6 +341,10 @@ else
   ')
 fi
 
+# P1732: how many names were read. An unparseable answer reads as zero, which a caller that must
+# fail closed (the prod deploy preflight) can then tell apart from a real inventory.
+_safe_echo "SECRETS_FOUND: $(printf '%s\n' "$SECRETS_PRESENT" | grep -c .)"
+
 # Build the required-on-target list = REQUIRED (no fallback) ∪ REQUIRED-EMPTY,
 # minus Supabase built-ins.
 TO_VERIFY=$(echo "$PARSED" | awk -F: '$1=="required" || $1=="required-empty" {print $2}' | sort -u)

@@ -41,9 +41,6 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-MANIFEST="$PROJECT_DIR/supabase/deploy-manifest.json"
-FUNCTIONS_DIR="$PROJECT_DIR/supabase/functions"
-MIGRATIONS_DIR="$PROJECT_DIR/supabase/migrations"
 
 # --- Parse args ---
 ENV_NAME="local"
@@ -53,12 +50,24 @@ ALLOW_DIRTY=false
 ASSUME_ALL=false
 FN_NAMES=()
 FORGET_NAMES=()
+# P1732 (deploy-prod-functions.sh): hash from a clean checkout of the deployed SHA, write the
+# manifest of another checkout (the main one), and commit ONLY the prod entries this run changed.
+SOURCE_DIR=""
+MANIFEST_ROOT=""
+COMMIT_MSG=""
 prev_arg=""
 for arg in "$@"; do
-  if [ "$arg" = "--env" ] || [ "$arg" = "--function" ] || [ "$arg" = "--forget-function" ]; then
+  if [ "$arg" = "--env" ] || [ "$arg" = "--function" ] || [ "$arg" = "--forget-function" ] \
+     || [ "$arg" = "--source-dir" ] || [ "$arg" = "--manifest-root" ] || [ "$arg" = "--commit-isolated" ]; then
     :
   elif [ "$prev_arg" = "--env" ]; then
     ENV_NAME="$arg"
+  elif [ "$prev_arg" = "--source-dir" ]; then
+    SOURCE_DIR="$arg"
+  elif [ "$prev_arg" = "--manifest-root" ]; then
+    MANIFEST_ROOT="$arg"
+  elif [ "$prev_arg" = "--commit-isolated" ]; then
+    COMMIT_MSG="$arg"
   elif [ "$prev_arg" = "--function" ]; then
     FN_NAMES+=("$arg")
   elif [ "$prev_arg" = "--forget-function" ]; then
@@ -83,6 +92,32 @@ done
 
 ENV_KEY="$ENV_NAME"
 [ "$ENV_KEY" = "local" ] && ENV_KEY="test"
+
+[ -n "$MANIFEST_ROOT" ] && PROJECT_DIR="$(cd "$MANIFEST_ROOT" && pwd)"
+MANIFEST="$PROJECT_DIR/supabase/deploy-manifest.json"
+HASH_ROOT="$PROJECT_DIR"
+[ -n "$SOURCE_DIR" ] && HASH_ROOT="$(cd "$SOURCE_DIR" && pwd)"
+FUNCTIONS_DIR="$HASH_ROOT/supabase/functions"
+MIGRATIONS_DIR="$PROJECT_DIR/supabase/migrations"
+# P1732: prod records are fingerprints (inputs plus JWT policy), read from the hashed checkout.
+JWT_POLICY_ARGS=()
+# Absent list = nobody unverified, matching check-deploy-manifest.sh.
+if [ "$ENV_KEY" = "prod" ] && [ -f "$HASH_ROOT/supabase/no-verify-jwt-functions.txt" ]; then
+  JWT_POLICY_ARGS=(--jwt-policy "$HASH_ROOT/supabase/no-verify-jwt-functions.txt")
+fi
+
+if [ -n "$COMMIT_MSG" ] || [ -n "$SOURCE_DIR" ] || [ -n "$MANIFEST_ROOT" ]; then
+  # The three travel together: hashing another checkout without the isolated commit would skip the
+  # dirty-manifest guard below and stamp the working file unchecked.
+  if [ -z "$COMMIT_MSG" ] || [ -z "$SOURCE_DIR" ] || [ -z "$MANIFEST_ROOT" ]; then
+    echo "ERROR: --source-dir, --manifest-root and --commit-isolated are used together; nothing was stamped." >&2
+    exit 1
+  fi
+  if [ "$ENV_KEY" != "prod" ] || [ ${#FN_NAMES[@]} -eq 0 ] || [ ${#FORGET_NAMES[@]} -gt 0 ] || [ "$ASSUME_ALL" = true ]; then
+    echo "ERROR: --source-dir / --commit-isolated stamp named prod functions only; nothing was stamped." >&2
+    exit 1
+  fi
+fi
 
 # --- P1620: --function / --forget-function are function-only operations ---------------------
 # They never touch the migrations section (a bare "both sections" run would stamp every migration
@@ -133,6 +168,7 @@ cleanup() {
   # An unrenamed TMP_OUT means the merge died before the atomic swap; the real
   # manifest is untouched, so dropping the partial file is the whole recovery.
   [ -n "$TMP_OUT" ] && rm -f "$TMP_OUT"
+  [ -n "${TMP_WORK:-}" ] && rm -f "$TMP_WORK"
   return 0
 }
 trap cleanup EXIT
@@ -153,6 +189,10 @@ lock_holder_is_live() {
   [ "$now" = "$recorded" ]
 }
 
+release_lock() {
+  if [ "$LOCK_HELD" = true ]; then rm -f "$LOCKFILE"; LOCK_HELD=false; fi
+  return 0
+}
 acquire_lock() {
   local waited=0 holder holder_start stale_tmp moved_pid moved_start
   TMP_LOCK="$(mktemp "$PROJECT_DIR/supabase/.deploy-manifest.lock.XXXXXX")" || return 1
@@ -208,7 +248,9 @@ acquire_lock || exit 1
 # edit to this run's commit (decisions.md 2026-08-23, 2026-08-25).
 # --allow-dirty is for a deliberate sequence that stamps twice before
 # committing (e.g. functions then migrations); it is never passed by migrate.sh.
-if [ "$ALLOW_DIRTY" != true ] && git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+# --commit-isolated never commits the working file, so a dirty one is not merged into the commit;
+# see commit_isolated below.
+if [ "$ALLOW_DIRTY" != true ] && [ -z "$COMMIT_MSG" ] && git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   if ! git -C "$PROJECT_DIR" diff --quiet HEAD -- supabase/deploy-manifest.json 2>/dev/null; then
     HEAD_JSON="$(git -C "$PROJECT_DIR" show HEAD:supabase/deploy-manifest.json 2>/dev/null || echo '{}')"
     # Shape test, not a blanket "differs from HEAD". A staged-but-uncommitted
@@ -279,13 +321,111 @@ build_functions_json() {
   if [ "$ASSUME_ALL" != true ] && [ ${#FN_NAMES[@]} -eq 0 ]; then
     echo '{"hashes":{},"errors":{}}'; return 0   # --forget-function only
   fi
-  if ! out=$(python3 "$HASH_HELPER" "$FUNCTIONS_DIR" ${args[@]+"${args[@]}"}); then
+  if ! out=$(python3 "$HASH_HELPER" "$FUNCTIONS_DIR" ${args[@]+"${args[@]}"} ${JWT_POLICY_ARGS[@]+"${JWT_POLICY_ARGS[@]}"}); then
     echo "ERROR: function-input-hash.py crashed; nothing was stamped." >&2
     return 1
   fi
   printf '%s\n' "$out"
 }
 FUNCTIONS_RESULT="$(build_functions_json)" || exit 1
+
+# --- P1732: --commit-isolated ----------------------------------------------------------------
+# Commits HEAD's manifest plus ONLY the prod entries named here. The commit content is staged as a
+# blob (git-ops.sh commit-to-main --content-file), so the shared working file is never swapped: a
+# co-tenant's uncommitted edit there is neither committed nor exposed to a co-tenant `git add`.
+# --expect-head-blob makes the commit a compare-and-swap on HEAD's manifest; a manifest commit that
+# lands between our read and the commit makes it refuse, and the content is rebuilt on the new
+# HEAD (up to 3 attempts). The manifest lock is NOT held across commit-to-main and its minutes-long
+# pre-commit hook, so a concurrent migrate.sh stamp is not starved. After the commit lands, the
+# same prod entries are written on top of whatever the working file holds then, under the lock.
+# A non-zero exit means no stamp commit was made, and the working file is untouched.
+if [ -n "$COMMIT_MSG" ]; then
+  [ "$(git -C "$PROJECT_DIR" symbolic-ref --short -q HEAD)" = "main" ] || {
+    echo "ERROR: the main checkout is not on main; no stamp commit was made and nothing was written." >&2; exit 1; }
+  release_lock
+  GIT_OPS="${CP_GIT_OPS:-$PROJECT_DIR/scripts/git-ops.sh}"
+  TMP_OUT="$(mktemp "${TMPDIR:-/tmp}/stamp-commit.XXXXXX")"
+  build_commit() { # <head-json> — writes TMP_OUT
+    python3 -c "
+import json, os, sys
+head = json.loads(sys.argv[1]); res = json.loads(sys.argv[2]); now = sys.argv[3]
+names = [n for n in sys.argv[4].split('\n') if n]
+out_c, functions_dir = sys.argv[5], sys.argv[6]
+if res['errors']:
+    for n, m in sorted(res['errors'].items()):
+        print('stamp-deploy-manifest: cannot hash %s: %s' % (n, m), file=sys.stderr)
+    sys.exit(1)
+missing = [n for n in names if n not in res['hashes']]
+if missing:
+    print('stamp-deploy-manifest: no hash for %s' % ', '.join(missing), file=sys.stderr); sys.exit(1)
+env = head.setdefault('prod', {})
+fns = dict(env.get('functions') or {})
+for n in names:
+    fns[n] = res['hashes'][n]
+if os.path.isdir(os.path.join(functions_dir, '_shared')):
+    fns.setdefault('_shared', '')
+env['functions'] = fns
+env['functions_deployed_at'] = now
+json.dump(head, open(out_c, 'w'), indent=2); open(out_c, 'a').write('\n')
+" "$1" "$FUNCTIONS_RESULT" "$NOW" "$(printf '%s\n' "${FN_NAMES[@]}")" "$TMP_OUT" "$FUNCTIONS_DIR"
+  }
+  COMMIT_RC=1
+  for attempt in 1 2 3; do
+    # HEAD's manifest is the base. Present but unreadable = refuse: a '{}' base would commit a
+    # manifest holding only this stamp, wiping every other entry (Invariant 5).
+    if BASE_BLOB="$(git -C "$PROJECT_DIR" rev-parse -q --verify HEAD:supabase/deploy-manifest.json 2>/dev/null)"; then
+      HEAD_JSON="$(git -C "$PROJECT_DIR" cat-file blob "$BASE_BLOB" 2>/dev/null)" || {
+        echo "ERROR: HEAD's deploy-manifest.json could not be read; no stamp commit was made." >&2; exit 1; }
+    else
+      BASE_BLOB="none"; HEAD_JSON='{}'
+    fi
+    build_commit "$HEAD_JSON" || exit 1
+    COMMIT_RC=0
+    ( cd "$PROJECT_DIR" && "$GIT_OPS" commit-to-main --message "$COMMIT_MSG" --files supabase/deploy-manifest.json \
+        --content-file "$TMP_OUT" --expect-head-blob "$BASE_BLOB" ) >&2 || COMMIT_RC=$?
+    [ "$COMMIT_RC" -eq 4 ] || break
+    echo "stamp-deploy-manifest: HEAD's manifest moved before the commit; rebuilding on the new HEAD (attempt $attempt)" >&2
+  done
+  rm -f "$TMP_OUT"; TMP_OUT=""
+  if [ "$COMMIT_RC" -eq 3 ]; then
+    echo "ERROR: a commit landed but does not record the stamp as built (commit-to-main exit 3). Inspect git show HEAD; the working file is untouched." >&2
+    exit 1
+  elif [ "$COMMIT_RC" -ne 0 ]; then
+    echo "ERROR: the prod stamp commit failed (exit $COMMIT_RC); no commit was recorded and the working file is untouched." >&2
+    exit 1
+  fi
+  if ! git -C "$PROJECT_DIR" show HEAD:supabase/deploy-manifest.json 2>/dev/null | python3 -c "
+import json, sys
+c = json.load(sys.stdin); res = json.loads(sys.argv[1])
+names = [n for n in sys.argv[2].split('\n') if n]
+sys.exit(0 if all(c.get('prod', {}).get('functions', {}).get(n) == res['hashes'][n] for n in names) else 1)
+" "$FUNCTIONS_RESULT" "$(printf '%s\n' "${FN_NAMES[@]}")"; then
+    echo "ERROR: HEAD's manifest does not carry the prod stamp after the commit." >&2
+    exit 1
+  fi
+  # The commit is in. Bring the working file level with it for these entries only, read now and
+  # written atomically under the lock, so whatever else it holds stays as it is.
+  if acquire_lock && [ -f "$MANIFEST" ]; then
+    TMP_WORK="$(mktemp "$MANIFEST.XXXXXX")"
+    if python3 -c "
+import json, sys
+w = json.load(open(sys.argv[1])); c = json.loads(sys.argv[2])
+names = [n for n in sys.argv[3].split('\n') if n]
+env = w.setdefault('prod', {}); fns = dict(env.get('functions') or {}); cf = c['prod']['functions']
+for n in names: fns[n] = cf[n]
+if '_shared' in cf: fns.setdefault('_shared', cf['_shared'])
+env['functions'] = fns; env['functions_deployed_at'] = c['prod'].get('functions_deployed_at')
+json.dump(w, open(sys.argv[4], 'w'), indent=2); open(sys.argv[4], 'a').write('\n')
+" "$MANIFEST" "$(git -C "$PROJECT_DIR" show HEAD:supabase/deploy-manifest.json)" "$(printf '%s\n' "${FN_NAMES[@]}")" "$TMP_WORK"; then
+      chmod 644 "$TMP_WORK"; mv "$TMP_WORK" "$MANIFEST"; TMP_WORK=""
+    else
+      echo "warning: the stamp is committed, but the working manifest could not be brought level (not valid JSON?); it now differs from HEAD" >&2
+    fi
+  else
+    echo "warning: the stamp is committed, but the working manifest was not brought level with it" >&2
+  fi
+  exit 0
+fi
 
 # --- Build migrations section ---
 build_migrations_json() {

@@ -118,6 +118,8 @@ PRIVATE LOG: searched`
    run is `unproven`. Before uploading, the run re-checks that the SHA it computed the batch for is
    still the tip. If the tip has moved, the run uploads nothing and reports `superseded by <sha9>`:
    the newer run deploys the newer code. A normal run never deploys an older SHA over a newer one.
+   (Added in review round 2: a tip moved by `/ship-prod`, which deploys no functions, is deployed by
+   the next `/push`; a run with nothing to push deploys a newer tip that descends from its SHA.)
    Function source comes from a clean checkout of the target SHA, never from the shared working tree.
 2. **The batch is computed from the target SHA.** It is a non-empty named list, never the "deploy
    all" default. It is exactly the functions whose fingerprint at the SHA differs from the healthy
@@ -130,7 +132,13 @@ PRIVATE LOG: searched`
 4. **Only healthy deploys count as deployed.** A function whose upload succeeded but whose smoke
    failed is recorded so that both `/push` and `/day` treat it as **not in sync** until a later smoke
    passes. The implementer picks the mechanism (no stamp, or a recorded failure), but a later run must
-   never print "in sync" for it.
+   never print "in sync" for it. (Added in review round 2: the same holds for any upload no committed
+   record names. The last upload's fingerprint is kept as the deploy proof, and a proof that is
+   neither the tip nor the committed record makes the function stale: a rollback or a manual deploy
+   of uncommitted or branch code is never read as in sync.) (Added in the verification round: a
+   manual `deploy-functions.sh --env prod` never clears the pending marker and writes no proof, even
+   when its smoke passes. It uploads from a working tree that can change during the run, so only a
+   `/push` deploy from a clean checkout of the tip makes the function in sync again.)
 5. **The stamp records what was uploaded, and nothing else.** Hashes come from the target SHA's
    checkout. Only the `prod` entries of functions that deployed are changed. The stamp commit goes
    through `git-ops.sh commit-to-main` and contains no other change to `deploy-manifest.json`. A
@@ -211,11 +219,36 @@ never deployed functions. Replace that line with the new behaviour. Manual one-o
 | Risk | Label | Note |
 |---|---|---|
 | A function changes its API in step with its frontend, and for seconds to minutes (while Vercel builds) the new function serves the old bundle | ACCEPT | No such coupled change is known. If one appears, a `requires-frontend` marker for functions, like the one migrations have, gets its own spec |
-| Two sessions run `/push` at once, or one is delayed | MITIGATE | The lock plus the live-tip check: an older run reports `superseded`, and a newer one deploys the newest code |
+| Two sessions run `/push` at once, or one is delayed | MITIGATE | The lock plus the live-tip check: an older run reports `superseded`, and a newer one deploys the newest code. A tip moved by `/ship-prod` (which deploys no functions) is deployed by the next `/push`; `/day` reports its stale functions until then |
 | Adding the JWT policy to the fingerprint makes every function look stale once | ACCEPT | A one-time full redeploy on the first `/push`. It is announced and smoked |
 | One more keychain dialog per push whose batch is not empty | ACCEPT | The dialog is the physical confirmation, as for migrations. An empty batch prompts nothing |
 | A shared-file change redeploys many functions | ACCEPT | Correct, because they run that code (P1620). Only functions that import the file are included |
 | A rollback is overwritten by the next push | ACCEPT | Rollback warns about it. The durable fix is reverting on main |
+| A rollback whose stamp cannot be committed would leave prod on old code under a record naming the tip (a false "in sync") | MITIGATE | Rollback refuses before uploading when local main is behind or diverged. If the stamp still fails, the deploy proof (neither the tip nor the record) makes the function stale for `/day` and the next `/push` |
+| A manual `deploy-functions.sh --env prod` of uncommitted or branch code, whose smoke passes, would read as in sync (it stamps only the working manifest) | MITIGATE | The manual path never clears the pending marker it writes before the upload, so the function stays stale for `/day` until the next `/push` redeploys the tip from a clean checkout. Costs one redundant upload after a manual deploy of the tip's code. (Round 2 recorded the uploaded fingerprint as a proof instead; the verification round found two tree races in that proof, so it was removed) |
+| The stamp's working-file write-back can be skipped (lock timeout, unreadable file) with exit 0, so a later `migrate.sh` commit can put the old prod values back in HEAD | ACCEPT | Safe direction: the next run sees the record differ and redeploys, and the deploy proof keeps a rollback stale. Costs one redundant upload |
+| A migration that reuses an applied version number reads as applied, so functions deploy ahead of it | ACCEPT | Three old duplicates are grandfathered; pre-commit's duplicate-version check (P1042) refuses new ones; it is a local hook, so a bypassed commit could slip one in |
+| A co-tenant's staged `deploy-manifest.json` makes every stamp commit refuse | ACCEPT | Fail-safe: the proof keeps the next run from uploading again; each run ends `deployed, stamp not recorded` until that index entry is committed or unstaged. Our own refused stamp no longer leaves its blob staged |
+| A `/push` step 7 whose batch outlasts the agent's command timeout is killed mid-batch | MITIGATE | `push.md` runs it with a 10-minute timeout, and a batch of more than 10 in the background. A killed run leaves every unsmoked function pending, so the next run redeploys it |
+| A pending migration at the tip that no function needs still holds every function deploy | ACCEPT | Fail closed: after a normal `/push` nothing is pending, so a pending one means step 2.5 or 6 did not finish. `/day` notes it |
+| The smoke-failure record and the deploy proof live in one checkout's git dir (`<git-common-dir>`, shared by its worktrees) | ACCEPT | `/push` runs from the one main checkout. Any other clone, even on the same machine, has its own records and sees only committed stamps: after a manual deploy from this checkout it can report `ok` while prod runs the manual bytes. Corrected in the verification round, which showed it; this row earlier claimed "never a false in sync" |
+| (Verification round) A clearing of the pending record whose read fails rewrote it empty, dropping every other function's entry | MITIGATE | The record is read once with `cat` (macOS `awk` reads a read error as end of file and exits 0, found in the second delta review), then filtered and replaced atomically; a failed read leaves it unchanged and the run warns that the functions stay pending (test `w-clr`, mutation-controlled) |
+| (Verification round) A manual deploy of a function the tip does not have leaves a pending entry nothing looks at | MITIGATE | An entry whose name has no `index.ts` at the tip (no directory, or a directory without one) is reported by `/day` as a problem and by `/push` as a per-function failure (exit 1, never "in sync"), to resolve by hand: merge it, or check prod, delete it there if it exists, and drop its line. The entry may come from a deploy that never uploaded, so the message does not claim prod has it. Test `w-stray`, mutation-controlled |
+| (Verification round) The manual wrapper is SIGKILLed alone during an upload: the CLI child survives, a later clean `/push` breaks the dead wrapper's lock, deploys and clears the marker, then the orphan upload finishes last and prod runs its bytes with `/day` ok | [FOUNDER DECISION: accept or fix] | Recommended ACCEPT. It needs a kill aimed at the wrapper's PID alone: Ctrl-C and closing the terminal signal the whole process group, which kills the CLI too. Fixing it means the lock tracks the upload child as well, a new lock state |
+| A kill between upload and the proof write leaves the pending marker | ACCEPT | The next run redeploys and smokes it once; it never reads as in sync |
+| An absent `no-verify-jwt-functions.txt` reads as "no function opts out" | ACCEPT | The file is tracked; its absence changes every fingerprint, so every function redeploys with JWT verification on: the secure direction, though a function meant to be open then rejects its callers until the file is restored |
+| In the nothing-to-push case the step-7 SHA comes from `origin/main` after step 1's fetch, a ref other sessions also update | MITIGATE | A `none` run deploys a newer tip that descends from that SHA (nothing was pushed, so no step-5 verdict is tied to it); the migration check gates it. A push run stays bound to its SHA |
+| The secret preflight sees only `Deno.env.get(...)` reads | ACCEPT | It is the secret helper's own parser, so the skip for env-free batches covers exactly what the helper would check. No function reads the environment any other way today (`grep -rE 'Deno\.env\.toObject|process\.env|Deno\.env\[' supabase/functions` is empty) |
+| Network calls (git, upload, secret inventory, smoke) are bounded by `timeout`, and git stall limits apply to https remotes only | ACCEPT | `/usr/bin/timeout` ships with this macOS and origin is https. On a machine without `timeout` and with an ssh remote, a half-open connection could hang a run holding the lock until someone kills it |
+| The manual `deploy-functions.sh` upload and smoke have no `timeout` | ACCEPT | Predates P1732 and is run by hand, with a person watching; step 7, the unattended path, is bounded |
+| Timeout expiry itself is not exercised by a test | ACCEPT | The bound is a wrapper around calls whose failure paths are tested; a killed call reads as an upload, secret-check or smoke failure |
+| The stale-lock breaker's start-time re-check has no concurrent test | ACCEPT | It needs a recycled PID inside the breaker window; covered by reading, not by a test |
+| (Verification round) A manual deploy's tree changes during the run, so a fingerprint taken from that tree names bytes that were never uploaded | MITIGATE | Removed by structure: the manual path writes no proof at all (see the manual-deploy row above), so no tree read can vouch for an upload |
+| (Verification round) A timed-out child that ignores TERM keeps running and holds the prod lock | MITIGATE | Every bound is `timeout -k 10`: a child still alive 10s after TERM is killed |
+| (Verification round) The secret helper's own child (`supabase secrets list`) can outlive a timed-out helper when it ignores TERM | ACCEPT | The deploy has already stopped with `not deployed` and released the lock; what is left is one read-only listing process, never a wrong verdict |
+| (Verification round) The content-mode index restore reads the entry and rewrites it in two git calls; a co-tenant `git add` of the manifest between them is overwritten with HEAD's entry | ACCEPT | The window is two consecutive git commands, and the main lock never covered raw co-tenant `git add` (P1279). Before this fix the blob stayed staged and refused every later stamp, which was worse |
+| (Verification round) origin/main moves between `ls-remote` and the fetch during a rollback, so the rollback stamp lands on a local main that has diverged from origin | ACCEPT | Predates P1732. The end state is a diverged main, which every later run and `/day` reports as unproven (exit 2), never as in sync |
+| The older locks in `stamp-deploy-manifest.sh` and `git-ops.sh` read `ps` output in the user's locale | DEFER | Predates P1732; the new prod lock uses `LC_ALL=C`. Unblocked by a lock-helper consolidation |
 
 **Non-Goals**
 - Do NOT add any scheduled or unattended prod deploy.
@@ -235,6 +268,30 @@ never deployed functions. Replace that line with the new behaviour. Manual one-o
 - **Only add `cp.prodfns` to `/day`.** Rejected on its own, because it still finds drift after the
   fact. Kept as the backstop.
 
+## Cost Budget
+
+The metered unit is prod **edge function invocations** (Supabase Free plan row in
+`docs/technical/metered-services.md`: 500,000 a month). The deploys themselves and the one secrets
+list go to the Management API, which the registry does not meter. `/day`'s `--check` calls GitHub
+only (`ls-remote` and a fetch), never Supabase.
+
+| Measure | Per user | Per hour | Per test run |
+|---|---|---|---|
+| Requests (invocations) | 0: no user path changes | 0: nothing scheduled | `U deployed x 2 smoke requests (OPTIONS + POST, scripts/edge-function-smoke.mjs) = 2U`; in sync: `0 x 2 = 0`; first run after ship: `24 functions x 2 = 48` |
+| Egress (bytes) | 0 | 0 | `2U x one small JSON body`, under 1 KB each: `2U x 1 KB = 2U KB` |
+| Log lines | 0 | 0 | `2U` invocation log lines, plus `2 x F` for F smoke failures (which repeat on every run until fixed: `2F x runs`) |
+| Service unit x price | n/a | n/a | n/a: invocations are within the plan, no per-unit price |
+
+The hermetic suites (`scripts/test-p1732-*.sh`) contact no service: a fake CLI and a fake smoke stand in.
+
+1. **Fits the plan limit today?** Fits. Monthly = `2 x (functions changed per month) + 48 once`.
+   Even if every `/push` redeployed every function, `2 x 24 x pushes per month` reaches 500,000
+   only at about 10,400 pushes a month.
+2. **Fits at 10x?** Fits: invocations scale with pushes and changed functions, not with users.
+3. **Guard:** only stale functions are deployed, so an in-sync run costs 0 invocations. A function
+   that keeps failing its smoke is re-smoked on every run: `2 invocations x runs`, which is bounded
+   by how often `/push` runs.
+
 ## Rollback Strategy
 
 Revert the skill and script commits. Nothing changes in the database. For a bad function, use the
@@ -252,35 +309,35 @@ Hermetic tests use a fake `supabase` CLI that records a content hash of each upl
 the flags it got, a fake secret-inventory API, a fake smoke, and pinned fixture repos and manifests.
 No test depends on today's live drift.
 
-- [ ] **Source binding:** with a function file edited and left uncommitted in the working tree, the
+- [x] **Source binding:** with a function file edited and left uncommitted in the working tree, the
       uploaded bytes hash to the target SHA's version. The test is first shown failing against
       today's scripts
-- [ ] **Selection:** the batch is exactly the functions whose fingerprint differs from the healthy
+- [x] **Selection:** the batch is exactly the functions whose fingerprint differs from the healthy
       prod record. A JWT-policy-only change selects that function, in both directions. Healthy
       unpushed stamps and orphans are excluded. An empty batch uploads nothing and prompts nothing
-- [ ] **Supersession:** if the tip moves between selection and upload, nothing uploads and the run
+- [x] **Supersession:** if the tip moves between selection and upload, nothing uploads and the run
       reports `superseded`. An older run that starts after a newer one has deployed changes nothing
-- [ ] **Concurrency:** two runs started together never overlap uploads, and the manifest ends with
+- [x] **Concurrency:** two runs started together never overlap uploads, and the manifest ends with
       both runs' entries intact
-- [ ] **Partial failure:** one of three uploads fails. The other two are smoked, stamped and
+- [x] **Partial failure:** one of three uploads fails. The other two are smoked, stamped and
       committed, the third is `not deployed`, and the exit is non-zero
-- [ ] **Smoke failure:** upload ok and smoke fails. The function is `deployed, smoke failed`, the
+- [x] **Smoke failure:** upload ok and smoke fails. The function is `deployed, smoke failed`, the
       exit is non-zero, and the **next** run selects it again rather than printing "in sync"
-- [ ] **Stamp failure:** upload and smoke ok, stamp commit fails. The function is reported
+- [x] **Stamp failure:** upload and smoke ok, stamp commit fails. The function is reported
       `deployed, stamp not recorded`, and the next run recovers it without a second upload, or
       redeploys it idempotently. Which one is documented
-- [ ] **Manifest isolation:** an uncommitted `test` edit in the working manifest is not in the stamp
+- [x] **Manifest isolation:** an uncommitted `test` edit in the working manifest is not in the stamp
       commit
-- [ ] **Preflight fails closed:** an inherited `SKIP_EDGE_SECRET_CHECK=1`, a missing helper, an
+- [x] **Preflight fails closed:** an inherited `SKIP_EDGE_SECRET_CHECK=1`, a missing helper, an
       erroring secret API, and a target mismatch each cause zero uploads. A batch function missing
       a secret is excluded while the others still deploy
-- [ ] **Gating:** exit 4 → nothing deployed, `unproven`. Step 6 not applied → `waiting on
+- [x] **Gating:** exit 4 → nothing deployed, `unproven`. Step 6 not applied → `waiting on
       migrations`. Nothing to push → the step still runs and retries a stale function
-- [ ] **Rollback mode:** deploys only the named functions from the given SHA and prints the warning
-- [ ] **`/day` `cp.prodfns`:** `problem` on a stale fixture and on a smoke-failed fixture, `ok` on a
+- [x] **Rollback mode:** deploys only the named functions from the given SHA and prints the warning
+- [x] **`/day` `cp.prodfns`:** `problem` on a stale fixture and on a smoke-failed fixture, `ok` on a
       matching fixture and on a healthy unpushed-stamp fixture, `unproven` when the fetch fails
-- [ ] `push.md` and `ship-prod` no longer claim that `/ship-prod` deploys functions
-- [ ] The P1155 reversal and the new function-deploy authorization are recorded in
+- [x] `push.md` and `ship-prod` no longer claim that `/ship-prod` deploys functions
+- [x] The P1155 reversal and the new function-deploy authorization are recorded in
       `docs/decisions.md` (via `/kdd`)
 - [ ] The first real `/push` after ship prints a batch and a result for each function. The deployed
       batch matches the functions stale at that SHA (clarify-draft, if still stale). `[post-deploy]`

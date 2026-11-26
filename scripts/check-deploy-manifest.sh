@@ -93,7 +93,14 @@ fi
 
 # --- Compare (write to temp file to avoid set -e issues) ---
 HASH_HELPER="$SCRIPT_DIR/lib/function-input-hash.py"
-python3 << 'PYEOF' - "$MANIFEST_PATH" "$ENV_KEY" "$FUNCTIONS_DIR" "$MIGRATIONS_DIR" "$LOCAL_MANIFEST_PATH" "$HASH_HELPER" > "$TMPFILE"
+# P1732: a prod record is a fingerprint (traced inputs plus the JWT policy); TEST keeps plain hashes.
+JWT_POLICY_ARG=""
+# An absent list means no function is served without verification, which is also how
+# deploy-functions.sh would treat it if it did not refuse outright (it does, P1557).
+if [ "$ENV_KEY" = "prod" ] && [ -f "$PROJECT_DIR/supabase/no-verify-jwt-functions.txt" ]; then
+  JWT_POLICY_ARG="$PROJECT_DIR/supabase/no-verify-jwt-functions.txt"
+fi
+python3 << 'PYEOF' - "$MANIFEST_PATH" "$ENV_KEY" "$FUNCTIONS_DIR" "$MIGRATIONS_DIR" "$LOCAL_MANIFEST_PATH" "$HASH_HELPER" "$JWT_POLICY_ARG" > "$TMPFILE"
 import json, sys, os, glob, subprocess
 
 manifest_path = sys.argv[1]
@@ -102,12 +109,16 @@ functions_dir = sys.argv[3]
 migrations_dir = sys.argv[4]
 local_manifest_path = sys.argv[5] if len(sys.argv) > 5 else ''
 hash_helper = sys.argv[6]
+jwt_policy = sys.argv[7] if len(sys.argv) > 7 else ''
 
 # P1620: a function's hash covers everything its bundle contains (index.ts + transitive relative
 # imports + deno.json/deno.lock), from the SAME helper the stamper uses. A helper that crashes or
 # prints garbage must never read as "no drift": exit 3, which the caller turns into a hard error.
 try:
-    _res = subprocess.run([sys.executable, hash_helper, functions_dir],
+    _cmd = [sys.executable, hash_helper, functions_dir]
+    if jwt_policy:
+        _cmd += ['--jwt-policy', jwt_policy]
+    _res = subprocess.run(_cmd,
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if _res.returncode != 0:
         raise RuntimeError(_res.stderr.decode('utf-8', 'replace').strip() or 'exit %d' % _res.returncode)

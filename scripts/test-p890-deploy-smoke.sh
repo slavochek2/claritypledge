@@ -23,6 +23,8 @@
 set -u
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+# P1732: a prod deploy refuses any project but prod's; this fixture's project is "stub".
+export CP_PROD_PROJECT_REF_EXPECTED="stub"
 # Defaults to the shipped script. The override exists so the canary's own failure path
 # can be demonstrated against a deliberately broken copy (epistemic gate 7) without
 # editing the real file; nothing in normal use sets it.
@@ -77,6 +79,8 @@ build_repo() {
   # never the login keychain, never a real dialog. STUB_KEYCHAIN_DECLINE=1 emulates a decline.
   cp "$REPO_ROOT/scripts/keyring.sh" "$root/scripts/keyring.sh"
   mkdir -p "$root/scripts/lib"
+  # P1732: the prod path's shared lock + preflight, and the tracer that scopes the preflight.
+  cp "$REPO_ROOT/scripts/lib/prod-functions.sh" "$REPO_ROOT/scripts/lib/function-input-hash.py" "$root/scripts/lib/"
   cat > "$root/scripts/lib/keychain.py" <<'STUB'
 import os, sys
 if len(sys.argv) >= 3 and sys.argv[1] == "get" and os.environ.get("STUB_KEYCHAIN_DECLINE") != "1":

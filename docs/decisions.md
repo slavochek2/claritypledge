@@ -8,6 +8,30 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-26 [technical]: `/push` deploys every prod edge function stale at the pushed tip, and only a clean deploy can mark one in sync (P1732)
+
+**Context:** A neighbouring session said after its push that "not everything was deployed". The founder asked why a push does not deploy new functions, how anyone knows prod functions are not stale, and whether anything warns: *"when i push shouldnt it always deploy new functions automatically?"* Prod function drift had been detected all along (P1155's workflow opened an issue that stayed open 7 days with 6 appends), but nothing on the founder's path acted on it, and `/ship-prod` was described as deploying functions when it deploys none.
+
+**Decision:** Reverses in part 2026-09-08 "Detection was never the problem" (P1155), on the founder's request above. Once origin/main has moved, `/push` step 7 runs `scripts/deploy-prod-functions.sh` on the live `origin/main` tip. It also runs when there is nothing to push. It deploys every function whose prod fingerprint (code plus JWT policy) differs from that tip, from a clean checkout of the tip, including leftovers merged by other sessions. Typing `/push` authorizes that announced batch for that exact SHA. This is a separate authorization alongside P1211 D1's migration set, and functions wait for any migration the prod record does not list as applied. A function counts as in sync only when it was uploaded from a clean checkout, its smoke passed and its stamp was committed. A manual `deploy-functions.sh --env prod` uploads from a working tree, so it writes no proof and never clears the pending record: `/day` (`cp.prodfns`) reports the function until the next `/push` redeploys the tip.
+
+**Alternatives rejected:** Blocking the push on drift. P1155's reasoning still holds: the stale set is only computable afterwards, on the pushed SHA. An unattended workflow holding prod credentials, still banned. Letting a manual deploy's passing smoke clear the record by fingerprinting the working tree: two review rounds found a race in every variant (the tree edited, checked out or restored between upload and fingerprint), so the manual path keeps no proof at all. Deploying only what this push changed: it would leave other sessions' merged functions stale, which is what the founder asked about.
+
+**Consequences:** The first `/push` after ship redeploys all 24 prod functions once, because no fingerprints were recorded before. After that it deploys only stale ones. Prod function drift reaches `/day`. P1155's seven workflows, their issues and the ops@ escalation are unchanged. Accepted residuals (spec Risks): the pending record lives in one checkout's git dir, so another clone cannot see a manual deploy made from this one. Open for the founder: a manual deploy wrapper SIGKILLed alone mid-upload can leave an orphan upload that lands after a later clean `/push` (Ctrl-C and closing the terminal stop the upload too).
+
+**References:** [features/p1732_push_deploys_stale_prod_functions.md](../features/p1732_push_deploys_stale_prod_functions.md) · `scripts/deploy-prod-functions.sh` · `scripts/lib/prod-functions.sh` · `.claude/commands/slava/build/push.md` step 7 · decisions.md 2026-09-08 [technical] (P1155) · decisions.md 2026-09-21 [technical] (P1211)
+
+## 2026-11-26 [process]: A reviewer that works from a clone cannot see the main checkout's uncommitted skill edits, and a probe run in the agent's shell is not a probe of a bash script (P1732)
+
+**Context:** Two of Codex's four HIGH findings in one P1732 round said `/push` never runs step 7 when there is nothing to push and that `/day` does not report prod drift. Both were false: `codex-review` clones the repository, and the skill edits that do both were uncommitted on the main checkout, because skill files are committed on `main`, not the feature branch. Separately, a probe of whether `set -e` kills a caller of `prodfn_smoke_failed_clear` was run inside the agent shell (zsh) and passed. The same probe under `bash -c` exited 1, and our own mutation control had already shown it.
+
+**Decision:** Before acting on a reviewer's finding, check whether it rests on files the reviewer could not see (uncommitted, or in another checkout), and say in the brief which files are uncommitted and where. A probe of a bash script runs under `bash`, never in the agent shell.
+
+**Alternatives rejected:** Committing the skill edits to `main` before the review so the clone contains them: that puts unreviewed skill text on `main`, which every session runs.
+
+**Consequences:** Delta briefs to `codex-review` now name the uncommitted main-checkout files and their relevant lines. The two clone-artifact findings were dismissed only after reading the real files.
+
+**References:** [features/p1732_push_deploys_stale_prod_functions.md](../features/p1732_push_deploys_stale_prod_functions.md) · `~/.agents/bin/codex-review` · [.claude/rules/epistemic.md](../.claude/rules/epistemic.md) gate 9
+
 ## 2026-11-26 [product]: `/events` lands on the event list, not the CM group page (reverses P1010)
 
 **Context:** The founder found it odd that claritypledge.com/events opened the CM group page.
@@ -10030,6 +10054,8 @@ commands side by side.
 **References:** [features/p1155_correct_alarm_rang_into_an_empty_room.md](../features/p1155_correct_alarm_rang_into_an_empty_room.md) · `scripts/alert-escalator.mjs`
 
 ## 2026-09-08 [technical]: Detection was never the problem — nothing on this machine consumed anything unattended (P1155)
+
+**Reversed in part 2026-11-26, see "`/push` deploys every prod edge function stale at the pushed tip, and only a clean deploy can mark one in sync (P1732)". Still in force: no second detector, no unattended repair, no push-time gate, the seven workflows and their escalation.**
 
 **Context:** Seven workflows detect prod problems and open GitHub issues (P866 alert-only
 pattern). They work: issue #10 ran five days straight, issue #11 three. Neither was read

@@ -59,6 +59,9 @@ for f in stamp-deploy-manifest.sh check-deploy-manifest.sh deploy-functions.sh k
   cp "$REPO_ROOT/scripts/$f" "$SEED/scripts/$f"; chmod +x "$SEED/scripts/$f"
 done
 cp "$REPO_ROOT/scripts/lib/function-input-hash.py" "$SEED/scripts/lib/function-input-hash.py"
+# P1732: the prod path's shared lock + preflight; the fixture's prod project is "stub".
+cp "$REPO_ROOT/scripts/lib/prod-functions.sh" "$SEED/scripts/lib/prod-functions.sh"
+export CP_PROD_PROJECT_REF_EXPECTED="stub"
 cat > "$SEED/scripts/lib/keychain.py" <<'STUB'
 import sys
 if len(sys.argv) >= 3 and sys.argv[1] == "get":
@@ -124,7 +127,8 @@ fresh_work() {
   # hash of THIS clone's fn-a/index.ts (the key-transform guard — a fixture that touches nothing
   # the check reads would report "not reproduced" for a real defect).
   local want got
-  want=$(python3 "$W/scripts/lib/function-input-hash.py" "$W/supabase/functions" --only fn-a | python3 -c 'import json,sys;print(json.load(sys.stdin)["hashes"]["fn-a"])')
+  local jwt=(); [ -f "$W/supabase/no-verify-jwt-functions.txt" ] && jwt=(--jwt-policy "$W/supabase/no-verify-jwt-functions.txt")
+  want=$(python3 "$W/scripts/lib/function-input-hash.py" "$W/supabase/functions" --only fn-a ${jwt[@]+"${jwt[@]}"} | python3 -c 'import json,sys;print(json.load(sys.stdin)["hashes"]["fn-a"])')
   got=$(git -C "$W" show origin/main:supabase/deploy-manifest.json | python3 -c 'import json,sys;print(json.load(sys.stdin)["prod"]["functions"]["fn-a"])')
   [ "$want" = "$got" ] || die "fixture: origin manifest hash for fn-a ($got) != helper hash of fn-a ($want)"
 }

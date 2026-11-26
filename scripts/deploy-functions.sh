@@ -114,6 +114,20 @@ for fn in ${FUNCTION_NAMES[@]+"${FUNCTION_NAMES[@]}"}; do
   fi
 done
 
+# --- P1732: one prod function deploy at a time ---
+# The same lock deploy-prod-functions.sh (the /push step and rollback) holds for selection, upload,
+# smoke and stamp. Taken before the prod token is asked for, so a waiting run spends no dialog.
+# Sourced on every env: it defines functions only, and the JWT-list parser in it serves TEST too.
+# shellcheck source=lib/prod-functions.sh
+source "$SCRIPT_DIR/lib/prod-functions.sh"
+if [ "$ENV_NAME" = "prod" ]; then
+  if ! prodfn_lock_acquire "$PROJECT_DIR"; then
+    echo "ERROR: unproven: another prod function deploy holds the lock. Nothing was deployed."
+    exit 1
+  fi
+  trap prodfn_lock_release EXIT
+fi
+
 # --- Is this a worktree, and where is the main checkout? (prod only, P1690) ---
 # The main checkout is the parent of git's common directory, whichever worktree this runs in. Only
 # a common directory named .git sits inside a checkout: a bare repository, or a git directory kept
@@ -184,6 +198,22 @@ restamp_caveat() {
 SUPABASE_URL=$(grep "^VITE_SUPABASE_URL=" "$ENV_FILE" | cut -d= -f2-)
 PROJECT_REF=$(echo "$SUPABASE_URL" | sed 's|https://||' | cut -d. -f1)
 
+# P1732 Invariant 7: a prod deploy targets the prod project or uploads nothing.
+# The URL must be exactly https://REF.supabase.co: the smoke probes this URL, so a host that only
+# begins with the prod ref would verify a different server from the one the upload targets.
+if [ "$ENV_NAME" = "prod" ]; then
+  SUPABASE_URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r')"
+  if ! PROJECT_REF="$(prodfn_ref_from_url "$SUPABASE_URL")"; then
+    echo "ERROR: target mismatch: .env.prod's VITE_SUPABASE_URL is not of the form https://REF.supabase.co. Nothing was deployed."
+    exit 1
+  fi
+  SUPABASE_URL="https://$PROJECT_REF.supabase.co"
+  if ! TARGET_WHY="$(prodfn_check_target "$PROJECT_REF")"; then
+    echo "ERROR: $TARGET_WHY. Nothing was deployed."
+    exit 1
+  fi
+fi
+
 # Get PAT for deployment (P1214 / P1239).
 # prod — ONLY the locked keyring item: one authorization dialog per deploy. Not .env.prod's
 #   plaintext copy and not the Supabase CLI's saved login, both readable with no prompt.
@@ -243,7 +273,31 @@ fi
 # Verifies every referenced env var without a real code-level fallback exists
 # on the target project. SKIP_EDGE_SECRET_CHECK=1 exists for first-run
 # bootstrap deploys where the function and its secret are added together.
-if [ "${SKIP_EDGE_SECRET_CHECK:-0}" = "1" ]; then
+EXCLUDED=()
+if [ "$ENV_NAME" = "prod" ]; then
+  # P1732 Invariant 7: scoped to the functions being deployed, and fail closed. An inherited
+  # SKIP_EDGE_SECRET_CHECK, a missing helper or an unreadable secret inventory uploads nothing;
+  # a function missing a secret is left out and the rest still deploy.
+  PREFLIGHT_DIR="$(mktemp -d)"
+  if ! prodfn_preflight "$PROJECT_REF" "$FUNCTIONS_DIR" "$SCRIPT_DIR/lib/function-input-hash.py" \
+       "$SCRIPT_DIR/check-edge-function-secrets.sh" "$PREFLIGHT_DIR" "${FUNCTIONS[@]}"; then
+    echo "ERROR: prod preflight failed: $(cat "$PREFLIGHT_DIR/preflight.fatal"). Nothing was deployed."
+    rm -rf "$PREFLIGHT_DIR"
+    exit 1
+  fi
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    echo "NOT DEPLOYED: $line"
+    EXCLUDED+=("${line%%: *}")
+  done < "$PREFLIGHT_DIR/preflight.excluded"
+  FUNCTIONS=()
+  while IFS= read -r line; do [ -n "$line" ] && FUNCTIONS+=("$line"); done < "$PREFLIGHT_DIR/preflight.ok"
+  rm -rf "$PREFLIGHT_DIR"
+  if [ ${#FUNCTIONS[@]} -eq 0 ]; then
+    echo "ERROR: every named function failed the preflight. Nothing was deployed."
+    exit 1
+  fi
+elif [ "${SKIP_EDGE_SECRET_CHECK:-0}" = "1" ]; then
   echo "WARN: SKIP_EDGE_SECRET_CHECK=1 : secret hygiene check bypassed"
 else
   CHECK_SCRIPT="$SCRIPT_DIR/check-edge-function-secrets.sh"
@@ -266,10 +320,21 @@ if [ ! -f "$NO_VERIFY_JWT_FILE" ]; then
   exit 1
 fi
 is_no_verify_jwt() {
-  grep -qxF "$1" < <(grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$NO_VERIFY_JWT_FILE")
+  # P1732: one parser for the upload flag and the recorded fingerprint (lib/prod-functions.sh).
+  prodfn_no_verify_jwt "$NO_VERIFY_JWT_FILE" "$1"
 }
 
 # --- Deploy ---
+# P1732: on prod, every function about to upload is first recorded as not yet smoked, and any proof
+# deploy-prod-functions.sh holds for it is dropped. A run interrupted before its smoke, a partial
+# batch that exits before the smoke, or EDGE_SMOKE=0 therefore leave it selected for the next
+# /push, never "in sync". If the record cannot be written, nothing uploads.
+if [ "$ENV_NAME" = "prod" ]; then
+  if ! prodfn_smoke_failed_add "$PROJECT_DIR" "${FUNCTIONS[@]}" || ! prodfn_proof_drop "$PROJECT_DIR" "${FUNCTIONS[@]}"; then
+    echo "ERROR: the prod smoke-failure record could not be written. Nothing was deployed."
+    exit 1
+  fi
+fi
 echo "Deploying ${#FUNCTIONS[@]} function(s) to $ENV_NAME ($PROJECT_REF)..."
 DEPLOYED=()
 FAILED=()
@@ -296,7 +361,9 @@ for fn in "${FUNCTIONS[@]}"; do
   # answers the probe, so a silently failed deploy leaves prod on stale code and reports
   # success twice. Capture the output to a file and test the deploy's own exit code.
   DEPLOY_LOG=$(mktemp)
-  if supabase functions deploy "$fn" --project-ref "$PROJECT_REF" $DEPLOY_FLAGS >"$DEPLOY_LOG" 2>&1; then
+  # P1732: an inherited SUPABASE_WORKDIR would make the CLI upload another tree than the one this
+  # script hashed, preflighted and stamps. argv is unchanged (callers' fakes read it by position).
+  if ( cd "$PROJECT_DIR" && unset SUPABASE_WORKDIR && supabase functions deploy "$fn" --project-ref "$PROJECT_REF" $DEPLOY_FLAGS ) >"$DEPLOY_LOG" 2>&1; then
     tail -1 "$DEPLOY_LOG"
     DEPLOYED+=("$fn")
   else
@@ -319,6 +386,8 @@ if [ ${#FAILED[@]} -gt 0 ]; then
   echo ""
   echo "ERROR: ${#FAILED[@]} function(s) failed to deploy: ${FAILED[*]}"
   if [ ${#DEPLOYED[@]} -gt 0 ]; then
+    # P1732: the ones that uploaded are not smoked on this path, so they are not healthy yet.
+    if [ "$ENV_NAME" = "prod" ]; then prodfn_smoke_failed_add "$PROJECT_DIR" "${DEPLOYED[@]}"; fi
     if stamp_deployed; then
       echo "Manifest stamped for the ${#DEPLOYED[@]} that deployed: ${DEPLOYED[*]}. The failed ones stay reported as drift."
     else
@@ -367,12 +436,29 @@ fi
 # loop is unchanged — opt in with EDGE_SMOKE=1. Every probe is credential-free and
 # lands on a refusal path: no email, no payment, no write.
 SMOKE_SCRIPT="$SCRIPT_DIR/edge-function-smoke.mjs"
+# P1732 Invariant 4: on prod, a function that was uploaded but not smoked green is recorded as
+# smoke-failed (lib/prod-functions.sh), so deploy-prod-functions.sh and /day treat it as NOT in
+# sync even though the stamp above recorded its hash. A passing smoke does not clear it (below).
+record_prod_smoke() { # failed|passed
+  [ "$ENV_NAME" = "prod" ] || return 0
+  if [ "$1" = "failed" ]; then prodfn_smoke_failed_add "$PROJECT_DIR" "${DEPLOYED[@]}"; return; fi
+  # A passing smoke proves the function answers, not which bytes prod runs: this path uploads from a
+  # working tree that can change during the run, and it commits no record. So the pending marker
+  # written before the upload stays. /day reports the function, and the next /push redeploys the tip
+  # from a clean checkout and records it. (Two review rounds found tree races in every proof taken
+  # from this tree; keeping no proof here removes that class.)
+  echo "prod: ${DEPLOYED[*]} stay pending until the next /push redeploys the tip from a clean checkout and records it; /day reports them until then"
+}
 if [ "${EDGE_SMOKE:-}" = "0" ]; then
   echo "WARN: EDGE_SMOKE=0 : post-deploy smoke skipped"
+  record_prod_smoke failed
 elif [ "$ENV_NAME" = "prod" ] || [ "${EDGE_SMOKE:-}" = "1" ]; then
   if [ -f "$SMOKE_SCRIPT" ]; then
     echo ""
-    if ! node "$SMOKE_SCRIPT" --base-url "$SUPABASE_URL/functions/v1" --only "$(IFS=,; echo "${DEPLOYED[*]}")"; then
+    if node "$SMOKE_SCRIPT" --base-url "$SUPABASE_URL/functions/v1" --only "$(IFS=,; echo "${DEPLOYED[*]}")"; then
+      record_prod_smoke passed
+    else
+      record_prod_smoke failed
       echo ""
       # Say what the manifest really holds: after a failed stamp it does not record this upload.
       if [ "$STAMP_OK" -eq 1 ]; then
@@ -389,6 +475,7 @@ elif [ "$ENV_NAME" = "prod" ] || [ "${EDGE_SMOKE:-}" = "1" ]; then
     # opt-in) means the deploy has no post-deploy verification at all — a partial
     # checkout or a bad cherry-pick would otherwise deploy prod and report success,
     # which is exactly the unverified-deploy state this feature closes.
+    record_prod_smoke failed
     echo ""
     echo "ERROR: $SMOKE_SCRIPT not found, but this run requires a post-deploy smoke."
     echo "       The functions ARE deployed and are now unverified. Restore the script"
@@ -398,5 +485,9 @@ elif [ "$ENV_NAME" = "prod" ] || [ "${EDGE_SMOKE:-}" = "1" ]; then
 fi
 
 if [ "$STAMP_OK" -eq 0 ]; then
+  exit 1
+fi
+if [ ${#EXCLUDED[@]} -gt 0 ]; then
+  echo "ERROR: not deployed (preflight): ${EXCLUDED[*]}"
   exit 1
 fi

@@ -33,6 +33,9 @@ set -u
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
 
 SRC_ROOT="${P1690_SRC_ROOT:-$(git rev-parse --show-toplevel)}"
+# P1732: a prod deploy refuses any project but prod's. These fixtures tell .env.prod copies apart
+# by their ref, so all three fixture refs stand in for prod.
+export CP_PROD_PROJECT_REF_EXPECTED="mainref wtref strayref"
 SELF_UT="${P1690_SELFHOSTED_UNDER_TEST:-$SRC_ROOT/scripts/selfhosted/deploy-functions.sh}"
 WRAP_UT="${P1690_WRAPPER_UNDER_TEST:-$SRC_ROOT/scripts/deploy-functions.sh}"
 [ -f "$SELF_UT" ] && [ -f "$WRAP_UT" ] || { echo "FIXTURE: a script under test is missing"; exit 2; }
@@ -442,6 +445,8 @@ build_hosted() { # root: a committed repository, so a linked worktree gets scrip
   # Real keyring.sh, stub keychain.py: no login keychain, no dialog, no notification. The stub
   # records every time it is asked, and declines when STUB_KEYCHAIN_DECLINE=1.
   cp "$SRC_ROOT/scripts/keyring.sh" "$root/scripts/keyring.sh"
+  # P1732: the prod path's shared lock + preflight, and the tracer that scopes the preflight.
+  cp "$SRC_ROOT/scripts/lib/prod-functions.sh" "$SRC_ROOT/scripts/lib/function-input-hash.py" "$root/scripts/lib/"
   cat > "$root/scripts/lib/keychain.py" <<'STUB'
 import os, sys
 if len(sys.argv) >= 3 and sys.argv[1] == "get":

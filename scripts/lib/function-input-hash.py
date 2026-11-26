@@ -33,7 +33,9 @@ and NO hash:
     the tracer cannot follow).
 A function directory without index.ts hashes to "" (the long-standing shape of the `_shared` entry).
 
-Usage: function-input-hash.py FUNCTIONS_DIR [--only NAME ...] [--files NAME]
+Usage: function-input-hash.py FUNCTIONS_DIR [--only NAME ...] [--files NAME] [--jwt-policy LIST]
+  --jwt-policy LIST (P1732, prod only): fold membership in no-verify-jwt-functions.txt into the
+  hash of each listed function. An unreadable LIST exits non-zero.
 Output (stdout, JSON): {"hashes": {name: hex-or-""}, "errors": {name: message}}
   --files NAME prints {"files": [relative paths in NAME's trace]} instead (diagnostics, oracle).
 Exit 0 when it ran to completion (errors are data, the caller must read them); any other exit
@@ -263,12 +265,26 @@ def hash_function(fn_dir, functions_dir):
     return h.hexdigest()
 
 
+def fold_jwt_policy(input_hash, name, no_verify):
+    """P1732 fingerprint: the traced input hash folded with the gateway JWT policy. BOTH policies
+    are folded, so no fingerprint equals a pre-P1732 plain-hash record. Folding only the open
+    policy would make "removed from no-verify-jwt-functions.txt" hash back to the plain value a
+    legacy record holds for a function deployed open, and that function would read as in sync
+    while prod still served it without JWT verification. Cost: every prod record looks stale once,
+    and the first run redeploys everything (spec Risks: ACCEPT). "" (no index.ts) is left alone,
+    and without a policy list nothing is folded (TEST keeps its old shape)."""
+    if no_verify is None or input_hash == '':
+        return input_hash
+    tag = b'jwt=none\0' if name in no_verify else b'jwt=verify\0'
+    return hashlib.sha256(tag + input_hash.encode('ascii')).hexdigest()
+
+
 def main(argv):
     if len(argv) < 2:
         sys.stderr.write(__doc__)
         return 64
     functions_dir = argv[1]
-    only, list_files = [], None
+    only, list_files, jwt_policy = [], None, None
     i = 2
     while i < len(argv):
         if argv[i] == '--only' and i + 1 < len(argv):
@@ -276,6 +292,9 @@ def main(argv):
             i += 2
         elif argv[i] == '--files' and i + 1 < len(argv):
             list_files = argv[i + 1]
+            i += 2
+        elif argv[i] == '--jwt-policy' and i + 1 < len(argv):
+            jwt_policy = argv[i + 1]
             i += 2
         else:
             sys.stderr.write('unknown argument: %s\n' % argv[i])
@@ -293,6 +312,17 @@ def main(argv):
         json.dump({'files': sorted(os.path.relpath(p, root) for p in (files or {}))}, sys.stdout)
         sys.stdout.write('\n')
         return 0
+    no_verify = None
+    if jwt_policy is not None:
+        # P1732: the fingerprint of a prod deploy is the traced inputs PLUS the gateway JWT policy,
+        # so a policy-only change redeploys. Unreadable list = the helper failed (fail closed).
+        try:
+            with open(jwt_policy) as f:
+                no_verify = {ln.strip() for ln in f
+                             if ln.strip() and not ln.strip().startswith('#')}
+        except OSError as exc:
+            sys.stderr.write('cannot read JWT policy list %s: %s\n' % (jwt_policy, exc))
+            return 65
     names = only or sorted(
         d for d in os.listdir(functions_dir)
         if os.path.isdir(os.path.join(functions_dir, d)))
@@ -303,7 +333,7 @@ def main(argv):
             errors[name] = 'no such function directory'
             continue
         try:
-            hashes[name] = hash_function(fn_dir, functions_dir)
+            hashes[name] = fold_jwt_policy(hash_function(fn_dir, functions_dir), name, no_verify)
         except TraceError as exc:
             errors[name] = str(exc)
     json.dump({'hashes': hashes, 'errors': errors}, sys.stdout, sort_keys=True)
