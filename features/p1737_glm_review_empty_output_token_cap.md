@@ -12,7 +12,8 @@ exec_effort: medium
 tags: [finish, review, openrouter, reviewers]
 disclosure: public
 delivery_stage: create-bug
-pipeline_ran: [create-bug]
+pipeline_ran: [create-bug, inline]
+flow: inline
 ---
 
 # P1737: GLM reviews come back empty on large prompts because the wrapper caps reasoning and answer together at 16,000 tokens
@@ -87,9 +88,29 @@ Price source: `docs/technical/metered-services.md`, OpenRouter row (P1630): zero
 
 ## Acceptance Criteria
 
-- [ ] The three largest saved prompts that failed with exit 5 before the fix each end `verified=served ... exit=0` with a complete review, with `reasoning_tokens` and elapsed time pasted, each well below the new cap and within the callers' timeout.
-- [ ] The cap comes from `OPENROUTER_MAX_TOKENS`: a test with the fake-response hook (`ASK_MODEL_OPENAI_FAKE_RESPONSE` and `ASK_MODEL_OPENAI_FAKE_BODY`, both needed) and a temporary defaults file set to a non-default value (for example 12345) shows exactly that value in the request body, along with `allow_fallbacks: false` and `zdr: true`. With the key absent the body carries 16000. The environment override wins over the file. `0`, `-5`, `16k`, `48000.5`, `200000` and a quoted or commented line each make `ask-model` refuse to run, from the file and from the environment variable. A `local` run's body still carries 16000.
-- [ ] If the largest re-run prompt needs more than 600 seconds, the GLM timeout in `/finish` Step 4b and the spec review is raised in the same change.
-- [ ] A task-inbox item due two weeks after the change is filed (`/note`): compare the median `reasoning_tokens` of successful GLM runs with today's (median 4,124 over 322 runs), to confirm the cap did not lengthen runs that already finished.
-- [ ] A run that still ends with `finish_reason=length` still exits 5 (shown with the fake-response hook), so `/finish` Step 4b reports it `GLM missing (exit 5)`.
-- [ ] The existing wrapper tests in `~/.agents/bin/` still pass.
+- [x] The three largest saved prompts that failed with exit 5 before the fix each end `verified=served ... exit=0` with a complete review, with `reasoning_tokens` and elapsed time pasted, each well below the new cap and within the callers' timeout.
+  Evidence (2026-11-26, cap 48,000 set through `ASK_MODEL_OPENROUTER_MAX_TOKENS`, `--raw --timeout 600`, one run at a time):
+
+  | Prompt | Bytes | Original failure | Re-run header | Elapsed |
+  |---|---|---|---|---|
+  | 1 | 346,872 | `reasoning_tokens=16000`, exit 5 | `verified=served effort=low reasoning_tokens=14467 exit=0` | 180 s |
+  | 2 | 309,658 | `reasoning_tokens=15718`, exit 5 | `verified=served effort=low reasoning_tokens=4221 exit=0` | 65 s |
+  | 3 | 294,974 | `reasoning_tokens=16000`, exit 5 | `verified=served effort=low reasoning_tokens=7800 exit=0` | 90 s |
+
+  Each output is a findings table of 7.4 to 9.4 KB. How the prompts were found: `~/.agents/logs/delegation.log` keeps every GLM send in full; each exit-5 header in the session transcripts was paired with the nearest earlier send (within 12 minutes), and the three largest pairs were extracted and checked against the logged sha256. The pairing is by time, not by an id, so it is a strong match and not proof; the re-sent shas equal the originals (`19a182c0…`, `f983db3e…`, `39cad0ac…`). 66 exit-5 results in the transcripts since 2026-11-05 (the spec's 22 counted distinct headers).
+- [x] The cap comes from `OPENROUTER_MAX_TOKENS`: a test with the fake-response hook (`ASK_MODEL_OPENAI_FAKE_RESPONSE` and `ASK_MODEL_OPENAI_FAKE_BODY`, both needed) and a temporary defaults file set to a non-default value (for example 12345) shows exactly that value in the request body, along with `allow_fallbacks: false` and `zdr: true`. With the key absent the body carries 16000. The environment override wins over the file. `0`, `-5`, `16k`, `48000.5`, `200000` and a quoted or commented line each make `ask-model` refuse to run, from the file and from the environment variable. A `local` run's body still carries 16000.
+  Evidence: `~/.agents/bin/ask-model-maxtokens.test.sh`, `passed: 111   failed: 0`. Control: the same suite against the unmodified `ask-model` (from git) fails (the cap never reaches the body, and `0`, `-5`, `16k`, `48000.5`, `200000`, quoted and commented lines all run with exit 0). It also checks 999 and 131073 (refused), 1000 and 131072 (accepted), a valid line beside a bad one (refused), and that the shipped defaults file's own line runs.
+- [x] If the largest re-run prompt needs more than 600 seconds, the GLM timeout in `/finish` Step 4b and the spec review is raised in the same change.
+  Not triggered: the largest prompt (346,872 bytes) finished in 180 s, so `--timeout 600` in `/finish` Step 4b and in `create-spec.md` is unchanged.
+- [x] A task-inbox item due two weeks after the change is filed (`/note`): compare the median `reasoning_tokens` of successful GLM runs with today's (median 4,124 over 322 runs), to confirm the cap did not lengthen runs that already finished.
+  Filed as INBOX-P445 in the private store (`/note` routes text naming `~/.agents/...` paths there), check on or after 2026-12-10. It was not filed in the public store because `/note` writes to the main checkout's `docs/process-learnings.md`, which held another session's uncommitted edits.
+- [x] A run that still ends with `finish_reason=length` still exits 5 (shown with the fake-response hook), so `/finish` Step 4b reports it `GLM missing (exit 5)`.
+  Evidence: in the same suite, a fake response with `finish_reason: length` exits 5 with header `verified=failed ... exit=5`, both with the cap set and with none.
+- [x] The existing wrapper tests in `~/.agents/bin/` still pass.
+  Evidence (final config): `ask-model-effort.test.sh` 80/0, `codex-review.test.sh` 63/0, `delegate-gemini.test.sh` 671/0, `ask-model-image.test.sh` 24/0, `ask-model-scan.recall.test.py` 0 regressions. `ai-keys.test.sh` and `forgejo-autopush.test.sh` were not run: they test neither `ask-model` nor `model-defaults.env`.
+
+## Resolved Decisions
+
+- **Cap value: 48,000** (`OPENROUTER_MAX_TOKENS` in `~/.agents/model-defaults.env`, code in `~/.agents/bin/ask-model`, commit `fceb127` in `~/.agents`). The starting point in Fix Approach held: the slowest of the three failing prompts spent 14,467 reasoning tokens plus about 7.4 KB of answer, roughly a third of the cap.
+- **Timeout unchanged at 600 s**: slowest re-run 180 s.
+- **Still unverified:** whether the cap lengthens runs that already finish. Two of the three prompts spent far fewer reasoning tokens now (4,221 and 7,800) than when they failed (15,718 and 16,000), so a single run's reasoning length varies and three runs cannot show the cap's effect either way. The two-week check in INBOX-P445 is the test.
