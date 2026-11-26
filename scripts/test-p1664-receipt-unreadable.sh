@@ -16,6 +16,10 @@
 # Output contract: no redirect tokens in status lines.
 set -eu
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE
+# P1734: these suites pin the contract for snapshots WITHOUT a session (pre-P1734 rounds, CI, a
+# human shell). Unset so the result never depends on the caller's environment; the session
+# path (tally enforcement) is tested in scripts/test-p1734-tally.sh.
+unset CLAUDE_CODE_SESSION_ID
 
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
 UNDER_TEST="${RECEIPT_UNDER_TEST:-$SRC/scripts/review_receipt.py}"

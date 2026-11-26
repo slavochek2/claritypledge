@@ -399,7 +399,7 @@ def session_edits(transcript_path, deadline=None):
     return out, reason
 
 
-def unreviewed_edits(transcript_path, entries, turn_text):
+def unreviewed_edits(transcript_path, entries, turn_text, session_id=None):
     """Reviewable files this session edited whose current content has no review receipt, plus why
     coverage was incomplete, if it was: (missing, incomplete_reason). An error outside the scan
     still fails open, so a hook bug cannot wedge every session; a scan that could not finish
@@ -436,8 +436,17 @@ def unreviewed_edits(transcript_path, entries, turn_text):
             if is_founder_message(entry):
                 text = extract_text(get_message_content(entry))
                 if founder_waived(text):
+                    reason = "founder: " + text.strip()[:120]
                     if missing:
-                        rr.waive(missing, "founder: " + text.strip()[:120])
+                        rr.waive(missing, reason)
+                    # P1734: the waiver is recorded first; the tally records it second, in its own
+                    # try, so a tally failure never undoes the waiver. The session id comes from
+                    # the hook's own stdin, never its environment. Never refuses.
+                    try:
+                        if session_id and hasattr(rr, "tally_waived"):
+                            rr.tally_waived(reviewable, reason, str(session_id))
+                    except Exception:
+                        pass
                     return [], None
                 break
         return missing, incomplete
@@ -844,7 +853,7 @@ def main():
             if text.strip():
                 review_chunks.append(text)
     review_turn_text = "\n".join(reversed(review_chunks))
-    unreviewed, incomplete = unreviewed_edits(transcript_path, entries, review_turn_text)
+    unreviewed, incomplete = unreviewed_edits(transcript_path, entries, review_turn_text, session_id)
     # Once per session: no receipt can clear an oversized history, so repeating would block
     # every later completion in this session for nothing (P1634).
     if incomplete and not incomplete_block_due(session_id):

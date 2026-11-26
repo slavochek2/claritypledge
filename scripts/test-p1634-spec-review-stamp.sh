@@ -3,6 +3,10 @@
 # Usage: bash scripts/test-p1634-spec-review-stamp.sh   (exit 0 = all pass)
 set -uo pipefail
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+# P1734: these suites pin the contract for snapshots WITHOUT a session (pre-P1734 rounds, CI, a
+# human shell). Unset so the result never depends on the caller's environment; the session
+# path (tally enforcement) is tested in scripts/test-p1734-tally.sh.
+unset CLAUDE_CODE_SESSION_ID
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 H="${STAMP_HELPER:-$SCRIPT_DIR/spec_review_stamp.py}"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT

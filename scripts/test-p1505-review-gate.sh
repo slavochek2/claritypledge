@@ -9,6 +9,10 @@ set -euo pipefail
 # Run from pre-commit, git exports GIT_DIR/GIT_INDEX_FILE pointing at THIS repo; without this the
 # scratch repo below would stage into the real index (pre-commit INDEX INTEGRITY guard, P1273).
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
+# P1734: these suites pin the contract for snapshots WITHOUT a session (pre-P1734 rounds, CI, a
+# human shell). Unset so the result never depends on the caller's environment; the session
+# path (tally enforcement) is tested in scripts/test-p1734-tally.sh.
+unset CLAUDE_CODE_SESSION_ID
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STOP_HOOK="$SCRIPT_DIR/../.claude/hooks/verify-before-stop.py"

@@ -4,7 +4,10 @@
   hash <spec>                         sha256 of the normalized body
   check <spec>                        current | missing | changed   (exit 0 / 1 / 1; 2 = unreadable)
   glm-allowed <spec>                  allowed | skip: <reason>      (fail closed)
-  write <spec> --evidence F [...]     stamp hash + vendors, vendors derived from evidence files only
+  write <spec> --evidence F [...] [--snapshot S]
+                                      stamp hash + vendors, vendors derived from evidence files only.
+                                      P1734: with CLAUDE_CODE_SESSION_ID set, --snapshot is required
+                                      and its reviewed tally must record every valid evidence file.
 """
 import hashlib
 import importlib.util
@@ -124,18 +127,54 @@ def cmd_glm_allowed(a):
     return 0
 
 
+def _tally_refusal(spec, snapshot, valid):
+    """P1734. With a session id, a stamp needs a snapshot of the spec whose reviewed tally recorded
+    every valid evidence file, and no other untallied snapshot of the spec from this session.
+    Without one (a human shell, CI) a given --snapshot is still checked, never required."""
+    session = _rr._session()
+    if not snapshot:
+        if session:
+            return ("--snapshot is required when " + _rr.SESSION_ENV + " is set: take one with "
+                    "`review_receipt.py snapshot -- <spec>` before the reviewers run, then tally it.")
+        return None
+    try:
+        body = _rr._load_snapshot(snapshot)
+    except Exception:
+        return f"cannot read snapshot {snapshot}."
+    loc = _rr.locate(spec)
+    if not loc or loc[1] not in _rr._snap_keys(body):
+        return f"snapshot {os.path.basename(snapshot)} does not hold {spec}."
+    common = _rr._snapshot_common(snapshot)
+    rec = _rr._tallies(common).get(os.path.basename(snapshot))
+    if not rec or rec.get("status") != "reviewed":
+        state = rec.get("status") if rec else "no tally"
+        return (f"snapshot {os.path.basename(snapshot)} has {state}, not a reviewed tally. Record the "
+                "round with `review_receipt.py tally --snapshot <path> --kind spec ...`.")
+    why = _rr.tally_backs(common, snapshot, valid)
+    if why:
+        return why
+    others = [p for p in _rr.session_untallied(common, session, {loc[1]})
+              if os.path.basename(p) != os.path.basename(snapshot)]
+    if others:
+        return ("this session has other untallied snapshot(s) of the spec: " + ", ".join(others)
+                + ". Tally them, or close a mistaken one with `tally --abandoned`.")
+    return None
+
+
 def cmd_write(a):
     if not a:
         print("usage: write <spec> --evidence F [...]", file=sys.stderr)
         return 2
-    spec, evidence, i = a[0], [], 1
+    spec, evidence, snapshot, i = a[0], [], None, 1
     while i < len(a):
         if a[i] == "--evidence" and i + 1 < len(a):
             evidence.append(a[i + 1]); i += 2
+        elif a[i] == "--snapshot" and i + 1 < len(a):
+            snapshot = a[i + 1]; i += 2
         else:
             print(f"spec_review_stamp: unknown argument {a[i]}", file=sys.stderr)
             return 2
-    vendors, seen = set(), []
+    vendors, seen, valid = set(), [], []
     for e in evidence:
         try:
             if os.path.getsize(e) == 0:
@@ -148,11 +187,15 @@ def cmd_write(a):
             seen.append(f"{e}: not a successful run"); continue
         m = VENDOR_RE.match(first)
         if m:
-            vendors.add(m.group(1)); seen.append(f"{e}: vendor={m.group(1)}")
+            vendors.add(m.group(1)); seen.append(f"{e}: vendor={m.group(1)}"); valid.append(e)
     if not vendors & FLOOR_VENDORS:
         print("spec_review_stamp: REFUSED - need a valid run from gemini or codex; saw: "
               + ("; ".join(seen) or "no evidence files")
               + ". openrouter/GLM alone never earns a stamp. Nothing written.", file=sys.stderr)
+        return 1
+    why = _tally_refusal(spec, snapshot, valid)  # P1734: checked last, after every older refusal
+    if why:
+        print("spec_review_stamp: REFUSED - " + why + " Nothing written.", file=sys.stderr)
         return 1
     text = _read(spec)
     lines, end = _split(text)
