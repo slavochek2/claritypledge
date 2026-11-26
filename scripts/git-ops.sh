@@ -2068,8 +2068,18 @@ EOF
 cmd_commit_to_main() {
   local message=""
   local files=()
+  local content_file="" expect_blob=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
+      # P1732: commit given CONTENT for the one --files path, staged as a blob, without touching
+      # the shared working file. --expect-head-blob <blob|none> refuses (exit 4, nothing staged)
+      # when that path at HEAD is no longer the version the content was built on.
+      --content-file)
+        [[ $# -lt 2 ]] && { echo "--content-file requires a value" >&2; exit 2; }
+        content_file="$2"; shift 2 ;;
+      --expect-head-blob)
+        [[ $# -lt 2 ]] && { echo "--expect-head-blob requires a value" >&2; exit 2; }
+        expect_blob="$2"; shift 2 ;;
       --message)
         [[ $# -lt 2 ]] && { echo "--message requires a value" >&2; exit 2; }
         message="$2"; shift 2 ;;
@@ -2085,7 +2095,7 @@ cmd_commit_to_main() {
     esac
   done
   if [[ -z "$message" ]]; then
-    echo "usage: git-ops commit-to-main --message <msg> --files <f1> [f2 ...]" >&2; exit 2
+    echo "usage: git-ops commit-to-main --message <msg> --files <f1> [f2 ...] [--content-file F [--expect-head-blob B]]" >&2; exit 2
   fi
   if [[ ${#files[@]} -eq 0 ]]; then
     echo "usage: git-ops commit-to-main --message <msg> --files <f1> [f2 ...]" >&2; exit 2
@@ -2127,6 +2137,29 @@ cmd_commit_to_main() {
   fi
   trap 'release_main_lock' EXIT
 
+  # P1732 --content-file: staged as a blob under the lock. The working file is never read or
+  # written, so a co-tenant's uncommitted edit there is neither committed nor overwritten, and a
+  # co-tenant `git add` of the same path cannot pick up content that is not theirs.
+  local _content_blob=""
+  if [[ -n "$content_file" ]]; then
+    [[ ${#files[@]} -eq 1 ]] || { echo "commit-to-main: --content-file needs exactly one --files path" >&2; exit 2; }
+    [[ -f "$content_file" ]] || { echo "commit-to-main: --content-file not found: $content_file" >&2; exit 2; }
+    local _cp="${files[0]}" _actual _mode
+    _actual="$(cd "$REPO_ROOT" && git rev-parse -q --verify "HEAD:$_cp" 2>/dev/null)" || _actual="none"
+    if [[ -n "$expect_blob" && "$_actual" != "$expect_blob" ]]; then
+      echo "commit-to-main: $_cp at HEAD is not the version this content was built on; nothing was staged" >&2
+      exit 4
+    fi
+    if [[ -n "$(cd "$REPO_ROOT" && git diff --cached --name-only -- "$_cp")" ]]; then
+      echo "commit-to-main: $_cp already has staged changes that are not this call's; nothing was staged" >&2
+      exit 1
+    fi
+    _content_blob="$(cd "$REPO_ROOT" && git hash-object -w -- "$content_file")" || exit 1
+    _mode="$(cd "$REPO_ROOT" && git ls-files -s -- "$_cp" | awk 'NR==1{print $1}')"
+    [[ -n "$_mode" ]] || _mode=100644
+    ( cd "$REPO_ROOT" && git update-index --add --cacheinfo "$_mode,$_content_blob,$_cp" ) >&2 || exit 1
+  fi
+
   # Stage explicit files (never -A per .claude/rules/git.md).
   #
   # A rename (git mv) leaves the OLD path absent from both the worktree and the
@@ -2145,7 +2178,7 @@ cmd_commit_to_main() {
   # Cleaning up on the error path was the obvious alternative and is worse: it would
   # unstage paths the caller had deliberately staged before the call. Checking
   # everything before touching anything has no such edge.
-  ( cd "$REPO_ROOT" && for f in "${files[@]}"; do
+  [[ -n "$content_file" ]] || ( cd "$REPO_ROOT" && for f in "${files[@]}"; do
       if [[ -e "$f" ]]; then
         : # stageable below
       elif [[ -n "$(git diff --cached --name-only --diff-filter=D -- "$f")" ]]; then
@@ -2165,7 +2198,7 @@ cmd_commit_to_main() {
   # accepted. That made commit-to-main structurally unable to commit a pure deletion
   # (or the old half of a rename) — the exact case the validation loop was written for.
   # Found 2026-09-01 by P1217's first test-retirement batch; see decisions.md.
-  ( cd "$REPO_ROOT" && for f in "${files[@]}"; do
+  [[ -n "$content_file" ]] || ( cd "$REPO_ROOT" && for f in "${files[@]}"; do
       if [[ -e "$f" ]]; then git add -- "$f"; fi
     done ) >&2 || exit 1
 
@@ -2181,6 +2214,19 @@ cmd_commit_to_main() {
   # either way. The canary now pins the number.
   local _csx_rc=0
   commit_staged_exact "$message" "${files[@]}" >&2 || _csx_rc=$?
+  # --content-file: nothing was committed (refused, or the hook / git commit failed), so put the
+  # path's index entry back the way this call found it: HEAD's entry, which the check above proved
+  # it held. Only when the entry is still our blob; a co-tenant's later stage is theirs to keep.
+  # Without this, the blob stays staged in the shared index and every later stamp refuses.
+  if [[ "$_csx_rc" -eq 1 && -n "$_content_blob" ]] \
+     && [[ "$(cd "$REPO_ROOT" && git ls-files -s -- "${files[0]}" | awk 'NR==1{print $2}')" == "$_content_blob" ]]; then
+    if [[ "$_actual" == "none" ]]; then
+      ( cd "$REPO_ROOT" && git update-index --force-remove -- "${files[0]}" ) >&2 || true
+    else
+      ( cd "$REPO_ROOT" && git update-index --cacheinfo "$_mode,$_actual,${files[0]}" ) >&2 || true
+    fi
+    echo "commit-to-main: nothing was committed; the index entry for ${files[0]} was restored to HEAD's" >&2
+  fi
   if [[ "$_csx_rc" -ne 0 ]]; then
     release_main_lock
     trap - EXIT
@@ -2190,6 +2236,14 @@ cmd_commit_to_main() {
   # release can be a co-tenant's commit, which would make the TEST-functions hook skip this landing.
   local _land_sha
   _land_sha="$( cd "$REPO_ROOT" && git rev-parse HEAD )"
+  # --content-file: the commit must record exactly the blob this call staged. A co-tenant `git add`
+  # during the pre-commit hook would have replaced it; the name-set check cannot see that.
+  if [[ -n "$_content_blob" ]] && [[ "$( cd "$REPO_ROOT" && git rev-parse -q --verify "HEAD:${files[0]}" )" != "$_content_blob" ]]; then
+    echo "git-ops commit-to-main: FATAL -- the commit landed but does not record the content this call staged for ${files[0]}. Inspect 'git show HEAD' before continuing." >&2
+    release_main_lock
+    trap - EXIT
+    exit 3
+  fi
 
   # Report what the commit ACTUALLY recorded, not how many paths were requested. The
   # 2026-09-01 incident printed a confident "committed 3 file(s)" over a commit holding
