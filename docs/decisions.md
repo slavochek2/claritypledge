@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-26 [product]: Clarify works alone in the Mirror; tapping Join is the consent on a transcribe room
+
+**Context:** P1722 let the owner Clarify their own Mirror messages, voice notes and recordings, and publish a point privately or publicly. In founder UAT the transcription explanation box and the /transcribe consent checkbox were judged redundant: the room page already says it is a transcription room and who can read the transcript.
+**Decision:** (1) In the Mirror the Clarify button reads "Publish" ("Publish to chat" elsewhere). (2) The transcription explanation box is removed from every chat (narrows P1604). (3) On `/transcribe`, Join is the consent: no checkbox, and no new copy. Join is enabled only after the room's disclosure line has settled from one shared lookup, a failed or stalled lookup shows "Could not check this room. Try again." with Try again as the only action, and a missing room shows "This room could not be found." with no Join. The server-side consent timestamp is unchanged. The privacy policy's two sentences on the control were updated to match.
+**Alternatives rejected:** keeping the checkbox ("we showed the transcribe banner, we're walking in circles"); adding a "This room is transcribed" line above Join.
+**Consequences:** Accepted limits, recorded in the spec: a room ended while a visitor reads still shows Join until pressed; one events read can happen from a hidden tab; a timed-out room RPC is not cancelled. The stale P1236 "same room" e2e is filed (INBOX-413). Long-input topic picking is P1733.
+**References:** [p1722](../features/done/2026-06-10/p1722_solo_clarify_in_the_mirror.md), [p1733](../features/p1733_clarify_issue_list_on_long_input.md)
+
 ## 2026-11-26 [process]: GLM stays an always-on reviewer; reviewer value is now measured as verified catches nobody else made, against thresholds fixed in advance
 
 **Context:** The founder asked whether GLM pays off as a reviewer, and whether Codex and the Gemini models (Carbon vs Argon) do. P1630 had set a 30-day check: if GLM produced no verified defect the other reviewers missed, fall back or remove it. No record answered it, so it was dug out of session transcripts by phrase search. That search over-counted: of three candidate GLM-only catches, one (P1658's symlink entry guard) had also been raised by Gemini in the same round, at a lower severity. Checking it against its round caught that before it reached the decision; the first draft of P1734 had stated three.

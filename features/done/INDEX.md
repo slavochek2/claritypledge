@@ -89,6 +89,7 @@ Last updated: 2026-11-26
 - **P590** (Mar 26) Clarity Docs Design Fixes — change-request for P551; 5 raw-Tailwind button violations from subagent ignoring shadcn theme; visual QA skipped = design violations ship to UAT; creation popover replaces useless mutable dropdown
 
 ## Points & Stories
+- **P1722** (Nov 26) Clarify alone in the Mirror — consent UIs gated on a shared lookup snapshot; separate hook calls raced the disclosure.
 - **P1728** (Nov 26) Changes view counts people who kept their position — a holder with no history row is still a reading (first = latest = current); count every surface from one reading set so tabs add up; `aria-hidden` needs a real box, not `display: contents`
 - **P1631** (Nov 26) Clarify drafts a private point from a chat and publishes it as a card — readers of the card are exactly the chat's readers; erasure keeps points others hold; shipped as terms v1.9
 - **P1621** (Nov 10) Canvas draft shows content first, actions on a selected box — the first hand save on a clone creates the draft; navigate on the live URL, React Router's setSearchParams reads stale render params.
