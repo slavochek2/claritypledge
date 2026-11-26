@@ -35,7 +35,8 @@ spec_review_vendors: [codex, gemini, openrouter]
 **Situation:** Clarity Pledge installs as a home-screen web app (P1593: "Install as app" in the
 avatar menu) and sends no notifications of any kind. No code in `src/` or `supabase/functions/`
 calls `PushManager` or `showNotification` (grepped 2026-11-26). Calls exist on a development page
-(P1688, ready to ship). The call inside a chat room is specified in P1711 and not built.
+(P1688, ready to ship). The call inside a chat, including a direct call that rings the other
+person's open browser tab, is built on P1711's branch and not shipped.
 
 **Complication:** Once rooms have calls, only people who already have the room open can join. A
 person whose phone is in their pocket cannot be reached from inside the product. A home-screen web
@@ -53,12 +54,14 @@ the app?
 
 **Blast radius:** high. It adds a new platform: an Android app published under the project's name
 in a public store. It touches every sign-in path, since email links and Google sign-in must work
-inside the app. It also adds two tables, two server functions and an external service (Firebase Cloud
-Messaging), and it exposes native phone functions to the live website.
+inside the app. It also adds a table of registered phones, a push step on P1711's ring, a decline-by-token path,
+and an external service (Firebase Cloud Messaging), and it exposes native phone functions to the
+live website.
 **Reversibility:** medium. Website changes revert with git, and the table and functions can be
 dropped. A store listing can be unpublished, but installed copies stay on phones until their owners
 remove them.
-**Decision density:** high. See Open Questions.
+**Decision density:** high, now answered (D1 to D14). What remains is conditional on the shell
+proof (Open Questions).
 
 ## Resolved Decisions
 
@@ -72,6 +75,12 @@ remove them.
 | D6 | 2026-11-26 | A locked phone shows the caller's name and photo and the room, like WhatsApp. | Founder chose the recommended option after the spec review |
 | D7 | 2026-11-26 | Inside the app, the Stripe membership and donation buttons are hidden. People pay on the website. The partnership package's "Buy for €1,450" button (`offers-section.tsx:473`), found after the question was asked, is the same kind (a card purchase) and is hidden with them, as the agent's reading of this answer. | Founder chose the recommended option after the spec review |
 | D8 | 2026-11-26 | Part A and Part B go to Google Play together; Part A is never released alone. | Founder chose the recommended option after the spec review |
+| D9 | 2026-11-26 | **Ringing follows P1711's direct call, unchanged.** Only direct chats ring; group and event calls show a Join line and ring no phone. Who may ring is P1711's join check (chat member, calls on, no block either way, founder-only until P1711 requirement 9). It rings for 45 seconds (`ring_until`). P1711's limit applies: a fourth unanswered ring of the same person by the same caller within 15 minutes is refused. No answer ends the call as missed, with a line in both chats and "No answer" and Call again for the caller. Busy, Accept on another device and the rest are P1711's D15 to D23. This spec adds the delivery to a locked phone and nothing to the rules. | Founder, verbatim: *"we already answered it and there is the session P1688 is being is working and it will be shipping shouldn't we go with what we decided there"*; P1711 D15 to D23 on `feature/p1711-calls-in-chats` |
+| D10 | 2026-11-26 | A ring reaches a locked phone within 5 seconds in at least 19 of 20 tries on Wi-Fi, and 19 of 20 on mobile data. | Founder: *"yes all recommended"* |
+| D11 | 2026-11-26 | App ID `com.claritypledge.app` (permanent once published), name "Clarity Pledge", "Clarity" under the icon, the existing site icon. The name and short name match the web app's manifest. | Founder: *"yes all recommended"* |
+| D12 | 2026-11-26 | Once the app is public, the Android browser's install offer goes to Google Play, with a small "or install the web version" link under it for phones without Google Play. If the store app is already installed, the offer reads "Open the app". iPhone, iPad and computers keep the web install unchanged. Before the app is public, the offer stays as it is. | Founder: *"yes all recommended"*, after asking how devices are told apart |
+| D13 | 2026-11-26 | The agent drafts the store listing in the site's current voice. The founder approves it on one page, together with P1711's call wording page. | Founder: *"yes all recommended"* |
+| D14 | 2026-11-26 | A company developer account, in the name of the founder's company (named in the private account registry, `.private/docs/accounts.md`), not a personal one. The setup session checks three things before paying: the company's business ID number, whether the listing can show "Clarity Pledge" as the developer, and whether the 12-tester rule really does not apply to company accounts. | Founder: *"better company accoutn"* |
 
 ## Release order
 
@@ -80,16 +89,16 @@ remove them.
 - **Part A, the app without ringing:** can be built alongside P1711. It covers the shell, sign-in
   inside the app, the phone registering itself, the version handshake, hiding the install offer in
   the app, and the store listing. It does not touch the call code.
-- **Part B, ringing:** needs P1711's room call and its requirement 1 ("a call is on": an
-  authoritative source). It covers ringing, Accept / Decline, missed calls, and keeping the call
+- **Part B, ringing:** needs P1711 shipped, including its direct-call ring (D15 to D23), which
+  this part reuses. It covers ringing, Accept / Decline, missed calls, and keeping the call
   alive with the screen locked.
-- **Part A's criteria need the founder's developer account** (D5), because they run on a build
+- **Part A's criteria need the founder's developer account** (D5, D14), because they run on a build
   Google Play delivers (Play App Signing changes the fingerprint App Links and the TWA check). An
   internal-track upload is a test, not a release: D8 forbids a closed-test or production release
   of Part A alone, not internal testing.
-- **The closed test:** needs Part B on prod **and** P1711 requirement 9 (privacy) done. Until then
-  the invariant below allows rings only between the founder's own test accounts, so the 12 testers
-  would have nothing to test.
+- **The closed test,** if the company account needs one (D14): needs Part B on prod **and** P1711
+  requirement 9 (privacy) done. Until then the invariant below allows rings only between the
+  founder's own test accounts, so testers would have nothing to test.
 
 **Shipping:** one spec ships at once, so Part A, built early, waits on its branch for Part B (D8).
 A Part A build without ringing is the "website in a box" that Google's minimum-functionality policy
@@ -121,8 +130,7 @@ is most likely to reject (Risks).
    in Part A's criteria, since Play re-signs the app. The choice follows Decision Criteria below. Until the proof runs, the promise that "website changes
    reach the app without a store release" holds only for whichever shell passes criterion 4.
 
-1. **The app.** `[FOUNDER DECISION: the app's permanent Play identifier (package name, e.g.
-   com.claritypledge.app), the name shown on the phone, and the icon]`. Built as a signed app
+1. **The app.** ID, name and icon as D11. Built as a signed app
    bundle with Play App Signing, targeting the Android version Play requires of new apps at
    submission time (read then; Play raises it yearly). If the site cannot be reached, the app shows
    its own "can't reach Clarity Pledge, retry" screen.
@@ -162,69 +170,67 @@ is most likely to reject (Risks).
 
 3. **The phone registers itself.** A signed-in app stores its push token. The token is unique, and
    registering re-points it to the current person, so on a shared phone only the account signed in
-   now rings. Each registration is bound to the person's auth session, and the ring function sends
+   now rings. Each registration is bound to the person's auth session, and the push step sends
    only to registrations whose session still exists. That covers sign-out on this phone, a global
    sign-out from another device, an expired session and an offline sign-out, none of which runs a
    client hook. The session is the `session_id` claim of the person's access token at
-   registration; the ring function checks with the server role that this session still exists
-   and has not expired. A sign-out made offline cannot reach the server, so until the phone
+   registration; the push step checks with the server role that this session still exists and has
+   not passed its `not_after`, the same check P1711's respond function makes (D16). A sign-out made offline cannot reach the server, so until the phone
    reconnects that session stays live; the phone-side check in Solution 5 covers that window. A token is registered only once notification permission is granted and "receive
    calls" is on, since Android issues a push token even without permission. Registrations are
    deleted with the account (a foreign key to the account with
    cascade, covered by an integration test). A token Firebase reports as unregistered is deleted.
    Tokens are written only by their own session and read only by the server role that sends.
 
-4. **Ringing** *(Part B)*. A server function, which requires a signed-in caller, creates a **ring
-   record**: caller, the call it belongs to, expiry, and one outcome per person rung (ringing,
-   answered, declined, missed) plus the caller's own cancel. Outcomes are per person: one person
-   declining never silences anyone else, and answering stops only that person's other phones. The
-   first outcome written for a person wins (one atomic update), so a Decline and an Accept arriving
-   together, or a duplicate or late message, cannot produce two outcomes. Before it sends anything,
-   one database rule checks that the caller may ring each recipient. That rule covers chat
-   membership, the chat's call switch, a block in either direction (`chat_blocks`, migration
-   `20261019203000_p1512_clarity_chat.sql`), guests (never ring and are never rung), and the
-   founder-test-account allowlist (Invariants). The function also enforces a per-caller and a
-   per-recipient rate limit. It then sends a high-priority message to each eligible phone through
-   Firebase Cloud Messaging, using a service-account credential and an access token it caches. The
-   message carries an opaque ring id and only what the lock screen is allowed to show. The function
-   fails closed: anything it cannot confirm, it does not ring.
-   `[FOUNDER DECISION: who may ring whom, e.g. anyone in the same chat, or only people who have
-   been in a session together. This is the spam protection; blocks always refuse.]`
-   `[FOUNDER DECISION: ring one person, or everyone in the chat at once]`.
+4. **Ringing is P1711's direct call** *(Part B, D9)*. No new ring record and no new rule: the ring
+   is the `chat_calls` row that P1711's `chat_call_ring` creates, with its `ring_until` deadline,
+   and its outcome is the row's end reason. This spec adds one thing to that step. When the row is
+   created, the server sends a high-priority Firebase Cloud Messaging message to each phone
+   registered to the person called (Solution 3). It uses a service-account credential and an access
+   token it caches. The push is sent only for a row `chat_call_ring` created, so a ring P1711's
+   rules refuse sends nothing. Group and event calls create no ringing row and push nothing. The
+   message carries the call id, the caller's name and photo and the chat (D6), the deadline, and a
+   ring token (Solution 5). A failed send never fails the ring: the browser tabs still ring as P1711
+   designs.
 
 5. **The incoming call** *(Part B)*.
    - **Permissions.** The app asks for notification permission when the person turns on
      "receive calls", not at install. It checks whether it may use the full-screen alert, and if
-     not, it sends the person to the setting. When either is off, the app says calls cannot ring,
-     and the caller sees that this person can't be rung.
-   - **The ring.** A ringtone that continues until answered or until the ring expires, and the full
-     call screen on the lock screen. A locked phone shows the caller's name and photo and the room (D6),
-     so the message carries those display fields alongside the opaque ring id.
-   - **Accept** opens the app in that room with the call joining. Join is authorised again at that
-     moment, by P1711's rule.
+     not, it sends the person to the setting. When either is off, the app says calls cannot ring.
+     The caller needs no new message: P1711's caller sees "Calling…" until a device reports it is
+     ringing, then "Ringing…", so a phone that cannot ring leaves the caller on "Calling…", as an
+     iPhone does today (P1711 D21, D22).
+   - **The ring.** A ringtone that continues until the call is answered, declined, cancelled or
+     past its deadline, and the full call screen on the lock screen, showing the caller's name,
+     photo and chat (D6). The phone reports `ringing` once, as P1711's ringing tabs do, so the
+     caller's screen moves to "Ringing…".
+   - **Accept** opens the app in that chat, and the page then runs P1711's Accept (microphone first,
+     then `accept`, D21). Join is authorised again at that moment by P1711's rules.
    - **Decline from the lock screen** works without the page, so it has no signed-in session to
-     send. The message carries a single-use token for that ring, and the native Decline posts it to
-     a ring-response function using the project's public key, which the functions gateway accepts
-     (any signed, unexpired project token, `supabase/selfhosted/functions-main/index.ts:96-98`).
-     The ring token is the authority, for that ring only. The function is never added to
-     `supabase/no-verify-jwt-functions.txt`.
-   - **No answer** needs no server timer. The ring record carries its expiry time, so "missed" is
-     derived: a ring with no answer and the expiry passed is missed, and both sides read the same
-     record and show the same outcome. The caller's screen follows the ring record live (the same
-     way P1711's call state reaches the room), and each phone stops itself at the expiry. `[FOUNDER DECISION: how long it rings, and what a missed call leaves behind: a
-     notification, a line in the room, an email]`.
+     send. The push carries a single-use ring token for that call, and the native screen posts it
+     with the project's public key, which the functions gateway accepts (any signed, unexpired
+     project token, `supabase/selfhosted/functions-main/index.ts:96-98`). This is a token path into
+     P1711's respond logic, for two actions only: `ringing` and `decline`. It takes the same locks as
+     `chat_call_respond`, so it cannot race an Accept or a cancel, and it returns the row as it now
+     stands. The token is the authority for that call only and dies when the ring ends. It is never
+     added to `supabase/no-verify-jwt-functions.txt`.
+   - **No answer** is P1711's: the call ends as missed at `ring_until` (45 seconds), the caller sees
+     "No answer" with Call again, and both chats get the missed-call line. The phone stops itself at
+     the deadline and shows "Missed call from {name}".
    - **Permissions turned off later.** If the person turns notifications or the full-screen alert
      off in Android settings while the app is closed, nothing runs to tell the server. The app
      re-checks at every open and unregisters if either is off. Until that next open, a ring can be
-     sent and silently not shown (Risks).
-   - **Stopping.** When the caller cancels, or a person answers or declines, the server sends that
-     person's ringing phones a second message. It replaces the call screen with a visible notice
-     for each case: "missed call from …" (caller cancelled, or expiry), "answered on another
-     phone", "declined". It is never a silent high-priority message. Delivery is best effort, so
-     the expiry is the backstop: a phone whose stop message is lost still stops at the expiry. A phone also stops by itself at the ring's
-     expiry, and it ignores a ring that arrives after expiry or after its stop message. Before it
-     rings, the phone checks that the ring is addressed to the person signed in on it now, so a
-     message queued before a sign-out or account switch shows nothing.
+     sent and silently not shown. The caller then stays on "Calling…", the same as for an iPhone
+     (Risks).
+   - **Stopping.** When the call stops ringing for any reason (cancelled, declined, answered in a
+     browser tab or on another phone, missed), the server sends that person's phones a second
+     message. It replaces the call screen with a visible notice: "Missed call from {name}"
+     (cancelled or missed), "Answered on another device", or nothing after this phone's own Decline.
+     It is never a silent high-priority message. Delivery is best effort, so the deadline is the
+     backstop: a phone whose stop message is lost still stops at `ring_until`. A phone ignores a
+     ring that arrives after its deadline or after its stop message. Before it rings, it checks that
+     the ring is addressed to the person signed in on it now, so a message queued before a sign-out
+     or account switch shows nothing.
 
 6. **Keeping the call alive** *(Part B)*. While a call runs, the app keeps a foreground call
    service with an ongoing-call notification. It is started from the foreground after Accept,
@@ -253,9 +259,15 @@ is most likely to reject (Risks).
    bridge under Capacitor, or a launch marker the app sets under a TWA that survives a reload and
    in-app navigation. In a
    browser, P1593 named the offer "Install as app" because it "does not imply an app store"
-   (decisions.md 2026-10-29 [product]). `[FOUNDER DECISION: once the store app exists, does the
-   Android browser offer send people to Google Play, keep installing the home-screen web app, or
-   offer both]`. Changing the browser offer is a stated exception to D3.
+   (decisions.md 2026-10-29 [product]). Once the app is public, D12 changes it on Android only:
+   the offer goes to Google Play, with a small "or install the web version" link under it, and
+   reads "Open the app" when the store app is installed. Whether the store app is installed is
+   asked of Chrome, which answers only once the site and the app vouch for each other (the same
+   `assetlinks.json`). When that answer is unavailable, the offer goes to the Play page, which shows
+   "Open" itself. The site's existing device check decides who counts as Android
+   (`use-pwa-install.tsx:50-63`). Its known edges: an Android phone without Google Play gets the
+   fallback link, while a phone set to "desktop site" and a Chromebook count as computers and keep
+   the web install. This is the stated exception to D3.
 
 9. **The native bridge's boundary** (Capacitor only). Native functions answer only pages loaded
    from the top-level origin `https://claritypledge.com`, never frames and never other hosts. The
@@ -265,7 +277,8 @@ is most likely to reject (Risks).
    functions, and tightening that policy later must be checked against the shell.
 
 10. **The store.** The steps:
-    - **Listing** text and screenshots. `[FOUNDER DECISION: listing copy]`.
+    - **Listing** text and screenshots, drafted by the agent and approved by the founder with P1711's
+      call wording page (D13).
     - **Declarations** for the full-screen alert and the call service, with the demo video Play
       requires.
     - **Reviewer access:** two of the founder's own test accounts on the ring allowlist, so a
@@ -335,10 +348,12 @@ as a risk to accept or a reason to stop, before Part A starts.
 - **One microphone opening per tab** (decisions.md 2026-11-17 [technical], P1688). The native part
   never opens the microphone itself. The page does, exactly as in a browser.
 - **A phone is rung only for the account whose session is live on it** (Solution 3).
-- **The ring function requires a signed-in caller. The ring-response function accepts either the
-  signed-in person rung or the ring's own token** (Solution 5), and nothing else. Neither is added
-  to `supabase/no-verify-jwt-functions.txt`. The ring token is single-use, scoped to its ring, and
-  dies at the ring's expiry.
+- **Who may ring, and the ring's outcomes, are P1711's alone** (D9). This spec adds no rule, no
+  second ring record and no second deadline. A push is sent only for a row P1711's ring function
+  created.
+- **The ring-token path accepts only the call's own token, for `ringing` and `decline` only**
+  (Solution 5). It is never added to `supabase/no-verify-jwt-functions.txt`. The token dies when
+  the ring ends.
 
 ## Risks / Non-Goals
 
@@ -347,15 +362,15 @@ as a risk to accept or a reason to stop, before Part A starts.
 | Google rejects the app under its minimum-functionality policy | MITIGATE | Ship with ringing, never as a Part A shell alone (Release order); the declarations and demo video show the native call functions |
 | Google does not accept the "calling app" declaration, so the full-screen alert is off by default | MITIGATE | The app detects it and sends the person to the setting (Solution 5); the criteria test both states |
 | The call drops when the phone locks, under either shell | MITIGATE | Solution 0 tests it first; failure stops the work and goes to the founder |
-| Phone makers' battery savers delay or drop the wake-up message | MITIGATE | The closed test records each missed ring with its phone model |
+| Phone makers' battery savers delay or drop the wake-up message | MITIGATE | The Part B device runs, and the closed test if one is needed, record each missed ring with its phone model |
 | The email provider's tracking redirect keeps links from opening the app | MITIGATE | Solution 2; Decision Criteria 2 uses prod-shaped email, because test mail has no tracking redirect and would pass falsely |
 | A test build signed with the upload key verifies App Links while the store build does not | MITIGATE | `assetlinks.json` carries the Play App Signing fingerprint; Part 0 runs on a local build, so Part A's criteria re-run sign-in on a Play-delivered build |
 | Permissions turned off in Android settings while the app is closed: a ring is sent and not shown, and the caller is not told | ACCEPT | Nothing runs on the phone to report it; the app re-checks and unregisters at its next open (Solution 5). The caller sees an unanswered ring, as with a phone on silent |
 | People run an old app version after a native change | MITIGATE | Solution 7 |
 | Ringing is used to pester people | MITIGATE | One database rule including blocks, per-caller and per-recipient limits (Solution 4) |
 | A late stop message leaves a phone ringing | MITIGATE | The ring's expiry is enforced on the phone too (Solution 5) |
-| The closed test is judged too thin and production access is refused | ACCEPT | Recruit 14 to 15 testers for the required 12; a refusal costs another test window and a resubmission |
-| A personal developer account shows the founder's identity publicly | MITIGATE | The founder's setup session reviews the public listing details before submitting (D5) |
+| If a closed test is needed (D14): it is judged too thin and production access is refused | ACCEPT | Recruit 14 to 15 testers for the required 12; a refusal costs another test window and a resubmission |
+| The company account cannot show "Clarity Pledge" as the developer, or still needs the tester period | MITIGATE | The setup session checks both before paying (D14); a tester period would add about two weeks before production |
 | Firebase ties ringing to Google's services | ACCEPT | D4 chose Google Play; another build could use another transport later |
 
 **Non-Goals**
@@ -395,24 +410,27 @@ Part B, with the screen locked, each criterion run with the app in the backgroun
 with it swiped away (not force-stopped). The runs cover at least two named phones from different
 makers on two Android versions, one of them the newest Play requires, with each phone's model,
 Android version, notification and full-screen settings, and Do Not Disturb state recorded here:
-- [ ] Ringing someone allowed to be rung rings their phone with the ringtone and the full call
-      screen showing the caller's name, photo and room (D6).
-      `[FOUNDER DECISION: acceptable ring delay; proposed: rings within 5 seconds in at least 19 of
-      20 tries on Wi-Fi and 19 of 20 on mobile data]`.
-- [ ] With the full-screen alert or notifications turned off, the app says calls cannot ring.
-      Once the app has opened since, the caller sees that this person can't be rung.
-- [ ] Accept opens the room with the call joining, and both people hear each other.
-- [ ] Decline from the lock screen, and no answer, each end the ringing, and both sides see the same
-      outcome.
-- [ ] The caller hanging up while it rings stops the ringing on every connected phone of the
-      person called within 5 seconds, showing "missed call". A phone whose stop message is
-      withheld in the test stops at the ring's expiry. Answering on one phone stops that person's
-      other phones; in a ring to several people, one person declining leaves the others ringing.
+- [ ] A direct call rings the person's phone with the ringtone and the full call screen showing the
+      caller's name, photo and chat (D6), within 5 seconds in at least 19 of 20 tries on Wi-Fi and
+      19 of 20 on mobile data (D10), and the caller's screen moves to "Ringing…".
+- [ ] A call started in a group or event chat rings no phone.
+- [ ] With the full-screen alert or notifications turned off, the app says calls cannot ring, and
+      the caller stays on "Calling…".
+- [ ] Accept opens the chat with the call joining, and both people hear each other.
+- [ ] Decline from the lock screen ends the call as declined (the caller sees "Call declined"); no
+      answer ends it as missed at 45 seconds ("No answer" for the caller, a missed-call line in both
+      chats, "Missed call from {name}" on the phone).
+- [ ] The caller cancelling while it rings stops every connected phone of the person called within
+      5 seconds, showing "Missed call from {name}". A phone whose stop message is withheld in the
+      test stops at the deadline. Answering in a browser tab or on another phone stops this phone,
+      showing "Answered on another device".
+- [ ] A Decline token used twice, used after the ring ended, or used for another call changes
+      nothing.
 - [ ] A ring message delivered late (after its expiry, after its stop message, or after the phone
       switched to another account) shows nothing.
-- [ ] A blocked person, a guest, and anyone the rule does not allow are refused, and the person's
-      phone does nothing.
-- [ ] A caller over the rate limit is refused.
+- [ ] A ring P1711 refuses (a block either way, calls off, not yet allowed in the founder-only
+      period, a fourth unanswered ring within 15 minutes, busy) sends no push, and the phone does
+      nothing.
 - [ ] After signing out on the phone, and after a sign-out of all devices from another phone,
       ringing that account does not ring that phone.
 - [ ] With the screen locked for 5 minutes, the call behaves as P1711's hidden-tab decision
@@ -423,8 +441,8 @@ Android version, notification and full-screen settings, and Do Not Disturb state
 
 ## Done-When
 
-- [ ] Every `[FOUNDER DECISION]` above is answered and recorded in this spec before `/dev` starts
-      the part that needs it.
+- [ ] The conditional founder decisions in Open Questions are answered and recorded here if the
+      shell proof makes them apply.
 - [ ] Firebase Cloud Messaging has a sourced row in the registry in
       `docs/technical/metered-services.md`, added in the same change that first calls it.
 - [ ] Every Acceptance Criterion passes on an internal-track build pointed at a named, stable test
@@ -440,7 +458,7 @@ These are not checkboxes, because no merge can tick them. They are recorded so n
 1. **Developer account and Firebase project.** Payment, identity check and device check are done
    in the founder's setup session (D5).
 2. **Internal test track.** Available as soon as a build exists, with no waiting period.
-3. **Closed test.** Once Part B is on prod and P1711 requirement 9 is done, at least 12 testers
+3. **Closed test, only if the company account still needs one (D14).** Once Part B is on prod and P1711 requirement 9 is done, at least 12 testers
    stay opted in for 14 days in a row before production access can be requested. The rule applies
    to personal accounts created after 2023-11-13
    ([Google](https://support.google.com/googleplay/android-developer/answer/14151465), read
@@ -453,18 +471,18 @@ These are not checkboxes, because no merge can tick them. They are recorded so n
 
 ## Cost Budget
 
-The services are Supabase (two new functions and a table) and Firebase Cloud Messaging (new). Call
+The services are Supabase (a push step on P1711's ring, a token path, and a table of registered
+phones) and Firebase Cloud Messaging (new). Call
 minutes are P1711's budget and are not counted here.
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | Registration: 1 upsert per install, token change or sign-in, plus 1 delete per unregistered token. Ringing: 1 ring call, plus `people × phones` sends for the ring and `people × phones` sends for the stop or outcome, so `2 × people × phones` sends per ring. Decline: 1 ring-response call. The caller's screen follows the ring record live through the same channel P1711 uses for call state: 1 subscription per ring, closed at its outcome | Capped by the rate limits: at a placeholder of 20 rings per caller per hour, `20 × (1 + 2 × people × phones)` requests per caller. Refused requests are not capped by the limit, since a refusal still costs one function call; each costs 1 call and 1 counter update, no sends. Firebase retries are not ours (no extra request) Access-token mint: about `1 per function instance per hour` (cached) | The e2e for both functions: `N cases × 1 call`, with N set by `/dev`. Firebase is stubbed in e2e. Real sends happen only in manual phone tests: `20 + 20` tries for the ring-delay criterion = 40 rings, so `40 × 2 = 80` sends |
+| Requests | Registration: 1 upsert per install, token change or sign-in, plus 1 delete per unregistered token. Ringing: P1711's ring call (P1711's budget), plus `phones` sends for the ring and `phones` sends for the stop, so `2 × phones` sends per ring. Lock-screen Decline: 1 token call, plus 1 `ringing` report per phone. The caller's screen already follows the call row (P1711) | Bounded by P1711's limits: at most 3 unanswered rings of one person by one caller per 15 minutes, so `12 × 2 × phones` sends per caller-person pair per hour, under P1711 D3's per-person rate. Refused requests are not capped by the limit, since a refusal still costs one function call; each costs 1 call and 1 counter update, no sends. Firebase retries are not ours (no extra request) Access-token mint: about `1 per function instance per hour` (cached) | The e2e for both functions: `N cases × 1 call`, with N set by `/dev`. Firebase is stubbed in e2e. Real sends happen only in manual phone tests: `20 + 20` tries for the ring-delay criterion = 40 rings, so `40 × 2 = 80` sends |
 | Egress (bytes) | One small payload per send (opaque ring id, display fields) | Negligible next to the call | Negligible |
 | Log lines | 1 per ring, 1 per failed send; refusals are counted, not logged one per request, so a flood of refused calls cannot flood the logs | Bounded by the rate limits | 1 per case |
-| Service unit × registry price | Firebase quota: 600,000 messages a minute per project ([Firebase](https://firebase.google.com/docs/cloud-messaging/throttling-and-quotas), read 2026-11-26). Price: no per-message price is known, but this is UNVERIFIED until the registry row cites Firebase's pricing page | `20 × 2 × people × phones` per caller, far under 600,000 a minute | 80 sends |
+| Service unit × registry price | Firebase quota: 600,000 messages a minute per project ([Firebase](https://firebase.google.com/docs/cloud-messaging/throttling-and-quotas), read 2026-11-26). Price: no per-message price is known, but this is UNVERIFIED until the registry row cites Firebase's pricing page | `12 × 2 × phones` per pair, far under 600,000 a minute | 80 sends |
 
-The limit of 20 rings per caller per hour is a placeholder that bounds the arithmetic. The real
-numbers come with the founder decision on who may ring whom.
+The limits are P1711's (D9). This spec adds none, so a change there moves these numbers.
 
 ## Pre-deploy Checklist
 
@@ -474,9 +492,9 @@ numbers come with the founder decision on who may ring whom.
       never through the clipboard or chat (`.claude/rules/credentials.md`).
 
 ### Deploy commands
-- [ ] The migration adding the push-token and ring tables applied to the active test server;
+- [ ] The migration adding the registered-phones table and the push step on P1711's ring applied to the active test server;
       prod is applied by `/push` step 2.5 for the pushed commit (P1211: `/ship` never migrates prod)
-- [ ] The ring and ring-response functions deployed to test; prod is deployed by `/push` step 7
+- [ ] The push sender and the ring-token function deployed to test; prod is deployed by `/push` step 7
       for the pushed commit
 - [ ] `assetlinks.json` (required for a TWA, and for App Links if used) served from the test host's
       `/.well-known/` path and present in the prod build output, with the Play App Signing
@@ -497,22 +515,17 @@ Post-deploy verification is in Store steps 5, as prose, because no box can be ti
 
 ## Open Questions
 
-The founder decisions still open, collected. The three the spec review raised are answered (D6 to
-D8). The rest are needed before `/dev` reaches the part that uses them:
+Everything the founder was asked is answered (D1 to D14). What remains applies only if the shell
+proof picks Capacitor:
 
-1. Who may ring whom, and whether a ring goes to one person or the whole chat (Solution 4).
-2. How long it rings, and what a missed call leaves behind (Solution 5).
-3. The acceptable ring delay (Part B criteria).
-4. The app's permanent identifier, name and icon (Solution 1).
-5. The Android browser install offer, once the store app exists (Solution 8).
-6. The store listing copy (Solution 10).
-7. Personal or organization developer account (the setup session, D5; the agent leans personal).
-8. Only if the shell is Capacitor and native Google sign-in fails: hide the Google button in the app.
+1. Accept the vendor's "not intended for production" warning, or stop (Decision Criteria pick rule).
+2. Accept that an email link tapped in Chrome opens the app instead (Invariants, browsers).
+3. Hide the Google button in the app, if native Google sign-in fails the proof (Solution 2).
 
 ## Related
 
-- P1688: the call core, on a development page; Part 0's proof uses it. P1711: the call in the room;
-  Part B needs its requirements 1 and 9 and its hidden-tab decision.
+- P1688: the call core, on a development page; Part 0's proof uses it. P1711: the call in the chat;
+  Part B reuses its direct-call ring (D15 to D23) and needs its requirement 9 and hidden-tab rule (D7).
 - P1593: the install offer and its label.
 - P1325: email sign-in links redeem in any browser; the click-tracking redirect; the typed code was rejected.
 - P1380: event-email sign-in tickets.
