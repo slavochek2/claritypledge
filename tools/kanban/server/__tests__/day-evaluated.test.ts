@@ -420,3 +420,37 @@ describe('P1605 a record that no longer holds beats a live owner', () => {
     expect(renderDetail(back.report, back.view, { kanbanUrl: 'http://x' })).toContain('Earlier verdict: accepted, one-off benchmark')
   })
 })
+
+describe('P1736 a finding filed by a step with no check row', () => {
+  // Step 0d (`--check disp.0d`) and the model-watch step (`disp.0f`) file findings but record no
+  // check row. The finding itself proves the step ran this pass, so a record applies to it.
+  const D = 'disp.0f:due:model-watch-overdue'
+  const withDispatcherFinding = (r: DayReport) => {
+    expect(r.checks.find((c) => c.id === 'disp.0f')).toBeUndefined() // the shape under test
+    r.issues.push({ ...clone(issue(r, A)), fp: D, check: undefined, title: 'Model watch needs attention' } as DayIssue)
+  }
+
+  it('control: with no record the finding is a card', () => {
+    const { view } = render([], withDispatcherFinding)
+    expect(shown(view, D)).toBeDefined()
+  })
+
+  it('an accepted record hides it and counts it', () => {
+    const { view } = render([rec({ fps: [D] })], withDispatcherFinding)
+    expect(shown(view, D)).toBeUndefined()
+    expect(hiddenIn(view, D)?.loop?.evaluated).toMatchObject({ hidden: true, verdict: 'accepted' })
+  })
+
+  it('a fixed record still shows it, marked fixed-returned', () => {
+    const { view } = render([rec({ fps: [D], verdict: 'fixed' })], withDispatcherFinding)
+    expect(shown(view, D)?.loop?.evaluated).toMatchObject({ hidden: false, why_shown: 'fixed-returned' })
+  })
+
+  it('P1605 unchanged: a finding whose check row says not-run still ignores the record', () => {
+    const { view, report } = render([rec()], (r) => {
+      check(r, 'cp.testdb').status = 'not-run'
+    })
+    expect(shown(view, A)).toBeDefined()
+    expect(report.loops?.cards?.[A]?.evaluated).toBeUndefined()
+  })
+})

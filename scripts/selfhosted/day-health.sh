@@ -12,7 +12,7 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 WORKFLOW="selfhosted-health.yml"; TITLE="Self-hosted TEST server health failing"
-MAX_AGE_S="${SELFHOSTED_MAX_RUN_AGE_S:-28800}"   # hourly cron, but GitHub fires it every 4-7 h (measured 2026-10-28..30), so 8 h
+MAX_AGE_S="${SELFHOSTED_MAX_RUN_AGE_S:-50400}"   # hourly cron, but GitHub fires it every 5-12 h (59 gaps 2026-11-08..26: median 7.7 h, max 12.1 h; 8 h cut gave false unknowns, P1736), so 14 h
 
 # Ask GitHub, not a local origin/main ref that may be stale. Only a definite "not found on the default
 # branch" means not shipped yet; any other failure is "could not check", never a quiet local probe.

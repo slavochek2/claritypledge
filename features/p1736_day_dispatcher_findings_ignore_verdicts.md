@@ -95,8 +95,8 @@ board.
 
 ## Acceptance Criteria
 
-- [ ] A `disp.0f` finding with an `accepted` record in date shows in the one-line evaluated count, not as a card
-- [ ] A `disp.0d` finding with a `fixed` record still shows as a card marked fixed-returned
-- [ ] A check that did not run still shows as not run despite a record (P1605 control unchanged)
-- [ ] `day-health.sh` reports ok for a passing scheduled run 12 h old and unknown for one 15 h old
-- [ ] Existing day-loops tests pass
+- [x] A `disp.0f` finding with an `accepted` record in date shows in the one-line evaluated count, not as a card (day-evaluated.test.ts P1736)
+- [x] A `disp.0d` finding with a `fixed` record still shows as a card marked fixed-returned (day-evaluated.test.ts P1736)
+- [x] A check that did not run still shows as not run despite a record (P1605 control unchanged)
+- [x] `day-health.sh` reports ok for a passing scheduled run 12 h old and unknown for one 15 h old (test-p1584: 64/0)
+- [x] Existing day-loops tests pass (server suite 857 passed; the 1 failure, p645 worktree filter, fails identically on main)

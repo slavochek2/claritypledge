@@ -280,7 +280,11 @@ export interface LoopInputs {
 function checkRan(report: DayReport, v: DayIssue): boolean {
   const down = new Set(report.connections.filter((c) => connectionBroken(c.state)).map((c) => c.id))
   const check = report.checks.find((c) => c.id === (v.check ?? v.fp.split(':')[0]))
-  return !!check && (check.status === 'ok' || check.status === 'problem') && !(check.connection && down.has(check.connection))
+  // P1736: a step that files findings without recording a check row (disp.0d, disp.0f) did run:
+  // the written finding is the proof. Synthesised cards (`check:` fps) never reach here, and a
+  // check row that says not-run still ignores records (P1605).
+  if (!check) return !v.fp.startsWith('check:')
+  return (check.status === 'ok' || check.status === 'problem') && !(check.connection && down.has(check.connection))
 }
 
 /**
