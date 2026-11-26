@@ -2,7 +2,7 @@
   "prod": {
     "functions": {
       "_shared": "",
-      "canvas-draft": "194a37a5d4a055d2ebb118f0f99bf057b9bcb0b42b8ad83ac6013902e863e072",
+      "canvas-draft": "c82f552740612c763ae03b1d0aa41120cc0606cebb15acd6b84be661e0fffcbb",
       "chat-voice": "931bc8cec01251bbe426eb1ce5530708624dd88877ca7558f57300905142e031",
       "check-login-email": "c0d640195d0785c6dc93cdbc85c6278d528ab1f34d8e551d0bcebcfd83f869b3",
       "confirm-letter-response": "a241be9075e6240eb275ec525eb68e2f224b59775419533457c05a3a97765a76",
@@ -27,7 +27,7 @@
       "transcribe-slice": "e5b43728be59d11f168c867a20b9c0f39e30ed62c8ee7ee2ffe73cf60cc70dcd",
       "clarify-draft": "845bc561de553f4d9f558032740771372d2ab7e2f8832fd42f84f25d8b675cbc"
     },
-    "functions_deployed_at": "2026-11-24T10:18:43Z",
+    "functions_deployed_at": "2026-11-26T02:04:04Z",
     "migrations": [
       "20250101",
       "20250117",
