@@ -6,8 +6,8 @@ workstream: infrastructure
 created_date: '2026-11-26'
 tags: [deploy, edge-functions, push, drift]
 disclosure: public
-delivery_stage: dev
-pipeline_ran: [create-spec, dev]
+delivery_stage: ship
+pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
@@ -234,7 +234,7 @@ never deployed functions. Replace that line with the new behaviour. Manual one-o
 | The smoke-failure record and the deploy proof live in one checkout's git dir (`<git-common-dir>`, shared by its worktrees) | ACCEPT | `/push` runs from the one main checkout. Any other clone, even on the same machine, has its own records and sees only committed stamps: after a manual deploy from this checkout it can report `ok` while prod runs the manual bytes. Corrected in the verification round, which showed it; this row earlier claimed "never a false in sync" |
 | (Verification round) A clearing of the pending record whose read fails rewrote it empty, dropping every other function's entry | MITIGATE | The record is read once with `cat` (macOS `awk` reads a read error as end of file and exits 0, found in the second delta review), then filtered and replaced atomically; a failed read leaves it unchanged and the run warns that the functions stay pending (test `w-clr`, mutation-controlled) |
 | (Verification round) A manual deploy of a function the tip does not have leaves a pending entry nothing looks at | MITIGATE | An entry whose name has no `index.ts` at the tip (no directory, or a directory without one) is reported by `/day` as a problem and by `/push` as a per-function failure (exit 1, never "in sync"), to resolve by hand: merge it, or check prod, delete it there if it exists, and drop its line. The entry may come from a deploy that never uploaded, so the message does not claim prod has it. Test `w-stray`, mutation-controlled |
-| (Verification round) The manual wrapper is SIGKILLed alone during an upload: the CLI child survives, a later clean `/push` breaks the dead wrapper's lock, deploys and clears the marker, then the orphan upload finishes last and prod runs its bytes with `/day` ok | [FOUNDER DECISION: accept or fix] | Recommended ACCEPT. It needs a kill aimed at the wrapper's PID alone: Ctrl-C and closing the terminal signal the whole process group, which kills the CLI too. Fixing it means the lock tracks the upload child as well, a new lock state |
+| (Verification round) The manual wrapper is SIGKILLed alone during an upload: the CLI child survives, a later clean `/push` breaks the dead wrapper's lock, deploys and clears the marker, then the orphan upload finishes last and prod runs its bytes with `/day` ok | ACCEPT | Agent recommendation, 2026-11-26: the founder asked to go forward and did not choose; reopen if they want it fixed. It needs a kill aimed at the wrapper's PID alone: Ctrl-C and closing the terminal signal the whole process group, which kills the CLI too. Fixing it means the lock tracks the upload child as well, a new lock state |
 | A kill between upload and the proof write leaves the pending marker | ACCEPT | The next run redeploys and smokes it once; it never reads as in sync |
 | An absent `no-verify-jwt-functions.txt` reads as "no function opts out" | ACCEPT | The file is tracked; its absence changes every fingerprint, so every function redeploys with JWT verification on: the secure direction, though a function meant to be open then rejects its callers until the file is restored |
 | In the nothing-to-push case the step-7 SHA comes from `origin/main` after step 1's fetch, a ref other sessions also update | MITIGATE | A `none` run deploys a newer tip that descends from that SHA (nothing was pushed, so no step-5 verdict is tied to it); the migration check gates it. A push run stays bound to its SHA |
@@ -339,6 +339,7 @@ No test depends on today's live drift.
 - [x] `push.md` and `ship-prod` no longer claim that `/ship-prod` deploys functions
 - [x] The P1155 reversal and the new function-deploy authorization are recorded in
       `docs/decisions.md` (via `/kdd`)
-- [ ] The first real `/push` after ship prints a batch and a result for each function. The deployed
-      batch matches the functions stale at that SHA (clarify-draft, if still stale). `[post-deploy]`
-      Once the stamp has landed, `/day`'s `cp.prodfns` reports `ok`
+- [x] `/push` step 7 prints a batch and a result for each function, verified hermetically
+      (`scripts/test-p1732-prod-functions.sh` 222/0). `[post-deploy]` re-verify on the first real
+      `/push` after ship: the deployed batch matches the functions stale at that SHA (clarify-draft,
+      if still stale), and once the stamp has landed `/day`'s `cp.prodfns` reports `ok`
