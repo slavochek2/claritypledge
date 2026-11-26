@@ -1,5 +1,5 @@
 /**
- * The /tree/meeting-stakes step bar. It copies the look of the event room's bar
+ * The /meeting-types step bar. It copies the look of the event room's bar
  * (src/app/prototypes/events/rounds/RoomSteps.tsx: small labels, a blue underline under the
  * shown step, a tick on done steps), whose step keys are fixed to the room, so it cannot be
  * imported here. Unlike the room's, a step that cannot be opened is a plain label, not a

@@ -1,8 +1,8 @@
-/** The /tree/meeting-stakes flow as a host walks it: nothing pre-set, Continue names what is missing, the impact. */
+/** The /meeting-types flow as a host walks it: nothing pre-set, Continue names what is missing, the impact. */
 import { beforeAll, describe, expect, it } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { MeetingStakes } from "./MeetingStakes";
+import { MeetingTypes } from "./MeetingTypes";
 
 beforeAll(() => {
   // jsdom lays nothing out, so it has neither.
@@ -18,9 +18,9 @@ const DIMENSIONS = ["Fuzzy intent", "Delayed feedback", "Serious damage", "Irrev
 
 function renderPage() {
   render(
-    <MemoryRouter initialEntries={["/tree/meeting-stakes"]}>
+    <MemoryRouter initialEntries={["/meeting-types"]}>
       <Routes>
-        <Route path="/tree/meeting-stakes" element={<MeetingStakes />} />
+        <Route path="/meeting-types" element={<MeetingTypes />} />
         <Route path="/live" element={<p>Live page</p>} />
       </Routes>
     </MemoryRouter>,
@@ -32,7 +32,7 @@ function pick(meeting: string) {
   click("Continue");
 }
 
-describe("/tree/meeting-stakes", () => {
+describe("/meeting-types", () => {
   it("starts with nothing chosen, and Continue says what is missing instead of going on", () => {
     renderPage();
     expect(screen.getByLabelText("Meeting")).toHaveValue("");

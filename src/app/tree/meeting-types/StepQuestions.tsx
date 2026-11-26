@@ -1,4 +1,4 @@
-/** Steps 1 and 2 of /tree/meeting-stakes: the meeting, and its five dimensions. */
+/** Steps 1 and 2 of /meeting-types: the meeting, and its five dimensions. */
 import { ANOTHER, DIMENSIONS, MEETINGS, type DimensionKey, type Level, type Levels } from "./model";
 import { LevelBar, type DimensionErrors } from "./parts";
 import { FIELD, errorId } from "./ui";

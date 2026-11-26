@@ -10,7 +10,7 @@ const productionPages = [
 
 const devPages = [
   {
-    path: '/tree/meeting-stakes',
+    path: '/meeting-types',
     label: 'Meeting stakes calculator',
     description: 'Name your next high-stakes meeting, set its five dimensions of stakes, and see the impact.'
   },

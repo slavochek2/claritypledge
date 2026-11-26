@@ -1,4 +1,4 @@
-/** The /tree/meeting-stakes steps and which of them a host can open, derived from the answers (never stored). */
+/** The /meeting-types steps and which of them a host can open, derived from the answers (never stored). */
 import { ANOTHER, DIMENSIONS, isComplete, type DimensionKey, type Levels } from "./model";
 
 export type Step = "meeting" | "stakes" | "impact";

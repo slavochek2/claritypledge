@@ -1,4 +1,4 @@
-/** State and actions for /tree/meeting-stakes: one meeting, its five levels, and the step shown. */
+/** State and actions for /meeting-types: one meeting, its five levels, and the step shown. */
 import { useState } from "react";
 import { flushSync } from "react-dom";
 import { ANOTHER, NO_LEVELS, type DimensionKey, type Level, type Levels } from "./model";

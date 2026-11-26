@@ -1,4 +1,4 @@
-/** Shared controls for the /tree/meeting-stakes prototype. */
+/** Shared controls for the /meeting-types prototype. */
 import type { ReactNode, RefObject } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";

@@ -10,7 +10,7 @@ import { AuthCallbackPage, AuthVerifyPage, EventLinkPage, AuthProvider, useAuth 
 import { AgentAccountsProvider } from "@/app/contexts/agent-accounts-context";
 import { RoomCaptureProvider } from "@/app/contexts/room-capture-context";
 import { ChatProvider } from "@/app/pages/chat/chat-provider";
-import { treeRoutes } from "@/app/tree/tree-routes";
+import { treeRoutes, publicTreeRoutes } from "@/app/tree/tree-routes";
 import { codeRoutes } from "@/app/routes/code-routes";
 import { templateRoutes } from "@/app/routes/template-routes";
 import { RoomCaptureBarFallback } from "@/app/components/session/room-capture-bar";
@@ -1083,7 +1083,7 @@ export default function ClarityPledgeApp() {
         <Route path="/letter/:id" element={<LetterRoute />} />
 
         {/* Prototypes under /tree/* (DEV-gated, incl. the P955 gate fixtures): src/app/tree/tree-routes.tsx. */}
-        {import.meta.env.DEV && treeRoutes(LazyRoute)}
+        {import.meta.env.DEV && treeRoutes(LazyRoute)}{publicTreeRoutes(LazyRoute)}
         {/* PROD-REACHABLE: (P987) the co-founder offer is still live, so its landing page —
             the page that served "/" until P987 reframed "/" to the key-hire wedge — gets a
             real route + nav entry instead of a dev-only /tree snapshot. */}

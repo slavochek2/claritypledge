@@ -4,7 +4,7 @@ import { canOpen, errorsOf, missingOn, stateOf, type FlowInput } from "./flow";
 
 const all = (n: 1 | 2 | 3 | 4 | 5): Levels => ({ fuzzy: n, late: n, damage: n, undo: n, split: n });
 
-describe("meeting-stakes verdict", () => {
+describe("meeting-types verdict", () => {
   it("is low when nothing is high, whatever the rest", () => {
     expect(verdictOf(all(3))).toBe("low");
     expect(verdictCopy(all(3)).title).toBe("Low stakes");
@@ -29,7 +29,7 @@ describe("meeting-stakes verdict", () => {
   });
 });
 
-describe("meeting-stakes flow", () => {
+describe("meeting-types flow", () => {
   const empty: FlowInput = { meeting: "", customName: "", levels: NO_LEVELS };
 
   it("opens each step only once every step before it is answered", () => {

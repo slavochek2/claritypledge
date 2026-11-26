@@ -1,4 +1,4 @@
-/** Step 3 of /tree/meeting-stakes: the impact, as a verdict and the five bars the host set. */
+/** Step 3 of /meeting-types: the impact, as a verdict and the five bars the host set. */
 import { verdictCopy, type Levels } from "./model";
 import { Bars } from "./parts";
 

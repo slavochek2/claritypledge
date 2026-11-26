@@ -1,4 +1,4 @@
-/** Data and the verdict rule for the /tree/meeting-stakes prototype. Sources and caveats: see MeetingStakes.tsx. */
+/** Data and the verdict rule for the /meeting-types prototype. Sources and caveats: see MeetingTypes.tsx. */
 
 export type DimensionKey = "fuzzy" | "late" | "damage" | "undo" | "split";
 /** 1 low … 5 high; null = not set yet (nothing is pre-set). */
@@ -27,7 +27,7 @@ export const ANOTHER = "Another meeting";
 export const MEETINGS: ReadonlyArray<{ group: string; items: readonly string[] }> = [
   {
     group: "Meetings",
-    items: ["Project kickoff", "Pre-mortem", "Hiring decision", "Onboarding a new employee", "Rollout kickoff (AI rollout, reorganisation)", "Post-mortem", "Quarterly or yearly review", "Firing meeting"],
+    items: ["Project kickoff", "Pre-mortem", "Hiring decision", "Onboarding a new employee", "Rollout kickoff (AI rollout, reorganisation)", "Post-mortem", "Quarterly or yearly review", "Firing meeting", "All-hands meeting", "Feedback meeting", "Conflict resolution meeting"],
   },
   {
     group: "Shareholder and board decisions",

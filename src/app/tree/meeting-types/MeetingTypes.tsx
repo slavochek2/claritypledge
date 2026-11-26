@@ -1,6 +1,6 @@
 /**
- * @file MeetingStakes.tsx
- * Prototype at /tree/meeting-stakes (P1721, design exploration, DEV-only).
+ * @file MeetingTypes.tsx
+ * Prototype at /meeting-types (P1721, design exploration, DEV-only).
  *
  * "Would your meeting benefit from ClarityPledge?" in three steps: the host names their next
  * high-stakes meeting (from a list, or typed), sets its five dimensions of stakes, and sees the
@@ -23,7 +23,7 @@ import { MeetingQuestions, StakesQuestions } from "./StepQuestions";
 import { ResultView } from "./ResultView";
 import { useMeetingFlow, type MeetingFlow } from "./useMeetingFlow";
 
-export function MeetingStakes() {
+export function MeetingTypes() {
   const flow = useMeetingFlow();
   const heading = useRef<HTMLHeadingElement>(null);
   const shown = useRef(flow.step);
