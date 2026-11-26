@@ -35,7 +35,7 @@ driver: anomaly
 
 ## Appetite
 
-Blast radius: high. Every `/finish` round and every spec review gains a step, and the receipt and stamp commands gain a refusal; both sit on the path that clears "done" (P1505). Reversibility: high, an untracked local file, one subcommand, a report script and the skill steps that call it. Decision density: low, with one founder call (the thresholds in Decision Criteria).
+Blast radius: high. Every `/finish` round and every spec review gains a step, and the receipt and stamp commands gain a refusal; both sit on the path that clears "done" (P1505). Reversibility: high, an untracked local file, one subcommand, a report script and the skill steps that call it. Decision density: low; the one founder call (the thresholds) was made 2026-11-26.
 
 ## Invariants
 
@@ -73,7 +73,7 @@ Blast radius: high. Every `/finish` round and every spec review gains a step, an
 
 Pre-registered: written before the data exists. **Runs** below means a reviewer's successful runs in any round (first, freshness or spec review) in which at least one other reviewer also succeeded. Freshness rounds count because multi-round reviews keep finding new defects after the first round. A Carbon failure followed by an Argon success is one run, Argon's. The report also splits every number by round kind.
 
-[FOUNDER DECISION: confirm or change these thresholds before `/dev` wires them into the monthly report.]
+Thresholds confirmed by the founder, 2026-11-26. Changing them later is a dated decision, not a quiet edit.
 
 Every reviewer gets exactly one verdict per window, checked in this order:
 
@@ -85,7 +85,7 @@ Every reviewer gets exactly one verdict per window, checked in this order:
 
 Dropped per run is printed beside every verdict.
 
-6. **Noise is its own finding.** A reviewer averaging more than [FOUNDER DECISION: 5] dropped findings per run over 20 or more runs gets a tune item (prompt, effort or model), whatever its verdict. Volume buys more chances at a unique catch, so without this the Keep rule would reward a noisy reviewer, which the 2026-11-05 ruling rejected.
+6. **Noise is its own finding.** A reviewer averaging more than 5 dropped findings per run over 20 or more runs gets a tune item (prompt, effort or model), whatever its verdict. Volume buys more chances at a unique catch, so without this the Keep rule would reward a noisy reviewer, which the 2026-11-05 ruling rejected.
 7. **Overlap guard.** If two reviewers get Remove or Stakes-gate in the same window and the overlap table shows they share most of their verified defects, act on one of them only and re-read the next month. Removing both could lose defects that only the pair catches.
 8. **Availability is its own finding.** A reviewer failed or missing in more than a third of at least 10 non-skipped attempts gets a fix-or-replace item, whatever its yield.
 9. **Model choice (Carbon vs Argon, any new Gemini, GLM version)** is decided by the benchmark, as today. Production triggers a benchmark re-run only by comparing a model with its own past: when a requested model's verified-unique per run over 40 or more runs falls below half its rate in the previous 90 days.
@@ -133,7 +133,7 @@ Dropped per run is printed beside every verdict.
 - [ ] Every combination of runs and catches yields exactly one verdict: a table test over run counts 0–80 and unique counts 0–5.
 - [ ] Report, fixture 3: two reviewers that always find the same defects. The overlap table shows it and the overlap guard acts on only one of them. A Remove verdict against Gemini or Codex prints as a founder item, not a roster change.
 - [ ] The monthly report prints the reading, the verdict per reviewer or "not enough runs", and the three re-checked defects.
-- [ ] Founder decision on the thresholds recorded in this spec.
+- [x] Founder decision on the thresholds recorded in this spec (confirmed as proposed, 2026-11-26).
 - [ ] The existing suites pass, each run directly: `scripts/test-p1505-review-gate.sh`, `scripts/test-p1634-spec-review-stamp.sh` (including its assertion that a stamp changes exactly two lines), `scripts/test-p1664-receipt-unreadable.sh`, `scripts/pre-commit-checks.sh`. This spec changes what `write` and the stamp require, so the cases that write a receipt or stamp after a snapshot (the `[receipt]` sequence in test-p1505, the stamp writes in test-p1634) gain a tally step. Every such changed case is listed in the build report with its old and new setup; no expected exit code changes.
 
 ## Rollback Strategy
