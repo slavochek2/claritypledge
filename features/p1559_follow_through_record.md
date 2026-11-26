@@ -111,6 +111,7 @@ founder's added bet (2026-10-30), untested like the rest. The founder's further 
 practice outside the room (H-NormFlip; H-ProtocolSpreadsWithoutTool). Related: P1061 (position
 movement analytics).
 
+**[2026-11-26: session 2 was cancelled, so this hand test has no venue yet; it needs another second meeting with the same people. See docs/decisions.md 2026-11-26 [product] "Sales mastermind retired in its current form after session 1; session 2 cancelled".]**
 **Falsifier, by hand, before building:** at the sales mastermind's session 2 opener the host names 2-3
 reasons that changed a canvas (docs/events/sales-mastermind.md, Between sessions). If the people named
 are not pleased and the room does not lean in, this chain is wrong and none of P1574 / P1390-for-this

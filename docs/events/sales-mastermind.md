@@ -1,6 +1,8 @@
 # Sales Mastermind — description and run-of-show
 
-> **`UNTESTED`: not run yet.** All timings are estimates until the first evening measures them.
+> **RETIRED in this form 2026-11-26, after session 1; session 2 cancelled** ([decisions.md](../decisions.md) 2026-11-26 [product] "Sales mastermind retired in its current form after session 1; session 2 cancelled").
+> Session 1: 10 registered, 2 attended, 2 of 4 rounds ran (33 and 22 minutes against 18 planned). Kept as the record of what was run.
+> Was: `UNTESTED`: not run yet. All timings are estimates until the first evening measures them.
 > **This file holds the description and the run-of-show. Nothing else.** The goal and its signal
 > are in [goals.md](../goals.md) 3a; the prediction it tests is ledger row L5 in
 > [research-programme.md](../research-programme.md) (decisions.md 2026-10-21 [product]). People,
