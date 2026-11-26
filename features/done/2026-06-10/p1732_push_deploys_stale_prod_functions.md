@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 358
 workstream: infrastructure
 created_date: '2026-11-26'
 tags: [deploy, edge-functions, push, drift]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 3945ef194e59503149f260732ed303a1adcb8f5c056550d7bbc9936f3cb0d236
 spec_review_vendors: [gemini, openrouter]
+completed_at: 2026-11-26
 ---
 
 # P1732: `/push` deploys the prod edge functions the pushed code changed, and prod function drift reaches the day report
