@@ -41,6 +41,11 @@ Executes the documented P919 staging-hop sequence autonomously:
 ./scripts/git-ops.sh ship-to-prod pN
 ```
 
+**This is a git push only. It deploys no edge functions** (P1732). Functions changed by pN reach
+prod at the end of the next `/push` (step 7 deploys every function stale at the live tip). To deploy
+them right after this push instead, run `./scripts/deploy-prod-functions.sh` from the main checkout;
+it prints the batch before the prod keychain dialog.
+
 ## Related
 
 - `/ship pN` -- cherry-picks pN to local main (run this first)

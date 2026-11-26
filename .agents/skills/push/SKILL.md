@@ -1,8 +1,8 @@
 ---
 name: push
 description: "Commit this session's work, write the privacy stamp, and drive the staging hop to origin/main. Completes the push autonomously when ~/.push-enabled is set; otherwise stops and asks the user to run push-on."
-when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship) and NOT for deploying functions to prod (use /ship-prod)."
-version: 7.2.0
+when_to_use: "When you're on main with uncommitted changes and/or commits ahead of origin and you just want them pushed. Triggered by /push, 'push', 'commit and push', 'push it'. NOT for feature branches (use /ship). Ends by deploying any prod edge function that is stale at the pushed tip (step 7, P1732)."
+version: 7.3.0
 ---
 
 # /push
@@ -65,6 +65,7 @@ Do **not** treat `[[ -f ~/.push-enabled ]]` or a bare `cat` as ACTIVE — a stal
 - Run `/maintain:privacy` → **yes, automatically — when the push range touches a watched path** (its stamp is required by `push-docs`; src-only pushes skip it). Never ask "ok to run privacy?".
 - Use the staging-branch hop → **yes** (it's the canonical and only path to main; `push-docs` owns it).
 - Apply to **prod** the migrations the pushed SHA carries → **yes, automatically** (P1211, founder decision D1 = A, 2026-09-21). Typing `/push` authorizes exactly the set `check-schema-ready.sh` names for the SHA being pushed — step 2.5 before the push, step 6 after it — and nothing else. The macOS keychain dialog is the physical confirmation. Never ask "apply migrations?"; never apply a file C1 did not name.
+- Deploy to **prod** every edge function that is stale at the live `origin/main` tip → **yes, automatically** (P1732, a separate authorization parallel to P1211 D1). Typing `/push` authorizes exactly the batch step 7 announces (`prod functions: deploying <names> at <sha9>`), including functions other sessions merged and never deployed. The keychain dialog is the physical confirmation. Never ask "deploy functions?"; never deploy a name the step did not announce.
 - Check code shape before anything reaches prod, and fix it if it slipped through → **yes, automatically** (P1579, step 2.2). Never ask which model, whether to fix, or how. The fix lane is the exception; build time and `/ship` are where code shape is normally fixed.
 
 ### Bystander dirty files — resolved automatically, never asked (P1287, 2026-09-09)
@@ -189,7 +190,7 @@ git status --short
 
 - **Branch ≠ main** → STOP: "On `<branch>`, not main. /push is main-only; use `/ship` for feature branches."
 - **Behind > 0** → STOP: report the ahead/behind counts and let the **user** resolve. Do NOT run `git pull --rebase` yourself — rebasing the shared `main` checkout can collide with a co-tenant `/ship` mid-cherry-pick (git.md). State the counts; the rebase is the user's call.
-- **Clean working tree AND ahead = 0** → nothing to do. Report "Already at origin/main." and exit.
+- **Clean working tree AND ahead = 0** → nothing to push. Report "Already at origin/main.", then run **step 7** anyway with `--after-push none --sha <origin/main after the fetch above>` (it is how a failed function deploy gets retried without new commits) and stop.
 - **Clean working tree, ahead > 0** → skip step 2 (already committed); go to step 2.2.
 
 ### 2. Commit outstanding work (only if the tree is dirty)
@@ -442,7 +443,8 @@ fresh grant, but say that plainly.
 
 ```bash
 PUSH_T0=$(date +%s)          # step 6 accepts only a deployment created after this
-PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs; echo "rc=$?"
+PUSH_DOCS_ASSUME_YES=1 ./scripts/git-ops.sh push-docs; rc=$?; echo "rc=$rc"
+echo "PUSHED_SHA=$(git rev-parse origin/main)"   # step 7 copies this value literally (P1732)
 ```
 
 Exit codes (P1211): **0** pushed, nothing due · **1** refused or failed — including the schema gate,
@@ -541,6 +543,85 @@ created after the push started, whose latest status is `success`.
   → do **not** apply. Report in one line. This is not silent across pushes: the next `/push`
   sees the file as `overdue-coupled`, and step 2.5 re-checks the deploy before applying it.
 
+### 7. Prod edge functions (P1732) — every run that gets here
+
+Typing `/push` also deploys the prod edge functions that are stale at the live `origin/main` tip,
+from a clean checkout of that tip. Before P1732 nothing did: `/ship-prod` is a git push only, and
+function drift reached prod only when someone deployed by hand.
+
+**Whether it deploys** is decided by step 5's exit and step 6. The script applies the rule itself
+(`--after-push`, tested in `scripts/test-p1732-prod-functions.sh`); you pass it the facts:
+
+| Step 5 / step 6 | `--after-push` arguments | What the script does |
+|---|---|---|
+| step 1 said nothing to push | `none --sha <origin/main after step 1's fetch>` | runs |
+| exit **0** | `0 --sha <PUSHED_SHA>` | runs |
+| exit **3**, step 6 applied the coupled migrations | `3 applied --sha <PUSHED_SHA>` | runs, after step 6 |
+| exit **3**, step 6 did not apply them (rc 1 or 2) | `3 not-applied --sha <PUSHED_SHA>` | deploys nothing: `waiting on migrations`. The next `/push` re-checks |
+| exit **4** | `4 --sha <PUSHED_SHA>` | deploys nothing: `unproven: schema unconfirmed` |
+| exit **1**, or a STOP earlier in the run | (do not call it) | |
+
+The script also checks for itself that every migration at the tip is in the committed prod record,
+so a later `/push` with nothing to push still reports `waiting on migrations` (and deploys nothing)
+while an earlier push's migrations are unapplied.
+
+`<PUSHED_SHA>` is the value step 5 printed, copied **literally** (a shell variable does not survive
+between tool calls). The schema gate vouched for that commit only, so when the live tip is anything
+else the script deploys nothing and says `superseded`. Whoever moved the tip may not deploy it
+(`/ship-prod` pushes and deploys no functions), so the next `/push` does, and `/day` reports the stale
+functions until then. In the `none` case nothing was pushed and no step-5 verdict is tied to the SHA:
+a newer tip that descends from it is deployed, still behind the migration check.
+
+When it can deploy, say this in your reply **before** the command: a keychain dialog for the
+**prod** Supabase token may come (🔔 on this tab, it will say *python*), it unlocks deploying the
+batch the script is about to print, and the answer is **Allow**, never Always Allow. An empty batch
+prompts nothing.
+
+Each upload takes up to a minute, so run the command with the Bash tool's `timeout: 600000`. A batch
+of more than 10 functions (the first run after P1732 names all of them) goes in the background
+(`run_in_background`); wait for its notification, then read the log. A run the tool kills mid-batch
+leaves every unsmoked function pending, so the next run redeploys it; it never reads as in sync.
+
+```bash
+if [ -x scripts/deploy-prod-functions.sh ]; then
+  L="$(mktemp)"
+  KEYRING_REASON="/push step 7: deploy stale prod edge functions" \
+    ./scripts/deploy-prod-functions.sh --after-push <step-5 exit or none> [applied|not-applied] --sha <sha> > "$L" 2>&1; rc=$?
+  cat "$L"; echo "rc=$rc"
+else
+  echo "prod functions: step 7 not installed yet (P1732 not shipped)"
+fi
+```
+
+Read the whole log; never filter it through a keyword grep (git.md, P1279). Exit codes:
+**0** every function deployed, or `in sync` · **1** at least one did not end `deployed` (the log names
+each one and its state), or `waiting on migrations` · **2** `unproven` (lock held, live tip or fetch
+unreadable, schema unconfirmed) · **3** `superseded` (the tip is not the commit this push confirmed;
+a `none` run follows a newer tip instead).
+
+**The first `/push` after P1732 ships redeploys every prod function once.** The fingerprint now folds
+in each function's JWT policy, so no record written before it matches. The batch line names them all;
+that is expected, not drift.
+
+- Report the summary line verbatim (`prod functions: N deployed, M not — <name: state>`) and every
+  per-function line that did not end `deployed`. A non-zero exit is a finding, never a failure of the
+  push itself: the git push already happened and is never rolled back.
+- A deploy commits its stamp locally (`commit-to-main --content-file`, which never touches the
+  working manifest). Like step 6's, it rides the **next** push; say so. When local main is behind
+  origin, the stamp is not committed (it would diverge main): the function reads `deployed, stamp not
+  recorded`, and the run after a pull records it without uploading again.
+- **Rollback of one bad function** is a separate, manual mode:
+  `./scripts/deploy-prod-functions.sh --rollback <sha> <fn> ...` deploys only the named functions from
+  that SHA and warns that the next `/push` redeploys them from main unless main is reverted. It refuses
+  before uploading when local main is behind or diverged from origin, since its stamp could not be
+  committed; pull first. If its stamp still fails, prod runs code no record names, and `/day` and the
+  next `/push` treat it as stale.
+- Manual one-off deploys still use `./scripts/deploy-functions.sh <fn> --env prod`, which now shares
+  step 7's lock and its fail-closed secret preflight. It uploads from a working tree and commits no
+  record, so the function stays pending even when its smoke passes: `/day` reports it, and the next
+  `/push` (step 7 runs even with nothing to push) redeploys the tip from a clean checkout and records
+  it.
+
 **Never** offer `git push --no-verify`, a direct `git push origin staging/<sha>:main` (skips the lock), or creating `~/.push-enabled` yourself. The flag is the user's to set; `push-on` is theirs to type.
 
 ---
@@ -556,5 +637,6 @@ created after the push started, whose latest status is `success`.
 | agent guesses at what blocks it and asserts the guess | flag semantics read from source and cited (step 4) |
 | two `push-on` asks per push (one burned on local work, one on the CI poll) | one ask, after the local work, sized to cover both pushes (step 4) + `--resume` when it still lapses (step 5) |
 | "first migrate prod, then push" living in another session's memory (2026-09-18) | step 2.5 applies what the SHA needs before the push, step 6 applies coupled ones after the deploy, and the gate refuses the push otherwise |
+| another session reporting, after your push, that its functions were never deployed (2026-11-26) | step 7 deploys every function stale at the pushed tip, whoever merged it, and `/day`'s `cp.prodfns` reports any it could not |
 
 **Honest contract:** with `~/.push-enabled` set, `/push` runs end to end and pushes to main. Without it, `/push` does everything up to the push and asks the user for one word — `push-on` — never a push procedure, and never `!`.

@@ -304,6 +304,25 @@ else
   esac
 fi
 
+echo "=== PROD EDGE FUNCTIONS (P1732) ==="
+# Read-only: every prod function's fingerprint at the live origin/main tip against its healthy prod
+# record, smoke-failed records included. A failed fetch is unproven, never a fall back to the local
+# manifest. A deployed function whose stamp is not pushed yet counts as deployed. It never deploys;
+# /push step 7 does, so a problem here means a /push has not run since, or its deploy failed.
+PRODFNS_SH="${TESTDB_ROOT:+$TESTDB_ROOT/scripts/deploy-prod-functions.sh}"
+if [ -z "$PRODFNS_SH" ] || [ ! -x "$PRODFNS_SH" ]; then echo "CHECK cp.prodfns skipped the prod function check is not on main yet" | tee -a "${DAY_CHECK_FILE:-/dev/null}"
+else
+  PRODFNS_RC=0; PRODFNS_OUT="$(cd "$TESTDB_ROOT" && "$PRODFNS_SH" --check 2>&1)" || PRODFNS_RC=$?
+  echo "$PRODFNS_OUT"
+  PRODFNS_SUMMARY="$(printf '%s' "$PRODFNS_OUT" | grep '^cp.prodfns:' | tail -1 | sed 's/^cp.prodfns: *//' | tr -d '<>|' | cut -c1-150)"; PRODFNS_SUMMARY="${PRODFNS_SUMMARY:-no output}"
+  case "$PRODFNS_RC" in
+    0) echo "CHECK cp.prodfns ok $PRODFNS_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+    1) case "$PRODFNS_OUT" in *"function deploys wait for them"*) PRODFNS_NEXT="they wait on unapplied prod migrations" ;; *) PRODFNS_NEXT="the next /push deploys them" ;; esac
+       echo "CHECK cp.prodfns problem $PRODFNS_SUMMARY; $PRODFNS_NEXT" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+    *) echo "CHECK cp.prodfns unproven $PRODFNS_SUMMARY" | tee -a "${DAY_CHECK_FILE:-/dev/null}" ;;
+  esac
+fi
+
 echo "=== GEMINI PROD KEY (P1162) ==="
 # The DEPLOYED key, not an ambient one. `ai-keys --ping-prod` pings whatever $GEMINI_API_KEY is set
 # in the shell, which is no ClarityPledge secret — it has exited 2 since it shipped and its coverage
