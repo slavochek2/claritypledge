@@ -1,18 +1,18 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 357
 workstream: clarity-chat
 created_date: '2026-11-25'
 tags: [clarify, mirror, visibility, share]
 disclosure: public
-delivery_stage: dev
 pipeline_ran: [create-spec, dev]
 drafted_by: opus
 exec_model: opus
 exec_effort: high
 spec_review_hash: f0bcba82e5fd7623ddc0f63e8016920ec15e98528717a4162c9a32a0c4ca2387
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-26
 ---
 
 # P1722: Make a point alone with the Mirror, private or public, using the screens we already have
