@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-26 [technical]: A finding filed in this pass proves its step ran, so a recorded verdict applies even with no check row; the self-hosted reader allows 14 h (P1736)
+
+**Context:** Answered /day items came back every day. `checkRan()` required a check row, and 13 steps file findings without one (disp.0d calendar, disp.0f model watch, cp.health, cp.w1, the weeklies). Their records never applied: model watch, accepted until 2026-11-30, reappeared on 2026-11-26. Separately, the self-hosted reader's 8 h cutoff called a healthy database "unknown" (GitHub runs the hourly cron every 5-12 h: 59 gaps, median 7.7 h, max 12.1 h), and its own test had still asserted a 3 h cutoff, red since October with nobody seeing it.
+**Decision:** A finding without a check row counts as ran only when it is filed in this pass's `report.issues`. Read-time cards (`run:no-checks`, `check:` fps) never satisfy a record, and a check row saying not-run still ignores records (P1605). Self-hosted cutoff 14 h, pinned by a 13 h 59 min / 14 h 1 min test pair that fails at 12 h or 16 h.
+**Alternatives rejected:** An allowlist of known rowless steps (Gemini, GLM, Codex round 1): 13 producers measured over 40 reports, so it would have left most of the bug. "Any non-`check:` fp counts as ran", the first version: it let a record hide the no-checks warning (all three external reviewers).
+**Consequences:** Set aside, in the spec: a finding filed under a mistyped producer id counts as ran (needs that typo plus the real check row missing in the same pass); rowless findings carry no connection, so the broken-connection guard cannot apply to them. Per-day fingerprints (`sku-spike:<key>:<date>`) still make each heavy day a new card. Same session: CM Events had been blocked by strict-source failures on 5 passes. The 2026-10-26 P88 item "others publish while one source fails" was deferred as a founder decision and never put to the founder; it is now in pp P88. UNTESTED: falsifier is a week of /day runs where answered dispatcher items still reappear.
+**References:** [p1736](../features/done/2026-06-10/p1736_day_dispatcher_findings_ignore_verdicts.md) · P1605 · pp P88 · beeper-digest b7495e6
+
 ## 2026-11-26 [technical]: `/push` deploys every prod edge function stale at the pushed tip, and only a clean deploy can mark one in sync (P1732)
 
 **Context:** A neighbouring session said after its push that "not everything was deployed". The founder asked why a push does not deploy new functions, how anyone knows prod functions are not stale, and whether anything warns: *"when i push shouldnt it always deploy new functions automatically?"* Prod function drift had been detected all along (P1155's workflow opened an issue that stayed open 7 days with 6 appends), but nothing on the founder's path acted on it, and `/ship-prod` was described as deploying functions when it deploys none.
