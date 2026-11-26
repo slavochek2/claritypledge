@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-26 [process]: A guard that prints "not installed" cannot tell a missing script from a non-executable one; the canary now asserts the mode
+
+**Context:** P1732 added `scripts/deploy-prod-functions.sh` as the last step of `/push`, guarded by `[ -x scripts/deploy-prod-functions.sh ]` with an `else` that prints "step 7 not installed yet (P1732 not shipped)". The script was committed as mode 100644. Every `/push` since then printed that message and deployed no prod edge function, and the message read as "feature not shipped" rather than "feature skipped". Found on a `/push` with nothing to push, where step 7 still runs. Another session landed the mode fix (`6d95bc914`) while this one was diagnosing it.
+**Decision:** (1) `scripts/test-p1732-prod-functions.sh` now asserts, for `deploy-prod-functions.sh` and `deploy-functions.sh`, both the INDEX mode (`ls-files -s`, 100755) and the working-tree `-x` bit. Index and not HEAD, so the commit that fixes a bad mode is not blocked by its own test; the `-x` bit because that is what the guard actually reads and a checkout can lose it while git still records 755. The failure path was shown on a 644 file in a throwaway repo before trusting the check. (2) Proposed, **UNTESTED, not applied** (needs the skills gate and the founder's call): the `/push` step 7 guard should fail loudly when the file exists but is not executable, instead of printing "not installed". Falsifier: if a non-executable step-7 script ever reaches a `/push` again without a loud failure, the canary is the only barrier and (2) was needed.
+**Alternatives rejected:** Checking HEAD with `ls-tree` (blocks the fixing commit); checking only the working-tree bit (passes locally, fails on every other checkout); enumerating every `[ -x ]`-guarded script in the test (all seven in the repo were 100755 when checked, so no live gap; a derived list is the better shape if a second one ever appears).
+**Consequences:** The silent-skip class is closed for the two deploy scripts by a test, not by the guard. Reviewed by Gemini, GLM and Opus (3 of 3 reported); two findings fixed, the rest set aside as still-loud or inapplicable on macOS.
+**References:** [test-p1732-prod-functions.sh](../scripts/test-p1732-prod-functions.sh), [push.md](../.claude/commands/slava/build/push.md)
+
 ## 2026-11-26 [product]: Clarify works alone in the Mirror; tapping Join is the consent on a transcribe room
 
 **Context:** P1722 let the owner Clarify their own Mirror messages, voice notes and recordings, and publish a point privately or publicly. In founder UAT the transcription explanation box and the /transcribe consent checkbox were judged redundant: the room page already says it is a transcription room and who can read the transcript.
