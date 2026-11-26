@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: qa
 type: story
 rank: 357
 workstream: clarity-chat
@@ -163,33 +163,33 @@ Also from the founder, 2026-11-25:
 
 ## Acceptance Criteria
 
-- [ ] On the latest card of a never-published Clarify draft, the visibility control reads "Private", has the blue bordered action style and a button role, and switches to "Public" and back by click and by keyboard. Checked on phone and desktop. On an earlier version and on a card of a draft that was ever published it is a read-only badge. A refine and "Another point" card both start Private.
-- [ ] Before Publish, a draft switched to Public cannot be read by another account and is on neither the profile nor the feed.
-- [ ] Published as Public (with the owner's position), the point is readable by a signed-out visitor at its point page, appears on the owner's profile, and holds exactly one owner position. Published untouched, it is private: not on the owner's profile even in the owner's own view, and a signed-out visitor cannot open it.
-- [ ] A Public publish forced to refuse after it starts leaves the private draft point, the owner's position and the draft pointer unchanged, with no public point and no card.
-- [ ] A retry of a successful Public publish returns `already` with the same card: one public point, one owner position, one card.
-- [ ] A draft point the owner linked into their own private story and a canvas draft, published as Public: the story and the canvas draft now hold the new public point, and no link was lost. The public point's position history holds only the owner's position at publish.
-- [ ] Publish private, then delete the card: the visibility control is not offered again, and the server refuses a visibility change for that draft. The same holds after the card's message is hard-deleted.
-- [ ] A signed-in account outside the chat takes a position on a public Clarify point published (a) into the Mirror and (b) into a DM, including after the card is deleted. It adds a story to it from the point page. The same account is refused a position on a private Clarify point.
-- [ ] Editing a draft to "Pricing is the real blocker #sales" and saving gives tag `sales`, shown on the draft card and on the published point, and kept after reload. Removing `#sales` and saving removes the tag. A direct call to `clarify_draft_edit` with a tag not in the text is refused. A model draft never contains `#`.
-- [ ] In the Mirror chat, Clarify is offered by hover and message menu (desktop) and long press (phone) on the owner's typed message, voice note and transcribed line, and on the Mirror's chat row. It is not offered on a Clarify root, a forwarded copy, a shared card, a Mirror agent reply, or a reply inside a Clarify or canvas-draft thread. The server refuses each of those when called directly.
-- [ ] The Mirror's + menu lists "New point", "New canvas" and "Modify a canvas". "New point" there opens a New point thread, and saying what the point is about drafts it. This also works in a Mirror chat with no messages. With canvas drafting off and Clarify on, the + shows "New point" only.
-- [ ] A New point thread, in the Mirror and in a DM, shows no "Another point" until the owner has replied and a draft exists, then shows it under the latest card. A New point thread whose drafts were all deleted after a reply still shows "Another point", and so does any other Clarify thread whose drafts were all deleted.
-- [ ] Clarify on the typed Mirror message "Remote work makes junior engineers learn slower" yields a draft, either at once or after "Make one anyway".
-- [ ] In the Mirror chat, Transcribe starts a recording, and its Clarify button drafts from the recording.
-- [ ] A point Clarified in the Mirror chat, with the owner's position set, shows "Publish" (founder UAT 2026-11-26; other chats keep "Publish to chat"). Pressing it posts exactly one card into the Mirror's main chat, visible at once and after reload. This holds when the source is a top-level message, a message the Mirror agent replied to, and a transcribed line. In a DM, a reply's point still posts into its thread.
-- [ ] A public point card in a chat offers the existing Share action, which opens the existing share flow with the point's URL. It does not show Edit, Delete or Add a point to this story. A private card, a quoted private card and a story card in a chat offer no Share. The point page shows Share for the public point.
-- [ ] Switching to Public shows the warning first for a draft from:
+- [x] On the latest card of a never-published Clarify draft, the visibility control reads "Private", has the blue bordered action style and a button role, and switches to "Public" and back by click and by keyboard. Checked on phone and desktop. On an earlier version and on a card of a draft that was ever published it is a read-only badge. A refine and "Another point" card both start Private. `[manual browser check not run; founder said ship without it, 2026-11-26; logic covered by tests]`
+- [x] Before Publish, a draft switched to Public cannot be read by another account and is on neither the profile nor the feed. (evidence: closure pass 2026-11-26)
+- [x] Published as Public (with the owner's position), the point is readable by a signed-out visitor at its point page, appears on the owner's profile, and holds exactly one owner position. Published untouched, it is private: not on the owner's profile even in the owner's own view, and a signed-out visitor cannot open it. (evidence: closure pass 2026-11-26)
+- [x] A Public publish forced to refuse after it starts leaves the private draft point, the owner's position and the draft pointer unchanged, with no public point and no card. (evidence: closure pass 2026-11-26)
+- [x] A retry of a successful Public publish returns `already` with the same card: one public point, one owner position, one card. (evidence: closure pass 2026-11-26)
+- [x] A draft point the owner linked into their own private story and a canvas draft, published as Public: the story and the canvas draft now hold the new public point, and no link was lost. The public point's position history holds only the owner's position at publish. (evidence: closure pass 2026-11-26)
+- [x] Publish private, then delete the card: the visibility control is not offered again, and the server refuses a visibility change for that draft. The same holds after the card's message is hard-deleted. (evidence: closure pass 2026-11-26)
+- [x] A signed-in account outside the chat takes a position on a public Clarify point published (a) into the Mirror and (b) into a DM, including after the card is deleted. It adds a story to it from the point page. The same account is refused a position on a private Clarify point. (evidence: closure pass 2026-11-26)
+- [x] Editing a draft to "Pricing is the real blocker #sales" and saving gives tag `sales`, shown on the draft card and on the published point, and kept after reload. Removing `#sales` and saving removes the tag. A direct call to `clarify_draft_edit` with a tag not in the text is refused. A model draft never contains `#`. (evidence: closure pass 2026-11-26)
+- [x] In the Mirror chat, Clarify is offered by hover and message menu (desktop) and long press (phone) on the owner's typed message, voice note and transcribed line, and on the Mirror's chat row. It is not offered on a Clarify root, a forwarded copy, a shared card, a Mirror agent reply, or a reply inside a Clarify or canvas-draft thread. The server refuses each of those when called directly. `[manual browser check not run; founder said ship without it, 2026-11-26; logic covered by tests]`
+- [x] The Mirror's + menu lists "New point", "New canvas" and "Modify a canvas". "New point" there opens a New point thread, and saying what the point is about drafts it. This also works in a Mirror chat with no messages. With canvas drafting off and Clarify on, the + shows "New point" only. (evidence: closure pass 2026-11-26)
+- [x] A New point thread, in the Mirror and in a DM, shows no "Another point" until the owner has replied and a draft exists, then shows it under the latest card. A New point thread whose drafts were all deleted after a reply still shows "Another point", and so does any other Clarify thread whose drafts were all deleted. (evidence: closure pass 2026-11-26)
+- [x] Clarify on the typed Mirror message "Remote work makes junior engineers learn slower" yields a draft, either at once or after "Make one anyway". `[manual browser check not run; founder said ship without it, 2026-11-26; logic covered by tests]`
+- [x] In the Mirror chat, Transcribe starts a recording, and its Clarify button drafts from the recording. `[manual browser check not run; founder said ship without it, 2026-11-26; logic covered by tests]`
+- [x] A point Clarified in the Mirror chat, with the owner's position set, shows "Publish" (founder UAT 2026-11-26; other chats keep "Publish to chat"). Pressing it posts exactly one card into the Mirror's main chat, visible at once and after reload. This holds when the source is a top-level message, a message the Mirror agent replied to, and a transcribed line. In a DM, a reply's point still posts into its thread. (evidence: closure pass 2026-11-26)
+- [x] A public point card in a chat offers the existing Share action, which opens the existing share flow with the point's URL. It does not show Edit, Delete or Add a point to this story. A private card, a quoted private card and a story card in a chat offer no Share. The point page shows Share for the public point. (evidence: closure pass 2026-11-26)
+- [x] Switching to Public shows the warning first for a draft from: (evidence: closure pass 2026-11-26)
   - a chat with another person, even one where only the owner's messages were sent
   - a recording
   - a transcribed line in the Mirror
   - the Mirror chat-row Clarify over a recording
 
   "Keep private" leaves it private. A draft from the owner's own typed Mirror messages, with Mirror agent replies around them, switches with no warning. In the Mirror the dialog says "a recording".
-- [ ] When the person whose DM words a public Clarify point came from is erased, the public point stays readable and the owner's draft shows as erased. When the owner is erased, the public point stays with its author detached.
-- [ ] Within 60 s of a transcribed line or a posted card in the Mirror chat, no Mirror agent message appears, and no Mirror reply job exists for either.
-- [ ] Existing Clarify from a chat with other people works unchanged: drafts private, publishes into that chat, label "Publish to chat". The P1631 tests still pass, except the assertions this spec deliberately replaces.
-- [ ] `/tree/solo-clarify` is gone: its DEV route, tree index entry, lazy import and source files.
+- [x] When the person whose DM words a public Clarify point came from is erased, the public point stays readable and the owner's draft shows as erased. When the owner is erased, the public point stays with its author detached. (evidence: closure pass 2026-11-26)
+- [x] Within 60 s of a transcribed line or a posted card in the Mirror chat, no Mirror agent message appears, and no Mirror reply job exists for either. (evidence: closure pass 2026-11-26)
+- [x] Existing Clarify from a chat with other people works unchanged: drafts private, publishes into that chat, label "Publish to chat". The P1631 tests still pass, except the assertions this spec deliberately replaces. (evidence: closure pass 2026-11-26)
+- [x] `/tree/solo-clarify` is gone: its DEV route, tree index entry, lazy import and source files. (evidence: closure pass 2026-11-26)
 
 ## Cost Budget
 
