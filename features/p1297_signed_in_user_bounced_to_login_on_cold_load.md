@@ -1,5 +1,5 @@
 ---
-status: today
+status: in-progress
 type: bug
 rank: 5
 severity: high
@@ -15,9 +15,18 @@ tags:
   - routing
   - regression-risk
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran:
-  - create-bug
+delivery_stage: reproduce
+pipeline_ran: [create-bug, reproduce]
+reproduce_artifact:
+  test_file: e2e/p1297-reproduce.spec.ts
+  unit_test_file: src/tests/p1297-reproduce.test.tsx
+  root_cause: "AuthProvider reports 'checked, not loading, no user' whenever the profile fetch fails (3 tries, 1 s apart) or getSession() returns a retryable refresh error, although a usable stored session is held; every auth gate redirects on exactly that state, nothing retries, and the token stays in storage"
+  confidence: high
+  surfaces_in_scope: [auth-provider-profile-fetch-failure, auth-provider-retryable-refresh-failure, auth-provider-jwt-rejected-by-server]
+  surfaces_deferred: []
+  reproduced_at: 2026-11-26
+  fix_shape: open
+  fix_shape_why: "hold isLoading and retry (offline-readable pages that wait on isLoading would never settle, since the profile never loads offline) vs settle with the last-known profile cached for the stored session's user vs a new derived signed-out flag every gate reads"
 ---
 
 # P1297: A signed-in user is bounced to /login on a cold page load, with a valid session in storage
@@ -29,29 +38,63 @@ is signed in — deterministically, while an unexpired Supabase session sits in 
 
 ## Root Cause
 
-**Under investigation.** What is established by measurement (2026-09-10, Android Chrome 152
-against the dev server, `/transcribe`):
+**Confirmed for now (2026-11-26, /reproduce; confidence high on the mechanism, the trigger on the
+2026-09-10 device is not re-observed).** The provider, `src/auth/AuthContext.tsx`, turns "could
+not confirm the session" into "nobody is signed in".
 
-- `localStorage` held `sb-<ref>-auth-token` with `expires_at` **45 minutes in the future**.
-- Three consecutive full page loads each rendered the login screen. **Not intermittent** —
-  reproduced 3/3, so this is not the classic mount-order race.
-- The consuming page's own guard is correct and is not the cause. `transcribe-room-page.tsx`
-  gates on `if (!sessionChecked || authLoading) return;` before redirecting, so the redirect
-  can only fire once auth has reported itself finished. The provider is therefore answering
-  "checked, not loading, **no user**" while credentials are present.
+On a cold load auth-js returns an unexpired stored session from `localStorage` **without any
+network call** (`GoTrueClient.__loadSession`), so the provider always holds a `session`. It then
+has two ways to settle on `user: null, isLoading: false, sessionChecked: true`, the exact state
+every auth gate redirects on:
 
-Leading hypothesis, **unverified**: the stored *access* token is unexpired but the *session*
-has been revoked server-side, so restore-from-storage fails and the provider settles on
-"no user". Supabase rotates refresh tokens on use and invalidates a session when a rotated
-token is replayed, which the P1236 room can plausibly provoke: `postSlicePayload` calls
-`supabase.auth.getSession()` on **every slice** — roughly one call every 4 seconds per
-participant — and each of those may attempt a refresh near expiry.
+- **A. Profile fetch fails.** `fetchProfileForUser` tries `get_profile_by_id` 3 times, 1 s apart.
+  If all fail (network drop, 5xx, a token the server rejects) and there is no earlier profile in
+  memory (a cold load never has one), it sets `user` to null and `isLoading` to false. Nothing
+  retries later, so the login form stays up after the network recovers, and the session stays in
+  storage. Any condition that lasts through 3 reloads (a phone's flaky radio, a VPN that drops
+  requests, an unreachable server) gives the deterministic 3/3 of the original report.
+- **B. Refresh fails on the network.** With the stored access token within 90 s of expiry (any
+  phone reopened after an hour idle), auth-js refreshes on load. On a retryable failure it **keeps**
+  the stored session but returns `{ session: null, error }` from `getSession()` and fires
+  `INITIAL_SESSION` with `null` (`_emitInitialSession`). `initSession` treats the error as
+  "checked, no session". P1441 already handles this case for writes (`session-guard.ts`,
+  `'unreachable'`), but not for the provider.
 
-Cheapest disproof, not yet run: replay the stored access token against `/auth/v1/user` and
-read the status. 200 falsifies the revocation hypothesis and moves the fault into the
-provider's restore path; 401/403 confirms it. A first attempt at this probe returned nothing
-useful because `import.meta.env` is not reachable from a bare `Runtime.evaluate` — pass the
-project URL and publishable key in explicitly, or run the probe from a module context.
+**Falsified: the revocation hypothesis above.** Probe on TEST (self-hosted, active): sign a test
+account in, revoke every session with a global sign-out from a second session, then replay the
+first session's still-unexpired access token. `get_profile_by_id` → **200 with the profile**;
+`/auth/v1/user` → 403. PostgREST checks only the JWT's signature and expiry, so a revoked session
+keeps a working profile until the token expires. auth-js then fails the refresh non-retryably and
+**removes** the stored session, which is a clean sign-out, not this bug. The suggested probe
+(`/auth/v1/user`) would have returned 403 and confirmed the wrong cause.
+
+**Also ruled out: a held auth lock.** auth-js waits on its lock with no timeout (`-1`), so a hung
+lock shows an endless loader, never the login page.
+
+**Evidence.**
+- `e2e/p1297-reproduce.spec.ts` against the dev server and TEST: the control (healthy network) stays
+  on `/transcribe`. With `get_profile_by_id` unreachable for the first 4 s of a cold load, the test
+  user lands on `/login?redirect=%2Ftranscribe`, still there 12 s after the network is back, token
+  still in `localStorage`. **2/2 failures** (first run + retry).
+- `src/tests/p1297-reproduce.test.tsx` (provider): both controls pass. A, with the profile failing 5 times
+  and then recovering, still has `user === null` after 20 s. B, with a retryable refresh error,
+  passes through the redirect state.
+
+**Scenario audit (Track B).**
+
+| Scenario on a cold load with a stored session | Today | Scope |
+|---|---|---|
+| Profile request fails briefly (network) | redirect to /login, token kept | in scope (A) |
+| Profile RPC 5xx for a while | redirect to /login, token kept | in scope (A) |
+| Server rejects the access token (401, e.g. expiry by the server clock, rotated signing key) | redirect to /login, token kept until its local expiry | in scope: refresh once, then a clean sign-out with the expired message |
+| Refresh fails on the network (token near expiry) | redirect to /login, token kept | in scope (B) |
+| Session revoked server-side, token unexpired | user shown (PostgREST accepts), clean sign-out at expiry | not affected, verified by probe |
+| Offline cold load | redirect to /login | in scope: must not regress P1369 offline reading |
+| Auth lock held by another tab | endless loader | not this bug |
+| Profile genuinely absent (`not_found`) | user null | unchanged: no profile is not a signed-up user |
+
+**All gates share the provider.** The redirect condition (`sessionChecked && !isLoading && !user`)
+appears in about 30 pages, so the fix belongs in the provider, not per page.
 
 ## Invariants
 
