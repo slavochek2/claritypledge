@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 rank: 348
 workstream: landing
@@ -7,9 +7,9 @@ created_date: '2026-11-25'
 tags: [landing, video, use-cases]
 disclosure: public
 pipeline_ran: [dev, ship]
-delivery_stage: ship
 drafted_by: opus
 exec_model: opus
+completed_at: 2026-11-26
 ---
 
 # P1731: The hero's demo action is a button, and three pages get the super-short film
