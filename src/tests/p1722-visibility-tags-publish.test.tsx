@@ -2,7 +2,7 @@
  * P1722 phase C (rendered): the visibility control on a Clarify draft card (states, click, keyboard, read-only badge), the warning dialog (verbatim copy, shown or not,
  * "Keep private"), tags typed in an edit and sent with the save, and Publish to chat on a Mirror-sourced card. The real card, view and button; only the service is answered.
  */
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClarifyDraft } from '@/app/data/clarify-service';
@@ -33,6 +33,11 @@ const draft = (over: Partial<ClarifyDraft> = {}): ClarifyDraft => ({
   id: 'd1', state: 'done', point: { id: 'pt1', statement: 'Remote work slows juniors', ownerPosition: null, tags: [] }, suggestions: [], errorCode: null, cited: [],
   createdAt: '2026-11-25T10:00:00Z', refineTargetId: null, sourceKind: 'dm', published: [], visibility: 'private', everPublished: false, isLatest: true, publicWarning: true, ...over,
 });
+/** Open the pill's menu and pick the other state (the pill reads the current one). */
+const choose = async (current: 'Private' | 'Public') => {
+  fireEvent.pointerDown(screen.getByRole('button', { name: current }), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+  fireEvent.click(await screen.findByRole('menuitemradio', { name: current === 'Private' ? 'Public' : 'Private' }));
+};
 const control = () => screen.queryByTestId('clarify-visibility-d1');
 
 beforeEach(() => {
@@ -42,18 +47,23 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('visibility control states', () => {
-  it('the latest card of a never-published draft: a button reading "Private" with the blue-bordered style', () => {
+  it('U1: the latest card of a never-published draft: a small blue-bordered pill (icon, label, chevron) the size of the Draft pill, opening a menu of Private and Public', async () => {
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
     const b = screen.getByRole('button', { name: 'Private' });
     expect(b).toHaveAttribute('data-testid', 'clarify-visibility-d1');
-    // the design system's outline variant (blue border and fill), with no hand-typed colour classes on top of it (P1568)
-    expect(b.className).toContain('border-blue-600');
-    expect(b.className).toContain('bg-blue-50');
-    // the classes the control used to type by hand are gone (the variant brings its own text-blue-700, not these)
-    expect(b.className).not.toContain('text-blue-600');
-    expect(b.className).not.toContain('hover:text-blue-700');
-    expect(b.className).not.toMatch(/(^|\s)hover:bg-blue-50/);
-    expect(b.className).toContain('min-h-11'); // 44px
+    const draftPill = screen.getByTestId('clarify-draft-pill');
+    for (const c of ['rounded-full', 'px-2', 'py-0.5', 'text-xs', 'font-medium']) {
+      expect(b.className).toContain(c);
+      expect(draftPill.className).toContain(c);
+    }
+    expect(b.className).toContain('border-blue-600'); // blue-bordered, no grey outline button
+    expect(b.className).not.toMatch(/(^|\s)(h-9|h-10|h-11|min-h-11)(\s|$)/); // not a full-size button
+    expect(b.querySelectorAll('svg')).toHaveLength(2); // lock + chevron
+    expect(b.nextElementSibling).toBeNull();
+    expect(draftPill.nextElementSibling).toBe(b); // sits right next to the Draft pill
+    fireEvent.pointerDown(b, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    const items = (await screen.findAllByRole('menuitemradio')).map((i) => i.textContent);
+    expect(items).toEqual(['Private', 'Public']);
   });
 
   it('while the change is being written: disabled with busy set, then back (visible feedback, no double press)', async () => {
@@ -61,10 +71,10 @@ describe('visibility control states', () => {
     svc.setClarifyVisibility.mockReturnValue(new Promise((r) => { finish = r; }));
     render(<ClarifyDraftCard draft={draft({ publicWarning: false })} userId="me" onChanged={() => undefined} />);
     const b = screen.getByRole('button', { name: 'Private' });
-    fireEvent.click(b);
+    await choose('Private');
     await waitFor(() => expect(b).toBeDisabled());
     expect(b).toHaveAttribute('aria-busy', 'true');
-    fireEvent.click(b);
+    fireEvent.pointerDown(b, { button: 0, ctrlKey: false, pointerType: 'mouse' }); // disabled: opens nothing
     expect(svc.setClarifyVisibility).toHaveBeenCalledTimes(1);
     finish({ status: 'ok', visibility: 'public', publicWarning: false });
     await waitFor(() => expect(b).not.toBeDisabled());
@@ -93,7 +103,7 @@ describe('going Public', () => {
   it('shows the warning first, with the approved words and the chat name; Make public applies it and re-reads', async () => {
     const changed = vi.fn();
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={changed} sourceName="Dana" />);
-    fireEvent.click(screen.getByRole('button', { name: 'Private' }));
+    await choose('Private');
     expect(svc.setClarifyVisibility).not.toHaveBeenCalled();
     expect(await screen.findByText(WARNING_TITLE)).toBeInTheDocument();
     expect(screen.getByText(warningBody('Dana'))).toBeInTheDocument();
@@ -106,7 +116,7 @@ describe('going Public', () => {
 
   it('"Keep private" closes the dialog and writes nothing', async () => {
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Private' }));
+    await choose('Private');
     fireEvent.click(await screen.findByRole('button', { name: 'Keep private' }));
     await waitFor(() => expect(screen.queryByText(WARNING_TITLE)).toBeNull());
     expect(svc.setClarifyVisibility).not.toHaveBeenCalled();
@@ -115,36 +125,59 @@ describe('going Public', () => {
 
   it('the server says no warning is needed: it switches at once, with no dialog', async () => {
     render(<ClarifyDraftCard draft={draft({ publicWarning: false })} userId="me" onChanged={() => undefined} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Private' }));
+    await choose('Private');
     await waitFor(() => expect(svc.setClarifyVisibility).toHaveBeenCalledWith('d1', 'public'));
     expect(screen.queryByText(WARNING_TITLE)).toBeNull();
   });
 
   it('back to Private never asks', async () => {
     render(<ClarifyDraftCard draft={draft({ visibility: 'public' })} userId="me" onChanged={() => undefined} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Public' }));
+    await choose('Public');
     await waitFor(() => expect(svc.setClarifyVisibility).toHaveBeenCalledWith('d1', 'private'));
     expect(screen.queryByText(WARNING_TITLE)).toBeNull();
   });
 
-  it('by keyboard: Enter and Space on the focused control work like a click', async () => {
+  it('R3: the menu shows which value is active (aria-checked), and choosing the active one writes nothing', async () => {
+    render(<ClarifyDraftCard draft={draft({ visibility: 'public', publicWarning: false })} userId="me" onChanged={() => undefined} />);
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Public' }), { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    const pub = await screen.findByRole('menuitemradio', { name: 'Public' });
+    const priv = screen.getByRole('menuitemradio', { name: 'Private' });
+    expect(pub).toHaveAttribute('aria-checked', 'true');
+    expect(priv).toHaveAttribute('aria-checked', 'false');
+    for (const row of [pub, priv]) expect(row.className).toMatch(/min-h-11/);
+    fireEvent.click(pub);
+    await act(async () => { await Promise.resolve(); });
+    expect(svc.setClarifyVisibility).not.toHaveBeenCalled();
+  });
+
+  it('R3: Space opens the pill menu like Enter', async () => {
+    const user = userEvent.setup();
+    render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
+    screen.getByRole('button', { name: 'Private' }).focus();
+    await user.keyboard(' ');
+    expect(await screen.findByRole('menu')).toBeInTheDocument();
+  });
+
+  it('by keyboard: Enter opens the menu, arrows and Enter pick', async () => {
     const user = userEvent.setup();
     render(<ClarifyDraftCard draft={draft({ publicWarning: false, visibility: 'public' })} userId="me" onChanged={() => undefined} />);
     screen.getByRole('button', { name: 'Public' }).focus();
     await user.keyboard('{Enter}');
+    expect(await screen.findByRole('menu')).toBeInTheDocument();
+    await user.keyboard('{Enter}'); // the first item is Private
     await waitFor(() => expect(svc.setClarifyVisibility).toHaveBeenLastCalledWith('d1', 'private'));
-    await user.keyboard(' ');
-    await waitFor(() => expect(svc.setClarifyVisibility).toHaveBeenCalledTimes(2));
     cleanup();
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
     screen.getByRole('button', { name: 'Private' }).focus();
     await user.keyboard('{Enter}');
+    await screen.findByRole('menu');
+    await user.keyboard('{ArrowDown}{Enter}');
     expect(await screen.findByText(WARNING_TITLE)).toBeInTheDocument();
   });
 
   it('the card turns read-only while the warning is open: the dialog closes cleanly and the page is not left inert', async () => {
     const { rerender } = render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Private' }));
+    await choose('Private');
     expect(await screen.findByText(WARNING_TITLE)).toBeInTheDocument();
     rerender(<ClarifyDraftCard draft={draft({ everPublished: true })} userId="me" onChanged={() => undefined} />);
     await waitFor(() => expect(screen.queryByText(WARNING_TITLE)).toBeNull());
@@ -161,7 +194,7 @@ describe('going Public', () => {
     svc.setClarifyVisibility.mockResolvedValue({ status: 'refused', code: 'published' });
     const changed = vi.fn();
     render(<ClarifyDraftCard draft={draft({ publicWarning: false })} userId="me" onChanged={changed} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Private' }));
+    await choose('Private');
     await waitFor(() => expect(changed).toHaveBeenCalled());
   });
 });
@@ -181,11 +214,11 @@ describe('the warning names the source', () => {
         actions={actions} onReload={() => undefined} first last sourceTitle={title} />
     );
     const { unmount } = render(view(draft({ sourceKind: 'mirror' }), null));
-    fireEvent.click(screen.getByRole('button', { name: 'Private' }));
+    await choose('Private');
     expect(await screen.findByText(warningBody('a recording'))).toBeInTheDocument();
     unmount();
     render(view(draft({ sourceKind: 'dm' }), 'Dana'));
-    fireEvent.click(screen.getByRole('button', { name: 'Private' }));
+    await choose('Private');
     expect(await screen.findByText(warningBody('Dana'))).toBeInTheDocument();
   });
 });
@@ -213,7 +246,7 @@ describe('tags', () => {
 
   it('W1: Escape on the visibility warning writes nothing and closes it', async () => {
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Private' }));
+    await choose('Private');
     const dlg = await screen.findByTestId('clarify-public-warning');
     fireEvent.keyDown(dlg, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByText(WARNING_TITLE)).toBeNull());
@@ -252,7 +285,7 @@ describe('tags', () => {
   it('U2: the warning from the visibility button returns focus to that button when it closes', async () => {
     render(<ClarifyDraftCard draft={draft()} userId="me" onChanged={() => undefined} />);
     const b = screen.getByRole('button', { name: 'Private' });
-    fireEvent.click(b);
+    await choose('Private');
     fireEvent.click(await screen.findByTestId('clarify-public-keep'));
     await waitFor(() => expect(screen.queryByText(WARNING_TITLE)).toBeNull());
     await waitFor(() => expect(b).toHaveFocus());
@@ -283,7 +316,7 @@ describe('Publish to chat in the Mirror', () => {
     svc.publishClarify.mockResolvedValue({ status: 'published', messageId: 'card-1', conversationId: 'mirror-conv', threadRootId: null });
     render(<ClarifyDraftsView drafts={[d]} all={[d]} loaded failed={false} name="Mira" userId="me" mentionedId={null} onMention={() => undefined}
       actions={a} onReload={() => undefined} first last />);
-    fireEvent.click(screen.getByRole('button', { name: 'Publish to chat' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Publish' }));
     await waitFor(() => expect(svc.publishClarify).toHaveBeenCalledWith('d1', expect.objectContaining({ visibility: 'private', warningAck: false })));
     await waitFor(() => expect(a.onPublished).toHaveBeenCalledWith({ status: 'published', messageId: 'card-1', conversationId: 'mirror-conv', threadRootId: null }));
   });
@@ -292,7 +325,7 @@ describe('Publish to chat in the Mirror', () => {
     const d = mirrorDraft(null);
     render(<ClarifyDraftsView drafts={[d]} all={[d]} loaded failed={false} name="Mira" userId="me" mentionedId={null} onMention={() => undefined}
       actions={actions()} onReload={() => undefined} first last />);
-    expect(screen.getByRole('button', { name: 'Publish to chat' })).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: 'Publish' })).toHaveAttribute('aria-disabled', 'true');
   });
 });
 

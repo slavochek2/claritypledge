@@ -285,8 +285,12 @@ describe('ClarifyDraftCard', () => {
       expect(screen.getByTestId('clarify-published-d1')).toHaveTextContent(PUBLISH_PUBLISHED_TEXT);
     });
 
-    it('P1722: a Mirror-sourced card now has Publish (it posts into the Mirror main chat)', () => {
-      render(<ClarifyPublishButton {...props} sourceKind="mirror" />);
+    it('P1722 U3: a Mirror-sourced card has Publish, read "Publish" (no one to publish to); other chats keep "Publish to chat"', () => {
+      const mirror = render(<ClarifyPublishButton {...props} sourceKind="mirror" />);
+      expect(screen.getByRole('button', { name: 'Publish' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: PUBLISH_LABEL })).not.toBeInTheDocument();
+      mirror.unmount();
+      render(<ClarifyPublishButton {...props} sourceKind="dm" />);
       expect(screen.getByRole('button', { name: PUBLISH_LABEL })).toBeInTheDocument();
     });
   });

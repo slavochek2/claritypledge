@@ -89,8 +89,8 @@ Every change lands on a screen that exists today. Nothing new is designed except
    - **What works.** The existing Transcribe, and its Clarify button during recording, work in the Mirror chat. This covers one microphone shared by two people, one of them not a user, as P1631 already allows in other chats (decisions.md: "P1631 is built for one mic").
    - **What changes.** The client check (`ChatTranscribe.canTranscribe`) and the server refusals for Mirror rooms lift. /dev lists each refusing site it lifts. Tests that pin the old Mirror refusal are replaced by the new behaviour, and the non-Mirror regressions stay.
    - **Transcribed lines start no Mirror reply.** Today both `isAskable` (client) and `mirror_request_reply` (server) would answer every transcribed line in the Mirror. Both now refuse `is_transcription` rows. Voice notes keep their P1576 trigger.
-5. **Publish to chat in the Mirror chat.**
-   - **The button.** Same button, same label, same position prerequisite.
+5. **Publish in the Mirror chat** (button label "Publish" there, founder UAT 2026-11-26).
+   - **The button.** Same button and position prerequisite; in the Mirror its label is "Publish" (founder UAT 2026-11-26).
    - **Where the card lands.** For a draft whose source is the Mirror, the card always posts into the Mirror's main chat, never into a thread, and the owner sees it at once and after reload. Other chats keep their thread routing unchanged. This matters because the Mirror agent replies inside a message's thread, which would otherwise route the card into that thread. A refused publish of a Mirror source shows the existing failure toast.
    - **What's lifted.** Today the button is hidden and the server refuses `needs_target`. P1631 deferred this for want of a target-chat picker (spec line 66). Posting back into the same Mirror chat needs no picker, and private re-share stays off.
 6. **Share and the warning.**
@@ -177,7 +177,7 @@ Also from the founder, 2026-11-25:
 - [ ] A New point thread, in the Mirror and in a DM, shows no "Another point" until the owner has replied and a draft exists, then shows it under the latest card. A New point thread whose drafts were all deleted after a reply still shows "Another point", and so does any other Clarify thread whose drafts were all deleted.
 - [ ] Clarify on the typed Mirror message "Remote work makes junior engineers learn slower" yields a draft, either at once or after "Make one anyway".
 - [ ] In the Mirror chat, Transcribe starts a recording, and its Clarify button drafts from the recording.
-- [ ] A point Clarified in the Mirror chat, with the owner's position set, shows "Publish to chat". Pressing it posts exactly one card into the Mirror's main chat, visible at once and after reload. This holds when the source is a top-level message, a message the Mirror agent replied to, and a transcribed line. In a DM, a reply's point still posts into its thread.
+- [ ] A point Clarified in the Mirror chat, with the owner's position set, shows "Publish" (founder UAT 2026-11-26; other chats keep "Publish to chat"). Pressing it posts exactly one card into the Mirror's main chat, visible at once and after reload. This holds when the source is a top-level message, a message the Mirror agent replied to, and a transcribed line. In a DM, a reply's point still posts into its thread.
 - [ ] A public point card in a chat offers the existing Share action, which opens the existing share flow with the point's URL. It does not show Edit, Delete or Add a point to this story. A private card, a quoted private card and a story card in a chat offer no Share. The point page shows Share for the public point.
 - [ ] Switching to Public shows the warning first for a draft from:
   - a chat with another person, even one where only the owner's messages were sent
@@ -198,7 +198,7 @@ Clarify and transcription are metered (Gemini), and the Mirror chat gains Transc
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
 | Metered requests | Clarify: 1 draft call per press, plus 1 if the owner taps "Make one anyway", as P1631. Transcription: billed per audio minute, as today | Bounded by the owner's own presses and recording minutes. 0 Mirror replies per transcribed line (Solution 4) | 3 Clarify calls + 1 recording of 1 min = 3 draft calls + 1 audio minute |
-| Supabase calls | Room-state poll in the Mirror chat: 2 calls per 15 s while it is open and visible, plus one read on mount and on each capture or room change | 3600 s / 15 s x 2 = 480 calls per hour of visible Mirror chat | about 2 min open x 8 calls/min = 16 calls |
+| Supabase calls | Room-state poll in the Mirror chat: 2 calls per 15 s while it is open and visible, plus one read on mount and on each capture or room change | 3600 s / 15 s x 2 = 480 calls per hour of visible Mirror chat | about 2 min open x 8 calls/min = 16 calls, plus 1 read on mount x 2 RPCs = 18 calls |
 | Cost | A 10-minute solo recording: 10 min x ($0.003 audio + $0.002 text per min) = $0.05 per pass, at the `gemini-3.5-transcribe` rate in metered-services.md (the configured model, confirmed in review). Capture transcribes twice (live slices, then the saved archive), so 2 x $0.05 = $0.10 per 10-minute recording before slice overlap and retries | — | Browser UAT: 1 min x $0.005 x 2 passes = $0.01 transcription; fixture tests hand-write worker results, so $0 + 3 draft calls under the existing Clarify budget |
 
 Rules: the existing Clarify, Mirror and transcription caps and the budget-capped keys apply unchanged. The poll makes no periodic calls in a hidden tab, and neither do the read on mount and the reads on capture or room change (rule 3).
@@ -223,3 +223,11 @@ Rules: the existing Clarify, Mirror and transcription caps and the budget-capped
 - P1660: the shared hashtag rule. Known gap: non-ASCII tags (`#café`) read wrongly. Separate bug, not in scope.
 - P1576: Mirror reply trigger for voice notes.
 - For /kdd: `docs/technical/database.md` says a chat-published Clarify point "stays private (no tags, no link)". It needs updating, along with the P1631 decisions this amends.
+
+## UAT decisions (founder, 2026-11-26)
+
+- Visibility control is a small pill next to Draft with a Private/Public menu; Public still asks once on first publication.
+- In the Mirror the publish button says "Publish"; other chats keep "Publish to chat".
+- The transcription explanation box is removed in every chat (Mirror and group): the person tapping knows which chat they are in, and consent is recorded server-side on start.
+- Accepted: the P1604 15 s room poll in the Mirror; the new error and toast copy as written; Delete hidden on drafts that were ever published.
+- Long-input issue list moved to its own spec, P1733.

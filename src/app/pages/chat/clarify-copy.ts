@@ -13,6 +13,8 @@ export const CITED_LEAD = 'From the conversation (possibly wrong):';
 export const UPDATED_LEAD = 'Updated:';
 export const EARLIER_LABEL = 'Earlier version';
 export const PUBLISH_LABEL = 'Publish to chat';
+/** In the Mirror there is no one to publish to. */
+export const PUBLISH_MIRROR_LABEL = 'Publish';
 export const PUBLISH_NEEDS_POSITION_TOAST = 'Set your position first';
 export const PUBLISH_PUBLISHED_TEXT = 'Published';
 export const PUBLISH_NOT_AVAILABLE_TOAST = 'You can no longer post in this chat';

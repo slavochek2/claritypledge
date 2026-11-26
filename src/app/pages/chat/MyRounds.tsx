@@ -27,7 +27,7 @@ export function ConversationTop({ summary, blocked, actions, cameFromElsewhere }
   };
   return (
     <ChatTranscribe chat={summary}>
-      {(onTranscribe) => (
+      {(onTranscribe, transcribeBusy) => (
         <ConversationHeader
           chat={summary}
           blocked={blocked}
@@ -36,6 +36,7 @@ export function ConversationTop({ summary, blocked, actions, cameFromElsewhere }
           rounds={summary.kind === 'event' ? threads : undefined}
           onOpenRound={(rootId) => go(chatPath(summary.conversationId, { rootId }))}
           onTranscribe={onTranscribe}
+          transcribeBusy={transcribeBusy}
           pointsCount={points.status === 'ready' ? points.rows.length : null}
           onOpenPoints={openPoints}
         />

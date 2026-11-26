@@ -5,9 +5,10 @@
  * that was ever posted it is the read-only badge (the lock or the globe). Public is applied at Publish; here only the owner's choice is stored.
  */
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { Globe, Lock } from 'lucide-react';
+import { ChevronDown, Globe, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { VisibilityBadge } from '@/app/components/shared/visibility-badge';
 import { setClarifyVisibility, type ClarifyDraft, type ClarifyVisibility } from '@/app/data/clarify-service';
@@ -71,22 +72,39 @@ export function ClarifyVisibilityControl({ draft, earlier, sourceName, onChanged
     else void change('public');
   };
   const Icon = current === 'public' ? Globe : Lock;
+  const pick = (to: ClarifyVisibility) => { if (to !== current) press(); };
   return (
     <>
-      <Button
-        ref={opener}
-        type="button"
-        variant="outline"
-        disabled={busy}
-        aria-busy={busy || undefined}
-        className="h-11 min-h-11 gap-1 px-3"
-        data-testid={`clarify-visibility-${draft.id}`}
-        data-visibility={current}
-        onClick={press}
-      >
-        <Icon className="h-3.5 w-3.5" aria-hidden />
-        {current === 'public' ? VISIBILITY_PUBLIC_LABEL : VISIBILITY_PRIVATE_LABEL}
-      </Button>
+      {/* a small pill beside "Draft" (the same size), blue-bordered; the 44px touch area is the invisible extension above and below it */}
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <button
+            ref={opener}
+            type="button"
+            disabled={busy}
+            aria-busy={busy || undefined}
+            className="relative inline-flex items-center gap-1 rounded-full border border-blue-600 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-50"
+            data-testid={`clarify-visibility-${draft.id}`}
+            data-visibility={current}
+          >
+            <Icon className="h-3 w-3" aria-hidden />
+            {current === 'public' ? VISIBILITY_PUBLIC_LABEL : VISIBILITY_PRIVATE_LABEL}
+            <ChevronDown className="h-3 w-3" aria-hidden />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-36">
+          <DropdownMenuRadioGroup value={current} onValueChange={(v) => pick(v as ClarifyVisibility)}>
+            <DropdownMenuRadioItem value="private" className="min-h-11 cursor-pointer" data-testid="clarify-visibility-private">
+              <Lock className="mr-2 h-4 w-4" aria-hidden />
+              {VISIBILITY_PRIVATE_LABEL}
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="public" className="min-h-11 cursor-pointer" data-testid="clarify-visibility-public">
+              <Globe className="mr-2 h-4 w-4" aria-hidden />
+              {VISIBILITY_PUBLIC_LABEL}
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {asking && <PublicWarningDialog returnFocusTo={opener} source={sourceName} busy={busy} onConfirm={() => void change('public')} onKeep={() => setAsking(false)} onDismiss={() => setAsking(false)} />}
     </>
   );

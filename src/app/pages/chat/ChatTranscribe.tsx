@@ -1,34 +1,34 @@
 /**
  * @file ChatTranscribe.tsx
- * @description P1604: transcription from a chat. The three-dot "Transcribe" item, the explanation shown the FIRST time a person
- * transcribes in a chat (consent is the terms; the server still records it on the tap), and the live-session line
+ * @description P1604: transcription from a chat. The three-dot "Transcribe" item, and the live-session line
  * ("{name} is transcribing", Join). Starting and joining are the same start: the server finds the chat's one open room or opens
  * it (a second tap while one is live joins it, session rule 1).
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Clock, Info, Mic, XCircle } from 'lucide-react';
+import { Clock, Mic, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import { startVisiblePoll } from '@/lib/visible-poll';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useRoomCapture } from '@/app/contexts/room-capture-context';
 import { LIVE_PHASES } from '@/app/contexts/room-capture-core';
-import { getChatLiveTranscription, hasTranscribedInChat, type ChatLiveTranscription } from '@/app/data/chat-live-transcription';
+import { getChatLiveTranscription, type ChatLiveTranscription } from '@/app/data/chat-live-transcription';
 import { getChatTranscriptionProcessing } from '@/app/data/room-transcription-state';
 import type { ChatSummary } from '@/app/data/chat-service';
-import { CHAT_EXPLANATION, LIVE_SESSION_JOIN, TRANSCRIBE_MENU_LABEL, TRANSCRIPT_FAILED, TRANSCRIPT_PROCESSING, liveSessionLine } from '@/app/components/session/capture-copy';
+import { LIVE_SESSION_JOIN, TRANSCRIBE_MENU_LABEL, TRANSCRIPT_FAILED, TRANSCRIPT_PROCESSING, liveSessionLine } from '@/app/components/session/capture-copy';
+
+/** Join while the start is in flight. */
+const JOIN_STARTING = 'Starting…';
 
 /** How often the live-session line re-reads while the chat is open. */
 const LIVE_POLL_MS = 15_000;
 
 /** P1722: every chat transcribes, the Mirror included (one microphone, a person alone or with someone who is not a user). */
-export function TranscribeMenuItem({ onTranscribe }: { chat: ChatSummary; onTranscribe?: () => void }) {
+export function TranscribeMenuItem({ onTranscribe, busy = false }: { chat: ChatSummary; onTranscribe?: () => void; busy?: boolean }) {
   if (!onTranscribe) return null;
   return (
-    <DropdownMenuItem className="min-h-11" onSelect={onTranscribe} data-testid="chat-transcribe-item">
+    <DropdownMenuItem className="min-h-11" disabled={busy} aria-busy={busy || undefined} onSelect={onTranscribe} data-testid="chat-transcribe-item">
       <Mic className="mr-2 h-4 w-4" aria-hidden="true" />
       {TRANSCRIBE_MENU_LABEL}
     </DropdownMenuItem>
@@ -70,51 +70,19 @@ function recordingHere(capture: { phase: string; conversationId: string | null; 
   return capture.conversationId === chat.conversationId || (!!chat.event && capture.eventId === chat.event.id);
 }
 
-function ExplanationDialog({ busy, onConfirm, onClose }: { busy: boolean; onConfirm: () => void; onClose: () => void }) {
-  return (
-    <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
-      {/* No X: the two buttons are the way out (Escape still closes). */}
-      <DialogContent hideCloseButton className="w-[calc(100vw-2rem)] rounded-lg sm:max-w-sm" data-testid="chat-transcribe-explanation">
-        <DialogHeader className="text-left">
-          <div className="flex items-start justify-between gap-2">
-            <DialogTitle>{CHAT_EXPLANATION.title}</DialogTitle>
-            <Popover>
-              <PopoverTrigger
-                aria-label="More information"
-                className="-mt-2 -mr-2 inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-blue-700 hover:bg-blue-100"
-              >
-                <Info className="h-4 w-4" aria-hidden="true" />
-              </PopoverTrigger>
-              <PopoverContent className="text-sm">{CHAT_EXPLANATION.info}</PopoverContent>
-            </Popover>
-          </div>
-          <DialogDescription>{CHAT_EXPLANATION.body}</DialogDescription>
-        </DialogHeader>
-        {/* Side by side at every width, each taking half (the phone default stacks them). */}
-        <DialogFooter className="flex-row gap-2 space-x-0 sm:space-x-0">
-          <Button variant="ghost" className="min-h-11 flex-1 text-muted-foreground" onClick={onClose} disabled={busy}>
-            {CHAT_EXPLANATION.cancel}
-          </Button>
-          <Button className="min-h-11 flex-1" onClick={onConfirm} disabled={busy} aria-busy={busy}>
-            {busy ? CHAT_EXPLANATION.starting : CHAT_EXPLANATION.confirm}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** Wraps the chat's header: gives it the transcribe action, and renders the live-session line and the first-time explanation. */
-export function ChatTranscribe({ chat, children }: { chat: ChatSummary; children: (onTranscribe: (() => void) | undefined) => ReactNode }) {
+/** Wraps the chat's header: gives it the transcribe action, and renders the live-session line. */
+export function ChatTranscribe({ chat, children }: { chat: ChatSummary; children: (onTranscribe: (() => void) | undefined, busy: boolean) => ReactNode }) {
   const { user } = useAuth();
   const capture = useRoomCapture();
-  const [asking, setAsking] = useState(false);
+  const starting = useRef(false);
   const [busy, setBusy] = useState(false);
   const enabled = true;
   const { live, preparing } = useChatTranscribeState(chat.conversationId, enabled, capture.phase, capture.roomId);
 
+  /** One tap starts (or joins) at once; a second tap while the start is in flight does nothing. */
   const start = useCallback(async () => {
-    if (!user) return;
+    if (!user || starting.current) return;
+    starting.current = true;
     setBusy(true);
     try {
       const result = await capture.startCapture({
@@ -131,36 +99,20 @@ export function ChatTranscribe({ chat, children }: { chat: ChatSummary; children
     } catch {
       toast.error('Could not start transcribing. Please try again.');
     } finally {
+      starting.current = false;
       setBusy(false);
-      setAsking(false);
     }
   }, [user, capture, chat.conversationId, chat.kind, chat.event?.id]);
-
-  /** First time in this chat: the explanation. Seen before (a seat in any room of this chat): one tap starts. Doubt shows the box. */
-  const checking = useRef(false);
-  const ask = useCallback(async () => {
-    if (!user || checking.current) return;   // a second tap while the check or the start is in flight does nothing
-    checking.current = true;
-    try {
-      const seen = await hasTranscribedInChat(chat.conversationId, user.id, chat.kind === 'event' ? chat.event?.id ?? null : null);
-      if (seen) await start();
-      else setAsking(true);
-    } catch {
-      setAsking(true);   // on doubt, show the box
-    } finally {
-      checking.current = false;
-    }
-  }, [user, chat.conversationId, chat.kind, chat.event?.id, start]);
 
   const showLine = enabled && live !== null && !live.iAmRecording && !recordingHere(capture, chat);
   return (
     <>
-      {children(enabled ? () => void ask() : undefined)}
+      {children(enabled ? () => void start() : undefined, busy)}
       {showLine && (
         <div className="flex min-h-11 shrink-0 items-center gap-3 border-b bg-muted/40 px-3 text-sm" data-testid="chat-live-session">
           <span className="min-w-0 flex-1 truncate">{liveSessionLine(live.starterName)}</span>
-          <Button variant="outline" className="min-h-11" onClick={() => void ask()}>
-            {LIVE_SESSION_JOIN}
+          <Button variant="outline" className="min-h-11" disabled={busy} aria-busy={busy || undefined} onClick={() => void start()}>
+            {busy ? JOIN_STARTING : LIVE_SESSION_JOIN}
           </Button>
         </div>
       )}
@@ -172,7 +124,6 @@ export function ChatTranscribe({ chat, children }: { chat: ChatSummary; children
           <span className="min-w-0 truncate">{preparing === 'failed' ? TRANSCRIPT_FAILED : TRANSCRIPT_PROCESSING}</span>
         </div>
       )}
-      {asking && <ExplanationDialog busy={busy} onConfirm={() => void start()} onClose={() => setAsking(false)} />}
     </>
   );
 }

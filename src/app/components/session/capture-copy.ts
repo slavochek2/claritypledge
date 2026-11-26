@@ -41,23 +41,6 @@ export const EVENT_IDLE_INFO = "Your table's words appear in your round's chat t
 
 // ─── P1604: transcription belongs to a chat ──────────────────────────────────
 
-/**
- * The explanation shown the first time a person transcribes in a given chat. Consent itself is given by the terms; this box
- * explains who can read the text (everyone in the chat, including people who were not there) and that the audio is kept. The
- * tap on "Start transcribing" still makes the server record consent with the member row.
- */
-export const CHAT_EXPLANATION = {
-  title: 'Post a transcript here?',
-  body:
-    'Your microphone is recorded and kept. The transcript posts here as a thread that everyone in here can read, even people not here now.',
-  /** Behind the info icon: when the thread appears, and why the audio is kept. */
-  info: 'The thread appears about 2 minutes after the session ends. Audio is kept so it can be transcribed.',
-  confirm: 'Start transcribing',
-  /** [FOUNDER DECISION: copy, proposed] The confirm button while the start is in flight. */
-  starting: 'Starting…',
-  cancel: 'Not now',
-} as const;
-
 /** [FOUNDER DECISION: copy, proposed] What the bar and the room page say while a recording started from a chat is running (the name links to the chat). */
 export const TRANSCRIBING_INTO = 'Transcribing into ';
 export const transcribingInto = (chatName: string) => `${TRANSCRIBING_INTO}${chatName}`;

@@ -131,14 +131,16 @@ interface HeaderProps {
   /** P1592: an event channel's round threads the viewer was seated in, listed in the menu under "My rounds". */
   rounds?: RoundThread[];
   onOpenRound?: (rootMessageId: string) => void;
-  /** P1604: opens the transcribe action for this chat (the first-time explanation, or a start). Absent for the mirror. */
+  /** P1604: opens the transcribe action for this chat (a tap starts at once). */
   onTranscribe?: () => void;
+  /** A start is in flight: the item shows it (disabled, aria-busy). */
+  transcribeBusy?: boolean;
   /** P1631: how many live point cards this chat holds (null: not known yet), and the opener of their panel. The item shows only for a count above 0. */
   pointsCount?: number | null;
   onOpenPoints?: () => void;
 }
 
-export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere = false, rounds, onOpenRound, onTranscribe, pointsCount, onOpenPoints }: HeaderProps) {
+export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere = false, rounds, onOpenRound, onTranscribe, transcribeBusy, pointsCount, onOpenPoints }: HeaderProps) {
   const other = chat.other;
   const canBlock = chat.kind === 'dm' && !!other?.id;
   return (
@@ -168,7 +170,7 @@ export function ConversationHeader({ chat, blocked, actions, cameFromElsewhere =
               Points in this chat ({pointsCount})
             </DropdownMenuItem>
           )}
-          <TranscribeMenuItem chat={chat} onTranscribe={onTranscribe} />
+          <TranscribeMenuItem chat={chat} onTranscribe={onTranscribe} busy={transcribeBusy} />
           {chat.kind === 'dm' && other?.slug && (
             <DropdownMenuItem asChild className="min-h-10">
               <Link to={profilePath(other.slug)}>

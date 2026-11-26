@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 import { publishClarify, setClarifyVisibility, type ClarifyVisibility, type PublishResult } from '@/app/data/clarify-service';
 import { PublicWarningDialog } from './ClarifyVisibilityControl';
 import { isWarningAcked, markWarningAcked } from './clarify-warning-ack';
-import { CLARIFY_FAILED_TOAST, PUBLISH_ANSWERED_TOAST, PUBLISH_CHANGED_TOAST, PUBLISH_NEEDS_WARNING_TOAST, PUBLISH_VISIBILITY_CHANGED_TOAST, PUBLISH_LABEL, PUBLISH_NEEDS_POSITION_TOAST, PUBLISH_NOT_AVAILABLE_TOAST, PUBLISH_PUBLISHED_TEXT, VISIBILITY_FAILED_TOAST } from './clarify-copy';
+import { CLARIFY_FAILED_TOAST, PUBLISH_ANSWERED_TOAST, PUBLISH_CHANGED_TOAST, PUBLISH_NEEDS_WARNING_TOAST, PUBLISH_VISIBILITY_CHANGED_TOAST, PUBLISH_LABEL, PUBLISH_MIRROR_LABEL, PUBLISH_NEEDS_POSITION_TOAST, PUBLISH_NOT_AVAILABLE_TOAST, PUBLISH_PUBLISHED_TEXT, VISIBILITY_FAILED_TOAST } from './clarify-copy';
 import { useHasPosition } from './clarify-position-store';
 
 export interface ClarifyPublishButtonProps {
@@ -20,7 +20,7 @@ export interface ClarifyPublishButtonProps {
   id: string;
   /** The point already has a live card in a chat. */
   published?: boolean;
-  /** Kind of the chat the card came from. Unused here since a Mirror-sourced card posts into the Mirror's main chat; kept so callers need not change. */
+  /** Kind of the chat the card came from: a Mirror-sourced card reads "Publish" (it posts into the Mirror's main chat, there is no one else to publish to). */
   sourceKind?: string | null;
   /** The visibility the card shows: what Publish asks for. */
   visibility?: ClarifyVisibility;
@@ -52,7 +52,7 @@ function refusalToast(code: string): string {
   return CLARIFY_FAILED_TOAST;
 }
 
-export function ClarifyPublishButton({ pointId, serverHasPosition, id, published = false, visibility = 'private', publicWarning, everPublished = false, statement = '', sourceName = 'this chat', onReload, onPublished }: ClarifyPublishButtonProps) {
+export function ClarifyPublishButton({ pointId, serverHasPosition, id, published = false, visibility = 'private', publicWarning, everPublished = false, sourceKind, statement = '', sourceName = 'this chat', onReload, onPublished }: ClarifyPublishButtonProps) {
   const hasPosition = useHasPosition(pointId, serverHasPosition);
   const [busy, setBusy] = useState(false);
   // a ref, not state: a second tap in the same tick must see the first
@@ -117,7 +117,7 @@ export function ClarifyPublishButton({ pointId, serverHasPosition, id, published
       data-testid={`clarify-publish-${id}`}
       onClick={() => void publish()}
     >
-      {PUBLISH_LABEL}
+      {sourceKind === 'mirror' ? PUBLISH_MIRROR_LABEL : PUBLISH_LABEL}
     </Button>
     {asking && (
       <PublicWarningDialog
