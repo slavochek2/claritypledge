@@ -11,8 +11,8 @@ exec_model: sonnet
 exec_effort: medium
 tags: [finish, review, openrouter, reviewers]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug, inline]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
 flow: inline
 ---
 
