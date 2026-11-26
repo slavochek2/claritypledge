@@ -10,8 +10,9 @@ exec_model: sonnet
 exec_effort: medium
 tags: [day, verdicts, false-alarm, monitoring]
 disclosure: public
-delivery_stage: create-bug
-pipeline_ran: [create-bug]
+delivery_stage: ship
+pipeline_ran: [create-bug, inline, ship]
+flow: inline
 ---
 
 # P1736: /day ignores recorded verdicts for dispatcher-step findings, and the self-hosted monitor reads GitHub's normal schedule gaps as "unknown"
