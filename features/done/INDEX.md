@@ -282,6 +282,7 @@ Last updated: 2026-11-25
 
 ## UI / Design System
 
+- **P1731** (Nov 26) Hero demo action as an outlined button, super-short cut on three pages — a secondary action beside a big button needs its own button shape; "or" + text link reads as an afterthought.
 - **P1704** (Nov 26) Use-case pages show the product: demo film after the stat band, hero "Watch the product demo" — a script-dispatched Play click keeps the user gesture, so the film starts with sound.
 - **P1682** (Nov 26) Manifesto film on /manifesto + YouTube — one embed, links elsewhere; poster text must not sit under a centred play button
 - **P1674** (Nov 13) /hiring, /coach, /founder, /hospitals, /communities in the fable style — five-person picture where the story is a group, two-person pair where it is two people; each page keeps its own actions, exact event values, redirects, SEO and copy; shared fable components take caller-owned options that default to /builders' output
