@@ -36,6 +36,19 @@ hasnt() { if grep -qF -e "$3" "$2" 2>/dev/null; then bad "$1 (found '$3')"; else
 broken() { echo "FIXTURE: $1"; exit 2; }
 G() { git -c user.email=t@t.t -c user.name=t -c commit.gpgsign=false "$@"; }
 
+# The /push skill guards step 7 with `[ -x scripts/deploy-prod-functions.sh ]` and prints "not
+# installed" otherwise, so a committed 100644 mode silently skips every prod function deploy.
+# Two checks, because each alone has a blind spot. The INDEX mode (what the next commit records;
+# not HEAD, so the commit that fixes a bad mode is not blocked by its own test) catches a chmod
+# that never reached git and so fails on every other checkout. The working-tree -x bit is what the
+# guard actually reads, and catches a checkout that lost it (core.fileMode=false, tarball, copy).
+for _s in deploy-prod-functions.sh deploy-functions.sh; do
+  check "git records $_s as executable (100755)" "100755" \
+    "$(G -C "$SRC_ROOT" ls-files -s -- "scripts/$_s" | cut -d' ' -f1)"
+  if [ -x "$SRC_ROOT/scripts/$_s" ]; then ok "$_s has the working-tree executable bit"; else bad "$_s lacks the working-tree executable bit"; fi
+done
+unset _s
+
 T="$(mktemp -d)"
 trap 'pkill -P $$ sleep 2>/dev/null; rm -rf "$T"' EXIT
 REF="fixref"
