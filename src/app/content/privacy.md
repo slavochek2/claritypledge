@@ -113,9 +113,7 @@ anonymous, and we treat it as personal data throughout.
 A transcribe room is a shared, live transcript that several signed-in people build from their
 own devices. Joining requires you to tap a control: at an event, the "Transcribe for AI
 insights" switch on the ready screen (it starts off) followed by Continue, or Transcribe in the
-event room; on `/transcribe`, a control that reads "Recorded and visible to everyone in this
-room", or, for a room that belongs to an event, "Recorded. A clean transcript is posted to this
-event's channel after each round. Anything said outside a round is posted after the room ends.". Nothing is captured before you do, and your agreement is recorded on our
+event room; on `/transcribe`, the Join button, which you tap after reading the room's disclosure line (who can read the transcript). Nothing is captured before you do, and your agreement is recorded on our
 server at the moment you join, not just in your browser.
 
 While you speak, short segments of your audio are sent to **Google's Gemini API** to be turned
@@ -421,7 +419,7 @@ requested. These records are deleted automatically within about 75 minutes.
 | What you send to your own mirror agent | Contract — Art. 6(1)(b) |
 | Other members' messages sent to your mirror agent when you ask it about a chat | Legitimate interest — Art. 6(1)(f): understanding a conversation you are part of. It is limited to what you can already read, the other members are told when they accept the terms, and they can object (see Your Rights) |
 | Account, profile, pledge, stories, letters, agreements, events, groups, Clarity Chat, live sessions, transcribe rooms, donations acknowledgement | Contract — Art. 6(1)(b) |
-| Voice recording in live sessions and transcribe rooms; explain-back recordings | Consent — Art. 6(1)(a), given by the host's recording switch, the transcribe-room agreement control, switching "Transcribe for AI insights" on at an event's ready screen, or pressing record A joiner of a recorded live session is not asked separately — see Live sessions |
+| Voice recording in live sessions and transcribe rooms; explain-back recordings | Consent — Art. 6(1)(a), given by the host's recording switch, tapping Join on a transcribe room after its disclosure line, switching "Transcribe for AI insights" on at an event's ready screen, or pressing record A joiner of a recorded live session is not asked separately — see Live sessions |
 | Voice profiles (speaker embeddings) | Explicit consent — Art. 9(2)(a) this is biometric data under Art. 9, which normally requires explicit consent; today it is covered by the recording consent above |
 | Using recordings, transcripts and session events to improve our AI/ML services (anonymized) | Consent — Art. 6(1)(a), given with the recording |
 | Storing a letter recipient's or agreement partner's email address, and sending it to our email provider | Legitimate interest — Art. 6(1)(f): delivering what a user asked us to send to you; you can have it removed at any time |

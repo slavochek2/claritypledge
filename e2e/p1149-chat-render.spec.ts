@@ -67,7 +67,6 @@ test.describe('P1149: /transcribe chat message rendering', () => {
 
   test('a seeded message renders with the speaker name and a timestamp', async ({ page }) => {
     await page.goto(`/transcribe/${roomCode}`);
-    await page.getByTestId('transcribe-recording-toggle').click();
     await page.getByTestId('transcribe-join-button').click();
 
     await expect(page.getByTestId('transcribe-room-screen')).toBeVisible({ timeout: 15000 });

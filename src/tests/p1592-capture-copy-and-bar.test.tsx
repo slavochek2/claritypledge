@@ -8,7 +8,7 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { consentAgreedLabel, whereItGoesText, EVENT_TRANSCRIBE_FIRST_SENTENCE } from '@/app/components/session/capture-copy';
+import { whereItGoesText, EVENT_TRANSCRIBE_FIRST_SENTENCE } from '@/app/components/session/capture-copy';
 import { parseSliceDestination } from '@/app/data/transcribe-slice-destination';
 import { isTranscriptionAppend } from '@/app/pages/chat/chat-refetch';
 import type { ChatMessageEvent } from '@/app/data/chat-service';
@@ -37,10 +37,6 @@ describe('P1592 copy selection', () => {
   it('the event ⓘ line is the approved wording; the non-event line is today\'s text', () => {
     expect(whereItGoesText(true)).toBe("live text stays here. After each round, a clean version is posted to your round's thread, where the host and attendees can read it. Anything said outside a round is posted after the room ends. The audio is kept so the conversation can be transcribed.");
     expect(whereItGoesText(false)).toBe('the text appears for everyone in this room, and the audio is kept so the whole conversation can be transcribed afterwards.');
-  });
-  it('the consent label changes only for an event room', () => {
-    expect(consentAgreedLabel(true)).toBe("Recorded. A clean transcript is posted to this event's channel after each round. Anything said outside a round is posted after the room ends.");
-    expect(consentAgreedLabel(false)).toBe('Recorded and visible to everyone in this room');
   });
   it('the idle bar\'s Transcribe button is described by the new sentence, with no contradicting "share transcript" line', () => {
     mockUseRoomCapture.mockReturnValue({ ...capture({ phase: 'idle' }), isCapturingForEvent: () => false, startCapture: vi.fn() });

@@ -17,13 +17,6 @@ export function whereItGoesText(forEvent: boolean): string {
 export const EVENT_TRANSCRIBE_FIRST_SENTENCE =
   "After each round, a clean version is posted to your round's thread, where the host and attendees can read it. Anything said outside a round is posted after the room ends.";
 
-/** The consent tap's agreed label on /transcribe/:code. */
-export function consentAgreedLabel(forEvent: boolean): string {
-  return forEvent
-    ? "Recorded. A clean transcript is posted to this event's channel after each round. Anything said outside a round is posted after the room ends."
-    : 'Recorded and visible to everyone in this room';
-}
-
 /**
  * P1529 D13, D24: the recording consent of a Sales Mastermind. The founder's approved wording (a factual opening: table mics capture, Google Gemini
  * transcribes, the discussed peer can use AI to draft an update from that transcript). The Terms/Privacy line under the registration's Continue
@@ -65,11 +58,16 @@ export const STOPPED_ELSEWHERE_NOTICE = 'Stopped transcribing in your other chat
 /** [FOUNDER DECISION: copy, proposed] Session rule 5: the room ended while this person was paused. */
 export const ROOM_ENDED_NOTICE = 'This transcription ended. Start again to begin a new session.';
 
-/** [FOUNDER DECISION: copy, proposed] /transcribe/:code consent for a room that belongs to a chat: the intro and the agreed label. */
+/** [FOUNDER DECISION: copy, proposed] /transcribe/:code consent intro for a room that belongs to a chat. */
 export const CHAT_ROOM_INTRO =
   "shown in this room, and posted to the chat this room belongs to as a thread about 2 minutes after the session ends, where everyone in that chat can read it, including people who are not here";
-export const CHAT_ROOM_AGREED_LABEL =
-  'Recorded. A transcript is posted to this room\'s chat about 2 minutes after the session ends.';
+
+/** /transcribe: no room has that code (the join's existing message, now also shown before Join). */
+export const ROOM_NOT_FOUND = 'This room could not be found.';
+
+/** [FOUNDER DECISION: copy, proposed] NEW: /transcribe when the room check errored or timed out; Join stays closed until a retry works. */
+export const ROOM_CHECK_FAILED = 'Could not check this room. Try again.';
+export const ROOM_CHECK_RETRY = 'Try again';
 
 /** [FOUNDER DECISION: copy, proposed] Appended to a session thread's title when someone's audio did not all arrive (decision 4). */
 export const INCOMPLETE_TITLE_SUFFIX = 'some audio missing';

@@ -41,6 +41,7 @@ import {
   type TranscribeRoomMember,
   type TranscribeMessage,
 } from '@/app/data/transcribe-service';
+import { ROOM_NOT_FOUND } from '@/app/components/session/capture-copy';
 import { useRoomCapture, type CapturePhase } from '@/app/contexts/room-capture-context';
 import { RoomCaptureBarClaimSilent } from '@/app/components/session/room-capture-bar';
 import { useLinksTriggerOverride } from '@/app/components/layout/event-links-context';
@@ -65,7 +66,6 @@ export function TranscribeRoomPage() {
   }, [urlCode]);
 
   const [view, setView] = useState<ViewState>('loading');
-  const [consentGiven, setConsentGiven] = useState(false);
   const [members, setMembers] = useState<TranscribeRoomMember[]>([]);
   const [messages, setMessages] = useState<TranscribeMessage[]>([]);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -165,7 +165,7 @@ export function TranscribeRoomPage() {
   const BACK_FALLBACK = '/';
 
   const handleJoin = useCallback(async () => {
-    if (!user || !consentGiven) return;
+    if (!user) return;
     setView('joining');
     setJoinError(null);
     const displayName = user.name || user.email || 'Participant';
@@ -175,7 +175,7 @@ export function TranscribeRoomPage() {
       if (urlCode) {
         const existing = await getRoomByCode(urlCode);
         if (!existing) {
-          setJoinError('This room could not be found.');
+          setJoinError(ROOM_NOT_FOUND);
           setView('consent');
           return;
         }
@@ -205,7 +205,7 @@ export function TranscribeRoomPage() {
     } finally {
       joiningRef.current = false;
     }
-  }, [user, consentGiven, urlCode, capture]);
+  }, [user, urlCode, capture]);
 
   const handleEndSession = useCallback(async () => {
     // A read-only room has no capture to end; the server already recorded the end.
@@ -244,8 +244,6 @@ export function TranscribeRoomPage() {
       <RoomFrame testId="transcribe-consent-screen">
         <TranscribeRoomTop running={false} fallback={BACK_FALLBACK} />
         <TranscribeJoinForm
-          consentGiven={consentGiven}
-          onToggle={() => setConsentGiven((prev) => !prev)}
           urlCode={urlCode}
           joinError={joinError}
           joining={view === 'joining'}

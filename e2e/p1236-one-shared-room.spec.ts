@@ -41,7 +41,6 @@ test.describe('P1236: one shared room', () => {
     const join = async (page: typeof pageA, user: TestUser) => {
       await setTestSession(page, user.email);
       await page.goto('/transcribe');
-      await page.getByRole('button', { name: /tap to agree/i }).click();
       await page.getByRole('button', { name: /^Join room$/i }).click();
       await expect(page.getByText(/Listening|Live text|stalled|microphone/i).first())
         .toBeVisible({ timeout: 30_000 });

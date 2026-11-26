@@ -40,16 +40,14 @@ test.describe('P1149: /transcribe Consent Gate', () => {
     expect(calls).toBe(0);
   });
 
-  test('the join button is disabled until the recording-consent toggle is set', async ({ page }) => {
-    const joinButton = page.getByTestId('transcribe-join-button');
-    await expect(joinButton).toBeDisabled();
-
-    await page.getByTestId('transcribe-recording-toggle').click();
-    await expect(joinButton).toBeEnabled();
+  test('the join button is enabled at once: no consent checkbox, tapping Join is the consent', async ({ page }) => {
+    await expect(page.getByTestId('transcribe-join-button')).toBeEnabled();
+    await expect(page.getByTestId('transcribe-recording-toggle')).toHaveCount(0);
+    await expect(page.getByRole('checkbox')).toHaveCount(0);
   });
 
-  test('declining leaves the room — navigates away without joining', async ({ page }) => {
-    await page.getByRole('button', { name: /leave/i }).click();
+  test('Back leaves the room — navigates away without joining (no decline control: not tapping Join is declining)', async ({ page }) => {
+    await page.getByRole('button', { name: /back/i }).first().click();
     // A signed-in user landing on "/" is redirected onward by the app (e.g. to /feed) —
     // the invariant this test proves is "no longer on /transcribe", not a literal "/".
     await expect(page).not.toHaveURL(/\/transcribe/);

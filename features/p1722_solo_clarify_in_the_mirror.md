@@ -201,6 +201,8 @@ Clarify and transcription are metered (Gemini), and the Mirror chat gains Transc
 | Supabase calls | Room-state poll in the Mirror chat: 2 calls per 15 s while it is open and visible, plus one read on mount and on each capture or room change | 3600 s / 15 s x 2 = 480 calls per hour of visible Mirror chat | about 2 min open x 8 calls/min = 16 calls, plus 1 read on mount x 2 RPCs = 18 calls |
 | Cost | A 10-minute solo recording: 10 min x ($0.003 audio + $0.002 text per min) = $0.05 per pass, at the `gemini-3.5-transcribe` rate in metered-services.md (the configured model, confirmed in review). Capture transcribes twice (live slices, then the saved archive), so 2 x $0.05 = $0.10 per 10-minute recording before slice overlap and retries | — | Browser UAT: 1 min x $0.005 x 2 passes = $0.01 transcription; fixture tests hand-write worker results, so $0 + 3 draft calls under the existing Clarify budget |
 
+- **Room-page lookup retries.** On `/transcribe/:code` a failed room or event lookup shows Try again. Each tap costs at most 1 room RPC + 1 events SELECT = 2 Supabase calls, only on a failed lookup and only on a human tap, never automatic. At about 1 failure per 100 room-page opens, that is under 0.02 calls per open on average.
+
 Rules: the existing Clarify, Mirror and transcription caps and the budget-capped keys apply unchanged. The poll makes no periodic calls in a hidden tab, and neither do the read on mount and the reads on capture or room change (rule 3).
 
 - **Why a poll (rule 2).** This spec adds no new poll. It opens Transcribe's existing room-state poll (`startVisiblePoll`, P1604, two RPCs every 15 s) to one more chat, the Mirror. P1604 records no reason for polling over push or realtime. `[FOUNDER DECISION: accept the P1604 poll in the Mirror unchanged, or require a Realtime replacement before ship]`
@@ -209,6 +211,12 @@ Rules: the existing Clarify, Mirror and transcription caps and the budget-capped
 - **Log lines.** The new refusals (`answered`, `visibility_changed`, `needs_warning`, `earlier_version`) return a JSON status, not an error, so they add no error log lines.
 - **Test runs (rule 6).** The three P1722 integration files create 21 test accounts per run (2 in `e2e/integration/p1722-solo-clarify.spec.ts`, 5 in `src/tests/integration/p1722-solo-clarify.test.ts`, 14 in `src/tests/integration/p1722-fix-round-1.test.ts`) and delete them after (one batch delete call per file). Fixtures are written with the admin client, a few dozen requests per test. The draft model is never called: the tests write worker results by hand.
 - **Fits the plan.** Monthly requests: `480 x visible Mirror hours per month + (21 accounts x (create + sign-in) = 42 auth calls + about 60 fixture reads and writes + 3 batch deletes, about 105 requests) x P1722 test runs per month`. Monthly egress: `240 x visible Mirror hours per month x bytes per poll pair`. The verdict for today and for 10x is the reviewer's, read from the registry row's "Where usage is read"; the values stay out of this file.
+
+## Known limitations (review round 9, accepted 2026-11-26)
+
+- A room the host ends while a visitor reads the disclosure still shows Join. Pressing it gives "This room could not be found." This was the behaviour before P1722 too.
+- A visitor who switches tabs while the room lookup is pending still gets one follow-up events read. It is a single read, not polling.
+- After a 15 s room-lookup timeout, the timed-out room request is not cancelled, so a Try again tap can overlap it. Try again is disabled while a lookup runs, so each overlap needs a human tap after a timeout.
 
 ## Related
 

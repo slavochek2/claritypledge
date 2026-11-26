@@ -74,7 +74,6 @@ test.describe('P1275: starting a new /transcribe room', () => {
     await expect(page.getByTestId('transcribe-consent-screen'),
       'control: the signed-in user must reach the consent screen').toBeVisible({ timeout: 15000 });
 
-    await page.getByTestId('transcribe-recording-toggle').click();
     await page.getByTestId('transcribe-join-button').click();
 
     // Wait for the attempt to SETTLE either way before asserting anything about it.
@@ -105,7 +104,6 @@ test.describe('P1275: starting a new /transcribe room', () => {
   test('the room and the creator membership are both persisted', async ({ page }) => {
     await page.goto('/transcribe');
     await expect(page.getByTestId('transcribe-consent-screen')).toBeVisible({ timeout: 15000 });
-    await page.getByTestId('transcribe-recording-toggle').click();
     await page.getByTestId('transcribe-join-button').click();
     await expect(
       page.getByTestId('transcribe-room-screen').or(page.getByTestId('transcribe-join-error')),

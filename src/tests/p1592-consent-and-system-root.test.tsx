@@ -15,10 +15,11 @@ import { mapMessageRow, mapForwardSnapshot } from '@/app/data/chat-mappers';
 
 const room = vi.hoisted(() => ({ getRoomByCode: vi.fn() }));
 vi.mock('@/app/data/transcribe-service', () => ({ getRoomByCode: room.getRoomByCode }));
+vi.mock('@/lib/supabase', async (orig) => { const real = await orig<typeof import('@/lib/supabase')>(); return { supabase: new Proxy(real.supabase, { get: (t, k, r) => (k === 'from' ? () => ({ select: () => ({ eq: () => ({ abortSignal: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }) : Reflect.get(t, k, r)) }) }; });
 vi.mock('@/auth', () => ({ useAuth: () => ({ user: { id: 'user-id-me' } }) }));
 vi.mock('sonner', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn() }) }));
 
-import { ConsentSection } from '@/app/pages/ConsentLabel';
+import { TranscribeJoinForm } from '@/app/pages/transcribe-join-form';
 import { PendingQuote } from '@/app/pages/chat/PendingQuote';
 import { searchHitHeading } from '@/app/pages/chat/chat-preview';
 import { ForwardDialog } from '@/app/pages/chat/ChatDialogs';
@@ -26,82 +27,75 @@ import { ChatContext, type ChatContextValue } from '@/app/pages/chat/chat-state'
 import { MirrorContext } from '@/app/pages/chat/mirror-state';
 import { MessageRow, type MessageActions } from '@/app/pages/chat/MessageRow';
 
-const EVENT_LABEL = "Recorded. A clean transcript is posted to this event's channel after each round. Anything said outside a round is posted after the room ends.";
-const ROOM_LABEL = 'Recorded and visible to everyone in this room';
 const EVENT_INTRO = "a clean version is posted to this event's channel after each round; anything said outside a round is posted after the room ends";
 const ROOM_INTRO = 'shown to everyone in this room';
 let n = 0;
 const code = () => `CODE${++n}`;
-const mount = (c: string | undefined, agreed = true) => render(<ConsentSection agreed={agreed} code={c} onToggle={() => undefined} />);
+const mount = (c: string | undefined) => render(<TranscribeJoinForm urlCode={c} joinError={null} joining={false} onJoin={() => undefined} />);
 
 // No mockClear/mockReset between tests: under vitest 4 a cleared spy reports a HANDLED rejection as a
 // test error. Call counts are read as deltas instead.
 const calls = () => room.getRoomByCode.mock.calls.length;
 
 describe('P1592 consent wording follows the room', () => {
-  it('while the lookup runs: toggle disabled, no agreed-label text and no committed intro', async () => {
+  const intro = () => screen.getByTestId('transcribe-consent-intro').textContent;
+  it('while the lookup runs: no committed intro', async () => {
     let resolve: (v: unknown) => void = () => undefined;
     room.getRoomByCode.mockReturnValue(new Promise((r) => { resolve = r; }));
     mount(code());
-    expect(screen.getByTestId('transcribe-recording-toggle')).toBeDisabled();
-    expect(screen.queryByText(EVENT_LABEL)).not.toBeInTheDocument();
-    expect(screen.queryByText(ROOM_LABEL)).not.toBeInTheDocument();
-    expect(screen.getByTestId('transcribe-consent-intro').textContent).not.toContain(ROOM_INTRO);
+    expect(intro()).not.toContain(ROOM_INTRO);
+    expect(intro()).not.toContain(EVENT_INTRO);
     resolve({ id: 'r', eventId: 'ev-1' });
-    await waitFor(() => expect(screen.getByText(EVENT_LABEL)).toBeInTheDocument());
-    expect(screen.getByTestId('transcribe-recording-toggle')).toBeEnabled();
+    await waitFor(() => expect(intro()).toContain(EVENT_INTRO));
   });
 
-  it('an event room: event label and intro', async () => {
+  it('an event room: event intro', async () => {
     room.getRoomByCode.mockResolvedValue({ id: 'r', eventId: 'ev-1' });
     mount(code());
-    await waitFor(() => expect(screen.getByText(EVENT_LABEL)).toBeInTheDocument());
-    expect(screen.getByTestId('transcribe-consent-intro').textContent).toContain(EVENT_INTRO);
-    expect(screen.getByTestId('transcribe-consent-intro').textContent).not.toContain(ROOM_INTRO);
+    await waitFor(() => expect(intro()).toContain(EVENT_INTRO));
+    expect(intro()).not.toContain(ROOM_INTRO);
   });
 
-  it('an ad-hoc room (no event): today\'s label and intro', async () => {
+  it('an ad-hoc room (no event): today\'s intro', async () => {
     room.getRoomByCode.mockResolvedValue({ id: 'r', eventId: null });
     mount(code());
-    await waitFor(() => expect(screen.getByText(ROOM_LABEL)).toBeInTheDocument());
-    expect(screen.getByTestId('transcribe-consent-intro').textContent).toContain(ROOM_INTRO);
+    await waitFor(() => expect(intro()).toContain(ROOM_INTRO));
   });
 
   it('no code in the URL: today\'s wording at once, no lookup', () => {
     const before = calls();
     mount(undefined);
-    expect(screen.getByText(ROOM_LABEL)).toBeInTheDocument();
-    expect(screen.getByTestId('transcribe-recording-toggle')).toBeEnabled();
+    expect(intro()).toContain(ROOM_INTRO);
     expect(calls()).toBe(before);
   });
 
-  it('FAILURE: a rejected lookup shows the EVENT wording (the broader audience), never the narrower one', async () => {
+  it('FAILURE: a rejected lookup is a failed state: no wording at all (neither audience), no Join rendered, a retry offered', async () => {
     room.getRoomByCode.mockImplementation(() => Promise.reject(new Error('offline')));
     mount(code());
-    await waitFor(() => expect(screen.getByText(EVENT_LABEL)).toBeInTheDocument());
-    expect(screen.queryByText(ROOM_LABEL)).not.toBeInTheDocument();
-    expect(screen.getByTestId('transcribe-consent-intro').textContent).toContain(EVENT_INTRO);
-    expect(screen.getByTestId('transcribe-recording-toggle')).toBeEnabled();
+    await waitFor(() => expect(intro()).toBe('Could not check this room. Try again.'));
+    expect(screen.queryByTestId('transcribe-join-button')).toBeNull();
+    expect(screen.getByTestId('transcribe-room-retry')).toBeInTheDocument();
   });
 
-  it('FAILURE: a room that is not found also shows the event wording', async () => {
+  it('FAILURE: a room that is not found says so, with no wording and no Join', async () => {
     room.getRoomByCode.mockResolvedValue(null);
     mount(code());
-    await waitFor(() => expect(screen.getByText(EVENT_LABEL)).toBeInTheDocument());
+    await waitFor(() => expect(intro()).toBe('This room could not be found.'));
+    expect(screen.queryByTestId('transcribe-join-button')).toBeNull();
   });
 
-  it('not agreed: the prompt, not a label', async () => {
+  it('there is no consent toggle', async () => {
     room.getRoomByCode.mockResolvedValue({ id: 'r', eventId: 'ev-1' });
-    mount(code(), false);
-    await waitFor(() => expect(screen.getByTestId('transcribe-recording-toggle')).toBeEnabled());
-    expect(screen.getByText('Not yet agreed — tap to agree')).toBeInTheDocument();
+    mount(code());
+    await waitFor(() => expect(intro()).toContain(EVENT_INTRO));
+    expect(screen.queryByTestId('transcribe-recording-toggle')).toBeNull();
   });
 
-  it('one lookup is shared by the intro and the label', async () => {
+  it('one lookup serves the intro', async () => {
     room.getRoomByCode.mockResolvedValue({ id: 'r', eventId: 'ev-1' });
     const before = calls();
     mount(code());
-    await waitFor(() => expect(screen.getByText(EVENT_LABEL)).toBeInTheDocument());
+    await waitFor(() => expect(intro()).toContain(EVENT_INTRO));
     expect(calls() - before).toBe(1);
   });
 });

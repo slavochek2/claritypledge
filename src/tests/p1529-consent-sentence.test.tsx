@@ -13,14 +13,14 @@ vi.mock('@/app/contexts/room-capture-context', () => ({
 }));
 vi.mock('@/app/contexts/offline-status-context', () => ({ useConnectivity: () => ({ offline: false }), useOfflineStripShown: () => false }));
 vi.mock('@/lib/supabase', () => ({
-  supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: async () => (room.fail ? { data: null, error: { message: 'no' } } : { data: room.row, error: null }) }) }) }) },
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ abortSignal: () => ({ maybeSingle: async () => (room.fail ? { data: null, error: { message: 'no' } } : { data: room.row, error: null }) }) }) }) }) },
 }));
 
-import { ConsentSection } from '@/app/pages/ConsentLabel';
+import { TranscribeJoinForm } from '@/app/pages/transcribe-join-form';
 import { RoomTranscribeIdleBar } from '@/app/components/session/room-capture-bar';
 
 const SENTENCE = ROUND_UPDATE_CONSENT;
-const show = (code: string) => render(<ConsentSection agreed={false} code={code} onToggle={() => {}} />);
+const show = (code: string) => render(<TranscribeJoinForm urlCode={code} joinError={null} joining={false} onJoin={() => undefined} />);
 
 describe('P1529 D13: the sentence', () => {
   beforeEach(() => { room.eventId = 'e1'; room.fail = false; });
@@ -36,21 +36,22 @@ describe('P1529 D13: the sentence', () => {
     render(<RoomTranscribeIdleBar eventId="ev-1" displayName="Ana" roundUpdates onFailed={() => {}} />);
     expect(screen.getByTestId('room-transcribe-start')).toHaveAccessibleDescription(expect.stringContaining(SENTENCE));
   });
-  it('shows in a mastermind room\'s consent, after the toggle is settled', async () => {
+  it('shows in a mastermind room\'s consent, once the lookup is settled', async () => {
     room.row = { flow: null, series_slug: 'sales-mastermind' };
     show('MM1');
     await waitFor(() => expect(screen.getByTestId('transcribe-consent-intro').textContent).toContain(SENTENCE));
-    expect(screen.getByTestId('transcribe-recording-toggle')).toHaveProperty('disabled', false);
   });
   it('does not show on a Clarity Night or a plain room', async () => {
     room.row = { flow: null, series_slug: 'clarity-night' };
     show('CN1');
-    await waitFor(() => expect(screen.getByTestId('transcribe-recording-toggle')).toHaveProperty('disabled', false));
+    await waitFor(() => expect(screen.getByTestId('transcribe-join-button')).toBeEnabled());   // Join opens only when every lookup has completed
     expect(screen.getByTestId('transcribe-consent-intro').textContent).not.toContain(SENTENCE);
   });
-  it('a failed lookup over-discloses rather than hiding it', async () => {
+  it('a failed events lookup shows no wording and renders no Join, with a retry', async () => {
     room.fail = true;
     show('XX1');
-    await waitFor(() => expect(screen.getByTestId('transcribe-consent-intro').textContent).toContain(SENTENCE));
+    await waitFor(() => expect(screen.getByTestId('transcribe-consent-intro').textContent).toBe('Could not check this room. Try again.'));
+    expect(screen.queryByTestId('transcribe-join-button')).toBeNull();
+    expect(screen.getByTestId('transcribe-room-retry')).toBeInTheDocument();
   });
 });

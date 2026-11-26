@@ -35,7 +35,6 @@ test.describe('P1294: chat follows new messages', () => {
       await page.setViewportSize({ width, height });
       await page.goto('/transcribe');
       await expect(page.getByTestId('transcribe-consent-screen')).toBeVisible({ timeout: 15000 });
-      await page.getByTestId('transcribe-recording-toggle').click();
       await page.getByTestId('transcribe-join-button').click();
       await expect(page.getByTestId('transcribe-room-screen')).toBeVisible({ timeout: 15000 });
 
