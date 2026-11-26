@@ -97,6 +97,9 @@ board.
   check row and counts as ran, so a record keyed on that exact typo can hide it. Set aside: a filed
   finding means its producer looked, and the real check's own not-run card still shows.
   `day-step.sh finding` validates only the id's format.
+- Review round 2 (Gemini): a finding with no check row carries no connection, so the broken-connection
+  guard cannot apply to it. Failing closed on any broken connection would bring the repeat cards back
+  on most days. Set aside for the founder.
 - The 14 h cutoff leaves 1.9 h over the largest measured gap and roughly doubles detection
   latency for a stalled schedule. A gap over 14 h brings the false unknown back; re-measure before
   raising it again.
