@@ -5,11 +5,10 @@ import { CreateEvent } from './components/CreateEvent';
 import { EditEvent } from './components/EditEvent';
 import { RsvpConfirm } from './components/RsvpConfirm';
 import { NextWebinarRedirect } from './components/NextWebinarRedirect';
-import { WEBINAR_SERIES } from '@/app/data/webinar-series';
 import { ClarityPageLoader } from '@/components/ui/clarity-loader';
 
 /**
- * P1010: `/events` lands on the Clarity Organization page, not the bare list. The nav
+ * HISTORY (superseded 2026-11-26, now always /events/list): P1010 sent `/events` to the Clarity Organization page, not the bare list. The nav
  * item already points at the groups directory; without this, the ~11 hardcoded `to="/events"` back
  * links scattered across EventDetail, RsvpConfirm, CreateEvent, EditEvent, settings,
  * my-sessions and the profile page all returned somewhere the nav no longer goes —
@@ -34,14 +33,13 @@ import { ClarityPageLoader } from '@/components/ui/clarity-loader';
  * org page, funnel traffic goes to the bare list — rather than an accident of routing.
  */
 function EventsRoot() {
+  // 2026-11-26: founder reversed P1010. Every visitor now lands on the bare list (funnel traffic already did); see decisions.md.
   const { search } = useLocation();
-  const isFunnelTraffic =
-    new URLSearchParams(search).get('series') === WEBINAR_SERIES.SERIES_PARAM;
   // P1586: a bare <Navigate> renders nothing for a frame between two page loaders (a blank gap on every
   // signed-out /events cold load); the loader beside it keeps the mark on screen until the target draws.
   return (
     <>
-      <Navigate to={`${isFunnelTraffic ? '/events/list' : '/groups/cm'}${search}`} replace />
+      <Navigate to={`/events/list${search}`} replace />
       <ClarityPageLoader />
     </>
   );

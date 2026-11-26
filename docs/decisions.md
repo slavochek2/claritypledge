@@ -8,6 +8,22 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-26 [product]: `/events` lands on the event list, not the CM group page (reverses P1010)
+
+**Context:** The founder found it odd that claritypledge.com/events opened the CM group page.
+**Decision:** `EventsRoot` now redirects every visitor to `/events/list`, keeping the query string. Funnel traffic already went there.
+**Alternatives rejected:** Keeping P1010's split (community browsing to `/groups/cm`, funnel to the list).
+**Consequences:** The ~11 hardcoded "Back to /events" links now return to the list, not the group page. The nav's Events item already points at `/events/list` (`EVENTS_LIST_TO`, nav-links.ts), so Back and the nav now land on the same page again.
+**References:** [events/index.tsx](../src/app/prototypes/events/index.tsx)
+
+## 2026-11-26 [technical]: A /tree prototype goes live by moving it out of /tree, not by opening /tree to admins
+
+**Context:** The founder wanted the paused P1721 prototype reachable in production, and asked whether admins could open all of `/tree` in prod.
+**Decision:** The prototype moved from `/tree/meeting-stakes` to a public, unlinked `/meeting-types` route, with three more meeting kinds (all-hands, feedback, conflict resolution). `tree-routes.tsx` exports `publicTreeRoutes()`, which App.tsx renders outside the DEV gate on the same line as `treeRoutes`, so App.tsx does not grow. Each route there carries `// PROD-REACHABLE:`. It is public because the page runs entirely in the browser, with no backend calls and no stored data.
+**Alternatives rejected:** An admin-only `/tree` in prod. A client-side admin check hides nothing (the lazy chunks already ship and the repo is public), and it would expose every prototype's fixtures and any real backend calls to whoever holds an admin session, so each page would need its own audit. Promoting one page at a time keeps that review to the page being moved.
+**Consequences:** To put any other prototype live, add it to `publicTreeRoutes()` after checking it makes no backend writes. The three new meeting kinds are not yet in `docs/high-stakes-examples.md`, whose rows need a why and dimensions that are the founder's to write.
+**References:** [tree-routes.tsx](../src/app/tree/tree-routes.tsx) · [p1721](../features/done/2026-06-10/p1721_meeting_stakes_calculator.md)
+
 ## 2026-11-25 [technical]: A polled read reports its failure once per page load, counted only when `logDbError` really reported (P1730)
 
 **Context:** P1730 fixed React #310 on `/events/<slug>/meet`: `useEventRoomCounts` (P1675) was called below the room's early returns, and `eslint.config.js` ignores `src/app/prototypes/**`, so `rules-of-hooks` never ran on a component prod serves. The fixed room re-reads its counts every 30 s, and review (metered-services rule 5) found that a persistent failure would send one Sentry event per read per open room against the Developer plan's 5,000 errors a month. A first cap marked an event "reported" before `logDbError` decided, so a network blip or an expired token, which `logDbError` only breadcrumbs, used up the report and hid the real failure that followed.

@@ -38,7 +38,7 @@ function frameAt(path: string, routePath: string, element: JSX.Element): string 
 }
 
 describe('P1586 redirect frames carry the page loader', () => {
-  it('/events (EventsRoot) paints the mark before redirecting to the group page', () => {
+  it('/events (EventsRoot) paints the mark before redirecting to /events/list', () => {
     expect(frameAt('/events', '/events/*', <EventsPrototype />)).toContain(MARK);
   });
 
