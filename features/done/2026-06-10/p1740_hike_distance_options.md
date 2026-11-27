@@ -12,6 +12,7 @@ disclosure: public
 pipeline_ran: [inline, dev]
 flow: inline
 completed_at: 2026-11-27
+rank: 1000054.0
 ---
 
 # P1740: Hike stats show a short/long distance pair ("9 or 14 km")
