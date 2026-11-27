@@ -19,6 +19,12 @@ describe('P1740: distance options', () => {
     expect(t).toMatch(/3\.5 or 5\s*h/);
   });
 
+  it('styles both "or"s as the small joining word (distance and walking time)', () => {
+    const { getAllByTestId, unmount } = render(<HikeStatsStrip details={{ ...base, distance_options_km: [9, 14] }} />);
+    expect(getAllByTestId('hike-or').map(e => e.textContent)).toEqual([' or ', ' or ']);
+    unmount();
+  });
+
   it('works without distance_km', () => {
     expect(parseHikeDetails({ distance_options_km: [9, 14] })?.distanceOptionsKm).toEqual([9, 14]);
     expect(text({ distance_options_km: [9, 14] })).toMatch(/9\s*or\s*14\s*km/);

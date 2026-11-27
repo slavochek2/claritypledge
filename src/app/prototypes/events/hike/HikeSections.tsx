@@ -39,7 +39,7 @@ export function HikeStatsStrip({ details }: { details: unknown }) {
   const km = (n: number) => formatDistanceKm(n).replace(/ km$/, '');
   // P1740: "9 or 14 km" — real spaces (copy-paste, screen readers), the joining word small like
   // the unit so the numbers carry the weight, and no wrap inside the value.
-  const pair = (a: string, b: string) => <span className="whitespace-nowrap">{a} <span className="text-sm font-medium">{L.or}</span> {b}</span>;
+  const pair = (a: string, b: string) => <span className="whitespace-nowrap">{a}<span data-testid="hike-or" className="text-sm font-medium">{` ${L.or} `}</span>{b}</span>;
   const options = stats.distanceOptionsKm;
   if (options) items.push({ key: 'distance', label: L.distance, value: num(pair(km(options[0]), km(options[1])), 'km') });
   else if (stats.distanceKm !== undefined) items.push({ key: 'distance', label: L.distance, value: num(km(stats.distanceKm), 'km') });
