@@ -404,17 +404,27 @@ before. A request that fails at the network reaches no server and costs no egres
 
 ## Acceptance Criteria
 
-- [ ] A signed-in user performing a full page load of an auth-gated route lands on that route,
-      not on `/login` — verified on a physical device, not only in a test.
+- [x] A signed-in user performing a full page load of an auth-gated route lands on that route,
+      not on `/login` — verified on a physical device, not only in a test. Evidence: an Android phone
+      over USB (Chrome, test account on TEST): three fresh-tab loads of `/transcribe` stayed on it
+      signed in; a load with every profile read cut off showed the loader, never `/login`, and the
+      signed-in page appeared 5.5 s after the reads were let through.
 - [x] A stored session that the server rejects is cleared from storage, and the user is told the
       session expired rather than being shown a bare sign-in screen. Evidence: the three refusal
       cases in `src/tests/p1297-reproduce.test.tsx`; the notice cases in `src/tests/p1297-notices.test.tsx`.
-- [ ] The state does not recur across a 30-minute session of ordinary use with a `/transcribe`
-      room open (the cadence that surfaced it).
+- [x] The state does not recur across a 30-minute session of ordinary use with a `/transcribe`
+      room open (the cadence that surfaced it). Evidence: the Android phone kept `/transcribe` open
+      and visible for 30 minutes, sampled every minute: signed in and token stored at every sample,
+      no navigation to `/login`, and a reload at the end stayed on `/transcribe` signed in. Limit:
+      the room page was open but the room was not joined, because joining turns on the microphone.
+      Two console errors, both the live-update websocket to TEST failing during a gap when the phone
+      paused the tab; not part of the sign-in flow.
 - [x] A regression test covers the provider settling with a valid stored session: once loading
       clears, `user` is non-null. Evidence: cases A and B in `src/tests/p1297-reproduce.test.tsx`
       (red before the fix), and `e2e/p1297-reproduce.spec.ts` (red before, green after).
-- [ ] No console errors during the affected flow.
+- [x] No console errors during the affected flow. Evidence: the three phone cold loads logged none.
+      The run with profile reads cut off logs the cut-off requests themselves, by design, plus one
+      401 from the reachability check, which is P1739's bug (filed separately, not this flow's).
 - [x] While the profile request fails on a cold load, the requested route shows its loader, never
       `/login`, and the page appears once the network is back. Evidence: `e2e/p1297-reproduce.spec.ts`.
 - [x] The expiry notice is shown once, at most one toast with P1441's, and never after a sign-out
