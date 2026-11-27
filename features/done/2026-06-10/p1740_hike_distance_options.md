@@ -1,5 +1,5 @@
 ---
-status: qa
+status: all-done
 type: story
 severity: low
 workstream: events
@@ -11,6 +11,7 @@ tags: [events, hike, stats]
 disclosure: public
 pipeline_ran: [inline, dev]
 flow: inline
+completed_at: 2026-11-27
 ---
 
 # P1740: Hike stats show a short/long distance pair ("9 or 14 km")
