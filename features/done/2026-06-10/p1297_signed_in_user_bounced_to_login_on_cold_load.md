@@ -1,5 +1,5 @@
 ---
-status: in-progress
+status: all-done
 type: bug
 rank: 5
 severity: high
@@ -15,7 +15,6 @@ tags:
   - routing
   - regression-risk
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1297-reproduce.spec.ts
@@ -29,6 +28,7 @@ reproduce_artifact:
   fix_shape_why: "hold isLoading and retry (offline-readable pages that wait on isLoading would never settle, since the profile never loads offline) vs settle with the last-known profile cached for the stored session's user vs a new derived signed-out flag every gate reads"
 spec_review_hash: 08878b657208e65bf18b8847cce7f5728df74c84100b3975069370b68328b946
 spec_review_vendors: [codex, gemini]
+completed_at: 2026-11-27
 ---
 
 # P1297: A signed-in user is bounced to /login on a cold page load, with a valid session in storage
@@ -195,7 +195,7 @@ every restore request (the profile read, `refreshSession()`, `getUser()`, the se
 before an email-less read, and the local sign-out, which calls the logout endpoint while a token is
 stored) waits for the tab to be visible, including a tab hidden at load and a follow-up to an answer that landed while hidden;
 hiding the tab cancels the timer, and showing it retries at once
-([metered-services.md](../docs/technical/metered-services.md) rules 3 and 4; decisions.md
+([metered-services.md](../../../docs/technical/metered-services.md) rules 3 and 4; decisions.md
 2026-11-24, P1718). It stops when the profile loads, the profile is `not_found` (unchanged), the
 session's user changes, the person signs out, or the provider unmounts.
 - **Only failures that can clear by themselves keep it waiting:** no HTTP answer (the network), 408,
