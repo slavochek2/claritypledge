@@ -15,8 +15,8 @@ tags:
   - routing
   - regression-risk
 disclosure: public
-delivery_stage: fix
-pipeline_ran: [create-bug, reproduce, fix]
+delivery_stage: ship
+pipeline_ran: [create-bug, reproduce, fix, ship]
 reproduce_artifact:
   test_file: e2e/p1297-reproduce.spec.ts
   unit_test_file: src/tests/p1297-reproduce.test.tsx
