@@ -1,7 +1,7 @@
 # Done Features Index
 
 Quick reference for past completed work. Consult when starting work on a related topic.
-Last updated: 2026-11-26
+Last updated: 2026-11-27
 
 ---
 
@@ -456,6 +456,7 @@ Last updated: 2026-11-26
 - **P418** (Feb 26) Banner Search Fallback — inline input for custom Unsplash keywords when search returns zero results
 - **P415** (Feb 26) Event Email Notifications — RSVP confirmation + reminders; template system with personalization
 - **P414** (Feb 26) Profile Bio — optional short-text bio; visible on pledge certificate
+- **P1740** (Nov 27) Hike stats show a short/long distance pair ("9 or 14 km") — hand-set jsonb gets strict validation (short<long, distinct after rounding); assert DOM styling, not textContent, or the test passes on old code
 
 ## Data Consistency & Debugging
 

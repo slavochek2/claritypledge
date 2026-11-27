@@ -8,6 +8,14 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-27 [product]: A hike can split into a short and a long option at a midpoint, the long one an out-and-back extension (P1740)
+
+**Context:** The Mon Jing hike (2026-12-06) was 9.2 km with the cafe walks, and the founder wanted more ("maybe 11.5? in same direction ... up to 14 km"). OpenStreetMap had no path that makes the loop itself bigger, only dead-end paths off it (a lake shore, a stream valley). Founder: "the group can divide here.. those who want shorter go back and we meet at the launch cafe and those who want longer go forward a bit more".
+**Decision:** (1) Everyone walks the main loop together; at a named point (here the reservoir) the group splits: the short group returns to the start cafe, the long group walks an out-and-back extension and turns back early if the path is bad. Both end at the same cafe. (2) The event's length is set to the long option's end (09:00–15:30), and the description gives both return times. (3) The stats strip shows both options: `hike_details.distance_options_km: [short, long]` renders "9 or 14 km"; a walking time written "3.5 or 5 h" gets the same style. (4) The route map shows the loop in red and the extension dashed blue.
+**Alternatives rejected:** Two separate events (splits the group and the dinner). A longer road walk to reach a distance (founder rule: a walk-in must be a nice path). Showing only the long distance (overstates the hike for the short group; the founder flagged "14 km").
+**Consequences:** Route length is planned from OSM data with the foot router (`routing.openstreetmap.de`), so an extension path is "from the map, not walked yet" until someone walks it, and the description says so. Climb stays one number (the long option's). **Falsifier:** on 2026-12-06 nobody takes the long option, or the split point causes confusion about where people meet — then the split adds planning cost for no use.
+**References:** [p1740](../features/done/2026-06-10/p1740_hike_distance_options.md), `scripts/hike-route-map.mjs`
+
 ## 2026-11-27 [technical]: A review round's tally is written once and only amended to add; a founder waiver never receipt-waives files past an incomplete scan (P1734)
 
 **Context:** P1734 adds a per-round reviewer tally (who ran, who failed, which defects each raised), so roster calls rest on recorded catches, not phrase searches over transcripts. Eleven review rounds on the build itself tested each design choice against four reviewers.
