@@ -37,14 +37,17 @@ export function HikeStatsStrip({ details }: { details: unknown }) {
   const items: { key: string; label: string; value: ReactNode }[] = [];
   const num = (n: ReactNode, unit: string) => <>{n}<span className="ml-0.5 text-sm font-medium">{unit}</span></>;
   const km = (n: number) => formatDistanceKm(n).replace(/ km$/, '');
-  // P1740: the joining word is small like the unit, so the two numbers carry the weight.
+  // P1740: "9 or 14 km" — real spaces (copy-paste, screen readers), the joining word small like
+  // the unit so the numbers carry the weight, and no wrap inside the value.
+  const pair = (a: string, b: string) => <span className="whitespace-nowrap">{a} <span className="text-sm font-medium">{L.or}</span> {b}</span>;
   const options = stats.distanceOptionsKm;
-  if (options) items.push({ key: 'distance', label: L.distance, value: num(<>{km(options[0])}<span className="mx-1 text-sm font-medium">{L.or}</span>{km(options[1])}</>, 'km') });
+  if (options) items.push({ key: 'distance', label: L.distance, value: num(pair(km(options[0]), km(options[1])), 'km') });
   else if (stats.distanceKm !== undefined) items.push({ key: 'distance', label: L.distance, value: num(km(stats.distanceKm), 'km') });
   if (stats.elevationGainM !== undefined) items.push({ key: 'elevation', label: L.elevation, value: num(String(Math.round(stats.elevationGainM)), 'm') });
   if (stats.walkTimeText) {
     const m = stats.walkTimeText.match(/^(.*?)\s*(h|hr|hrs|hours?)$/i);
-    items.push({ key: 'walkTime', label: L.walkTime, value: m?.[1] ? num(m[1], 'h') : stats.walkTimeText });
+    const two = m?.[1]?.match(/^(\S+)\s+or\s+(\S+)$/i);
+    items.push({ key: 'walkTime', label: L.walkTime, value: two ? num(pair(two[1], two[2]), 'h') : m?.[1] ? num(m[1], 'h') : stats.walkTimeText });
   }
   if (stats.routeType) {
     const Icon = /loop/i.test(stats.routeType) ? Repeat : MoveHorizontal;

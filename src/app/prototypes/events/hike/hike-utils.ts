@@ -67,7 +67,9 @@ function num(v: unknown): number | undefined {
 function numList(v: unknown): [number, number] | undefined {
   if (!Array.isArray(v) || v.length !== 2) return undefined;
   const [a, b] = v.map(num);
-  return a !== undefined && b !== undefined && a > 0 && a < b ? [a, b] : undefined;
+  if (a === undefined || b === undefined || a <= 0 || a >= b) return undefined;
+  // Distinct after display rounding too: [14.01, 14.04] would read "14 or 14 km".
+  return formatDistanceKm(a) !== formatDistanceKm(b) ? [a, b] : undefined;
 }
 
 function str(v: unknown, max = 60): string | undefined {

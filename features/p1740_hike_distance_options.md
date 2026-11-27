@@ -23,12 +23,12 @@ A hike that splits into a short and a long group (Mon Jing, 2026-12-06: 9 km or 
 
 ## Solution
 
-Optional `hike_details.distance_options_km` (2–3 non-negative numbers). When valid, the strip renders them joined with " or " plus the km unit; otherwise it falls back to `distance_km` exactly as before. No schema change (`hike_details` is jsonb).
+Optional `hike_details.distance_options_km`: exactly `[short, long]`, both positive, short < long, and still distinct after display rounding. When valid, the strip renders "9 or 14 km" with real spaces, "or" small like the unit, no wrap inside the value; a walking time written "3.5 or 5 h" gets the same treatment; otherwise it falls back to `distance_km` exactly as before. No schema change (`hike_details` is jsonb).
 
 ## Done-When
 
 - [x] `distance_options_km: [9, 14]` renders "9 or 14 km" — `src/tests/p1740-hike-distance-options.test.tsx`
-- [x] Missing or malformed options (empty, single, string, negative) fall back to `distance_km` — same test
+- [x] Missing or malformed options (empty, single, three, string, negative, zero, duplicate, reversed, equal after rounding) fall back to `distance_km` — same test
 - [x] Existing hike layout tests still pass (`p1403-social-hike-layout.test.tsx`, 20/20 together)
 
 ## Non-Goals

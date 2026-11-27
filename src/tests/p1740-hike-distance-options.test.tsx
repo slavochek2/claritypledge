@@ -15,7 +15,7 @@ const text = (details: unknown) => {
 describe('P1740: distance options', () => {
   it('shows short and long joined with "or"', () => {
     const t = text({ ...base, distance_options_km: [9, 14] });
-    expect(t).toMatch(/9\s*or\s*14\s*km/);
+    expect(t).toMatch(/9 or 14\s*km/);
     expect(t).toMatch(/3\.5 or 5\s*h/);
   });
 
@@ -34,6 +34,7 @@ describe('P1740: distance options', () => {
     ['zero', [0, 14]],
     ['duplicate', [14, 14]],
     ['long first', [14, 9]],
+    ['same after rounding', [14.01, 14.04]],
   ])('falls back to distance_km when options are %s', (_label, bad) => {
     const t = text({ ...base, distance_options_km: bad });
     expect(t).toMatch(/14\s*km/);
