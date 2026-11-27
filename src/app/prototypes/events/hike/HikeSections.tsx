@@ -35,10 +35,12 @@ export function HikeStatsStrip({ details }: { details: unknown }) {
   // Founder 2026-10-04 ("nice!" on AllTrails): big number, small unit, label underneath; route
   // type as an icon. No box, no link, no "to trail" walk (the description already says it).
   const items: { key: string; label: string; value: ReactNode }[] = [];
-  const num = (n: string, unit: string) => <>{n}<span className="ml-0.5 text-sm font-medium">{unit}</span></>;
+  const num = (n: ReactNode, unit: string) => <>{n}<span className="ml-0.5 text-sm font-medium">{unit}</span></>;
   const km = (n: number) => formatDistanceKm(n).replace(/ km$/, '');
-  if (stats.distanceOptionsKm) items.push({ key: 'distance', label: L.distance, value: num(stats.distanceOptionsKm.map(km).join(' or '), 'km') });
-  else if (stats.distanceKm !== undefined) items.push({ key: 'distance', label: L.distance, value: num(formatDistanceKm(stats.distanceKm).replace(/ km$/, ''), 'km') });
+  // P1740: the joining word is small like the unit, so the two numbers carry the weight.
+  const options = stats.distanceOptionsKm;
+  if (options) items.push({ key: 'distance', label: L.distance, value: num(<>{km(options[0])}<span className="mx-1 text-sm font-medium">{L.or}</span>{km(options[1])}</>, 'km') });
+  else if (stats.distanceKm !== undefined) items.push({ key: 'distance', label: L.distance, value: num(km(stats.distanceKm), 'km') });
   if (stats.elevationGainM !== undefined) items.push({ key: 'elevation', label: L.elevation, value: num(String(Math.round(stats.elevationGainM)), 'm') });
   if (stats.walkTimeText) {
     const m = stats.walkTimeText.match(/^(.*?)\s*(h|hr|hrs|hours?)$/i);

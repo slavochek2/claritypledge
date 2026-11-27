@@ -32,6 +32,8 @@ export const HIKE_LABELS = {
     routeType: 'Route',
     walkTime: 'Walking',
     difficulty: 'Level',
+    /** P1740: joins a short/long distance pair, "9 or 14 km". */
+    or: 'or',
   },
 } as const;
 
@@ -41,8 +43,8 @@ export function isHikeLayout(event: Pick<Event, 'seriesSlug'> | null | undefined
 
 export interface HikeStats {
   distanceKm?: number;
-  /** P1740: short/long options, e.g. [9, 14] → "9 or 14 km". Overrides distanceKm for display. */
-  distanceOptionsKm?: number[];
+  /** P1740: [short, long], e.g. [9, 14] → "9 or 14 km". Overrides distanceKm for display. */
+  distanceOptionsKm?: [number, number];
   elevationGainM?: number;
   routeType?: string;
   walkTimeText?: string;
@@ -61,10 +63,11 @@ function num(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined;
 }
 
-function numList(v: unknown): number[] | undefined {
-  if (!Array.isArray(v) || v.length < 2 || v.length > 3) return undefined;
-  const out = v.map(num);
-  return out.every((n): n is number => n !== undefined) ? out : undefined;
+/** P1740: exactly a short and a long option, both positive, short first. Anything else → undefined. */
+function numList(v: unknown): [number, number] | undefined {
+  if (!Array.isArray(v) || v.length !== 2) return undefined;
+  const [a, b] = v.map(num);
+  return a !== undefined && b !== undefined && a > 0 && a < b ? [a, b] : undefined;
 }
 
 function str(v: unknown, max = 60): string | undefined {
