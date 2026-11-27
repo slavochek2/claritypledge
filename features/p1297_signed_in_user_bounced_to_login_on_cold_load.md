@@ -191,8 +191,9 @@ that lost the server together do not return on the same second. After those 12 f
 (about 7 minutes) it slows to one every 5 minutes while the tab is visible: a server-side outage
 ending fires no browser event, so without that timer a visible tab would wait for a reload. It
 also retries at once when the network comes back or the tab is shown. A hidden tab makes no requests:
-every restore request (the profile read, `refreshSession()`, `getUser()`) waits for the tab to be
-visible, including a tab hidden at load and a follow-up to an answer that landed while hidden;
+every restore request (the profile read, `refreshSession()`, `getUser()`, the session check
+before an email-less read, and the local sign-out, which calls the logout endpoint while a token is
+stored) waits for the tab to be visible, including a tab hidden at load and a follow-up to an answer that landed while hidden;
 hiding the tab cancels the timer, and showing it retries at once
 ([metered-services.md](../docs/technical/metered-services.md) rules 3 and 4; decisions.md
 2026-11-24, P1718). It stops when the profile loads, the profile is `not_found` (unchanged), the
@@ -317,14 +318,34 @@ then loads live before the profile arrives, it keeps the anonymous view until a 
   ports) share one key; supabase-js derives its default the same way.
 - *A wake event (back online, tab shown) ends any wait early,* so each one can add one request
   beyond the timed schedule; counted in the Cost Budget, not capped by it.
+- *(Third review.) When the auth server answers the check with `session_not_found`, auth-js itself
+  removes the session and emits `SIGNED_OUT` before `getUser()` returns,* so P1240 counts that loss
+  as `session_lost_unexplained`. The person still gets the expiry notice (the listener writes it);
+  only that measurement is off. Deferring P1240's classification until the check answers is a
+  change to P1240 and is left to it.
+- *(Final review, Gemini; accepted.)* A session renewed by another tab while this one was hidden is
+  read again with the restore's earlier marks kept: if that renewed session is refused too, the
+  restore can sign it out without asking the auth server again. A local sign-out of a missing
+  session that throws (the auth lock) waits a retry round instead of settling at once; it still
+  settles. Where storage cannot be read at all, a sign-out that errors is treated as kept, so the
+  notice can be missing; the person still lands on the login page.
+
+**Third review round (fixed).** Calls that throw no longer stick: the "already refreshed" and
+"already asked the auth server" marks are set only after the call answers, and a local sign-out
+that throws is treated like one that failed (retried on the next refusal, the chosen-sign-out flag
+reset). `refreshProfile()`'s confirmed follow-up is a single read. A sign-out that waited for the
+tab to be shown first checks the stored session: if another tab signed in again or refreshed it
+meanwhile, the restore reads again with that session instead of clearing it. A sign-out that
+errors or throws after auth-js already removed the session counts as done, so the notice is
+still written.
 
 **No feedback while waiting.** During an outage the gate's loader can stay up for as long as the
 outage lasts; nothing says why. All four code reviewers flagged it. Whether to add a line such as
 a "reconnecting" strip, and its copy, is a [FOUNDER DECISION]; this fix adds none.
 
-**Tests.** `src/tests/p1297-reproduce.test.tsx`, 43 cases. The original 7 canary failures were
+**Tests.** `src/tests/p1297-reproduce.test.tsx`, 52 cases. The original 7 canary failures were
 shown red on the pre-fix provider; every later case was shown red by undoing its own fix in a copy
-(15 such mutations, two of them against the P1515 and P1240 suites for the code moved to `session-end.ts`; each turned the cases written for it red). After the second review round, 22 more: one per new guard, plus the restore-path controls re-run against the code moved to `profile-restore.ts`. Each turned its named case red, and the same harness on the unchanged code reports 0 failures. Covered: A recovers; B waits without polling
+(15 such mutations, two of them against the P1515 and P1240 suites for the code moved to `session-end.ts`; each turned the cases written for it red). After the second review round, 22 more: one per new guard, plus the restore-path controls re-run against the code moved to `profile-restore.ts`. After the third, 6 more, one per fix, and 4 after its check. Each turned its named case red, and the same harness on the unchanged code reports 0 failures. Covered: A recovers; B waits without polling
 and recovers on `TOKEN_REFRESHED`; B refused settles signed out with the notice; a refused token is
 refreshed once with no argument, and not again after a network failure; a refused refresh with
 and without auth-js's `SIGNED_OUT`; a second refusal is cleared locally only when the auth server
@@ -340,6 +361,11 @@ sign-out is retried and the notice waits for it; a thrown read is reported once;
 covers one read; a throwing auth call does not stop the restore; no stored session settles signed
 out; a failed boot read leaves loading to an event's session; `refreshProfile()` ends in a hidden
 tab and takes an email-less read only as described; the exact storage key; the refusal classifier.
+Third review round: an email-less read or a definite refusal landing while hidden sends no session
+check or logout until shown; an auth check or refresh that throws is tried again; a local sign-out
+that throws is retried and the notice waits for it; `refreshProfile()`'s follow-up is one read; a
+session another tab renewed or restored while this one was hidden is read again, never signed out;
+a sign-out that throws after ending the session still leaves the notice.
 `src/tests/p1297-notices.test.tsx`, 7 cases: the login notice once, none written while on
 `/login`, none on a bare visit, the P1441 notice winning; `useConnectivityAndAuthSettled`
 online/offline. `e2e/p1297-reproduce.spec.ts`
@@ -358,18 +384,22 @@ before. A request that fails at the network reaches no server and costs no egres
 
 | Measure | Per user | Per hour | Per test run |
 |---|---|---|---|
-| Requests | first round 3 + 12 fast retries over 6 to 7 min = 15, then 1 per 4 to 6 min (5 min ±20 %) while visible, + 1 per wake event (back online, tab shown); on a refused token 1 refresh per restore, then at most 1 `getUser` per round until it answers either way (a 429 or 5xx is asked again), and a local sign-out (no request); on a read as nobody 1 `getSession` per round (local unless the token is near expiry) | first hour, at the shortest jitter: 3 + 12 by about 340 s, then floor((3600 - 340.4) / 240) = 13, so at most 28; each later hour at most 3600 / 240 = 15 while the tab stays visible; plus 1 per wake event; hidden: 0 | unit: 0 (mocked). e2e: 2 tests x one normal cold load (fault test: the first-round requests are aborted in the browser and never sent) + 2 users created and deleted |
-| Egress (bytes) | ~1 KB (estimate, not measured) per answered request: a 5xx body or the profile row; 0 for a request that fails at the network | first hour ≤ 28 x 1 KB = 28 KB; later ≤ 15 KB an hour | 2 x one cold load of /transcribe |
-| Log lines | client: 3 `console.warn` (first round only) + 1 existing `console.error` per failed request; 1 Sentry warning per load on a repeating answer; server: 1 API log line per answered failure | first hour ≤ 3 + 28 client, ≤ 28 server; later ≤ 15 each an hour | 2 cold loads' worth |
+| Requests | first round 3 + 12 fast retries over 6 to 7 min = 15, then 1 per 4 to 6 min (5 min ±20 %) while visible, + 1 per wake event (back online, tab shown); on a refused token 1 refresh per restore, then at most 1 `getUser` per round until it answers either way (a 429 or 5xx is asked again), and 1 local sign-out (it calls the logout endpoint while a token is stored); on a read as nobody 1 `getSession` per round (local unless the token is near expiry) | profile reads, first hour at the shortest jitter: 3 + 12 by about 340 s, then floor((3600 - 340.4) / 240) = 13, so at most 28; each later hour at most 3600 / 240 = 15 while the tab stays visible. Worst case, a refused token: each round sends the read plus at most one auth call (a refresh, a `getUser` or a logout, each repeated while it answers 429/5xx, throws or fails on the network), so at most 56 the first hour and 30 each later hour. auth-js's own retries of a refresh that fails on the network reach no server. Plus 1 per wake event (2 on the worst-case path); hidden: 0 | unit: 0 (mocked). e2e: 2 tests x one normal cold load (fault test: the first-round requests are aborted in the browser and never sent) + 2 users created and deleted |
+| Egress (bytes) | ~1 KB (estimate, not measured) per answered request: a 5xx body or the profile row; 0 for a request that fails at the network | first hour ≤ 28 KB (worst case 56 KB); later ≤ 15 KB an hour (worst case 30 KB) | 2 x one cold load of /transcribe |
+| Log lines | client: 3 `console.warn` (first round only) + 1 existing `console.error` per failed request; 1 Sentry warning per load on a repeating answer; server: 1 API log line per answered failure | first hour ≤ 3 + 28 client, ≤ 28 server (worst case 56 each); later ≤ 15 each an hour (worst case 30) | 2 cold loads' worth |
 | Service unit | none (no tokens, audio or instances) | none | none |
 
 1. **Fits the plan limit today?** Fits. Supabase Free plan row: egress 5 GB per month. Added egress
-   per month ≤ (visible tab-hours spent stuck in an outage per month) x 28 KB, and a request that
-   fails at the network costs nothing. Even 10,000 such tab-hours a month would add 280 MB. Before
+   per month ≤ (visible tab-hours spent stuck in an outage per month) x 28 KB (56 KB on the
+   worst-case path), and a request that fails at the network costs nothing. Even 10,000 such
+   tab-hours a month would add 280 MB (560 MB worst case). Before
    the fix the same loads made 3 requests and stopped; the added retries are bounded per hour and
    stop in a hidden tab.
-2. **Fits at 10x?** Fits: 10x the stuck tab-hours adds 2.8 GB at the extreme figure above, and the
-   load exists only while the server is failing.
+2. **Fits at 10x?** Fits on the common path: 10x the stuck tab-hours adds 2.8 GB at the extreme
+   figure above, and the load exists only while the server is failing. The worst-case path (the
+   data server refusing tokens and the auth server rate limiting at once, for 100,000 visible
+   tab-hours in a month) would reach 5.6 GB, over the 5 GB row; that needs two simultaneous faults
+   lasting the whole month.
 3. **If either answer is no:** not needed. The upgrade would be Supabase Pro (from $25/month).
 
 ## Acceptance Criteria

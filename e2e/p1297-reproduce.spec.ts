@@ -28,7 +28,8 @@ const WATCH_MS = 12_000;
 function recordLoginNavigations(page: Page): string[] {
   const hits: string[] = [];
   page.on('framenavigated', (frame) => {
-    if (frame === page.mainFrame() && new URL(frame.url()).pathname === '/login') hits.push(frame.url());
+    if (frame !== page.mainFrame() || !URL.canParse(frame.url())) return; // '' while attaching
+    if (new URL(frame.url()).pathname === '/login') hits.push(frame.url());
   });
   return hits;
 }

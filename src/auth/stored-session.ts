@@ -44,6 +44,20 @@ export function readStoredAuthTokenOrThrow(): string | null {
   return null;
 }
 
+/**
+ * THIS client's stored session entry, as raw text: null when there is none, undefined when storage
+ * cannot be read. Compared before and after a wait, it tells whether another tab signed in again or
+ * refreshed the session meanwhile.
+ */
+export function storedAuthEntry(): string | null | undefined {
+  const key = authStorageKey();
+  try {
+    return key ? localStorage.getItem(key) : readStoredAuthTokenOrThrow();
+  } catch {
+    return undefined;
+  }
+}
+
 /** Whether THIS client's auth token is in storage. Storage that throws counts as absent. */
 export function hasStoredAuthToken(): boolean {
   const key = authStorageKey();

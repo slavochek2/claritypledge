@@ -325,8 +325,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (profile && !profile.email) {
       if (previousUserRef.current?.email) return;
       const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
-      if (!data.session) return;
-      profile = await fetchProfileForUser(userId);
+      if (!data.session || currentUserIdRef.current !== userId) return;
+      // One read, so the confirmation covers exactly the read it was made for.
+      const again = await fetchProfileRound(userId, 1);
+      profile = again.success ? again.data : null;
     }
     // P1297/P1560: commit only if the session still belongs to the user it was fetched for.
     if (profile && currentUserIdRef.current === userId && profile.id === userId) {

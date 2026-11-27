@@ -19,6 +19,7 @@ import {
   isDefiniteAuthRefusal,
   setSessionExpiredNotice,
   recentDeliberateSignOut,
+  storedAuthEntry,
   unconfirmedRetryDelayMs,
   withJitter,
   waitForRetry,
@@ -105,6 +106,15 @@ export async function restoreProfile(d: RestoreDeps): Promise<void> {
     clearPending: false,
   };
 
+  // Wait for a visible tab before a sign-out (it calls the logout endpoint). Another tab may have
+  // signed in again or refreshed the session meanwhile; that session is not the one this restore
+  // judged, so read again with it instead of clearing it.
+  const sessionChangedWhileHidden = async (): Promise<boolean> => {
+    const judged = storedAuthEntry();
+    await whenVisible(signal); // a request: never from a hidden tab (metered-services rule 3)
+    return !stale() && storedAuthEntry() !== judged;
+  };
+
   // Settle with no profile, as before P1297 — keeping a profile already shown for this user.
   const settleWithoutProfile = (): RestoreStep => {
     if (previousUserRef.current?.id !== userId) setUser(null);
@@ -113,12 +123,23 @@ export async function restoreProfile(d: RestoreDeps): Promise<void> {
   };
 
   // The stored session is unusable. Clear it, so later loads do not look like a person who
-  // never signed in. auth-js ignores a 401/403/404 from its logout call and removes the
-  // session; on a network error it keeps it, and the loop retries.
+  // never signed in. A local sign-out still calls the logout endpoint while a token is stored
+  // (auth-js _signOut), so it waits for a visible tab. auth-js ignores a 401/403/404 from that
+  // call and removes the session; on a network error, or a throw, it keeps it, and the next
+  // refusal tries again.
   const clearUnusableSession = async (): Promise<RestoreStep> => {
+    if (await sessionChangedWhileHidden()) return 'retry';
+    if (stale()) return 'done';
     deliberateSignOutRef.current = true; // P1240: an explained loss, not session_lost_unexplained
-    const { error } = await supabase.auth.signOut({ scope: 'local' });
-    if (error) {
+    let error: unknown = null;
+    try {
+      ({ error } = await supabase.auth.signOut({ scope: 'local' }));
+    } catch (thrown) {
+      error = thrown; // e.g. the auth lock: same as a failed call, never a stuck flag
+    }
+    // auth-js removes the session and emits SIGNED_OUT before its last storage step, so a call
+    // that throws or errors after that has still ended the session: judge by what is stored.
+    if (error && storedAuthEntry() !== null) {
       deliberateSignOutRef.current = false; // session kept; a later loss is unexplained again
       restore.clearPending = true;
       return stale() ? 'done' : 'wait';
@@ -135,6 +156,8 @@ export async function restoreProfile(d: RestoreDeps): Promise<void> {
   // getSession() found no stored session at all (storage cleared under a running tab): nobody
   // is signed in. A local sign-out emits SIGNED_OUT, so the listener's end-of-session path runs.
   const endMissingSession = async (): Promise<RestoreStep> => {
+    if (await sessionChangedWhileHidden()) return 'retry';
+    if (stale()) return 'done';
     await supabase.auth.signOut({ scope: 'local' });
     return stale() ? 'done' : settleWithoutProfile();
   };
@@ -149,6 +172,9 @@ export async function restoreProfile(d: RestoreDeps): Promise<void> {
     // key, and the profile function answers that read too — without the owner's email, which
     // only the owner is given. That is not this person's own read. Confirm a session exists,
     // then read once more and take the answer as it is (an owner row can lack an email).
+    // getSession() refreshes a token near expiry, so it waits for a visible tab too.
+    await whenVisible(signal);
+    if (stale()) return 'done';
     const { data: current, error } = await supabase.auth.getSession();
     if (stale()) return 'done';
     if (current.session) {
@@ -166,8 +192,8 @@ export async function restoreProfile(d: RestoreDeps): Promise<void> {
   const refreshOnce = async (): Promise<RestoreStep> => {
     await whenVisible(signal); // a request: never from a hidden tab (metered-services rule 3)
     if (stale()) return 'done';
-    restore.refreshTried = true;
     const { error } = await supabase.auth.refreshSession();
+    restore.refreshTried = true; // after the call: one that throws is tried again next round
     if (!error && !stale()) {
       restore.refreshedForRejection = true;
       return 'retry';
@@ -187,19 +213,17 @@ export async function restoreProfile(d: RestoreDeps): Promise<void> {
   const askAuthServer = async (): Promise<RestoreStep> => {
     await whenVisible(signal); // a request: never from a hidden tab (metered-services rule 3)
     if (stale()) return 'done';
-    restore.authServerAsked = true;
     const { data: checked, error } = await supabase.auth.getUser();
     if (stale()) return 'done';
     if (!error && checked.user) {
-      // The fault is the data server's: keep the session; the restore stays unconfirmed.
+      // The fault is the data server's: keep the session; the restore stays unconfirmed. Only a
+      // verdict ends the asking: a call that throws, or answers 429/5xx, is asked again.
+      restore.authServerAsked = true;
       console.warn('Profile request refused a token the auth server accepts; keeping the session');
       return 'wait';
     }
-    if (!isDefiniteAuthRefusal(error)) {
-      // Unreachable, rate limited (429) or failing: no verdict. Ask again next round.
-      restore.authServerAsked = false;
-      return 'wait';
-    }
+    // Unreachable, rate limited (429) or failing: no verdict. Ask again next round.
+    if (!isDefiniteAuthRefusal(error)) return 'wait';
     return clearUnusableSession();
   };
 

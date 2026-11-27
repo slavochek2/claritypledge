@@ -771,6 +771,167 @@ describe('P1297 — review round 2 guards', () => {
     await act(async () => { await ctxRefresh(); });
     expect(m.get().user).toEqual(renamed);
   });
+
+  // Review round 3.
+  const refusedJwt = { data: { user: null }, error: { name: 'AuthApiError', status: 401, message: 'bad_jwt' } };
+  const settle = () => new Promise((r) => setTimeout(r, 50));
+
+  it('an email-less read that lands while hidden asks for no session until the tab is shown (rule 3)', async () => {
+    const s = seed();
+    getSession.mockResolvedValue({ data: { session: s }, error: null });
+    let answer: (r: unknown) => void = () => {};
+    getProfileResult
+      .mockImplementationOnce(() => new Promise((r) => { answer = r; }))
+      .mockResolvedValue({ success: true, data: NO_EMAIL });
+    const m = mount();
+    await act(async () => { authCallback?.('INITIAL_SESSION', s); });
+    await waitFor(() => expect(getProfileResult).toHaveBeenCalledTimes(1));
+    const asked = getSession.mock.calls.length;
+    act(() => setVisibility('hidden'));
+    await act(async () => { answer({ success: true, data: NO_EMAIL }); await settle(); });
+    expect(getSession.mock.calls.length).toBe(asked); // getSession() can refresh: not while hidden
+    await act(async () => { setVisibility('visible'); });
+    await waitFor(() => expect(m.get().user).toEqual(NO_EMAIL));
+  });
+
+  it('a definite refusal that lands while hidden sends no logout until the tab is shown (rule 3)', async () => {
+    const s = seed();
+    getSession.mockResolvedValue({ data: { session: s }, error: null });
+    refreshSession.mockResolvedValue({ data: { session: s }, error: null });
+    let verdict: (r: unknown) => void = () => {};
+    getUser.mockImplementationOnce(() => new Promise((r) => { verdict = r; }));
+    authSignOut.mockResolvedValue({ error: null });
+    getProfileResult.mockResolvedValue(rejected);
+    mount();
+    await act(async () => { authCallback?.('INITIAL_SESSION', s); });
+    await waitFor(() => expect(getUser).toHaveBeenCalledTimes(1));
+    act(() => setVisibility('hidden'));
+    await act(async () => { verdict(refusedJwt); await settle(); });
+    expect(authSignOut).not.toHaveBeenCalled(); // a local sign-out calls the logout endpoint
+    await act(async () => { setVisibility('visible'); });
+    await waitFor(() => expect(authSignOut).toHaveBeenCalledWith({ scope: 'local' }));
+  });
+
+  it('an auth-server check that throws is asked again, and its refusal still clears the session', async () => {
+    const s = seed();
+    getSession.mockResolvedValue({ data: { session: s }, error: null });
+    refreshSession.mockResolvedValue({ data: { session: s }, error: null });
+    getUser.mockRejectedValueOnce(new Error('lock acquire timed out')).mockResolvedValue(refusedJwt);
+    authSignOut.mockResolvedValue({ error: null });
+    getProfileResult.mockResolvedValue(rejected);
+    vi.useFakeTimers();
+    mount();
+    await act(async () => { authCallback?.('INITIAL_SESSION', s); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(getUser).toHaveBeenCalledTimes(2);
+    expect(authSignOut).toHaveBeenCalledWith({ scope: 'local' });
+  });
+
+  it('a refresh that throws is tried again on the next refusal', async () => {
+    const s = seed();
+    getSession.mockResolvedValue({ data: { session: s }, error: null });
+    refreshSession
+      .mockRejectedValueOnce(new Error('lock acquire timed out'))
+      .mockResolvedValue({ data: { session: s }, error: null });
+    getProfileResult.mockResolvedValueOnce(rejected).mockResolvedValueOnce(rejected).mockResolvedValue({ success: true, data: PROFILE });
+    vi.useFakeTimers();
+    const m = mount();
+    await act(async () => { authCallback?.('INITIAL_SESSION', s); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    expect(refreshSession).toHaveBeenCalledTimes(2);
+    expect(m.get().user).toEqual(PROFILE);
+  });
+
+  it('a local sign-out that throws is tried again, and the notice comes once it succeeds', async () => {
+    const s = seed();
+    getSession.mockResolvedValue({ data: { session: s }, error: null });
+    refreshSession.mockResolvedValue({ data: { session: null }, error: { name: 'AuthApiError', status: 400, message: 'Invalid Refresh Token' } });
+    authSignOut.mockRejectedValueOnce(new Error('lock acquire timed out')).mockResolvedValue({ error: null });
+    getProfileResult.mockResolvedValue(rejected);
+    mount();
+    await act(async () => { authCallback?.('INITIAL_SESSION', s); });
+    await waitFor(() => expect(authSignOut).toHaveBeenCalledTimes(1));
+    expect(notice()).toBeNull();
+    await waitFor(() => expect(authSignOut).toHaveBeenCalledTimes(2), { timeout: 3000 });
+    expect(notice()).toBe('1');
+  });
+
+  it('refreshProfile: the confirmed follow-up is a single read, never three', async () => {
+    const s = seed();
+    getSession.mockResolvedValue({ data: { session: s }, error: null });
+    getProfileResult.mockResolvedValue({ success: true, data: NO_EMAIL });
+    const m = mount();
+    await act(async () => { authCallback?.('INITIAL_SESSION', s); });
+    await waitFor(() => expect(m.get().user).toEqual(NO_EMAIL));
+    const before = getProfileResult.mock.calls.length;
+    getProfileResult
+      .mockResolvedValueOnce({ success: true, data: NO_EMAIL }) // email-less: confirm, then read once
+      .mockResolvedValueOnce(transient) // that one read fails
+      .mockResolvedValue({ success: true, data: { ...NO_EMAIL, name: 'Read as nobody' } });
+    await act(async () => { await ctxRefresh(); });
+    expect(getProfileResult.mock.calls.length).toBe(before + 2);
+    expect(m.get().user).toEqual(NO_EMAIL);
+  });
+
+  // Final check of the round-3 fixes.
+  it('a session another tab renewed while this one was hidden is read again, never signed out', async () => {
+    const s = seed();
+    getSession.mockResolvedValue({ data: { session: s }, error: null });
+    refreshSession.mockResolvedValue({ data: { session: s }, error: null });
+    let verdict: (r: unknown) => void = () => {};
+    getUser.mockImplementationOnce(() => new Promise((r) => { verdict = r; }));
+    authSignOut.mockResolvedValue({ error: null });
+    getProfileResult.mockResolvedValue(rejected);
+    const m = mount();
+    await act(async () => { authCallback?.('INITIAL_SESSION', s); });
+    await waitFor(() => expect(getUser).toHaveBeenCalledTimes(1));
+    act(() => setVisibility('hidden'));
+    await act(async () => { verdict(refusedJwt); await settle(); });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...s, access_token: 'renewed-by-another-tab' }));
+    getProfileResult.mockResolvedValue({ success: true, data: PROFILE });
+    await act(async () => { setVisibility('visible'); });
+    await waitFor(() => expect(m.get().user).toEqual(PROFILE));
+    expect(authSignOut).not.toHaveBeenCalled();
+  });
+
+  it('a session that reappears while the end of a missing one waits is read again, never signed out', async () => {
+    const s = seed();
+    getSession
+      .mockResolvedValueOnce({ data: { session: s }, error: null }) // boot
+      .mockImplementationOnce(async () => {
+        localStorage.removeItem(STORAGE_KEY); // storage cleared underneath, and the tab hidden
+        setVisibility('hidden');
+        return { data: { session: null }, error: null };
+      })
+      .mockResolvedValue({ data: { session: s }, error: null });
+    authSignOut.mockResolvedValue({ error: null });
+    getProfileResult.mockResolvedValue({ success: true, data: NO_EMAIL });
+    const m = mount();
+    await act(async () => { authCallback?.('INITIAL_SESSION', s); });
+    await act(async () => { await settle(); });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); // another tab signed in again
+    await act(async () => { setVisibility('visible'); });
+    await waitFor(() => expect(m.get().user).toEqual(NO_EMAIL));
+    expect(authSignOut).not.toHaveBeenCalled();
+  });
+
+  it('a local sign-out that throws after ending the session still leaves the expiry notice', async () => {
+    const s = seed();
+    getSession.mockResolvedValue({ data: { session: s }, error: null });
+    refreshSession.mockResolvedValue({ data: { session: null }, error: { name: 'AuthApiError', status: 400, message: 'Invalid Refresh Token' } });
+    authSignOut.mockImplementationOnce(async () => {
+      localStorage.removeItem(STORAGE_KEY); // auth-js removes the session and emits SIGNED_OUT ...
+      authCallback?.('SIGNED_OUT', null);
+      throw new Error('storage write failed'); // ... then its last storage step throws
+    });
+    getProfileResult.mockResolvedValue(rejected);
+    mount();
+    await act(async () => { authCallback?.('INITIAL_SESSION', s); });
+    await waitFor(() => expect(authSignOut).toHaveBeenCalledTimes(1));
+    await act(async () => { await settle(); });
+    expect(notice()).toBe('1');
+    expect(authSignOut).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('P1297 — retry schedule helpers', () => {
