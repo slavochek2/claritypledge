@@ -1177,11 +1177,15 @@ echo ""
 # patterns gitleaks misses (e.g., connection strings before custom rules exist).
 echo ">>> Scanning for secrets..."
 
-# Layer 1: gitleaks (if installed)
+# Layer 1: gitleaks (if installed). Cleared first: layer 2 trusts a clean result (P1738), so a value
+# inherited from the caller's environment must never count as one.
+GITLEAKS_OUTPUT=""
+GITLEAKS_RC=1
 if command -v gitleaks &> /dev/null; then
     # Use gitleaks protect --staged: scans only staged diff, not git history.
     # (gitleaks detect scans full git log and would flag old commits with .next/ artifacts)
-    GITLEAKS_OUTPUT=$(gitleaks protect --staged --redact -v 2>&1 || true)
+    GITLEAKS_RC=0
+    GITLEAKS_OUTPUT=$(gitleaks protect --staged --redact -v 2>&1) || GITLEAKS_RC=$?
 
     if echo "$GITLEAKS_OUTPUT" | grep -q "no leaks found"; then
         echo -e "${GREEN}✓ No secrets detected (gitleaks)${NC}"
@@ -1206,6 +1210,15 @@ if [ -n "$SECRETS_STAGED_FILES" ]; then
     # same reason and no other: those files DISCUSS secret patterns as subject matter. Layer 1 scans all staged
     # files with no path exclusion, so real coverage of both paths is unchanged by this entry.
     GREP_SCAN_FILES=$(echo "$SECRETS_STAGED_FILES" | grep -vE '(\.gitleaks\.toml|pre-commit-checks\.sh|docs/decisions\.md|docs/technical/|supabase/functions/|supabase/migrations/|supabase/config\.toml|features/|src/|api/|e2e/|\.claude/commands/|\.agents/skills/|\.claude/rules/|\.claude/_archive/|scripts/|services/)' || true)
+    # P1738 (founder decision 2026-11-27): the Android proof's sender and page send keys held in
+    # variables (`apikey: serviceKey`), which this word match cannot tell from a value. Only those two
+    # files are skipped, and only when layer 1 ran on this commit, exited 0 and said "no leaks found":
+    # with gitleaks missing or erroring they stay in this layer, so they are never left unscanned. The
+    # folder's build files (gradle, properties), where signing passwords live, are never skipped.
+    # A line marked `gitleaks:allow` is still unread by layer 1.
+    if [ "$GITLEAKS_RC" = 0 ] && [ -n "$GITLEAKS_OUTPUT" ] && echo "$GITLEAKS_OUTPUT" | grep -q "no leaks found"; then
+        GREP_SCAN_FILES=$(echo "$GREP_SCAN_FILES" | grep -vE '^android/proof/(send-ring\.mjs|web/proof-push\.js)$' || true)
+    fi
     SECRETS_FOUND=""
     if [ -n "$GREP_SCAN_FILES" ]; then
         # Flag a file only if a secret-pattern line is an actual VALUE, not a bare env-var
