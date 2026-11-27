@@ -8,6 +8,28 @@ Append-only log of architectural and product decisions. Newest entries at top.
 
 ---
 
+## 2026-11-27 [technical]: A review round's tally is written once and only amended to add; a founder waiver never receipt-waives files past an incomplete scan (P1734)
+
+**Context:** P1734 adds a per-round reviewer tally (who ran, who failed, which defects each raised), so roster calls rest on recorded catches, not phrase searches over transcripts. Eleven review rounds on the build itself tested each design choice against four reviewers.
+**Decision:**
+- A round's tally is written once, under one lock. A later write may only add: a late reviewer's output, a retry, or a reviewer joining a defect. A defect's severity only rises, and never above what the joiner itself rated it.
+- A waived or abandoned round never backs a review receipt.
+- No refusal is based on content alone. Two real runs can return identical bytes. A content-based reuse refusal was tried in round 3 and removed in round 4, after it broke the existing review-gate suite.
+- Waived rounds are counted once per snapshot, not once per waiver event.
+- When the founder waives review and the Stop hook's edit scan is incomplete, the hook closes this session's open rounds in that repo as waived. It does not receipt-waive the files those rounds hold, since a round can hold a co-tenant's file. Instead `founder_waived` is a session-scoped excuse: a file whose current content equals content in a round this session took and the founder waived does not block that session's later turns. It is read-only, runs on the hook's single deadline from its start, and fails closed on every error.
+- The review loop stops when a freshness round reproduces no HIGH or MEDIUM finding. Round 11 was that round, and its LOW observations are recorded as known limitations in the spec.
+**Alternatives rejected:**
+- A content-based reuse refusal, which counted identical honest runs as reuse.
+- Receipt-waiving every file the closed rounds hold, which could excuse another session's unreviewed edit.
+- A rewritable tally, which would let a later write erase what a reviewer reported.
+- Separate deadlines per waiver step, which together exceeded the hook's 20 s timeout.
+**Consequences:**
+- The tally is the source for reviewer-yield verdicts under the thresholds of the 2026-11-26 roster entry.
+- A run has no identity apart from its content until a wrapper issues run IDs. A byte-identical retry counts once, and one review tallied under two snapshots counts twice.
+- Two Done-When items wait on real use: a spec-review round recorded with the tally, and the edited skills run from a fresh session. So the branch ships later, with its skill files. The skills call `tally`, and main must not get them before that code.
+- Pre-existing on main: without a waiver, a receipt-store read error lets the gate pass silently. UNTESTED. Falsifier: within 30 days of shipping, a tallied round's stored outcomes disagree with that round's reviewer outputs, or a founder waiver excuses a file the session never snapshotted.
+**References:** [P1734](../features/p1734_reviewer_yield_ledger.md) (on its branch until it ships; Build Report and Known limitations)
+
 ## 2026-11-26 [product]: Sales mastermind retired in its current form after session 1; session 2 cancelled. Founder decision
 
 **Context:** Session 1 ran in person on 2026-11-26. 10 people registered and 2 attended, one of them a walk-in who had not registered. With two people there was one pair per round and no observer. 2 of the 4 planned rounds ran (33 and 22 minutes against 18 planned); rounds 3 and 4, on the new canvas versions, never happened. The software chain worked end to end: both attendees made a canvas in the setup part, the transcripts landed in both round threads (110 lines), and both made a next version that nobody then read. Scores were said out loud, though the host had to push for them (founder): in round 1 the partner's understanding went five, four, six or seven, then seven or eight for the whole canvas, most of the round spent defining trade terms; in round 2 it reached eight in one step. Founder's judgment: the format failed. One owner mainly learned to simplify their language for outsiders, which is not worth two hours; the other found their canvas got fuller, but their partner was not their audience, so being understood by that partner was of little value. Nobody asked about session 2.
