@@ -3,18 +3,29 @@
 # Usage: bash scripts/test-p1634-spec-review-stamp.sh   (exit 0 = all pass)
 set -uo pipefail
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
-# P1734: these suites pin the contract for snapshots WITHOUT a session (pre-P1734 rounds, CI, a
-# human shell). Unset so the result never depends on the caller's environment; the session
-# path (tally enforcement) is tested in scripts/test-p1734-tally.sh.
-unset CLAUDE_CODE_SESSION_ID
+# P1734: tally enforced; every accepted stamp is preceded by a tally of its snapshot.
+export CLAUDE_CODE_SESSION_ID=t-legacy-suite-p1634
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 H="${STAMP_HELPER:-$SCRIPT_DIR/spec_review_stamp.py}"
+RR="$SCRIPT_DIR/review_receipt.py"
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+# The stamped specs live in a git repo so they can be snapshotted (snapshot refuses files outside one).
+SR="$TMP/srepo"; mkdir -p "$SR"; git -C "$SR" init -q
+PROMPT_F="$TMP/prompt.md"; echo "review" > "$PROMPT_F"
+tally_spec() { # <snapshot> <valid evidence...> ; slot ok only where an evidence file of that vendor is passed
+  local s="$1"; shift; local g='skipped (suite)' o='skipped (suite)' c='skipped (suite)' e v
+  for e in "$@"; do
+    v="$(sed -n '1s/^ASK-MODEL: vendor=\([a-z]*\).*/\1/p' "$e")"
+    case "$v" in gemini) g=ok ;; openrouter) o=ok ;; codex) c=ok ;; esac
+  done
+  python3 "$RR" tally --snapshot "$s" --kind spec --prompt-file "$PROMPT_F" --reviewer "gemini=$g" \
+    --reviewer "glm=$o" --reviewer "codex=$c" --reviewer 'opus=not triggered' --evidence "$@" --no-defects >/dev/null
+}
 PASS=0; FAIL=0
 check() { if [[ "$2" == "$3" ]]; then echo "  PASS: $1"; PASS=$((PASS+1)); else echo "  FAIL: $1 (expected '$2', got '$3')"; FAIL=$((FAIL+1)); fi; }
 rc() { local a=0; "$@" >/dev/null 2>&1 || a=$?; echo "$a"; }
 hs() { python3 "$H" hash "$1"; }
-S="$TMP/s.md"
+S="$SR/s.md"
 mk() { printf -- '---\nstatus: draft\ndisclosure: public\n---\n# T\n- [ ] one   \n- [ ] two\nbody word alpha\n' > "$1"; }
 ev() { printf 'ASK-MODEL: vendor=%s requested=x served=x verified=served effort=unsupported exit=0\nf\n' "$2" > "$1"; }
 
@@ -31,8 +42,10 @@ check "CRLF normalized" "$base" "$(hs "$TMP/crlf.md")"
 
 echo "[check]"
 mk "$S"; check "missing" "missing" "$(python3 "$H" check "$S")"; check "missing exit" 1 "$(rc python3 "$H" check "$S")"
+mk "$S"; S1="$(python3 "$RR" snapshot -- "$S")"; sleep 1
 ev "$TMP/g" gemini; ev "$TMP/o" openrouter
-mk "$S"; out="$(python3 "$H" write "$S" --evidence "$TMP/g" --evidence "$TMP/o")"
+tally_spec "$S1" "$TMP/g" "$TMP/o"
+mk "$S"; out="$(python3 "$H" write "$S" --evidence "$TMP/g" --evidence "$TMP/o" --snapshot "$S1")"
 check "write prints current" current "$out"
 check "write then check current" current "$(python3 "$H" check "$S")"; check "current exit" 0 "$(rc python3 "$H" check "$S")"
 check "vendors recorded sorted" 1 "$(grep -c '^spec_review_vendors: \[gemini, openrouter\]$' "$S")"
@@ -41,9 +54,9 @@ check "unreadable exit" 2 "$(rc python3 "$H" check "$TMP/nope.md")"
 printf 'no frontmatter\n' > "$TMP/nf.md"; check "no frontmatter exit" 2 "$(rc python3 "$H" check "$TMP/nf.md")"
 
 echo "[write preserves bytes]"
-mk "$S"; cp "$S" "$TMP/before"; python3 "$H" write "$S" --evidence "$TMP/g" >/dev/null
+mk "$S"; cp "$S" "$TMP/before"; python3 "$H" write "$S" --evidence "$TMP/g" --snapshot "$S1" >/dev/null
 check "only the two lines differ" "" "$(diff "$TMP/before" "$S" | grep '^[<>]' | grep -v 'spec_review_' )"
-check "replace keeps single stamp" 2 "$(python3 "$H" write "$S" --evidence "$TMP/g" >/dev/null; grep -c '^spec_review_' "$S")"
+check "replace keeps single stamp" 2 "$(python3 "$H" write "$S" --evidence "$TMP/g" --snapshot "$S1" >/dev/null; grep -c '^spec_review_' "$S")"
 
 echo "[write refusals]"
 mk "$S"; cp "$S" "$TMP/before"
@@ -59,7 +72,7 @@ done
 check "refusal wrote nothing" "" "$(cmp "$TMP/before" "$S" 2>&1)"
 check "refusal names what was seen" 1 "$(python3 "$H" write "$S" --evidence "$TMP/o" 2>&1 >/dev/null | grep -c 'vendor=openrouter')"
 check "no evidence refused" 1 "$(rc python3 "$H" write "$S")"
-check "accept gemini+openrouter" 0 "$(rc python3 "$H" write "$S" --evidence "$TMP/g" --evidence "$TMP/o")"
+check "accept gemini+openrouter" 0 "$(rc python3 "$H" write "$S" --evidence "$TMP/g" --evidence "$TMP/o" --snapshot "$S1")"
 
 echo "[glm-allowed]"
 R="$TMP/repo"; mkdir -p "$R/features"; git -C "$R" init -q -b main
@@ -94,11 +107,12 @@ C_REPO="$TMP/crepo"; git init -q -b main "$C_REPO"; git -C "$C_REPO" -c user.ema
 check "inline comment on disclosure reads as public" allowed "$(python3 "$H" glm-allowed "$C_REPO/c.md")"
 B="$TMP/bad.md"; printf -- '---\ndisclosure: public\n---\n\xff\xfe\n' > "$B"
 check "undecodable working copy fails closed" 1 "$(rc python3 "$H" glm-allowed "$B")"
+RS="$SR/real.md"; printf -- '---\nstatus: week\n---\nbody\n' > "$RS"; S2="$(python3 "$RR" snapshot -- "$RS")"; sleep 1
 RG="$TMP/realg"; printf 'ASK-MODEL: vendor=gemini requested=gemini-4-argon served=gemini-4-argon verified=served effort=unsupported exit=0\nfindings\n' > "$RG"
 RC="$TMP/realc"; printf 'ASK-MODEL: vendor=codex requested=gpt-6.1-sol verified=accepted-only effort=low exit=0\nx\n' > "$RC"
-RS="$TMP/real.md"; printf -- '---\nstatus: week\n---\nbody\n' > "$RS"
-check "real gemini header stamps" current "$(python3 "$H" write "$RS" --evidence "$RG")"
-check "real codex header stamps" current "$(python3 "$H" write "$RS" --evidence "$RC")"
+tally_spec "$S2" "$RG" "$RC"
+check "real gemini header stamps" current "$(python3 "$H" write "$RS" --evidence "$RG" --snapshot "$S2")"
+check "real codex header stamps" current "$(python3 "$H" write "$RS" --evidence "$RC" --snapshot "$S2")"
 
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [[ $FAIL -eq 0 ]]

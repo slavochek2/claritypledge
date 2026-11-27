@@ -428,28 +428,33 @@ def unreviewed_edits(transcript_path, entries, turn_text, session_id=None):
                 continue
             reviewable.append(p)
         missing = rr.unreviewed(reviewable) if reviewable else []
-        if not missing and not incomplete:
-            return [], None
         # The founder can waive it: their latest typed message explicitly says skip review.
         # The waiver is recorded, so a later docs-only turn does not re-raise these files.
+        # P1734: read even when nothing is missing, because the session's open review rounds
+        # still need their waived tally record (spec Solution 3).
+        reason = None
         for entry in reversed(entries):
             if is_founder_message(entry):
                 text = extract_text(get_message_content(entry))
                 if founder_waived(text):
                     reason = "founder: " + text.strip()[:120]
-                    if missing:
-                        rr.waive(missing, reason)
-                    # P1734: the waiver is recorded first; the tally records it second, in its own
-                    # try, so a tally failure never undoes the waiver. The session id comes from
-                    # the hook's own stdin, never its environment. Never refuses.
-                    try:
-                        if session_id and hasattr(rr, "tally_waived"):
-                            rr.tally_waived(reviewable, reason, str(session_id))
-                    except Exception:
-                        pass
-                    return [], None
                 break
-        return missing, incomplete
+        if reason is None:
+            return (missing, incomplete) if (missing or incomplete) else ([], None)
+        if missing:
+            rr.waive(missing, reason)
+        # P1734: the waiver is recorded first; the tally records it second, in its own try, so a
+        # tally failure never undoes the waiver. It covers every file the session edited, a spec
+        # .md included, since a spec review's snapshot holds only the spec. The session id comes
+        # from the hook's own stdin, never its environment. Never refuses.
+        try:
+            if session_id and hasattr(rr, "tally_waived"):
+                rr.tally_waived(paths, reason, str(session_id))
+        except Exception as e:
+            print(f"verify-before-stop: the founder's waiver is recorded, but its tally record "
+                  f"failed ({type(e).__name__}: {e}); close the round with `review_receipt.py tally`.",
+                  file=sys.stderr)
+        return [], None
     except Exception:
         return [], incomplete  # never drop a reason already known
 

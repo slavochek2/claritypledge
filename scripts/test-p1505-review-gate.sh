@@ -9,10 +9,8 @@ set -euo pipefail
 # Run from pre-commit, git exports GIT_DIR/GIT_INDEX_FILE pointing at THIS repo; without this the
 # scratch repo below would stage into the real index (pre-commit INDEX INTEGRITY guard, P1273).
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
-# P1734: these suites pin the contract for snapshots WITHOUT a session (pre-P1734 rounds, CI, a
-# human shell). Unset so the result never depends on the caller's environment; the session
-# path (tally enforcement) is tested in scripts/test-p1734-tally.sh.
-unset CLAUDE_CODE_SESSION_ID
+# P1734: tally enforced; every accepted write/stamp is preceded by a tally of its snapshot.
+export CLAUDE_CODE_SESSION_ID=t-legacy-suite-p1505
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 STOP_HOOK="$SCRIPT_DIR/../.claude/hooks/verify-before-stop.py"
@@ -47,6 +45,17 @@ user() { printf '{"type":"user","message":{"content":"%s"}}' "$1"; }
 transcript() { local f="$1"; shift; : > "$f"; for l in "$@"; do printf '%s\n' "$l" >> "$f"; done; }
 evidence() { printf 'ASK-MODEL: vendor=gemini requested=x served=x verified=served effort=unsupported exit=0\nfindings\n' > "$1"; }
 rc() { local a=0; "$@" >/dev/null 2>&1 || a=$?; echo "$a"; }
+PROMPT_F="$TMP/prompt.md"; echo "review" > "$PROMPT_F"
+tally_for() { # <snapshot> <valid evidence...> ; a slot is ok only where an evidence file of that vendor is passed
+  local s="$1"; shift; local g='skipped (suite)' o='skipped (suite)' c='skipped (suite)' e v
+  for e in "$@"; do
+    v="$(sed -n '1s/^ASK-MODEL: vendor=\([a-z]*\).*/\1/p' "$e")"
+    case "$v" in gemini) g=ok ;; openrouter) o=ok ;; codex) c=ok ;; esac
+  done
+  python3 "$RR" tally --snapshot "$s" --kind finish --prompt-file "$PROMPT_F" --reviewer "gemini=$g" \
+    --reviewer "glm=$o" --reviewer "codex=$c" --reviewer 'opus=not triggered' --evidence "$@" --no-defects >/dev/null
+}
+abandon() { python3 "$RR" tally --abandoned "$1" --reason suite >/dev/null; } # a snapshot taken but never written
 
 echo "[gate] reviewable edit + completion, no receipt"
 T="$TMP/t1.jsonl"; transcript "$T" "$(user 'fix it')" "$(edit_of "$REPO/src/a.ts")" "$(say 'Done. The fix is implemented and committed.')"
@@ -65,7 +74,9 @@ EV="$TMP/argon.md"; evidence "$EV"
 echo "export const a = 99" > "$REPO/src/a.ts"
 check "write refuses when the file changed after the snapshot (fix after review)" 1 "$(rc python3 "$RR" write --snapshot "$SNAP" --evidence "$EV")"
 check "gate still blocks that unreviewed fix" 2 "$(rc run_hook "$T")"
+abandon "$SNAP"
 SNAP="$(python3 "$RR" snapshot -- "$REPO/src/a.ts")"; sleep 1; evidence "$EV"
+tally_for "$SNAP" "$EV"
 check "write accepts fresh evidence for the snapshotted content" 0 "$(rc python3 "$RR" write --snapshot "$SNAP" --evidence "$EV")"
 check "check: reviewed" 0 "$(rc python3 "$RR" check "$REPO/src/a.ts")"
 check "reviewed completion passes" 0 "$(rc run_hook "$T")"
@@ -74,7 +85,7 @@ check "receipt for a.ts does not cover b.ts" 1 "$(rc python3 "$RR" check "$REPO/
 echo "[receipt] only the latest record counts"
 echo "export const a = 100" > "$REPO/src/a.ts"
 SNAP2="$(python3 "$RR" snapshot -- "$REPO/src/a.ts")"; sleep 1; evidence "$EV"
-python3 "$RR" write --snapshot "$SNAP2" --evidence "$EV" >/dev/null 2>&1
+tally_for "$SNAP2" "$EV"; python3 "$RR" write --snapshot "$SNAP2" --evidence "$EV" >/dev/null 2>&1
 echo "export const a = 99" > "$REPO/src/a.ts"
 check "reverting to older reviewed content is not a pass" 1 "$(rc python3 "$RR" check "$REPO/src/a.ts")"
 check "post-review edit blocks" 2 "$(rc run_hook "$T")"
@@ -168,15 +179,15 @@ check "failed edit then successful edit of the same file counts" 2 "$(rc run_hoo
 echo "[round 2] receipts"
 echo "export const t = 1" > "$REPO/src/target.ts"; ln -s target.ts "$REPO/src/alias.ts"
 SN="$(python3 "$RR" snapshot -- "$REPO/src/alias.ts")"; sleep 1; evidence "$EV"
-python3 "$RR" write --snapshot "$SN" --evidence "$EV" >/dev/null 2>&1
+tally_for "$SN" "$EV"; python3 "$RR" write --snapshot "$SN" --evidence "$EV" >/dev/null 2>&1
 echo "export const t = 2" > "$REPO/src/alias.ts"
 check "code changed through a reviewed symlink is unreviewed" 1 "$(rc python3 "$RR" check "$REPO/src/alias.ts")"
 git -C "$REPO" -c user.email=t@t -c user.name=t commit -qam wip >/dev/null 2>&1 || true
 git -C "$REPO" worktree add -q "$TMP/wt" >/dev/null 2>&1
 echo "export const a = 7" > "$REPO/src/a.ts"
-SN="$(python3 "$RR" snapshot -- "$REPO/src/a.ts")"; sleep 1; evidence "$EV"; python3 "$RR" write --snapshot "$SN" --evidence "$EV" >/dev/null 2>&1
+SN="$(python3 "$RR" snapshot -- "$REPO/src/a.ts")"; sleep 1; evidence "$EV"; tally_for "$SN" "$EV"; python3 "$RR" write --snapshot "$SN" --evidence "$EV" >/dev/null 2>&1
 echo "export const a = 8" > "$TMP/wt/src/a.ts"
-SN="$(python3 "$RR" snapshot -- "$TMP/wt/src/a.ts")"; sleep 1; evidence "$EV"; python3 "$RR" write --snapshot "$SN" --evidence "$EV" >/dev/null 2>&1
+SN="$(python3 "$RR" snapshot -- "$TMP/wt/src/a.ts")"; sleep 1; evidence "$EV"; tally_for "$SN" "$EV"; python3 "$RR" write --snapshot "$SN" --evidence "$EV" >/dev/null 2>&1
 check "another worktree's review does not invalidate this one" 0 "$(rc python3 "$RR" check "$REPO/src/a.ts")"
 check "waive without reason text is a usage error" 2 "$(rc python3 "$RR" waive --reason -- "$REPO/src/a.ts")"
 
@@ -235,6 +246,7 @@ check "old gemini (before the snapshot) + fresh openrouter: refused" 1 "$(rc pyt
 check "failed gemini (exit=4) + fresh openrouter: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_BAD_GEM" "$V_OR")"
 check "spoofed header (vendor=gemini not the first field): refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_SPOOF")"
 check "no refusal wrote a receipt" 0 "$(wc -c < "$RECEIPTS" | tr -d ' ')"
+tally_for "$VSNAP" "$V_OR" "$V_GEM" "$V_CODEX"   # one write-once tally of every valid file the accepting writes below use
 check "openrouter + gemini: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR" "$V_GEM")"
 check "...vendors lists both, sorted" '["gemini","openrouter"]' "$(last_vendors)"
 check "gemini only: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_GEM")"
@@ -272,7 +284,7 @@ sub_session() { # <name> -> prints the main transcript path; its subagent dir is
 echo "export const s1 = 1" > "$REPO/src/s1.ts"; echo "export const s2 = 1" > "$REPO/src/s2.ts"; echo "export const s3 = 1" > "$REPO/src/s3.ts"
 TS="$(sub_session p1634a)"; sub_edit_of "$REPO/src/s1.ts" > "$TMP/p1634a/subagents/agent-a1.jsonl"
 check "edit made only by a subagent blocks" 2 "$(rc run_hook "$TS")"
-SNAP="$(python3 "$RR" snapshot -- "$REPO/src/s1.ts")"; sleep 1; evidence "$EV"; python3 "$RR" write --snapshot "$SNAP" --evidence "$EV" >/dev/null 2>&1
+SNAP="$(python3 "$RR" snapshot -- "$REPO/src/s1.ts")"; sleep 1; evidence "$EV"; tally_for "$SNAP" "$EV"; python3 "$RR" write --snapshot "$SNAP" --evidence "$EV" >/dev/null 2>&1
 check "a receipt clears the subagent edit" 0 "$(rc run_hook "$TS")"
 TW="$(sub_session p1634w)"; mkdir -p "$TMP/p1634w/subagents/workflows/wf_1"; sub_edit_of "$REPO/src/s2.ts" Write > "$TMP/p1634w/subagents/workflows/wf_1/agent-b.jsonl"
 check "workflow agent edit in subagents/workflows/<run>/ blocks" 2 "$(rc run_hook "$TW")"
@@ -305,7 +317,7 @@ out="$(inc "$TO" REVIEW_TIME_BUDGET_S=0.0 budget-1)"
 check "budget exhaustion blocks" "exit=2" "$(echo "$out" | tail -1)"
 check "...with the incomplete-coverage message" 1 "$(echo "$out" | grep -c 'coverage was incomplete')"
 T301="$TMP/t301.jsonl"; : > "$T301"; for i in $(seq 1 301); do edit_of "$REPO/src/f$i.ts" >> "$T301"; echo >> "$T301"; done; echo "x" > "$REPO/src/f301.ts"; say 'Done.' >> "$T301"; echo >> "$T301"
-SNAP="$(cd "$REPO"; python3 "$RR" snapshot -- $(for i in $(seq 1 301); do echo "$REPO/src/f$i.ts"; done))"; sleep 1; evidence "$EV"; python3 "$RR" write --snapshot "$SNAP" --evidence "$EV" >/dev/null 2>&1
+SNAP="$(cd "$REPO"; python3 "$RR" snapshot -- $(for i in $(seq 1 301); do echo "$REPO/src/f$i.ts"; done))"; sleep 1; evidence "$EV"; tally_for "$SNAP" "$EV"; python3 "$RR" write --snapshot "$SNAP" --evidence "$EV" >/dev/null 2>&1
 out="$(echo "{\"transcript_path\":\"$T301\",\"stop_hook_active\":false,\"session_id\":\"over300-1\"}" | CLAUDE_CONFIG_DIR="$TMP/cfg" python3 "$STOP_HOOK" 2>&1; echo "exit=$?")"
 check "over 300 paths blocks, even with every file reviewed" "exit=2" "$(echo "$out" | tail -1)"
 check "...with the incomplete-coverage message" 1 "$(echo "$out" | grep -c 'coverage was incomplete')"

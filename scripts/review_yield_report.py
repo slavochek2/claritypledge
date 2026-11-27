@@ -47,6 +47,7 @@ def parse_ts(s):
 def load_records(path):
     latest = {}
     order = []
+    notes = []  # waiver notes: counted in the window, never replace a round's record
     with open(path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
@@ -62,10 +63,13 @@ def load_records(path):
             if ts is None:
                 continue
             r["_ts"] = ts
+            if r.get("status") == "waiver":
+                notes.append(r)
+                continue
             if r["snapshot"] not in latest:
                 order.append(r["snapshot"])
             latest[r["snapshot"]] = r  # latest record in file order wins
-    return [latest[s] for s in order]
+    return [latest[s] for s in order] + notes
 
 
 def outcome_word(rec, slot):
@@ -99,7 +103,8 @@ def kind_of(rec):
 def answering_model(rec, slot):
     for a in rec.get("attempts") or []:
         if a.get("slot") == slot and a.get("ok"):
-            return a.get("served") or a.get("requested") or "unknown"
+            # ask-model's header `requested=` is the model that ANSWERED (fallback_from= failed)
+            return a.get("requested") or a.get("served") or "unknown"
     return "unknown"
 
 
@@ -121,7 +126,7 @@ def analyze(records):
         if st == "abandoned":
             out["abandoned"] += 1
             continue
-        if st == "waived":
+        if st in ("waived", "waiver"):
             out["waived"] += 1
             continue
         if st != "reviewed":
@@ -140,32 +145,38 @@ def analyze(records):
                     S[s]["bucket"][bucket]["runs"] += 1
                     m = ans.setdefault(answering_model(r, s), {"runs": 0, "unique": 0})
                     m["runs"] += 1
+        rtok = {}
         for a in r.get("attempts") or []:
             slot = a.get("slot")
-            if slot == "gemini" and a.get("fallback_from"):
-                pass
             okrow = bool(a.get("ok"))
             e = req.setdefault(a.get("requested") or "(none)", {"attempts": 0, "ok": 0})
             e["attempts"] += 1
             e["ok"] += okrow
-            e = srv.setdefault(a.get("served") or "(none)",
-                               {"attempts": 0, "ok": 0, "assumed": False})
-            e["attempts"] += 1
-            e["ok"] += okrow
-            if a.get("served_assumed"):
-                e["assumed"] = True
+            if a.get("served") or a.get("file"):  # skip the synthetic failed fallback row
+                e = srv.setdefault(a.get("served") or "(none)",
+                                   {"attempts": 0, "ok": 0, "assumed": False})
+                e["attempts"] += 1
+                e["ok"] += okrow
+                if a.get("served_assumed"):
+                    e["assumed"] = True
             if slot in S and okrow and isinstance(a.get("reasoning_tokens"), (int, float)):
-                S[slot]["tokens"].append(a["reasoning_tokens"])
-        if any(a.get("slot") == "gemini" and a.get("fallback_from")
-               for a in r.get("attempts") or []):
+                rtok[slot] = rtok.get(slot, 0) + a["reasoning_tokens"]
+        for slot, total in rtok.items():
+            S[slot]["tokens"].append(total)
+        gat = [a for a in r.get("attempts") or [] if a.get("slot") == "gemini"]
+        if (any(a.get("fallback_from") for a in gat)
+                or any(not a.get("ok") for a in gat) and any(
+                    a.get("ok") and a.get("requested") != b.get("requested")
+                    for a in gat for b in gat if not b.get("ok"))):
             out["gemini_fallback_rounds"] += 1
         for d in r.get("defects") or []:
             raised = d.get("raised_by") or {}
             state = d.get("state")
             names = [s for s in SLOTS if s in raised]
+            crit = "criteria" in raised  # a /finish criteria subagent: a peer, not a slot
             if state == "dropped":
                 for s in names:
-                    if words[s] == "ok":
+                    if words[s] == "ok" and len(ok) > 1:
                         S[s]["dropped"] += 1
             elif state == "verified":
                 for s in names:
@@ -178,8 +189,9 @@ def analyze(records):
                     if words[s] != "ok":
                         continue
                     if len(ok) == 1:
-                        S[s]["solo"] += 1
-                    elif len(names) == 1:
+                        if not crit:
+                            S[s]["solo"] += 1
+                    elif len(names) == 1 and not crit:
                         S[s]["unique"] += 1
                         S[s]["kind"][kind]["unique"] += 1
                         S[s]["bucket"][bucket]["unique"] += 1
@@ -207,7 +219,7 @@ def build(A, past):
         c = x["counts"]
         den = c["ok"] + c["failed"] + c["missing"]
         avail = (c["failed"] + c["missing"]) / den if den else None
-        dpr = x["dropped"] / x["ok_rounds"] if x["ok_rounds"] else 0.0
+        dpr = x["dropped"] / x["runs"] if x["runs"] else 0.0
         toks = sum(x["tokens"]) / len(x["tokens"]) if x["tokens"] else None
         rows.append({"reviewer": s, "runs": x["runs"], "unique": x["unique"],
                      "unique_high": x["unique_high"], "solo": x["solo"],
@@ -223,7 +235,7 @@ def build(A, past):
     by = {r["reviewer"]: r for r in rows}
     # rule 6 noise, rule 8 availability
     for r in rows:
-        if r["ok_rounds"] >= 20 and r["dropped_per_run"] > 5:
+        if r["runs"] >= 20 and r["dropped_per_run"] > 5:
             r["items"].append("tune item (noise: %.2f dropped/run)" % r["dropped_per_run"])
         den = r["availability_denominator"]
         fm = r["slot_counts"]["failed"] + r["slot_counts"]["missing"]
@@ -312,13 +324,18 @@ def recheck(records, content_dir, seed):
                 r.get("snapshot")))
             h = d.get("content")
             path = os.path.join(content_dir, h) if h else None
-            if path and os.path.isfile(path) and isinstance(ln, int):
+            if path and os.path.isfile(path):
                 with open(path, encoding="utf-8", errors="replace") as f:
                     src = f.read().splitlines()
-                for i in range(max(1, ln - 5), min(len(src), ln + 5) + 1):
-                    lines.append("    %s %4d | %s" % (">" if i == ln else " ", i, src[i - 1]))
+                if not isinstance(ln, int) or isinstance(ln, bool):
+                    lines.append("    no line recorded")
+                elif ln < 1 or ln > len(src):
+                    lines.append("    line %s is beyond the stored file (%d lines)" % (ln, len(src)))
+                else:
+                    for i in range(max(1, ln - 5), min(len(src), ln + 5) + 1):
+                        lines.append("    %s %4d | %s" % (">" if i == ln else " ", i, src[i - 1]))
             else:
-                lines.append("    content not stored (file changed before the tally)")
+                lines.append("    " + (d.get("content_missing") or "content not stored"))
     return lines
 
 
@@ -362,7 +379,7 @@ def main():
     if a.since or a.until:
         try:
             start = dt.datetime.fromisoformat(a.since).replace(tzinfo=dt.timezone.utc) \
-                if a.since else dt.datetime.min.replace(tzinfo=dt.timezone.utc)
+                if a.since else None
             end = (dt.datetime.fromisoformat(a.until).replace(tzinfo=dt.timezone.utc)
                    + dt.timedelta(days=1)) if a.until else now
         except ValueError:
@@ -372,8 +389,16 @@ def main():
         start, end = now - dt.timedelta(days=a.days or 30), now
 
     allrecs = load_records(tallies)
-    win = [r for r in allrecs if start <= r["_ts"] <= end]
-    past = [r for r in allrecs if start - dt.timedelta(days=90) <= r["_ts"] < start]
+    if a.until:  # exclusive at the next midnight
+        win = [r for r in allrecs if (start is None or start <= r["_ts"]) and r["_ts"] < end]
+    else:
+        win = [r for r in allrecs if start <= r["_ts"] <= end]
+    past = [] if start is None else [
+        r for r in allrecs if start - dt.timedelta(days=90) <= r["_ts"] < start]
+    if start is not None:
+        start_txt = str(start.date())
+    else:
+        start_txt = str(min(r["_ts"] for r in win).date()) if win else "-"
     A, P = analyze(win), analyze(past)
     rows, models = build(A, P)
     tables = stats_tables(A)
@@ -389,8 +414,10 @@ def main():
         return 0
 
     o = ["Reviewer yield report: %s to %s, %d reviewed rounds, %d abandoned, %d waived" % (
-        start.date() if a.since or a.days or True else "", end.date(), A["rounds"],
-        A["abandoned"], A["waived"]), ""]
+        start_txt, (end - dt.timedelta(days=1)).date() if a.until else end.date(),
+        A["rounds"], A["abandoned"], A["waived"]),
+        "unique = no other reviewer in the round raised it, /finish criteria subagents included",
+        ""]
     for r in rows:
         c = r["slot_counts"]
         o.append("%s: verdict=%s | dropped per run=%.2f | runs=%d unique=%d unique HIGH=%d "

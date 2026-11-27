@@ -117,6 +117,66 @@ def r9(name, past_rounds, past_unique):
 r9("r9a.jsonl", 40, 10)   # past rate 0.25, current 0.025: trigger
 r9("r9b.jsonl", 39, 10)   # past has 39 runs: no trigger
 r9("r9c.jsonl", 40, 0)    # past rate 0: no trigger
+
+def att(slot, requested, served, ok=True, tokens=None, file="f", fb=None):
+    return {"slot": slot, "vendor": VEND[slot], "requested": requested, "served": served,
+            "served_assumed": False, "effort": None, "reasoning_tokens": tokens, "exit": 0 if ok else 1,
+            "ok": ok, "file": file, "hash": None, "fallback_from": fb}
+
+# R1: glm has 20 real runs (3 dropped each) and 30 rounds where it ran alone (20 dropped each).
+n1 = [rec("n1r-%d.json" % i, {"gemini": "ok", "glm": "ok"},
+          [df("d%d-%d" % (i, k), "dropped", {"glm": "LOW"}) for k in range(3)]) for i in range(20)]
+n1 += [rec("n1s-%d.json" % i, {"glm": "ok", "gemini": "missing (quota)"},
+           [df("s%d-%d" % (i, k), "dropped", {"glm": "LOW"}) for k in range(20)]) for i in range(30)]
+write("n1.jsonl", n1)
+
+# --until boundary: one record exactly at midnight 2026-11-26.
+write("u.jsonl", [rec("u1.json", {"gemini": "ok", "glm": "ok"}, ts="2026-11-26T00:00:00Z")])
+
+# Fix 3: requested differs from served; the answering model is the requested one.
+write("am.jsonl", [rec("am.json", {"gemini": "ok", "glm": "ok"}, attempts=[
+    att("gemini", "req-model", "srv-model"), att("glm", "m-glm", "m-glm")])])
+
+# Fix 4 and 6: two-file manual re-run: failed carbon file plus ok argon file, no fallback_from.
+write("mr.jsonl", [rec("mr.json", {"gemini": "ok", "glm": "ok"}, attempts=[
+    att("gemini", "carbon", None, ok=False, file="c"), att("gemini", "argon", "argon", file="a"),
+    att("glm", "m-glm", "m-glm")])])
+
+# Fix 5: two ok gemini attempts in one round report 30 and 70 reasoning tokens.
+write("tk.jsonl", [rec("tk.json", {"gemini": "ok", "glm": "ok"}, attempts=[
+    att("gemini", "a", "a", tokens=30), att("gemini", "b", "b", tokens=70), att("glm", "m-glm", "m-glm")])])
+
+# Fix 7: recheck with content_missing, line past the file, and a null line.
+write("rc2.jsonl", [rec("rc2.json", {"gemini": "ok", "glm": "ok"}, [
+    df("far line", "verified", {"gemini": "LOW"}, line=99, content="abc123"),
+    df("null line", "verified", {"gemini": "LOW"}, line=None, content="abc123"),
+    df("gone", "verified", {"gemini": "LOW"}, line=2, content="gonehash"),
+    df("dropped gone", "dropped", {"glm": "LOW"}, line=2)])])
+j2 = json.loads(open(os.path.join(D, "rc2.jsonl")).read().splitlines()[1])
+for d in j2["defects"]:
+    if d["summary"] in ("gone", "dropped gone"):
+        d["content_missing"] = "deleted"
+open(os.path.join(D, "rc2.jsonl"), "w").write(json.dumps(j2) + "\n")
+
+# Fix 8: criteria subagent as a peer. Round A: gemini+glm ok; B: gemini ok alone; C: gemini unique control.
+write("cr.jsonl", [
+    rec("cr-a.json", {"gemini": "ok", "glm": "ok"}, [df("with criteria", "verified", {"gemini": "LOW", "criteria": "LOW"})]),
+    rec("cr-b.json", {"gemini": "ok", "glm": "missing (quota)"}, [df("solo criteria", "verified", {"gemini": "LOW", "criteria": "LOW"})]),
+    rec("cr-c.json", {"gemini": "ok", "glm": "ok"}, [df("really unique", "verified", {"gemini": "LOW"})])])
+
+# Fix 9: a waiver note after a reviewed round must not replace it.
+write("wv.jsonl", [rec("wv.json", {"gemini": "ok", "glm": "ok"}),
+                   {"v": 1, "ts": "2026-11-26T11:00:00Z", "snapshot": "wv.json", "status": "waiver", "reason": "x"}])
+
+# Overlap guard (PROTECTED patched empty): chain A-B-C where A and C do not overlap.
+ch = []
+for i in range(65):
+    ds = [df("ab %d" % i, "verified", {"gemini": "LOW", "glm": "LOW"}),
+          df("bc %d" % i, "verified", {"glm": "LOW", "codex": "LOW"}),
+          df("gd %d" % i, "dropped", {"gemini": "LOW"}),
+          df("cd %d" % i, "dropped", {"codex": "LOW"}), df("cd2 %d" % i, "dropped", {"codex": "LOW"})]
+    ch.append(rec("ch-%d.json" % i, {"gemini": "ok", "glm": "ok", "codex": "ok"}, ds))
+write("chain.jsonl", ch)
 PYEOF
 
 echo "[missing file]"
@@ -214,6 +274,63 @@ check "(b) past period 39 runs: no trigger" False "$(j9 "$TMP/r9b.jsonl" "m['m-g
 check "(c) past rate zero: no trigger" False "$(j9 "$TMP/r9c.jsonl" "m['m-gemini']['trigger']")"
 check "(d) fallback run credited to argon" 1 "$(j "$TMP/fb.jsonl" "[m['runs'] for m in d['models']['answering'] if m['model']=='argon'][0]")"
 check "(d) carbon gets no answering run" 0 "$(j "$TMP/fb.jsonl" "len([m for m in d['models']['answering'] if m['model']=='carbon'])")"
+
+echo "[round-1 fix 1: dropped counted only in real runs]"
+check "dropped per run uses runs only (3.0)" 3.0 "$(j "$TMP/n1.jsonl" "rv['glm']['dropped_per_run']")"
+check "ok rounds still printed (50)" 50 "$(j "$TMP/n1.jsonl" "rv['glm']['ok_rounds']")"
+check "no tune item from solo-round drops" 0 "$(j "$TMP/n1.jsonl" "sum('tune item' in i for i in rv['glm']['items'])")"
+
+echo "[round-1 fix 2: --until]"
+check "record at exactly midnight excluded by --until previous day" 0 "$(python3 "$R" --tallies "$TMP/u.jsonl" --since 2000-01-01 --until 2026-11-25 --json | python3 -c "import json,sys; print(json.load(sys.stdin)['rounds'])")"
+check "--until the record's own day includes it" 1 "$(python3 "$R" --tallies "$TMP/u.jsonl" --since 2000-01-01 --until 2026-11-26 --json | python3 -c "import json,sys; print(json.load(sys.stdin)['rounds'])")"
+check "--until alone does not crash" 0 "$(python3 "$R" --tallies "$TMP/u.jsonl" --until 2026-11-26 >/dev/null 2>&1; echo $?)"
+check "--until alone prints the earliest record date" 1 "$(python3 "$R" --tallies "$TMP/u.jsonl" --until 2026-11-26 2>&1 | grep -c '^Reviewer yield report: 2026-11-26 to ')"
+check "--until alone, empty window prints a dash" 1 "$(python3 "$R" --tallies "$TMP/u.jsonl" --until 2020-01-01 2>&1 | grep -c '^Reviewer yield report: - to ')"
+
+echo "[round-1 fix 3: answering model is the requested one]"
+check "answering model keyed by requested" "req-model" "$(j "$TMP/am.jsonl" "[m['model'] for m in d['models']['answering'] if m['model'] in ('req-model','srv-model')][0]")"
+
+echo "[round-1 fix 4: two-file manual re-run flagged as fallback]"
+check "failed + ok gemini with different requested counts" 1 "$(j "$TMP/mr.jsonl" "d['splits']['gemini_fallback_rounds']")"
+check "control: single clean gemini attempt is not a fallback" 0 "$(j "$TMP/am.jsonl" "d['splits']['gemini_fallback_rounds']")"
+
+echo "[round-1 fix 5: tokens summed per round]"
+check "two ok attempts in one round sum to 100" 100.0 "$(j "$TMP/tk.jsonl" "rv['gemini']['tokens_per_run']")"
+
+echo "[round-1 fix 6: served table skips the synthetic failed row]"
+check "no (none) row in the served table" 0 "$(j "$TMP/fb.jsonl" "'(none)' in d['models']['tables']['served'] and 1 or 0")"
+check "failed row stays in the requested table" 1 "$(j "$TMP/fb.jsonl" "d['models']['tables']['requested']['carbon']['attempts']")"
+
+echo "[round-1 fix 7: recheck disclosures]"
+out="$(rep "$TMP/rc2.jsonl" --recheck --seed 1 --content-dir "$TMP/content")"
+check "content_missing reason printed" 2 "$(grep -c '^    deleted$' <<<"$out")"
+check "line beyond the stored file" 1 "$(grep -c 'line 99 is beyond the stored file (11 lines)' <<<"$out")"
+check "no line recorded" 1 "$(grep -c 'no line recorded' <<<"$out")"
+
+echo "[round-1 fix 8: criteria subagent is a peer]"
+check "criteria peer: not unique (only the control counts)" 1 "$(j "$TMP/cr.jsonl" "rv['gemini']['unique']")"
+check "criteria peer: not solo" 0 "$(j "$TMP/cr.jsonl" "rv['gemini']['solo']")"
+check "criteria gets no row" 0 "$(j "$TMP/cr.jsonl" "'criteria' in rv and 1 or 0")"
+check "header says unique includes criteria" 1 "$(rep "$TMP/cr.jsonl" | grep -c '^unique = no other reviewer in the round raised it, /finish criteria subagents included$')"
+
+echo "[round-1 fix 9: waiver note]"
+check "waiver note does not replace the reviewed round" 1 "$(j "$TMP/wv.jsonl" "d['rounds']")"
+check "waiver note counted as waived" 1 "$(j "$TMP/wv.jsonl" "d['waived']")"
+
+echo "[round-1 fix 10: overlap guard with nothing protected]"
+guard() { python3 -c "
+import sys; sys.path.insert(0, '$SCRIPT_DIR')
+import review_yield_report as m
+A = m.analyze(m.load_records('$TMP/$1')); m.PROTECTED = set()
+rows, _ = m.build(A, None)
+$2"; }
+check "pair: exactly one roster action" 1 "$(guard f3.jsonl "print(sum(i.startswith('roster action: remove') for r in rows for i in r['items']))")"
+check "pair: the action lands on the one with more dropped per run (glm)" glm "$(guard f3.jsonl "print([r['reviewer'] for r in rows if any(i.startswith('roster action') for i in r['items'])][0])")"
+check "pair: the other holds" 1 "$(guard f3.jsonl "print(sum(i.startswith('hold (overlap guard') for r in rows for i in r['items']))")"
+check "chain: all three removable" 3 "$(guard chain.jsonl "print(sum(r['verdict']=='remove' for r in rows))")"
+check "chain A-B-C: exactly one acted on" 1 "$(guard chain.jsonl "print(sum(i.startswith('roster action') for r in rows for i in r['items']))")"
+check "chain A-B-C: the other two hold" 2 "$(guard chain.jsonl "print(sum(i.startswith('hold (overlap guard') for r in rows for i in r['items']))")"
+check "chain: A and C do not overlap directly" False "$(guard chain.jsonl "print(m.overlaps(A, 'gemini', 'codex'))")"
 
 echo "=== Results: $PASS passed, $FAIL failed ==="
 [[ "$FAIL" -eq 0 ]]

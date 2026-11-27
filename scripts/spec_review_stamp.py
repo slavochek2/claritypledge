@@ -144,6 +144,9 @@ def _tally_refusal(spec, snapshot, valid):
     loc = _rr.locate(spec)
     if not loc or loc[1] not in _rr._snap_keys(body):
         return f"snapshot {os.path.basename(snapshot)} does not hold {spec}."
+    _commons, misplaced = _rr.snapshot_store_check(snapshot, body)
+    if misplaced:
+        return misplaced
     common = _rr._snapshot_common(snapshot)
     rec = _rr._tallies(common).get(os.path.basename(snapshot))
     if not rec or rec.get("status") != "reviewed":
@@ -153,7 +156,7 @@ def _tally_refusal(spec, snapshot, valid):
     why = _rr.tally_backs(common, snapshot, valid)
     if why:
         return why
-    others = [p for p in _rr.session_untallied(common, session, {loc[1]})
+    others = [p for p in _rr.session_untallied(os.path.dirname(loc[0]), session, {loc[1]})
               if os.path.basename(p) != os.path.basename(snapshot)]
     if others:
         return ("this session has other untallied snapshot(s) of the spec: " + ", ".join(others)

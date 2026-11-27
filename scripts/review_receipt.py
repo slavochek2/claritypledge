@@ -66,6 +66,8 @@ SESSIONS_SUBDIR = "sessions"
 SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
 SLOTS = ("gemini", "glm", "codex", "opus")
 SLOT_LABEL = {"gemini": "Gemini", "glm": "GLM", "codex": "Codex", "opus": "Opus"}
+# A /finish criteria subagent ran in the same round: a peer for uniqueness, never a verdict row.
+CRITERIA_PEER = "criteria"
 VENDOR_SLOT = {"gemini": "gemini", "openrouter": "glm", "codex": "codex", "local": "extra"}
 OUTCOME_RE = re.compile(r"^(ok|failed \([^()]+\)|missing \([^()]+\)|skipped \([^()]+\)|not triggered)$")
 DEFECT_STATES = ("verified", "unverified", "dropped")
@@ -258,17 +260,22 @@ def cmd_snapshot(argv):
     if not session:
         print(f"review_receipt: WARNING — {SESSION_ENV} is unset, so this snapshot records no session "
               "and the tally can never be enforced for it (P1734).", file=sys.stderr)
-    # The nonce makes two identical snapshots taken in the same second two rounds (P1734).
+    # The nonce makes two identical snapshots taken in the same second two rounds (P1734). The
+    # commit is the one the reviewers read: a co-tenant can move HEAD before the tally runs.
+    first_top = next(iter(next(iter(groups.values())))).split("::", 1)[0]
     body = {"ts": _now(), "session": session, "nonce": os.urandom(8).hex(),
+            "head": _git(first_top, "rev-parse", "HEAD"),
             "groups": {rf: {rel: list(v) for rel, v in m.items()} for rf, m in groups.items()}}
     blob = json.dumps(body, sort_keys=True)
     path = os.path.join(snap_dir, hashlib.sha256(blob.encode()).hexdigest()[:16] + ".json")
     with open(path, "w") as f:
         f.write(blob)
     if session:
-        idx_dir = os.path.join(snap_dir, SESSIONS_SUBDIR)
-        os.makedirs(idx_dir, exist_ok=True)
-        _append_line(os.path.join(idx_dir, _safe_id(session) + ".txt"), path)
+        # Indexed under every repo the snapshot covers, so a later write in any of them sees it.
+        for rf in groups:
+            idx_dir = os.path.join(os.path.dirname(rf), SNAPSHOT_DIR, SESSIONS_SUBDIR)
+            os.makedirs(idx_dir, exist_ok=True)
+            _append_line(os.path.join(idx_dir, _safe_id(session) + ".txt"), path)
     print(path)
     return 0
 
@@ -314,25 +321,83 @@ def _tally_file(common):
     return os.path.join(common, TALLY_NAME)
 
 
-def _tallies(common):
-    """snapshot id -> its LATEST tally record (file order)."""
-    out = {}
-    try:
-        with open(_tally_file(common)) as f:
-            for line in f:
-                try:
-                    rec = json.loads(line)
-                except Exception:
-                    continue
-                if isinstance(rec, dict) and rec.get("snapshot"):
-                    out[rec["snapshot"]] = rec
-    except FileNotFoundError:
-        pass
+def _read_tally_records(f):
+    f.seek(0)
+    out = []
+    for line in f:
+        try:
+            rec = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(rec, dict) and rec.get("snapshot"):
+            out.append(rec)
     return out
 
 
-def session_untallied(common, session, keys):
-    """Snapshot paths this session took, overlapping `keys`, that have no tally record at all."""
+def _latest_by_snapshot(records):
+    """snapshot id -> the record that closes it. A `waiver` record is a note that the founder
+    waived a round already tallied as reviewed; it never replaces that round's record."""
+    out = {}
+    for rec in records:
+        if rec.get("status") != "waiver":
+            out[rec["snapshot"]] = rec
+    return out
+
+
+def _tally_records(common):
+    try:
+        with open(_tally_file(common)) as f:
+            fcntl.flock(f, fcntl.LOCK_SH)  # a long record is several writes; never read half of one
+            try:
+                return _read_tally_records(f)
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+    except FileNotFoundError:
+        return []
+
+
+def _tallies(common):
+    """snapshot id -> the record that closes it (see _latest_by_snapshot)."""
+    return _latest_by_snapshot(_tally_records(common))
+
+
+def _transition_refusal(prior, status):
+    """None when a `status` record may close a snapshot whose current record is `prior`.
+    A reviewed round is recorded once. A reviewed tally may supersede an abandoned or waived one
+    (the review did run after all); nothing else replaces anything."""
+    if prior is None:
+        return None
+    if prior.get("status") == "reviewed":
+        return "already has a reviewed tally; a round is recorded once"
+    if status == "reviewed":
+        return None
+    return f"is already closed as {prior.get('status')}"
+
+
+def _append_tally(common, rec):
+    """Append one tally record. The state check and the append happen under ONE exclusive lock,
+    so the Stop hook's waiver and a concurrent `tally` can never both close a round. Returns the
+    refusal reason, or None when written."""
+    with open(_tally_file(common), "a+") as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            if rec.get("status") != "waiver":
+                prior = _latest_by_snapshot(_read_tally_records(f)).get(rec["snapshot"])
+                why = _transition_refusal(prior, rec.get("status"))
+                if why:
+                    return why
+            f.seek(0, os.SEEK_END)
+            f.write(json.dumps(rec, separators=(",", ":")) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+    return None
+
+
+def _session_snapshots(common, session, keys):
+    """Snapshot paths this session took that overlap `keys`, from the session index under `common`.
+    A snapshot covering several repos is indexed under each, and lives in the first one's store."""
     if not session:
         return []
     idx = os.path.join(common, SNAPSHOT_DIR, SESSIONS_SUBDIR, _safe_id(session) + ".txt")
@@ -341,11 +406,8 @@ def session_untallied(common, session, keys):
             paths = list(dict.fromkeys(l.strip() for l in f if l.strip()))
     except FileNotFoundError:
         return []
-    tallies = _tallies(common)
     out = []
     for p in paths:
-        if os.path.basename(p) in tallies:
-            continue
         try:
             body = _load_snapshot(p)
         except Exception:
@@ -355,11 +417,24 @@ def session_untallied(common, session, keys):
     return out
 
 
+def session_untallied(common, session, keys):
+    """Snapshot paths this session took, overlapping `keys`, that have no tally record at all."""
+    cache, out = {}, []
+    for p in _session_snapshots(common, session, keys):
+        store = _snapshot_common(p)
+        if store not in cache:
+            cache[store] = _tallies(store)
+        if os.path.basename(p) not in cache[store]:
+            out.append(p)
+    return out
+
+
 def _untallied_refusal(cmd, paths):
     return (f"review_receipt: REFUSED ({cmd}) — this session's snapshot(s) of these files have no tally: "
             + ", ".join(paths) + ". Record each round with `review_receipt.py tally --snapshot <path> ...` "
             "(no reviewer re-run needed; failed, missing and skipped outcomes are valid), or close a "
-            "snapshot taken by mistake with `tally --abandoned <path> --reason <text>` (P1734).")
+            "snapshot taken by mistake with `tally --abandoned <path> --reason <text>`. Subagents share "
+            "this session's id, so a snapshot one of them took counts as this session's (P1734).")
 
 
 def _file_hash16(path):
@@ -367,22 +442,60 @@ def _file_hash16(path):
         return hashlib.sha256(f.read()).hexdigest()[:16]
 
 
+def snapshot_store_check(snap_path, body):
+    """(commons, refusal) — the common git dirs whose files the snapshot holds, and a refusal when
+    the snapshot file does not sit in one of their snapshot stores. Every tally check reads the
+    store the snapshot sits in, so a copy elsewhere would dodge them all."""
+    commons = list(dict.fromkeys(os.path.dirname(rf) for rf in (body.get("groups") or {})))
+    here = os.path.realpath(os.path.dirname(os.path.abspath(snap_path)))
+    if commons and not any(os.path.realpath(os.path.join(c, SNAPSHOT_DIR)) == here for c in commons):
+        return commons, (f"snapshot {snap_path} is not in the snapshot store of the repo its files "
+                         "belong to; pass the path `snapshot` printed (P1734).")
+    return commons, None
+
+
+def open_rounds_for(body, session):
+    """This session's untallied snapshots overlapping the snapshot body's files, in every repo."""
+    out = []
+    for rf, m in (body.get("groups") or {}).items():
+        for p in session_untallied(os.path.dirname(rf), session, set(m)):
+            if p not in out:
+                out.append(p)
+    return out
+
+
+def _hash_homes(common, hashes):
+    """hash -> the snapshot whose reviewed tally recorded it."""
+    homes = {}
+    for rec in _tally_records(common):
+        if rec.get("status") == "reviewed":
+            for a in rec.get("attempts") or []:
+                if a.get("hash") in hashes:
+                    homes[a["hash"]] = rec["snapshot"]
+    return homes
+
+
 def tally_backs(common, snap_path, evidence_paths):
     """None when the snapshot's tally backs a receipt or stamp from these (valid) evidence files,
     else the refusal reason. A snapshot with no tally is the untallied check's business."""
-    rec = _tallies(common).get(os.path.basename(snap_path))
+    base = os.path.basename(snap_path)
+    rec = _tallies(common).get(base)
     if rec is None:
         return None
-    if rec.get("status") == "abandoned":
-        return (f"snapshot {os.path.basename(snap_path)} was tallied as abandoned, so no review of it "
-                "can be recorded. Take a new snapshot.")
-    if rec.get("status") != "reviewed":
-        return None
+    status = rec.get("status")
+    if status != "reviewed":
+        return (f"snapshot {base} was tallied as {status}, so it backs no receipt or stamp. If a review "
+                f"of it did run, record it with `review_receipt.py tally --snapshot {snap_path} ...` (a "
+                f"reviewed tally supersedes the {status} record); otherwise take a new snapshot (P1734).")
     known = {a.get("hash") for a in rec.get("attempts") or [] if a.get("hash")}
-    stray = [e for e in evidence_paths if _file_hash16(e) not in known]
+    hashes = {e: _file_hash16(e) for e in evidence_paths}
+    stray = [e for e in evidence_paths if hashes[e] not in known]
     if stray:
-        return ("evidence not recorded in the tally for " + os.path.basename(snap_path) + ": "
-                + ", ".join(stray) + ". Re-run `tally` naming it as --evidence (P1734).")
+        homes = _hash_homes(common, {hashes[e] for e in stray})
+        named = [e + (f" (recorded in {homes[hashes[e]]}'s tally: pass it with that --snapshot)"
+                      if hashes[e] in homes else " (in no tally)") for e in stray]
+        return (f"evidence not recorded in the tally for {base}: " + ", ".join(named)
+                + ". Pass only the outputs of the round this snapshot names (P1734).")
     return None
 
 
@@ -458,8 +571,12 @@ def cmd_write(argv):
         print("review_receipt: REFUSED — the snapshot holds no files", file=sys.stderr)
         return 1
     # P1734: checked last, so every older refusal above still fires for its own reason.
+    _commons, misplaced = snapshot_store_check(snap, body)
+    if misplaced:
+        print("review_receipt: REFUSED — " + misplaced, file=sys.stderr)
+        return 1
     common = _snapshot_common(snap)
-    open_rounds = session_untallied(common, _session(), _snap_keys(body))
+    open_rounds = open_rounds_for(body, _session())
     if open_rounds:
         print(_untallied_refusal("write", open_rounds), file=sys.stderr)
         return 1
@@ -505,7 +622,9 @@ def cmd_waive(argv):
         loc = locate(p)
         if loc:
             keys_by_common.setdefault(os.path.dirname(loc[0]), set()).add(loc[1])
-    open_rounds = [p for c, ks in keys_by_common.items() for p in session_untallied(c, _session(), ks)]
+    open_rounds = []
+    for c, ks in keys_by_common.items():
+        open_rounds += [p for p in session_untallied(c, _session(), ks) if p not in open_rounds]
     if open_rounds:
         print(_untallied_refusal("waive", open_rounds), file=sys.stderr)
         return 1
@@ -526,13 +645,12 @@ def cmd_check(files):
 
 # ---- P1734: the tally command -----------------------------------------------------------------
 
-def _append_tally(common, rec):
-    _append(_tally_file(common), rec)
-
-
 def tally_waived(files, reason, session):
-    """Founder waiver (the Stop hook): a `waived` tally record for each untallied snapshot this
-    session took that overlaps `files`. Never refuses; returns how many it wrote."""
+    """Founder waiver (the Stop hook), for each snapshot this session took that overlaps `files`:
+    an untallied one gets a `waived` record; one already tallied as reviewed gets a `waiver` note
+    (counted as a waiver, never replacing the round); an abandoned or waived one is left alone.
+    Never refuses; returns how many records it wrote."""
+    session = (str(session).strip() if session else "") or None
     if not session:
         return 0
     keys_by_common = {}
@@ -540,12 +658,24 @@ def tally_waived(files, reason, session):
         loc = locate(p)
         if loc:
             keys_by_common.setdefault(os.path.dirname(loc[0]), set()).add(loc[1])
-    n = 0
+    n, seen = 0, set()
     for common, keys in keys_by_common.items():
-        for snap in session_untallied(common, session, keys):
-            _append_tally(common, {"v": 1, "ts": _now(), "snapshot": os.path.basename(snap), "session": session,
-                                   "status": "waived", "reason": (reason or "")[:200]})
-            n += 1
+        for snap in _session_snapshots(common, session, keys):
+            if snap in seen:
+                continue
+            seen.add(snap)
+            store, base = _snapshot_common(snap), os.path.basename(snap)
+            prior = _tallies(store).get(base)
+            status = "waived" if prior is None else ("waiver" if prior.get("status") == "reviewed" else None)
+            if status is None:
+                continue
+            if status == "waiver" and any(r.get("snapshot") == base and r.get("status") == "waiver"
+                                          and r.get("reason") == (reason or "")[:200]
+                                          for r in _tally_records(store)):
+                continue  # the hook runs at every stop; one founder message is one waiver
+            if _append_tally(store, {"v": 1, "ts": _now(), "snapshot": base, "session": session,
+                                     "status": status, "reason": (reason or "")[:200]}) is None:
+                n += 1
     return n
 
 
@@ -590,24 +720,29 @@ def _parse_tally_args(argv):
     multi = {"--reviewer", "--evidence", "--failed-run"}
     single = {"--snapshot", "--kind", "--after", "--prompt-file", "--defects", "--abandoned", "--reason", "--last"}
     flags = {"--no-defects", "--show"}
+    known = multi | single | flags
     opts, i = {k: [] for k in multi}, 0
+    # A value may itself start with "--" (a reason quoting a flag); only a known option ends one.
     while i < len(argv):
         a = argv[i]
         if a in multi:
             i += 1
             n0 = i
-            while i < len(argv) and not argv[i].startswith("--"):
+            while i < len(argv) and argv[i] not in known:
                 opts[a].append(argv[i]); i += 1
             if i == n0:
                 raise ValueError(f"{a} needs a value")
         elif a in single:
-            if i + 1 >= len(argv) or argv[i + 1].startswith("--"):
+            if i + 1 >= len(argv) or argv[i + 1] in known:
                 raise ValueError(f"{a} needs a value")
             opts[a] = argv[i + 1]; i += 2
         elif a in flags:
             opts[a] = True; i += 1
         else:
             raise ValueError(f"unknown argument {a}")
+    last = opts.get("--last")
+    if last is not None and (not last.isdigit() or int(last) < 1):
+        raise ValueError("--last needs a whole number of records, 1 or more")
     return opts
 
 
@@ -642,19 +777,35 @@ def _store_content(common, body, defects):
             by_rel[path] = (path, h)
     store = os.path.join(common, CONTENT_DIR)
     for d in defects:
-        d["content"] = None
+        d["content"], d["content_missing"] = None, None
         hit = by_rel.get(d["file"]) or by_rel.get(os.path.abspath(d["file"]))
         if not hit:
+            d["content_missing"] = "not in the snapshot"
             continue
         path, h = hit
-        if h in (DELETED, None) or os.path.islink(path) or fingerprint(path) != h:
+        if h in (DELETED, None):
+            d["content_missing"] = "deleted"
+            continue
+        if os.path.islink(path):
+            d["content_missing"] = "link"
+            continue
+        try:
+            with open(path, "rb") as src:
+                data = src.read()
+        except OSError:
+            d["content_missing"] = "changed after the snapshot"
+            continue
+        # Hash the bytes being stored, so a write between a check and a copy cannot slip in.
+        if hashlib.sha256(data).hexdigest() != h:
+            d["content_missing"] = "changed after the snapshot"
             continue
         os.makedirs(store, exist_ok=True)
         dest = os.path.join(store, h)
         if not os.path.exists(dest):
-            with open(path, "rb") as src, open(dest + ".tmp", "wb") as out:
-                out.write(src.read())
-            os.replace(dest + ".tmp", dest)
+            tmp = f"{dest}.{os.getpid()}.{os.urandom(4).hex()}.tmp"  # concurrent tallies never share one
+            with open(tmp, "wb") as out:
+                out.write(data)
+            os.replace(tmp, dest)
         d["content"] = h
 
 
@@ -677,16 +828,17 @@ def _load_defects(path, reviewers):
             raise ValueError(f"{where}: summary is required")
         if not isinstance(file_, str) or not file_.strip():
             raise ValueError(f"{where}: file is required")
-        if line is not None and (not isinstance(line, int) or isinstance(line, bool) or line < 0):
-            raise ValueError(f"{where}: line must be a whole number or null")
+        if line is not None and (not isinstance(line, int) or isinstance(line, bool) or line < 1):
+            raise ValueError(f"{where}: line must be a line number (1 or more) or null")
         if state not in DEFECT_STATES:
             raise ValueError(f"{where}: state must be one of {', '.join(DEFECT_STATES)}")
         if not isinstance(raised, dict) or not raised:
             raise ValueError(f"{where}: raised_by must name at least one reviewer")
         for slot, sev in raised.items():
-            if slot not in SLOTS:
-                raise ValueError(f"{where}: unknown reviewer '{slot}' (one of {', '.join(SLOTS)})")
-            if reviewers[slot] != "ok":
+            if slot not in SLOTS and slot != CRITERIA_PEER:
+                raise ValueError(f"{where}: unknown reviewer '{slot}' (one of {', '.join(SLOTS)}, "
+                                 f"or {CRITERIA_PEER} for a /finish criteria subagent)")
+            if slot != CRITERIA_PEER and reviewers[slot] != "ok":
                 raise ValueError(f"{where}: names {slot}, whose outcome is '{reviewers[slot]}', not ok")
             if sev not in SEVERITIES:
                 raise ValueError(f"{where}: severity from {slot} must be one of {', '.join(SEVERITIES)}")
@@ -717,8 +869,7 @@ def _tally_show(opts):
     if snap:
         recs = [r for r in recs if r.get("snapshot") == os.path.basename(snap)]
     else:
-        last = opts.get("--last") or "5"
-        recs = recs[-int(last):] if last.isdigit() else recs[-5:]
+        recs = recs[-int(opts.get("--last") or 5):]
     for r in recs:
         print(json.dumps(r, indent=2))
         if r.get("status") == "reviewed":
@@ -746,12 +897,17 @@ def cmd_tally(argv):
             body = _load_snapshot(snap)
         except Exception:
             return _refuse(f"cannot read snapshot {snap}")
+        _commons, misplaced = snapshot_store_check(snap, body)
+        if misplaced:
+            return _refuse(misplaced)
+        if body.get("session") and session and body["session"] != session:
+            return _refuse("the snapshot was taken by another session; abandon your own rounds only")
         common = _snapshot_common(snap)
-        prior = _tallies(common).get(os.path.basename(snap))
-        if prior and prior.get("status") == "reviewed":
-            return _refuse(f"{os.path.basename(snap)} already has a reviewed tally; abandoning it would erase that round")
-        _append_tally(common, {"v": 1, "ts": _now(), "snapshot": os.path.basename(snap), "session": body.get("session"),
-                               "status": "abandoned", "reason": opts["--reason"][:200]})
+        why = _append_tally(common, {"v": 1, "ts": _now(), "snapshot": os.path.basename(snap),
+                                     "session": body.get("session"), "status": "abandoned",
+                                     "reason": opts["--reason"][:200]})
+        if why:
+            return _refuse(f"{os.path.basename(snap)} {why}; it cannot be abandoned")
         print(f"review_receipt: tally: {os.path.basename(snap)} closed as abandoned")
         return 0
 
@@ -766,9 +922,15 @@ def cmd_tally(argv):
         snap_mtime = os.path.getmtime(snap)
     except Exception:
         return _refuse(f"cannot read snapshot {snap}")
+    _commons, misplaced = snapshot_store_check(snap, body)
+    if misplaced:
+        return _refuse(misplaced)
     common = _snapshot_common(snap)
     if body.get("session") and session and body["session"] != session:
         return _refuse("the snapshot was taken by another session; tally your own rounds only")
+    why = _transition_refusal(_tallies(common).get(os.path.basename(snap)), "reviewed")
+    if why:
+        return _refuse(f"{os.path.basename(snap)} {why}")
     kind = opts.get("--kind")
     if kind not in ("finish", "spec"):
         return _refuse("--kind must be finish or spec")
@@ -790,8 +952,14 @@ def cmd_tally(argv):
         return _refuse("every reviewer needs an outcome; state a skip explicitly. Missing: " + ", ".join(absent))
 
     prompt = opts.get("--prompt-file")
-    if not prompt or not os.path.isfile(prompt):
+    if not prompt:
         return _refuse("--prompt-file must name the prompt the reviewers read")
+    # A prompt lost since (a cleared scratchpad) must not make an honest tally impossible: the
+    # round is recorded with its size unknown, never with another file's size.
+    prompt_bytes = os.path.getsize(prompt) if os.path.isfile(prompt) else None
+    if prompt_bytes is None:
+        print(f"review_receipt: WARNING — prompt file {prompt} is gone; its size is recorded as unknown.",
+              file=sys.stderr)
 
     if bool(opts.get("--defects")) == bool(opts.get("--no-defects")):
         return _refuse("pass exactly one of --defects <json> or --no-defects (zero findings is recorded, never assumed)")
@@ -826,6 +994,13 @@ def cmd_tally(argv):
         if slot != "extra" and reviewers[slot].startswith(("skipped", "not triggered")):
             return _refuse(f"--failed-run {e} is a {slot} attempt, but {slot} is '{reviewers[slot]}'")
         attempts.extend(_attempt_rows(e, False))
+    # Checked after each flag's own checks, which give the more specific reason.
+    seen_runs = {}
+    for e in opts["--evidence"] + opts["--failed-run"]:
+        h = _file_hash16(e)
+        if h in seen_runs:
+            return _refuse(f"{e} is the same run as {seen_runs[h]}; pass each output once")
+        seen_runs[h] = e
     for s in ("gemini", "glm", "codex"):
         if reviewers[s] == "ok" and s not in ok_slots_with_run:
             return _refuse(f"{s} is ok but no --evidence output from it was passed")
@@ -858,13 +1033,16 @@ def cmd_tally(argv):
     _store_content(common, body, defects)
 
     tops = sorted(_snap_tops(body))
-    head = _git(tops[0], "rev-parse", "HEAD") if tops else None
+    # The commit the reviewers read, recorded at snapshot time; a pre-P1734 snapshot has none.
+    head = body.get("head") or (_git(tops[0], "rev-parse", "HEAD") if tops else None)
     rec = {"v": 1, "ts": _now(), "snapshot": os.path.basename(snap), "session": body.get("session") or session,
            "head": head, "worktree": tops[0] if len(tops) == 1 else tops, "kind": kind, "round": round_kind,
            "after": os.path.basename(after) if after else None,
-           "prompt": {"path": os.path.abspath(prompt), "bytes": os.path.getsize(prompt)},
+           "prompt": {"path": os.path.abspath(prompt), "bytes": prompt_bytes},
            "status": "reviewed", "reason": None, "reviewers": reviewers, "attempts": attempts, "defects": defects}
-    _append_tally(common, rec)
+    why = _append_tally(common, rec)
+    if why:
+        return _refuse(f"{rec['snapshot']} {why}")
     print(f"review_receipt: tally recorded for {rec['snapshot']} ({kind} {round_kind}, "
           f"{len(attempts)} attempt(s), {len(defects)} defect(s))")
     print(_reviewers_line(rec))
