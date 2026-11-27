@@ -48,16 +48,16 @@ Blast radius: high. It adds a refusal to `review_receipt.py write`, which gates 
 
 ## Solution
 
-**Builds on P1734's tally**, which records every reviewer's outcome per round, at triage, whether or not the round's receipt survives.
+**Builds on P1734's tally**, which records every reviewer's outcome per round, at triage, whether or not the round's receipt survives. Only rounds that have a tally are in scope: a snapshot taken without a session id has none, so it gets no refusal, no line and no place in the reading. That is accepted; it is a shell or CI path, not a session's review.
 
-1. **First round** is P1734's rule: a round, `/finish` or spec review, whose tally does not name an earlier snapshot with `--after`. Spec reviews take a snapshot under P1734, so a spec re-review after fixes is a freshness round like any other.
+1. **First round** is P1734's rule: a round, `/finish` or spec review, whose tally does not name an earlier snapshot with `--after`. P1735 tightens `--after`: it is refused unless the two snapshots share at least one file key. Today it checks only that both are in the same worktree (`review_receipt.py:1306`), so an unrelated later round can pass as freshness and hide its warning. Files added in the re-review are still allowed. Spec reviews take a snapshot under P1734, so a spec re-review after fixes is a freshness round like any other. A `/finish` round and a spec round never chain (`--after` needs the same kind); a cross-kind re-review is classed first, which is accepted.
 2. **Remove the avoidable causes.**
-   - **GLM empty outputs**: P1737.
-   - **A successful output not passed**: the tally command refuses an `ok` row for Gemini, GLM or Codex that has no output file (P1734 already validates the file it is given). `review_receipt.py write` and `spec_review_stamp.py write` then refuse unless every output the round's tally lists as `ok` is among their valid evidence, matched by content hash, naming any missing file. The fix is to pass the file; no reviewer runs again and nothing waits.
-3. **Say so when a first round ends with one outside vendor.** The tally command prints `single vendor: <reasons>` as the last part of the `Reviewers:` line, listing every outside reviewer that is not `ok` with its outcome, `not triggered` included, for example `GLM skipped (embargo), Codex missing (quota)` or `GLM failed (exit 5), Codex not triggered (size)`. It applies to `/finish` and spec-review first rounds. Opus is never listed and never counts. A spec review's GLM reason is the one `glm-allowed` printed, and `/create-spec` reports that reason instead of always saying `embargo`. The receipt format does not change.
-4. **A single-vendor first round warns and is never blocked.** The receipt is written and the founder sees the `single vendor` line. P1734's monthly reading turns the recorded causes into roster decisions.
-5. **The skills carry it.** `/finish` Steps 4b and 6b and the spec review in `/create-spec` print the tally's `Reviewers:` line verbatim in the final report, and Step 6b lists the new refusal. Step 4b's GLM skip bullets and its Codex-forcing sentence are not edited.
-6. **Two weeks after merge, report the reading**: from the tally, the share of first rounds with one outside vendor and the count per cause. It is a reading for the founder, not a target this spec must hit. A share that stays high points to Alternative C or B, which need their own decision.
+   - **GLM empty outputs**: fixed by P1737 (shipped).
+   - **A successful output not passed.** The tally already refuses an `ok` row for Gemini, GLM or Codex with no output file (P1734, `review_receipt.py:1286-1288`); that is not new work. New: on a **first round only**, `review_receipt.py write` and `spec_review_stamp.py write` refuse unless the evidence includes every output the tally recorded as a successful Gemini, GLM or Codex attempt (`ok: true` with a hash; failed attempts, `local` extra rows and the hashless Opus row are not demanded) **whose file still exists at its recorded path with its recorded hash**. The refusal names the original file to pass. The fix is to pass it; no reviewer runs again and nothing waits. A recorded output that is gone or changed does not block: the write goes on and prints `warning: <slot> output <file> no longer matches its tally`, and that slot counts as not received in the round's line. Freshness rounds keep today's rule (one fresh Gemini or Codex run) and are not checked.
+3. **Say so when a first round ends with fewer than two outside vendors.** The tally prints, as the last part of the `Reviewers:` line after ` · `, `single vendor: <reasons>` when one outside vendor (Gemini, GLM or Codex) is `ok`, or `no outside vendor: <reasons>` when none is. `<reasons>` lists every outside reviewer that is not `ok`, in the order Gemini, GLM, Codex, with its recorded outcome, `not triggered` included, for example `GLM skipped (embargo), Codex missing (quota)` or `GLM failed (exit 5), Codex not triggered`. The outcome grammar (`OUTCOME_RE`) is unchanged, so `not triggered` carries no reason. Opus is excluded from the suffix and the outside-vendor count only; it stays in the line and in `received`, so Gemini and Opus `ok` with GLM and Codex absent warns and still reads `2 of 2 received`. A freshness round repeats its first round's suffix as ` · first round single vendor: <reasons>`, found through its `--after` chain, so the line pasted in the final report carries it. After an amend the line is computed from the latest record. A spec review's GLM reason is the `skip:` text `glm-allowed` printed, with any parentheses removed, or `glm-allowed error` on exit 2; `/create-spec` reports that reason instead of always saying `embargo`, and so does `/finish` Step 4b's reporting clause. The receipt format does not change.
+4. **This spec never blocks a single-vendor round.** It adds no floor: the existing one (a valid Gemini or Codex run, P1630) still refuses a round where only GLM answered, exactly as today. Every round that meets the floor writes its receipt, and the founder sees the warning line. P1734's monthly reading turns the recorded causes into roster decisions.
+5. **The skills carry it.** `/finish` Steps 4b and 6b, the receipt-writing steps in `/dev` (`dev.md:214`) and `/fix` (`fix.md:647`) and the spec review in `/create-spec` print the tally's `Reviewers:` line verbatim in the final report, and each lists the new refusal next to the P1734 one. `/create-spec`'s stamp example passes every successful output of the round, not only Gemini and GLM. The low-blast-radius spec-review skip is unchanged: no snapshot, no tally, and the report says `Spec review skipped (low blast radius)`. In Step 4b, the GLM skip bullets and the skip-and-force logic of the Codex-forcing sentence are not edited; only its reporting clause ("Report it as `GLM skipped (embargo)`") changes, to name the actual reason.
+6. **Two weeks after merge, report the reading.** It is a query over the tally store, written with the build: first rounds by kind (`/finish`, spec), the share with fewer than two outside vendors, and the count of rounds per cause (one round can name two causes), using each snapshot's latest record. Waived and abandoned records have no reviewer outcomes; they are counted separately, never in the share. It is a reading for the founder, not a target this spec must hit. A share that stays high points to Alternative C or B, which need their own decision.
 
 ## Alternatives Considered
 
@@ -74,10 +74,10 @@ Blast radius: high. It adds a refusal to `review_receipt.py write`, which gates 
 
 | Risk | Label | Note |
 |---|---|---|
-| A change near the GLM skip logic loosens the embargo rule by mistake | MITIGATE | This spec does not edit Step 4b's skip bullets; the diff of those lines is shown empty. |
-| "First round" is mis-detected and freshness rounds start warning | MITIGATE | Fixture tests for review → fix → re-review of the same files, which must yield one first round and one freshness round. |
-| The new refusal blocks a "done" | MITIGATE | It names the file, and passing it needs no reviewer to run. |
-| The session does not paste the tally's `Reviewers:` line into its final report | ACCEPT | The tally still records the round, and P1734's monthly reading reads the record, not the chat. |
+| A change near the GLM skip logic loosens the embargo rule by mistake | MITIGATE | This spec does not edit Step 4b's skip bullets or the skip-and-force logic; the diff of those lines is shown empty, and only the reporting clause changes. |
+| "First round" is mis-detected | MITIGATE | Fixtures for review, fix, re-review of the same files (one first, one freshness), plus a negative case: `--after` an unrelated round in the same worktree is refused. |
+| The new refusal blocks a "done" | MITIGATE | It fires only for a file that still exists unchanged, names it, and passing it needs no reviewer to run. A lost or changed output warns instead. |
+| The session does not paste the tally's `Reviewers:` line into its final report | ACCEPT | Solution 4's promise that the founder sees it rests on skill text. The tally still records the round, and the reading reads the record, not the chat. |
 | The single-vendor share does not fall | ACCEPT | Codex quota and policy skips remain; this spec makes them visible for a roster decision, not invisible. |
 
 **Non-Goals**
@@ -89,14 +89,13 @@ Blast radius: high. It adds a refusal to `review_receipt.py write`, which gates 
 
 ## Done-When
 
-- [ ] With Gemini and Codex both `ok` in the tally, passing only one of their outputs makes `review_receipt.py write` refuse, naming the other; passing both makes it succeed. The same for GLM, and for `spec_review_stamp.py write`. A modified copy of a listed output is refused. Tests, exit codes pasted.
-- [ ] The tally command refuses an `ok` row for Gemini, GLM or Codex with no output file.
-- [ ] Fixture rounds with GLM skipped (embargo), Codex missing (quota), GLM failed (exit 5) and Codex not triggered (size) each print the right reasons in the `single vendor` line, and a round with two outside vendors `ok` prints none. A spec review whose `glm-allowed` skip is not embargo (for example, no committed copy) prints that reason, not `embargo`.
-- [ ] A review → fix → re-review sequence, for `/finish` and for a spec review, is classed as one first round and one freshness round; the freshness round prints no `single vendor` line.
-- [ ] `/finish` and `/create-spec` carry the tally call and the verbatim `Reviewers:` line; a fresh-session run of each shows it.
-- [ ] Step 4b's GLM skip bullets and Codex-forcing sentence are unchanged (diff of those lines shown empty), and `scripts/test-p1634-spec-review-stamp.sh` `[glm-allowed]` cases still pass. Those cases cover the spec review only; `/finish`'s skip rules are skill text.
-- [ ] A task-inbox item due two weeks after merge is filed (`/note`) to record the reading in Solution 6 here.
-- [ ] Every other reader of the receipt still passes, each run directly: `.claude/hooks/verify-before-stop.py`, `scripts/test-p1505-review-gate.sh`, `scripts/test-p1664-receipt-unreadable.sh`.
+- [ ] On a first round with Gemini and Codex both `ok`, passing only Gemini's output makes `review_receipt.py write` refuse, naming Codex's original file; passing both succeeds. The same for GLM, and for `spec_review_stamp.py write`. With Codex's recorded file deleted, or changed after the tally, the write succeeds and prints the `no longer matches` warning. A freshness round with one fresh Gemini output and an unpassed successful GLM rerun still writes. Tests, exit codes pasted.
+- [ ] Fixture first rounds with GLM skipped (embargo), Codex missing (quota), GLM failed (exit 5) and Codex not triggered each print the exact reasons in the `single vendor` suffix; a round with no outside vendor `ok` prints `no outside vendor:`; Gemini and Opus `ok` alone warns and reads `2 of 2 received`; a round with two outside vendors `ok` prints no suffix. Tests, output pasted.
+- [ ] A review, fix, re-review sequence, for `/finish` and for a spec review, is classed as one first round and one freshness round; the freshness round's line carries ` · first round single vendor: ...` when its first round was single-vendor, and no suffix otherwise. `--after` naming a reviewed round that shares no file key is refused.
+- [ ] The skill text in `/finish` Steps 4b and 6b, `/dev`, `/fix` and `/create-spec` carries the verbatim line and the new refusal, and `/create-spec` passes `glm-allowed`'s reason (or `glm-allowed error`) instead of `embargo`; diff shown. A fresh-session run is checked after merge, under a task-inbox item filed with the build, because a session runs the skills on main.
+- [ ] In Step 4b, the GLM skip bullets and the skip-and-force logic are unchanged (diff of those lines shown empty apart from the reporting clause), and `scripts/test-p1634-spec-review-stamp.sh` `[glm-allowed]` cases still pass.
+- [ ] The reading query in Solution 6 runs on the live tally store and prints both kinds, the share and the per-cause counts; output pasted. A task-inbox item due two weeks after merge is filed (`/note`) to run it and report to the founder.
+- [ ] Every other reader of the receipt still passes, each suite run in full: `scripts/test-p1734-tally.sh`, `scripts/test-p1505-review-gate.sh`, `scripts/test-p1664-receipt-unreadable.sh`, `scripts/test-p1634-spec-review-stamp.sh`. Three p1634 cases stamp with one of two `ok` outputs ("replace keeps single stamp", "real gemini header stamps", "real codex header stamps"); they change to pass every output, as the intended new rule. The Stop hook is covered by the hook cases in the p1734 and p1505 suites.
 
 ## Rollback Strategy
 
@@ -104,7 +103,7 @@ Revert the commit. The receipt format is unchanged and the tally is P1734's.
 
 ## Related
 
-- P1630: the receipt floor, `vendors`, and Alternative F, which this keeps rejected.
+- P1630: the receipt floor, `vendors`, and its Alternative F (two vendors on every receipt), which P1630 deferred; this spec keeps it off as Alternative B here.
 - P1634: never wait for quota; the spec review roster.
 - P1734: the reviewer yield tally this builds on.
-- P1737: GLM reviews come back empty on large prompts.
+- P1737: GLM reviews came back empty on large prompts (shipped).
