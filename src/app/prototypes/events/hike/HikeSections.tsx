@@ -36,7 +36,9 @@ export function HikeStatsStrip({ details }: { details: unknown }) {
   // type as an icon. No box, no link, no "to trail" walk (the description already says it).
   const items: { key: string; label: string; value: ReactNode }[] = [];
   const num = (n: string, unit: string) => <>{n}<span className="ml-0.5 text-sm font-medium">{unit}</span></>;
-  if (stats.distanceKm !== undefined) items.push({ key: 'distance', label: L.distance, value: num(formatDistanceKm(stats.distanceKm).replace(/ km$/, ''), 'km') });
+  const km = (n: number) => formatDistanceKm(n).replace(/ km$/, '');
+  if (stats.distanceOptionsKm) items.push({ key: 'distance', label: L.distance, value: num(stats.distanceOptionsKm.map(km).join(' or '), 'km') });
+  else if (stats.distanceKm !== undefined) items.push({ key: 'distance', label: L.distance, value: num(formatDistanceKm(stats.distanceKm).replace(/ km$/, ''), 'km') });
   if (stats.elevationGainM !== undefined) items.push({ key: 'elevation', label: L.elevation, value: num(String(Math.round(stats.elevationGainM)), 'm') });
   if (stats.walkTimeText) {
     const m = stats.walkTimeText.match(/^(.*?)\s*(h|hr|hrs|hours?)$/i);

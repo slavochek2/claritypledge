@@ -41,6 +41,8 @@ export function isHikeLayout(event: Pick<Event, 'seriesSlug'> | null | undefined
 
 export interface HikeStats {
   distanceKm?: number;
+  /** P1740: short/long options, e.g. [9, 14] → "9 or 14 km". Overrides distanceKm for display. */
+  distanceOptionsKm?: number[];
   elevationGainM?: number;
   routeType?: string;
   walkTimeText?: string;
@@ -59,6 +61,12 @@ function num(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined;
 }
 
+function numList(v: unknown): number[] | undefined {
+  if (!Array.isArray(v) || v.length < 2 || v.length > 3) return undefined;
+  const out = v.map(num);
+  return out.every((n): n is number => n !== undefined) ? out : undefined;
+}
+
 function str(v: unknown, max = 60): string | undefined {
   if (typeof v !== 'string') return undefined;
   const t = v.trim();
@@ -71,6 +79,7 @@ export function parseHikeDetails(raw: unknown): HikeStats | null {
   const r = raw as Record<string, unknown>;
   const stats: HikeStats = {
     distanceKm: num(r.distance_km),
+    distanceOptionsKm: numList(r.distance_options_km),
     elevationGainM: num(r.elevation_gain_m),
     routeType: str(r.route_type),
     walkTimeText: str(r.walk_time_text),
