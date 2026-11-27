@@ -1,12 +1,11 @@
 ---
-status: in-progress
+status: all-done
 type: task
 rank: 360
 workstream: infrastructure
 created_date: '2026-11-26'
 tags: [finish, review, reviewers, measurement]
 disclosure: public
-delivery_stage: ship
 pipeline_ran: [create-spec, dev, ship]
 drafted_by: opus
 exec_model: opus
@@ -14,6 +13,7 @@ exec_effort: high
 driver: anomaly
 spec_review_hash: 84c6db561b9221b8b7d2dd6272d49f2d76f02d0f53bd1150a8f2136a1bef7cb9
 spec_review_vendors: [codex, gemini, openrouter]
+completed_at: 2026-11-27
 ---
 
 # P1734: Measure what each outside reviewer actually catches, so roster and model calls rest on data
