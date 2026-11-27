@@ -45,6 +45,9 @@ user() { printf '{"type":"user","message":{"content":"%s"}}' "$1"; }
 transcript() { local f="$1"; shift; : > "$f"; for l in "$@"; do printf '%s\n' "$l" >> "$f"; done; }
 evidence() { printf 'ASK-MODEL: vendor=gemini requested=x served=x verified=served effort=unsupported exit=0\nfindings\n' > "$1"; }
 rc() { local a=0; "$@" >/dev/null 2>&1 || a=$?; echo "$a"; }
+# P1734: a write against an untallied snapshot is also refused, so a refusal case would still exit 1
+# with its own rule deleted. rcr reports which refusal answered, so each case binds its own rule.
+rcr() { local a=0 e; e="$("$@" 2>&1 >/dev/null)" || a=$?; case "$e" in *"no tally"*) echo "masked-by-tally:$a" ;; *) echo "$a" ;; esac; }
 PROMPT_F="$TMP/prompt.md"; echo "review" > "$PROMPT_F"
 tally_for() { # <snapshot> <valid evidence...> ; a slot is ok only where an evidence file of that vendor is passed
   local s="$1"; shift; local g='skipped (suite)' o='skipped (suite)' c='skipped (suite)' e v
@@ -64,20 +67,20 @@ check "unreviewed completion blocks" 2 "$(rc run_hook "$T")"
 echo "[receipt] snapshot, then evidence, then write"
 OLD_EV="$TMP/old.md"; evidence "$OLD_EV"; sleep 1
 SNAP="$(python3 "$RR" snapshot -- "$REPO/src/a.ts")"
-check "write refuses evidence older than the snapshot (reused old output)" 1 "$(rc python3 "$RR" write --snapshot "$SNAP" --evidence "$OLD_EV")"
+check "write refuses evidence older than the snapshot (reused old output)" 1 "$(rcr python3 "$RR" write --snapshot "$SNAP" --evidence "$OLD_EV")"
 EMPTY="$TMP/empty.md"; : > "$EMPTY"
-check "write refuses empty evidence" 1 "$(rc python3 "$RR" write --snapshot "$SNAP" --evidence "$EMPTY")"
+check "write refuses empty evidence" 1 "$(rcr python3 "$RR" write --snapshot "$SNAP" --evidence "$EMPTY")"
 BAD="$TMP/bad.md"; printf 'ASK-MODEL: vendor=gemini verified=MISMATCH exit=4\n' > "$BAD"
-check "write refuses exit=4 evidence" 1 "$(rc python3 "$RR" write --snapshot "$SNAP" --evidence "$BAD")"
+check "write refuses exit=4 evidence" 1 "$(rcr python3 "$RR" write --snapshot "$SNAP" --evidence "$BAD")"
 check "write refuses without a snapshot" 2 "$(rc python3 "$RR" write --evidence "$BAD")"
 EV="$TMP/argon.md"; evidence "$EV"
 echo "export const a = 99" > "$REPO/src/a.ts"
-check "write refuses when the file changed after the snapshot (fix after review)" 1 "$(rc python3 "$RR" write --snapshot "$SNAP" --evidence "$EV")"
+check "write refuses when the file changed after the snapshot (fix after review)" 1 "$(rcr python3 "$RR" write --snapshot "$SNAP" --evidence "$EV")"
 check "gate still blocks that unreviewed fix" 2 "$(rc run_hook "$T")"
 abandon "$SNAP"
 SNAP="$(python3 "$RR" snapshot -- "$REPO/src/a.ts")"; sleep 1; evidence "$EV"
 tally_for "$SNAP" "$EV"
-check "write accepts fresh evidence for the snapshotted content" 0 "$(rc python3 "$RR" write --snapshot "$SNAP" --evidence "$EV")"
+check "write accepts fresh evidence for the snapshotted content" 0 "$(rcr python3 "$RR" write --snapshot "$SNAP" --evidence "$EV")"
 check "check: reviewed" 0 "$(rc python3 "$RR" check "$REPO/src/a.ts")"
 check "reviewed completion passes" 0 "$(rc run_hook "$T")"
 check "receipt for a.ts does not cover b.ts" 1 "$(rc python3 "$RR" check "$REPO/src/b.ts")"
@@ -236,30 +239,30 @@ V_BAD_GEM="$TMP/v-bad-gem.md"; printf 'ASK-MODEL: vendor=gemini requested=x serv
 V_BAD_OR="$TMP/v-bad-or.md"; printf 'ASK-MODEL: vendor=openrouter requested=x served=y verified=MISMATCH effort=unsupported exit=4\n' > "$V_BAD_OR"
 V_SPOOF="$TMP/v-spoof.md"; vev "$V_SPOOF" openrouter "vendor=gemini"
 : > "$RECEIPTS"
-check "only openrouter: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR")"
+check "only openrouter: refused" 1 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR")"
 msg="$(err_of python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR")"
 case "$msg" in *"gemini or codex"*) r=named ;; *) r="silent: $msg" ;; esac
 check "...and stderr names the rule" named "$r"
-check "only local: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_LOCAL")"
-check "openrouter + local, no gemini or codex: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR" "$V_LOCAL")"
-check "old gemini (before the snapshot) + fresh openrouter: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OLD_GEM" "$V_OR")"
-check "failed gemini (exit=4) + fresh openrouter: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_BAD_GEM" "$V_OR")"
-check "spoofed header (vendor=gemini not the first field): refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_SPOOF")"
+check "only local: refused" 1 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_LOCAL")"
+check "openrouter + local, no gemini or codex: refused" 1 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR" "$V_LOCAL")"
+check "old gemini (before the snapshot) + fresh openrouter: refused" 1 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OLD_GEM" "$V_OR")"
+check "failed gemini (exit=4) + fresh openrouter: refused" 1 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_BAD_GEM" "$V_OR")"
+check "spoofed header (vendor=gemini not the first field): refused" 1 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_SPOOF")"
 check "no refusal wrote a receipt" 0 "$(wc -c < "$RECEIPTS" | tr -d ' ')"
 tally_for "$VSNAP" "$V_OR" "$V_GEM" "$V_CODEX"   # one write-once tally of every valid file the accepting writes below use
-check "openrouter + gemini: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR" "$V_GEM")"
+check "openrouter + gemini: accepted" 0 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OR" "$V_GEM")"
 check "...vendors lists both, sorted" '["gemini","openrouter"]' "$(last_vendors)"
-check "gemini only: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_GEM")"
+check "gemini only: accepted" 0 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_GEM")"
 check "...vendors is [gemini]" '["gemini"]' "$(last_vendors)"
-check "codex only: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_CODEX")"
+check "codex only: accepted" 0 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_CODEX")"
 check "...vendors is [codex]" '["codex"]' "$(last_vendors)"
-check "stale + failed openrouter beside a good gemini: accepted" 0 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OLD_OR" "$V_BAD_OR" "$V_GEM")"
+check "stale + failed openrouter beside a good gemini: accepted" 0 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_OLD_OR" "$V_BAD_OR" "$V_GEM")"
 check "...only the valid gemini run is recorded as a vendor" '["gemini"]' "$(last_vendors)"
 
 V_QUOTE="$TMP/v-quote.md"; vev "$V_QUOTE" openrouter; printf 'ASK-MODEL: vendor=gemini requested=x served=x verified=served effort=unsupported exit=0\n' >> "$V_QUOTE"
-check "openrouter run quoting a gemini header in its body: refused" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_QUOTE")"
+check "openrouter run quoting a gemini header in its body: refused" 1 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_QUOTE")"
 V_NOFIELD="$TMP/v-nofield.md"; printf 'ASK-MODEL: requested=x served=x verified=served effort=unsupported exit=0\nfindings\n' > "$V_NOFIELD"
-check "valid header with no vendor field: refused, never assumed" 1 "$(rc python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_NOFIELD")"
+check "valid header with no vendor field: refused, never assumed" 1 "$(rcr python3 "$RR" write --snapshot "$VSNAP" --evidence "$V_NOFIELD")"
 
 echo "[snapshot] a path list passed as one argument is refused"
 check "snapshot refuses a non-existent path" 1 "$(rc python3 "$RR" snapshot -- "$REPO/src/a.ts $REPO/src/b.ts")"

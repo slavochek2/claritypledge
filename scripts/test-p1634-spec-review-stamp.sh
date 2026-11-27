@@ -24,6 +24,10 @@ tally_spec() { # <snapshot> <valid evidence...> ; slot ok only where an evidence
 PASS=0; FAIL=0
 check() { if [[ "$2" == "$3" ]]; then echo "  PASS: $1"; PASS=$((PASS+1)); else echo "  FAIL: $1 (expected '$2', got '$3')"; FAIL=$((FAIL+1)); fi; }
 rc() { local a=0; "$@" >/dev/null 2>&1 || a=$?; echo "$a"; }
+# P1734: with a session id, a stamp with no reviewed tally is refused too, so a refusal case would
+# still exit 1 with its own rule deleted. rcr reports which refusal answered.
+rcr() { local a=0 e; e="$("$@" 2>&1 >/dev/null)" || a=$?
+  case "$e" in *"--snapshot is required"*|*"not a reviewed tally"*|*"no tally"*) echo "masked-by-tally:$a" ;; *) echo "$a" ;; esac; }
 hs() { python3 "$H" hash "$1"; }
 S="$SR/s.md"
 mk() { printf -- '---\nstatus: draft\ndisclosure: public\n---\n# T\n- [ ] one   \n- [ ] two\nbody word alpha\n' > "$1"; }
@@ -67,11 +71,11 @@ printf 'ASK-MODEL: vendor=openrouter requested=vendor=gemini served=x verified=s
 printf 'ASK-MODEL: requested=x vendor=gemini served=x verified=served effort=x exit=0\n' > "$TMP/late2"
 for c in "o:$TMP/o" "failed run:$TMP/fail" "MISMATCH:$TMP/mm" "empty:$TMP/empty" "vendor later in line:$TMP/late" "vendor not first field:$TMP/late2"; do
   n="${c%%:*}"; f="${c#*:}"
-  check "refuse $n" 1 "$(rc python3 "$H" write "$S" --evidence "$f")"
+  check "refuse $n" 1 "$(rcr python3 "$H" write "$S" --evidence "$f")"
 done
 check "refusal wrote nothing" "" "$(cmp "$TMP/before" "$S" 2>&1)"
 check "refusal names what was seen" 1 "$(python3 "$H" write "$S" --evidence "$TMP/o" 2>&1 >/dev/null | grep -c 'vendor=openrouter')"
-check "no evidence refused" 1 "$(rc python3 "$H" write "$S")"
+check "no evidence refused" 1 "$(rcr python3 "$H" write "$S")"
 check "accept gemini+openrouter" 0 "$(rc python3 "$H" write "$S" --evidence "$TMP/g" --evidence "$TMP/o" --snapshot "$S1")"
 
 echo "[glm-allowed]"
