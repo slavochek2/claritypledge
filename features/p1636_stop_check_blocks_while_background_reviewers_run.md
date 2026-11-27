@@ -65,6 +65,8 @@ Also reword the gate's own block message (`verify-before-stop.py` ~line 883). It
 
 **Second occurrence (2026-11-13, P1677):** 3 fires in one session while `/finish` reviewers ran in the background, same latch shape. Severity stays low (no work lost); the recurrence argues for rank, not severity.
 
+**Third occurrence (2026-11-26/27, P1734):** at least 6 fires across an eleven-round `/finish` run, each on a status turn while reviewers ran; the gate's own block message asks for findings "as FIXED", a completion word, so answering it re-arms it. P1734 adds `session_untallied()` / `open_rounds_for()` in `scripts/review_receipt.py`, a possible "open review round" signal for this fix (it still needs the age cap). The 2026-11-17 decisions entry and INBOX-354 re-file this without linking here.
+
 ## Acceptance Criteria
 
 - [ ] With a background reviewer outstanding, a status message after an earlier "committed" is not blocked
