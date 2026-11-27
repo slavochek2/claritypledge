@@ -287,6 +287,13 @@ effect. Postponed — not a sign anything is misconfigured.
 - Check port — dev server must be running on the correct worktree port
 - See [e2e-testing-guide.md](e2e-testing-guide.md) for full setup
 
+**A real Android phone, driven by the agent (P1297).** Before handing a "verify on a physical device" check to the founder, run `adb devices`: a phone connected over USB with debugging on can be tested without them.
+- `adb reverse tcp:<port> tcp:<port>` makes the worktree's dev server reachable on the phone as `http://localhost:<port>`. This sidesteps the LAN entirely, including a macOS firewall that blocks a newly upgraded `node` binary (`socketfilterfw --listapps` shows the per-binary rule).
+- `adb forward tcp:9333 localabstract:chrome_devtools_remote`, then Playwright's `chromium.connectOverCDP('http://localhost:9333')`, drives the phone's Chrome: open a tab, seed a session, `page.route` to cut requests off, read console errors.
+- `page.screenshot()` times out over this link; capture with `adb exec-out screencap -p > file.png` after `page.bringToFront()`.
+- `page.unroute()` must be given the same pattern object `page.route()` got, or the block silently stays on.
+- The phone is the founder's: list `adb reverse --list` first, open new tabs rather than reusing existing ones, never force-stop Chrome (another session may be running a test in it), and stop if another app is in front.
+
 ---
 
 ## Related Docs
