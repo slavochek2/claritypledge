@@ -474,6 +474,7 @@ Last updated: 2026-11-27
 
 ## Infrastructure / Process
 
+- **P1734** (Nov 27) Review tally: every reviewer's outcome and defects per round, receipt and stamp refuse an untallied round — a refusal test run against an untallied snapshot passes with its own rule deleted, because the tally refusal answers first; tag which refusal fired.
 - **P1737** (Nov 26) GLM review runs ended empty at the wrapper's 16,000-token cap (reasoning plus answer) — `OPENROUTER_MAX_TOKENS=48000` in `~/.agents/model-defaults.env`, bad or non-plain lines refuse instead of falling back; a fix to the test helper (counter inside `$(...)`) passed its own 142-check suite and was wrong — both reviewers caught it, so a helper change needs a control that fails on the old helper.
 - **P1732** (Nov 26) `/push` deploys every prod edge function stale at the live tip, and `/day` reports prod function drift — only a clean upload whose smoke passed and whose stamp was committed counts as in sync; a manual deploy keeps the function pending; a reviewer that clones the repo cannot see main's uncommitted skill edits
 - **P1723** (Nov 25) /day resolves parked workspaces — a hold ends by recomputed proof (landed/archived) or the founder's answer, never by its age; a founder hold is asked about after 7 days. A fix to tidy's shared freshness scan changed tidy's verdicts and was reverted: change the caller, not the shared predicate. Running the suite against main's copy caught "does not contain X" checks passing on an empty line
