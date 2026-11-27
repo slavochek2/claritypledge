@@ -239,12 +239,55 @@ independent review of this content ran, not that the code is clean.
 - **Count:** state `<received> of <spawned>`, naming any reviewer that is missing. Opus counts here but is not receipt
   evidence, because the receipt needs a Gemini or Codex `ask-model` output (GLM alone is refused). A receipt written
   with a reviewer missing must say so in the report.
-- **Report line:** always print this one line, with each reviewer's outcome and any skip reason, so nobody has to ask:
-  `Reviewers: Gemini ok · GLM ok (5 findings, 2 verified, 0 unverified) · Codex skipped (one file) · Opus not triggered · 2 of 2 received`.
-  The GLM counts are `N findings, M verified, K unverified`; anything else was dropped. A failed run reads `GLM missing (exit 3)` or `Codex missing (out of quota)`, a
-  skip `GLM skipped (embargo)`. Whoever ran Step 4b prints it: a `/finish code` subagent does not know the outcomes.
+- **Tally (P1734) — at triage, before any fix.** Once every finding has a state, record the round. This is
+  what the yield report reads, and `write`, the `waive` CLI and the spec stamp refuse while this session's
+  snapshot has none:
+  ```bash
+  python3 scripts/review_receipt.py tally --snapshot <path from 0.> --kind finish [--after <previous snapshot>] \
+    --prompt-file <prompt file> \
+    --reviewer gemini=ok --reviewer glm='failed (exit 3)' --reviewer codex='skipped (one file)' --reviewer opus='not triggered' \
+    --evidence <each successful ask-model output> --failed-run <each failed one that has an ASK-MODEL header> \
+    --defects <defects.json>        # or --no-defects when nobody found anything
+  ```
+  - One outcome per reviewer, always all four: `ok`, `failed (<reason>)` (it ran and errored),
+    `missing (<reason>)` (it never ran or its output is gone: out of quota, not launched, output lost),
+    `skipped (<reason>)` or `not triggered`. Every `ok` Gemini, GLM or Codex needs its output as
+    `--evidence`; Opus has no `ask-model` file, so its `ok` stands alone. A prompt file lost since is still
+    named; its size is recorded as unknown.
+  - `defects.json` is one array, one entry per **distinct** defect after merging duplicates across
+    reviewers: `{"summary": "...", "file": "src/x.ts", "line": 12, "state": "verified|unverified|dropped",
+    "raised_by": {"gemini": "HIGH", "glm": "LOW"}}`. `raised_by` names every reviewer that raised it, with the
+    severity that reviewer gave, and `"criteria": "<severity>"` when a criteria subagent from Step 4 raised it
+    too, since uniqueness counts every reviewer in the round. The defect's severity is the highest one triage
+    upheld: it defaults to the highest given, so when triage rejects that rating add `"severity": "<the upheld
+    one>"`. Leave out of the defects file any defect already recorded in the `--after` round; the tally does not
+    deduplicate across rounds.
+  - The tally keeps a copy of each defect file as the reviewers saw it, for the monthly re-check.
+  - A freshness round passes `--after <the previous snapshot>`, which needs a reviewed tally.
+  - A round is recorded once. A snapshot taken by mistake, before any reviewer ran, is closed with
+    `tally --abandoned <path> --reason <text>`; the report counts these. A reviewed tally of the same
+    snapshot may still supersede an abandoned or waived record if the review did run.
+  - When both floor vendors failed, tally the round with those outcomes **before** telling the founder, so
+    their failures reach the availability numbers. A founder waiver after that is recorded beside the round.
+    If the founder says retry instead, or a reviewer's result lands after the tally (Opus included),
+    re-tally the same snapshot with the new output and every outcome and defect it already recorded:
+    that amends the round, and a new output then backs the receipt with no further run. Recorded runs are
+    carried forward, so a retry that overwrote its failed output file passes only the new one. An outcome
+    may become `ok`, keep its kind with a reworded reason (a second Opus failure is recorded that way), or
+    go from `missing` to `failed` with the failed run (`--failed-run` for a file-backed reviewer); Opus becomes `ok` only after `failed` or
+    `missing`, never after `not triggered`. A recorded defect keeps its state, severity
+    and raisers, except that a reviewer that just became `ok` may join it (and lift its severity) or raise
+    a new one. The kind and `--after` stay the same. Anything else, or a re-tally that adds nothing, is
+    refused.
+  - `tally --show --snapshot <path>` prints what was recorded.
+- **Report line:** the tally prints it; paste that line, so nobody has to ask:
+  `Reviewers: Gemini ok (2 findings, 1 verified, 0 unverified) · GLM ok (5 findings, 2 verified, 0 unverified) · Codex skipped (one file) · Opus not triggered · 2 of 2 received`.
+  Every `ok` reviewer carries `N findings, M verified, K unverified`; anything else was dropped. A failed run reads
+  `GLM failed (exit 3)`, a missing one `Codex missing (out of quota)`, a skip `GLM skipped (embargo)`. Whoever ran
+  Step 4b prints it: a `/finish code` subagent does not know the outcomes.
 - **Freshness:** a fix applied after the snapshot is unreviewed code, and `write` will refuse it.
-  - Re-snapshot and re-review the changed files. Every new snapshot needs **at least one fresh Gemini or Codex
+  - Re-snapshot and re-review the changed files, and tally the new snapshot with `--after` the previous one.
+    Every new snapshot needs **at least one fresh Gemini or Codex
     run**, or no receipt can be written: `write` refuses a re-review by GLM alone. The reviewer that found the fixed
     issue re-runs too, one attempt per snapshot; if that fails, report it missing, and nothing blocks. GLM runs on a
     new snapshot only as such a finder, and its skip conditions still apply.
@@ -352,8 +395,12 @@ That field does not say who was attempted, skipped or failed, and never names Op
 - no evidence file is a successful `ask-model` run written after the snapshot
 - no valid evidence file comes from `gemini` or `codex` (`openrouter` and `local` count only alongside one)
 - a file changed after the snapshot
+- (P1734) a snapshot this session took of these files has no tally, the snapshot's tally is `abandoned`, or a
+  valid evidence file was not recorded in its tally. Run the `tally` from Step 4b; no reviewer re-runs.
 
-Fix the review, never the evidence. The receipt is what clears the Stop-hook gate.
+Fix the review, never the evidence. If the founder says to skip review, `review_receipt.py waive` also refuses
+until the session's round is tallied (failed and missing outcomes are valid). The Stop hook's own waiver never
+refuses: it waives, then records a `waived` tally itself. The receipt is what clears the Stop-hook gate.
 
 **A main session that ran the review rounds by hand, outside `/dev` and `/fix`, also runs Step 6.** The receipt clears the Stop hook only; `/ship` gate 2.7 reads the `.finish-reviewed` stamp, and nothing else writes it on this path (P1586 was blocked at ship until it was written by hand).
 

@@ -104,6 +104,8 @@ WAIVE_NEGATED_RE = re.compile(r"(\bdo not\b|\bdon'?t\b|\bnever\b|\bnot\b|\bif\b|
 # part of a word, so contractions ("don't") are left alone.
 QUOTED_RE = re.compile(r"\"[^\"]*\"|“[^”]*”|‘[^’]*’|`[^`]*`|(?<![A-Za-z])'[^'\n]+'(?![A-Za-z])")
 REVIEW_TIME_BUDGET_S = 6.0   # hook timeout is 20s; leave room for gates 1-2 and their output
+WAIVER_TAIL_DEADLINE_S = 14.0  # a founder waiver's receipt and tally writes end by then (from the hook's start)
+HOOK_START = time.monotonic()  # module load is the hook's start: the transcript is read after it
 REVIEW_MAX_FILES = 300
 # Largest real session measured 2026-11-05: 1.9 GB, 2.0s to scan warm. The time budget is the real
 # limit; this refuses a history no warm scan could finish before starting one (P1634).
@@ -406,19 +408,40 @@ def unreviewed_edits(transcript_path, entries, turn_text, session_id=None):
     reports its reason and never reads as a pass (P1634)."""
     start = time.monotonic()
     incomplete = None
+    reason = None
     try:
         if not announces_completion(turn_text):
             return [], None
+        # The founder can waive it: their latest typed message explicitly says skip review.
+        # The waiver is recorded, so a later docs-only turn does not re-raise these files.
+        # P1734: read even when nothing is missing, because the session's open review rounds
+        # still need their waived tally record (spec Solution 3). Read before the
+        # scan, so a scan that runs out of time cannot refuse what the founder waived.
+        reason = None
+        for entry in reversed(entries):
+            if is_founder_message(entry):
+                text = extract_text(get_message_content(entry))
+                if founder_waived(text):
+                    reason = "founder: " + text.strip()[:120]
+                break
         paths, incomplete = session_edits(transcript_path, start + REVIEW_TIME_BUDGET_S)
         if len(paths) > REVIEW_MAX_FILES:
             incomplete = incomplete or f"{len(paths)} files were edited, over the limit of {REVIEW_MAX_FILES}"
             paths = paths[:REVIEW_MAX_FILES]
         rr = _load_receipts()
         if rr is None:
+            if reason is not None:
+                print("verify-before-stop: the founder waived review, but the receipt helper did not load, so "
+                      "the waiver is not recorded; run `review_receipt.py waive --reason <text> -- <files>`.",
+                      file=sys.stderr)
+                return [], None
             return [], incomplete
-        reviewable = []
-        for p in paths:
+        reviewable, unscanned = [], []
+        for i, p in enumerate(paths):
             if time.monotonic() - start > REVIEW_TIME_BUDGET_S:
+                if reason is not None:
+                    unscanned = paths[i:]  # waived: the rest are waived unclassified below
+                    break
                 return [], incomplete or "the time budget ran out"
             loc = rr.locate(p)
             if not loc:
@@ -427,35 +450,80 @@ def unreviewed_edits(transcript_path, entries, turn_text, session_id=None):
             if rel.startswith(NOT_REVIEWABLE_PREFIXES) or (rel.endswith(".md") and not rel.startswith(".claude/")):
                 continue
             reviewable.append(p)
-        missing = rr.unreviewed(reviewable) if reviewable else []
-        # The founder can waive it: their latest typed message explicitly says skip review.
-        # The waiver is recorded, so a later docs-only turn does not re-raise these files.
-        # P1734: read even when nothing is missing, because the session's open review rounds
-        # still need their waived tally record (spec Solution 3).
-        reason = None
-        for entry in reversed(entries):
-            if is_founder_message(entry):
-                text = extract_text(get_message_content(entry))
-                if founder_waived(text):
-                    reason = "founder: " + text.strip()[:120]
-                break
+        try:
+            missing = rr.unreviewed(reviewable) if reviewable else []
+        except Exception:
+            if reason is None:
+                raise
+            missing = list(reviewable)  # waived: waive them all rather than lose the waiver
         if reason is None:
+            if missing and session_id and hasattr(rr, "founder_waived"):
+                # A round the founder waived earlier in this session, past an incomplete scan, still
+                # holds this exact content: the founder said to skip it. Its files are not
+                # receipt-waived, since the round may hold another session's work. (P1734)
+                excused = set(rr.founder_waived(missing, str(session_id),
+                                                deadline=HOOK_START + WAIVER_TAIL_DEADLINE_S))
+                missing = [q for q in missing if q not in excused]
             return (missing, incomplete) if (missing or incomplete) else ([], None)
-        if missing:
-            rr.waive(missing, reason)
+        waive_ok = True
+        lacking = []
+        if missing or unscanned:
+            try:
+                # The unclassified rest that lacks a receipt: their reviewed rounds get a waiver note.
+                lacking = (rr.unreviewed(unscanned)
+                           if time.monotonic() - HOOK_START < WAIVER_TAIL_DEADLINE_S else list(unscanned))
+            except Exception:
+                lacking = list(unscanned)
+            try:
+                rr.waive(missing + unscanned, reason)
+            except Exception as e:  # never let it skip the tally record below
+                waive_ok = False
+                print(f"verify-before-stop: the founder waived review, but recording the waiver failed "
+                      f"({type(e).__name__}: {e}); run `review_receipt.py waive --reason <text> -- <files>` "
+                      "by hand (if it refuses an untallied round, close that round with "
+                      "`review_receipt.py tally` first).", file=sys.stderr)
         # P1734: the waiver is recorded first; the tally records it second, in its own try, so a
         # tally failure never undoes the waiver. It covers every file the session edited, a spec
         # .md included, since a spec review's snapshot holds only the spec. The session id comes
         # from the hook's own stdin, never its environment. Never refuses.
+        # When the edit scan itself was incomplete, the paths are partial: close every untallied round
+        # this session took in the repos reached (and the hook's own). The files those rounds hold are
+        # NOT receipt-waived: a round can hold a co-tenant's file this session never edited (finish
+        # Step 1 snapshots the whole diff). The closed round is what lets the `waive` CLI run for them.
+        closed = []
+        left = WAIVER_TAIL_DEADLINE_S - (time.monotonic() - HOOK_START)
+        tallied = False
         try:
             if session_id and hasattr(rr, "tally_waived"):
-                rr.tally_waived(paths, reason, str(session_id))
+                rr.tally_waived(paths, reason, str(session_id), waived=missing + lacking,
+                                deadline=time.monotonic() + max(0.5, min(5.0, left)),
+                                every=[os.getcwd()] if incomplete else None, closed=closed)
+                tallied = True
         except Exception as e:
-            print(f"verify-before-stop: the founder's waiver is recorded, but its tally record "
-                  f"failed ({type(e).__name__}: {e}); close the round with `review_receipt.py tally`.",
+            print(f"verify-before-stop: the founder's waiver " + ("is recorded, but " if waive_ok else "and ")
+                  + f"its tally record failed ({type(e).__name__}: {e}); close the round with "
+                  "`review_receipt.py tally`.", file=sys.stderr)
+        if incomplete and not tallied:
+            print(f"verify-before-stop: the founder waived review over an incomplete edit scan ({incomplete}), "
+                  "and this session's open review rounds were not closed; close each with "
+                  "`review_receipt.py tally`, then waive its files with `review_receipt.py waive`.",
                   file=sys.stderr)
+        elif incomplete:
+            rest = [q for q in dict.fromkeys(closed) if q not in set(paths)]
+            print(f"verify-before-stop: the founder waived review over an incomplete edit scan ({incomplete}). "
+                  f"This session's open review rounds in this repo, and in the repos the scan reached, are "
+                  f"closed as waived (a round in another repo may still be open), but the {len(rest)} file(s) they "
+                  "hold past the scan are not waived, since a round can hold another session's work"
+                  + (": " + ", ".join(rest[:10]) + (" …" if len(rest) > 10 else "") if rest else "")
+                  + ". Waive this session's own files with `review_receipt.py waive --reason <text> -- "
+                  "<files>` if a later turn raises them.", file=sys.stderr)
         return [], None
-    except Exception:
+    except Exception as e:
+        if reason is not None:  # the founder waived review: no failure here may refuse the turn
+            print(f"verify-before-stop: the founder waived review, but the waiver could not be recorded "
+                  f"({type(e).__name__}: {e}); run `review_receipt.py waive --reason <text> -- <files>`.",
+                  file=sys.stderr)
+            return [], None
         return [], incomplete  # never drop a reason already known
 
 

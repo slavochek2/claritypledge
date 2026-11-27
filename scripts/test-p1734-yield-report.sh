@@ -48,6 +48,14 @@ def write(name, recs):
 
 ALL = {s: "ok" for s in SL}
 
+# Round 4: an amend on Dec 1 of a round tallied on Nov 30 keeps the round in November.
+write("amend.jsonl", [rec("am1", {"gemini": "ok"}, ts="2026-11-30T10:00:00Z"),
+                      rec("am1", {"gemini": "ok", "opus": "ok"}, ts="2026-12-01T10:00:00Z")])
+# Round 5: a round abandoned on Nov 30 and reviewed on Dec 1 is a December round.
+write("supersede.jsonl", [rec("sp1", {}, status="abandoned", ts="2026-11-30T10:00:00Z"),
+                          rec("sp1", {"gemini": "ok"}, ts="2026-12-01T10:00:00Z"),
+                          rec("sp1", {"gemini": "ok", "opus": "ok"}, ts="2026-12-02T10:00:00Z")])
+
 # Fixture 1: 25 rounds, all four ok. Findings order would be opus,gemini,glm,codex (differs from slot order).
 r1 = []
 for i in range(25):
@@ -167,6 +175,10 @@ write("cr.jsonl", [
 # Fix 9: a waiver note after a reviewed round must not replace it.
 write("wv.jsonl", [rec("wv.json", {"gemini": "ok", "glm": "ok"}),
                    {"v": 1, "ts": "2026-11-26T11:00:00Z", "snapshot": "wv.json", "status": "waiver", "reason": "x"}])
+write("wv2.jsonl", [rec("wv2.json", {"gemini": "ok", "glm": "ok"}),
+                    {"v": 1, "ts": "2026-11-26T11:00:00Z", "snapshot": "wv2.json", "status": "waiver", "reason": "x"},
+                    {"v": 1, "ts": "2026-11-26T12:00:00Z", "snapshot": "wv2.json", "status": "waiver", "reason": "y"},
+                    rec("wv3.json", {}, status="waived")])
 
 # Overlap guard (PROTECTED patched empty): chain A-B-C where A and C do not overlap.
 ch = []
@@ -286,6 +298,17 @@ check "--until the record's own day includes it" 1 "$(python3 "$R" --tallies "$T
 check "--until alone does not crash" 0 "$(python3 "$R" --tallies "$TMP/u.jsonl" --until 2026-11-26 >/dev/null 2>&1; echo $?)"
 check "--until alone prints the earliest record date" 1 "$(python3 "$R" --tallies "$TMP/u.jsonl" --until 2026-11-26 2>&1 | grep -c '^Reviewer yield report: 2026-11-26 to ')"
 check "--until alone, empty window prints a dash" 1 "$(python3 "$R" --tallies "$TMP/u.jsonl" --until 2020-01-01 2>&1 | grep -c '^Reviewer yield report: - to ')"
+check "round 2: --until with a time is a usage error" 2 "$(python3 "$R" --tallies "$TMP/u.jsonl" --until 2026-11-26T23:59:59 >/dev/null 2>&1; echo $?)"
+check "round 2: --since with an offset is a usage error" 2 "$(python3 "$R" --tallies "$TMP/u.jsonl" --since 2026-11-26T00:00:00+05:00 >/dev/null 2>&1; echo $?)"
+check "round 2: --since after --until is a usage error" 2 "$(python3 "$R" --tallies "$TMP/u.jsonl" --since 2026-11-30 --until 2026-11-01 >/dev/null 2>&1; echo $?)"
+check "round 3: --since alone ahead of now (a date east of UTC) is an empty report, not an error" 0 "$(python3 "$R" --tallies "$TMP/u.jsonl" --since 2099-01-01 >/dev/null 2>&1; echo $?)"
+check "round 4: an amended round stays in the window of its first tally" 1 "$(python3 "$R" --tallies "$TMP/amend.jsonl" --since 2026-11-01 --until 2026-11-30 --json | python3 -c "import json,sys; print(json.load(sys.stdin)['rounds'])")"
+check "...and is not counted again in the window of the amend" 0 "$(python3 "$R" --tallies "$TMP/amend.jsonl" --since 2026-12-01 --until 2026-12-31 --json | python3 -c "import json,sys; print(json.load(sys.stdin)['rounds'])")"
+check "...its amended outcomes are the ones counted" 1 "$(python3 "$R" --tallies "$TMP/amend.jsonl" --since 2026-11-01 --until 2026-11-30 --json | python3 -c "import json,sys; d=json.load(sys.stdin); rv={r['reviewer']:r for r in d['reviewers']}; print(rv['opus']['slot_counts']['ok'])")"
+check "round 5: a reviewed tally that supersedes an abandoned record is dated by itself" 1 "$(python3 "$R" --tallies "$TMP/supersede.jsonl" --since 2026-12-01 --until 2026-12-31 --json | python3 -c "import json,sys; print(json.load(sys.stdin)['rounds'])")"
+check "...and its later amend keeps the round dated Dec 1" 0 "$(python3 "$R" --tallies "$TMP/supersede.jsonl" --since 2026-12-02 --until 2026-12-31 --json | python3 -c "import json,sys; print(json.load(sys.stdin)['rounds'])")"
+check "...and is not a November round" 0 "$(python3 "$R" --tallies "$TMP/supersede.jsonl" --since 2026-11-01 --until 2026-11-30 --json | python3 -c "import json,sys; print(json.load(sys.stdin)['rounds'])")"
+check "round 2 CONTROL: plain dates still run" 0 "$(python3 "$R" --tallies "$TMP/u.jsonl" --since 2026-11-01 --until 2026-11-30 >/dev/null 2>&1; echo $?)"
 
 echo "[round-1 fix 3: answering model is the requested one]"
 check "answering model keyed by requested" "req-model" "$(j "$TMP/am.jsonl" "[m['model'] for m in d['models']['answering'] if m['model'] in ('req-model','srv-model')][0]")"
@@ -316,6 +339,7 @@ check "header says unique includes criteria" 1 "$(rep "$TMP/cr.jsonl" | grep -c 
 echo "[round-1 fix 9: waiver note]"
 check "waiver note does not replace the reviewed round" 1 "$(j "$TMP/wv.jsonl" "d['rounds']")"
 check "waiver note counted as waived" 1 "$(j "$TMP/wv.jsonl" "d['waived']")"
+check "two waivers of one round are one waived round, plus a waived-only round" 2 "$(j "$TMP/wv2.jsonl" "d['waived']")"
 
 echo "[round-1 fix 10: overlap guard with nothing protected]"
 guard() { python3 -c "

@@ -900,6 +900,49 @@ echo "date: $(date +%Y-%m-%d)" > ~/.claude_restore_test_last_run
 
 ---
 
+### 2.15.1 Reviewer Yield Report (P1734 — first /weekly of each month)
+
+The monthly reading of the review tally: which external reviewers earn their place, by verified catches
+nobody else made, against thresholds the founder confirmed on 2026-11-26 (the P1734 spec, Decision
+Criteria). Read the verdicts from the report; never re-derive them, and never rank reviewers by how many
+findings they raised (2026-11-05 ruling).
+
+**Gate — its own marker, so a skipped week does not skip the month:**
+```bash
+THIS_MONTH=$(date +%Y-%m); LAST_MONTH_RUN=$(cat ~/.claude_yield_report_last_month 2>/dev/null || true)
+if [ "$LAST_MONTH_RUN" = "$THIS_MONTH" ]; then echo "YIELD REPORT: already read for $THIS_MONTH, skipping"; fi
+```
+If not due, surface the one line and do nothing else. If due, run from the main checkout:
+```bash
+python3 scripts/review_yield_report.py --days 30 --recheck --seed "$(date +%Y%m)"
+```
+
+**Re-check the sample.** The report prints three `verified` defects and one `dropped` one, with the content
+the reviewers saw (all of them, and says so, when fewer exist). For each, read the excerpt and say in one
+line whether the triage state still holds. Every number in the report rests on that triage, so a wrong
+state is itself a finding: name it in ACTIONS. Any sample printed without an excerpt (the report then
+prints why: the content is missing, deleted, changed, a link or ambiguous, or no line was recorded) is
+judged from its summary and `file:line` if that settles it; otherwise it is `unverifiable`. Count those
+apart and never let them hold back the marker. A sample printed `line N is beyond the stored file` is a
+recording error, not missing content: name it in ACTIONS.
+
+**Report to Evidence Picture:** the verdict line per reviewer (`keep`, `watch`, `stakes-gate`, `remove`, or
+`not enough runs`), dropped per run beside each, the abandoned and waived round counts, and the re-check
+result (`N of M triage states held, K unverifiable`).
+
+**ACTIONS, never edits:** a `roster action`, `founder item`, `tune item`, `fix-or-replace item` or
+`benchmark re-run item` line goes to ACTIONS for the founder. A roster change is a dated decision in
+`docs/decisions.md`, never a quiet edit to `/finish` or `/create-spec`. A `hold (overlap guard)` line is
+reported, not acted on. A rising abandoned count is a finding.
+
+If the report printed `no tallies recorded yet`, report that line and stop here: write no marker, so the
+month is read once tallies exist. Otherwise, once the sample is re-checked, write the marker:
+```bash
+date +%Y-%m > ~/.claude_yield_report_last_month
+```
+
+---
+
 ### 2.16 Self-hosted TEST server upkeep (P1584 — report only)
 
 Weekly drift of the self-hosted TEST server: running images vs the pinned stack, the pin vs upstream,

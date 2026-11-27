@@ -10,6 +10,7 @@ import datetime as dt
 import json
 import os
 import random
+import re
 import subprocess
 import sys
 
@@ -68,6 +69,8 @@ def load_records(path):
                 continue
             if r["snapshot"] not in latest:
                 order.append(r["snapshot"])
+            elif latest[r["snapshot"]].get("status") == "reviewed":
+                r["_ts"] = latest[r["snapshot"]]["_ts"]  # an amend: the round keeps its first date
             latest[r["snapshot"]] = r  # latest record in file order wins
     return [latest[s] for s in order] + notes
 
@@ -121,13 +124,16 @@ def analyze(records):
     req, srv, ans = {}, {}, {}
     out = {"slots": S, "overlap": overlap, "requested": req, "served": srv, "answering": ans,
            "abandoned": 0, "waived": 0, "rounds": 0, "gemini_fallback_rounds": 0}
+    waived_snaps = set()
     for r in records:
         st = r.get("status")
         if st == "abandoned":
             out["abandoned"] += 1
             continue
         if st in ("waived", "waiver"):
-            out["waived"] += 1
+            if r.get("snapshot") not in waived_snaps:  # a round, not an event: a second waiver adds nothing
+                waived_snaps.add(r.get("snapshot"))
+                out["waived"] += 1
             continue
         if st != "reviewed":
             continue
@@ -152,7 +158,7 @@ def analyze(records):
             e = req.setdefault(a.get("requested") or "(none)", {"attempts": 0, "ok": 0})
             e["attempts"] += 1
             e["ok"] += okrow
-            if a.get("served") or a.get("file"):  # skip the synthetic failed fallback row
+            if a.get("served"):  # only a model that answered: no failed or synthetic row
                 e = srv.setdefault(a.get("served") or "(none)",
                                    {"attempts": 0, "ok": 0, "assumed": False})
                 e["attempts"] += 1
@@ -323,7 +329,7 @@ def recheck(records, content_dir, seed):
                 label, d.get("summary"), d.get("file"), ln if ln is not None else "?",
                 r.get("snapshot")))
             h = d.get("content")
-            path = os.path.join(content_dir, h) if h else None
+            path = os.path.join(content_dir, h) if h and content_dir else None  # never probe the cwd
             if path and os.path.isfile(path):
                 with open(path, encoding="utf-8", errors="replace") as f:
                     src = f.read().splitlines()
@@ -377,13 +383,21 @@ def main():
 
     now = dt.datetime.now(dt.timezone.utc)
     if a.since or a.until:
+        # Whole UTC days only: a date parser, so a time or an offset is refused, never half-applied.
+        def day(v):
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", v):
+                raise ValueError(v)
+            return dt.datetime.combine(dt.date.fromisoformat(v), dt.time(), dt.timezone.utc)
         try:
-            start = dt.datetime.fromisoformat(a.since).replace(tzinfo=dt.timezone.utc) \
-                if a.since else None
-            end = (dt.datetime.fromisoformat(a.until).replace(tzinfo=dt.timezone.utc)
-                   + dt.timedelta(days=1)) if a.until else now
+            start = day(a.since) if a.since else None
+            end = day(a.until) + dt.timedelta(days=1) if a.until else now
         except ValueError:
             print("bad --since/--until (want YYYY-MM-DD)", file=sys.stderr)
+            return 2
+        # Only both dates make a window inverted; --since alone ahead of now (a date east of UTC)
+        # is an empty report, not a usage error.
+        if a.since and a.until and start >= end:
+            print("bad --since/--until: the window is empty (--since is after --until)", file=sys.stderr)
             return 2
     else:
         start, end = now - dt.timedelta(days=a.days or 30), now

@@ -128,22 +128,90 @@ Dropped per run is printed beside every verdict.
 
 ## Done-When
 
-- [ ] A `/finish` round whose findings were fixed, and a spec review whose findings were fixed before a second round, each leave a tally per round with an outcome for all four reviewers, readable with `review_receipt.py tally --show`. Shown on real rounds.
-- [ ] Two unrelated first rounds touching the same file on the same day are both classed `first`; a re-review with `--after` is classed `freshness`.
-- [ ] A snapshot closed with `--abandoned` stops blocking `write`; one left open blocks it. An untallied snapshot taken by another session, or one with no session recorded, does not block.
-- [ ] Founder waiver: snapshot, every reviewer fails, the founder types "skip review"; the Stop hook (on a turn that announces completion over a reviewable, non-`.md` file) passes the turn, the waiver is in `.review-receipts` and a `waived` tally record exists. A second case makes the tally write fail and shows the waiver still recorded. Run through the hook itself, not only the subcommand.
-- [ ] `review_receipt.py write`, `waive` and `spec_review_stamp.py write` each refuse when a snapshot that needs a tally has none, and accept `failed`, `missing` and `skipped` outcomes. `write` also refuses an abandoned snapshot and an evidence file the tally did not record; the stamp refuses without a tallied `--snapshot` holding the spec when the session id is set. Canned tests per command, exit codes pasted, plus a control built by deleting the tally of a real round.
-- [ ] The tally command refuses an `--evidence` output whose vendor is not `ok`, an output older than the snapshot, an `ok` Gemini, GLM or Codex slot with no valid output, and a defect that names a reviewer that was not `ok`. Tests, exit codes pasted.
-- [ ] Two identical snapshots taken in the same second by one session are two rounds, and one tally does not clear both.
-- [ ] `/finish`, the spec review in `/create-spec`, `/dev` and `/fix` call the tally; a fresh-session run of each shows it.
-- [ ] A round where Carbon fails and Argon succeeds records two attempts with their own requested and served models, from a single output file carrying `fallback_from=` (the shape `ask-model` actually writes) and from two files.
-- [ ] Report, fixture 1, over 20 or more runs: a noisy reviewer (many dropped, no unique), an echo reviewer (many verified, all also raised by a peer), a quiet reviewer (few raised, one unique HIGH) and a noisy reviewer with one unique HIGH. The quiet one and the noisy-with-HIGH one get Keep, both noisy ones get a noise item, the echo one gets no Keep, and no output orders reviewers by findings raised or verified. This is the control for the 2026-11-05 ruling.
-- [ ] Report, fixture 2: a reviewer whose only catches came while every peer was absent. They appear in the separate column and do not earn Keep.
-- [ ] Every combination of runs and catches yields exactly one verdict: a table test over run counts 0–80, unique counts 0–5 and a verified-unique HIGH present or not, including the boundaries (one unique catch at 20 runs is Keep, at 21 runs is Watch).
-- [ ] Report, fixture 3: two reviewers that always find the same defects. The overlap table shows it and the overlap guard acts on only one of them. A Remove verdict against Gemini or Codex prints as a founder item, not a roster change.
-- [ ] The monthly report prints the reading, the verdict per reviewer or "not enough runs", and the re-check sample (three verified and one dropped defect, each with the stored content around its line, or all of them when fewer are eligible).
+- [ ] A `/finish` round whose findings were fixed, and a spec review whose findings were fixed before a second round, each leave a tally per round with an outcome for all four reviewers, readable with `review_receipt.py tally --show`. Shown on real rounds. *Evidence: the `/finish` half is shown on this build's own eight real rounds (Build Report, Rounds), each tallied with all four outcomes. The spec-review half is shown only by test proxy (`scripts/test-p1734-tally.sh` groups [5], [12]); its first real round is INBOX-421.*
+- [x] Two unrelated first rounds touching the same file on the same day are both classed `first`; a re-review with `--after` is classed `freshness`. *Evidence: `scripts/test-p1734-tally.sh` groups [12], [40].*
+- [x] A snapshot closed with `--abandoned` stops blocking `write`; one left open blocks it. An untallied snapshot taken by another session, or one with no session recorded, does not block. *Evidence: `scripts/test-p1734-tally.sh` groups [1], [11], [16], [18].*
+- [x] Founder waiver: snapshot, every reviewer fails, the founder types "skip review"; the Stop hook (on a turn that announces completion over a reviewable, non-`.md` file) passes the turn, the waiver is in `.review-receipts` and a `waived` tally record exists. A second case makes the tally write fail and shows the waiver still recorded. Run through the hook itself, not only the subcommand. *Evidence: `scripts/test-p1734-tally.sh` groups [15], [20], [21], [38], [39], [40], all through `unreviewed_edits` in the hook.*
+- [x] `review_receipt.py write`, `waive` and `spec_review_stamp.py write` each refuse when a snapshot that needs a tally has none, and accept `failed`, `missing` and `skipped` outcomes. `write` also refuses an abandoned snapshot and an evidence file the tally did not record; the stamp refuses without a tallied `--snapshot` holding the spec when the session id is set. Canned tests per command, exit codes pasted, plus a control built by deleting the tally of a real round. *Evidence: `scripts/test-p1734-tally.sh` groups [3]-[7], [14], [19], [23], [30].*
+- [x] The tally command refuses an `--evidence` output whose vendor is not `ok`, an output older than the snapshot, an `ok` Gemini, GLM or Codex slot with no valid output, and a defect that names a reviewer that was not `ok`. Tests, exit codes pasted. *Evidence: `scripts/test-p1734-tally.sh` groups [8], [24], [26].*
+- [x] Two identical snapshots taken in the same second by one session are two rounds, and one tally does not clear both. *Evidence: `scripts/test-p1734-tally.sh` group [2].*
+- [ ] `/finish`, the spec review in `/create-spec`, `/dev` and `/fix` call the tally; a fresh-session run of each shows it. *Evidence: the skill text calls it (Build Report, Skill text), and this session's `/finish` rounds ran it. A fresh-session run of each is not yet shown: INBOX-422.*
+- [x] A round where Carbon fails and Argon succeeds records two attempts with their own requested and served models, from a single output file carrying `fallback_from=` (the shape `ask-model` actually writes) and from two files. *Evidence: `scripts/test-p1734-tally.sh` group [9]; `scripts/test-p1734-yield-report.sh` `[single-file fallback]`, `[round-1 fix 4]`.*
+- [x] Report, fixture 1, over 20 or more runs: a noisy reviewer (many dropped, no unique), an echo reviewer (many verified, all also raised by a peer), a quiet reviewer (few raised, one unique HIGH) and a noisy reviewer with one unique HIGH. The quiet one and the noisy-with-HIGH one get Keep, both noisy ones get a noise item, the echo one gets no Keep, and no output orders reviewers by findings raised or verified. This is the control for the 2026-11-05 ruling. *Evidence: `scripts/test-p1734-yield-report.sh` `[fixture 1]`.*
+- [x] Report, fixture 2: a reviewer whose only catches came while every peer was absent. They appear in the separate column and do not earn Keep. *Evidence: `scripts/test-p1734-yield-report.sh` `[fixture 2]`.*
+- [x] Every combination of runs and catches yields exactly one verdict: a table test over run counts 0–80, unique counts 0–5 and a verified-unique HIGH present or not, including the boundaries (one unique catch at 20 runs is Keep, at 21 runs is Watch). *Evidence: `scripts/test-p1734-yield-report.sh` `[table test]`.*
+- [x] Report, fixture 3: two reviewers that always find the same defects. The overlap table shows it and the overlap guard acts on only one of them. A Remove verdict against Gemini or Codex prints as a founder item, not a roster change. *Evidence: `scripts/test-p1734-yield-report.sh` `[fixture 3]`, `[round-1 fix 10]`.*
+- [x] The monthly report prints the reading, the verdict per reviewer or "not enough runs", and the re-check sample (three verified and one dropped defect, each with the stored content around its line, or all of them when fewer are eligible). *Evidence: `scripts/test-p1734-yield-report.sh` `[recheck]`, `[round-1 fix 7]`.*
 - [x] Founder decision on the thresholds recorded in this spec (confirmed as proposed, 2026-11-26).
-- [ ] The existing suites pass, each run directly: `scripts/test-p1505-review-gate.sh`, `scripts/test-p1634-spec-review-stamp.sh` (including its assertion that a stamp changes exactly two lines), `scripts/test-p1664-receipt-unreadable.sh`, `scripts/pre-commit-checks.sh`. This spec changes what `write` and the stamp require, so the cases that write a receipt or stamp after a snapshot (the `[receipt]` sequence in test-p1505, the stamp writes in test-p1634) gain a tally step. Every such changed case is listed in the build report with its old and new setup; no expected exit code changes.
+- [x] The existing suites pass, each run directly: `scripts/test-p1505-review-gate.sh`, `scripts/test-p1634-spec-review-stamp.sh` (including its assertion that a stamp changes exactly two lines), `scripts/test-p1664-receipt-unreadable.sh`, `scripts/pre-commit-checks.sh`. This spec changes what `write` and the stamp require, so the cases that write a receipt or stamp after a snapshot (the `[receipt]` sequence in test-p1505, the stamp writes in test-p1634) gain a tally step. Every such changed case is listed in the build report with its old and new setup; no expected exit code changes. *Evidence: p1505 103/0, p1634 42/0, p1664 all cases passed, pre-commit-checks exit 0 (one warning: an orphaned vite process this work did not start), 2026-11-27, final tree (Build Report, Evidence).*
+
+
+## Build Report
+
+**Built (P1734, /dev 2026-11-26 to 11-27).** Eleven review rounds:
+- **Rounds.** Round 1 is the first round. Rounds 2 to 11 are freshness rounds, each over the previous round's fixes. Each is tallied under its own snapshot and readable with `review_receipt.py tally --show --snapshot <path>`.
+- **`scripts/review_receipt.py`.** Adds `tally` (outcomes, attempts, defects, `--abandoned`, `--show`) and the write-once record with its additive amend. `write`, `waive` and the spec stamp refuse an untallied round. `tally_waived` serves the Stop hook.
+- **`scripts/review_yield_report.py`.** The monthly reading.
+- **`.claude/hooks/verify-before-stop.py`.** The founder waiver tallies the session's open rounds, and the founder's waiver is read before the edit scan. Its tail has one deadline counted from the hook's start. A file whose current content a `waived` round of the same session holds is not blocked on later (`review_receipt.founder_waived`), and no receipt is written for it.
+- **Skill text.** `/finish`, `/create-spec`, `/dev`, `/fix` and `/weekly`.
+
+### Changed cases in the existing suites (old setup -> new setup; no expected exit code changed)
+
+Both suites now set `CLAUDE_CODE_SESSION_ID=t-legacy-suite-<p1505|p1634>` instead of unsetting it. They gain helpers `tally_for` (p1505) and `tally_spec` (p1634), which derive each reviewer slot from the evidence header's `vendor=`, plus `abandon` (p1505).
+
+**scripts/test-p1505-review-gate.sh** (103 -> 103 assertions)
+- `[receipt]` "write accepts fresh evidence for the snapshotted content": `snapshot; evidence; write` -> `abandon` the section's refusal-only snapshot, then `snapshot; evidence; tally_for; write`.
+- `[receipt]` "only the latest record counts": `snapshot; evidence; write` -> `...; tally_for SNAP2 EV; write`.
+- `[round 2] receipts` (alias.ts, a.ts, worktree a.ts): `write` -> `tally_for SN EV; write`.
+- `[P1630]` vendor floor: one `tally_for "$VSNAP" "$V_OR" "$V_GEM" "$V_CODEX"` sits before the first accepting write. Stale and failed files are left out, since `write` ignores them.
+- `[gate] P1634: subagent edits count`, and `[gate] P1634: scan that cannot finish` (301 files): `write` -> `tally_for SNAP EV; write`.
+- Refusal cases are unchanged and still fire on their original reasons. The tally checks sit last in `write`.
+
+**scripts/test-p1634-spec-review-stamp.sh** (42 -> 42)
+- Stamped specs moved into a throwaway git repo (`$TMP/srepo`), because `snapshot` refuses files outside a git repo.
+- `[check]`: `S1=$(snapshot -- "$S")`, then evidence, then `tally_spec "$S1" g o` (kind spec). The writes gained `--snapshot "$S1"`.
+- The assertion that a stamp changes exactly two lines is unchanged and passes.
+- The final real-header cases follow the same pattern with `S2`.
+- Refusal cases are untouched.
+
+**scripts/test-p1664-receipt-unreadable.sh**: unchanged (it stays sessionless).
+
+### Evidence (live worktree, final tree)
+
+```
+test-p1734-tally exit=0 :: === Results: 354 passed, 0 failed ===
+test-p1734-yield-report exit=0 :: === Results: 113 passed, 0 failed ===
+test-p1505-review-gate exit=0 :: === Results: 103 passed, 0 failed ===
+test-p1634-spec-review-stamp exit=0 :: === Results: 42 passed, 0 failed ===
+test-p1664-receipt-unreadable exit=0 :: P1664 canary: all cases passed
+```
+
+The tests for each fix batch were run first against the unfixed code, and then passed with the fix. Round 4: 20 tally and 3 report assertions failed, plus 4 more in its second batch. Round 5: 3 tally and 2 report assertions failed, plus 11 more in its second batch. Round 6: 6 tally assertions failed, plus 7 more in its second batch. Round 7: 5 tally assertions failed. Round 8: 2 tally and 1 report assertions failed, plus 1 more in its second batch. Its two controls (another session's gate, and a file edited again after the waiver) block before and after the fix. Round 9: the hook-start test failed on the old clock (it got the full 5 s), and the unreadable-file test failed on the old loop. Round 10: 5 tally assertions failed across three batches. They cover the sibling in one snapshot, the deadline the hook passes, the second repo's unreadable index, the early-start control and the single tally parse. Round 11 (3 of 4 received: Codex hit its usage limit, recorded as `missing`) was told to fix forward only HIGH or MEDIUM findings that a probe reproduced. It found none that held, so it changed no file, and the receipt stands on its snapshot `ef17dd8bdc377b78`. Its Opus mutant run caught 9 of 13 mutants. The 4 survivors are listed below. Over the eleven rounds, 89 verified HIGH or MEDIUM defects were found and 87 fixed. The two left are INBOX-423 and the `session_untallied` traceback below. Two earlier mutation controls each failed exactly their own group: `_transition_refusal` returning None failed group 17, and `snapshot_store_check` passing copies failed group 23.
+
+### Known limitations (recorded, not fixed)
+
+- `spec_review_stamp.py write` with the session id unset and no `--snapshot` is not refused. This is the sessionless rollout contract.
+- The Stop hook reads the session id from its stdin, and Bash reads it from the environment. After a resume they were not verified to agree.
+- `--abandoned` closes only your own session's rounds.
+- One review tallied under two snapshots counts twice. A run cannot be identified by its content, since two real runs can return identical bytes. Round 3 added a content-based refusal, and round 4 removed it after it broke the P1505 suite.
+- A byte-identical failed retry, or two byte-identical outputs in one tally, count as one run. Without a wrapper-issued run ID, content is the only identity there is.
+- A multi-repo snapshot copied into its second repo's store can be tallied there as well. Each repo's report reads one store.
+- `--after` compares second-resolution timestamps and does not check that the two rounds are related. A wrong link misfiles a first round as freshness in the yield split, and it changes no receipt.
+- When the edit scan is incomplete under a founder waiver, the hook closes every open round this session took in its repo, including one still under review. A later reviewed tally supersedes that waiver. The files those rounds hold are not receipt-waived, since a round can hold a co-tenant's file. The same session's later turns do not block on them while their content is unchanged. A file that was edited but never snapshotted, and lies past the scan, is not waived.
+- A reviewed round past an incomplete scan, whose files changed after review, gets neither a waiver nor a note.
+- The tail deadline does not bound gate 4's own pass over the transcript. A hook killed at the 20 s timeout drops every gate's message, since all of them are written after gate 4. This structure predates P1734.
+- A revert to waived content after a later reviewed version is excused when the founder's turn scanned incompletely, and blocked when it scanned completely. The excused content is content the founder waived.
+- `founder_waived` reads one session's index and the snapshots it lists before its per-snapshot deadline check. That took 0.10 s at 150 snapshots and a 31 MB tally store, down from 9.2 s before round 9.
+- GLM timed out once in round 9 at 600 s and succeeded at 900 s. The timed-out attempt left no output, so the tally does not record it.
+- The tally read in `founder_waived` takes a shared lock and waits behind a writer, whose appends hold it for milliseconds.
+- A file swapped for a link between the link check and the read is read through. The hash check runs after the read, so mismatched bytes are never stored.
+- Without a founder waiver, a receipt-store read error makes the gate pass silently. This is pre-existing on main and filed as INBOX-423.
+- The receipt-store `waive` takes a blocking lock, also in the hook. Its single-line appends hold the lock for milliseconds.
+- A late reviewer output that comes back empty stays recorded as `missing`, reworded with its reason. It cannot become `failed`, since an empty file is not an attempt row.
+- An amend's "no new evidence needed for a held run" check reads the tally before taking the lock. Two concurrent amends of one snapshot are not a shape this repo produces.
+- `session_untallied` raises on an unreadable session index rather than refusing cleanly. Every caller is a CLI refusal path (`write`, `waive`, the spec stamp), so the traceback writes nothing and fails closed. The hook's founder path wraps its tally call in a try.
+- Four mutants survive the tally suite. No test pins that a walk cut short by a malformed entry keeps its earlier matches, or any one of `founder_waived`'s three deadline checks on its own. The per-file guards around `fingerprint` and `locate` cannot be reached by real inputs, since `fingerprint` already returns None on error and the hook passes strings.
+- The waiver deadline is checked between tally stores, not inside one. A store whose read crosses the deadline is still written.
 
 ## Rollback Strategy
 
